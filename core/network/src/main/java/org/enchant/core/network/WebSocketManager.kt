@@ -2,7 +2,12 @@ package org.enchant.core.network
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import okhttp3.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import okio.ByteString.Companion.toByteString
 import org.enchant.protos.WebSocketResources
 import org.enchant.protos.EnvelopeProtos
 import org.enchant.core.base.AppConfig
@@ -92,7 +97,7 @@ object WebSocketManager {
                 }
             }
 
-            override fun onMessage(ws: WebSocket, bytes: ByteByteString) {
+            override fun onMessage(ws: WebSocket, bytes: okio.ByteString) {
                 scope?.launch {
                     handleFrame(bytes.toByteArray())
                 }
@@ -100,9 +105,7 @@ object WebSocketManager {
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
                 _connectionState.value = ConnectionState.RECONNECTING
-                scope?.launch {
-                    scheduleReconnect()
-                }
+                scope?.launch { scheduleReconnect() }
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
@@ -145,10 +148,11 @@ object WebSocketManager {
             )).getOrNull()?.toString()
         }
 
+        val content = com.google.protobuf.ByteString.copyFrom(payload)
         val envelope = EnvelopeProtos.Envelope.newBuilder()
             .setType(EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET)
             .setDestinationServiceId(recipientUserId)
-            .setContent(ByteString.copyFrom(payload))
+            .setContent(content)
             .setClientTimestamp(senderTs ?: System.currentTimeMillis())
             .setEphemeral(ephemeral)
             .build()
@@ -166,7 +170,7 @@ object WebSocketManager {
 
         val deferred = CompletableDeferred<WebSocketResources.WebSocketResponseMessage>()
         pendingRequests[id] = deferred
-        webSocket?.send(ByteString.of(*frame.toByteArray()))
+        webSocket?.send(frame.toByteArray().toByteString())
 
         return withTimeoutOrNull(10000L) {
             val response = deferred.await()
@@ -177,35 +181,35 @@ object WebSocketManager {
     }
 
     suspend fun sendTypingStart(recipientUserId: String) {
-        sendEphemeral(recipientUserId, "TYPING_START")
+        sendEphemeral(recipientUserId)
     }
 
     suspend fun sendTypingStop(recipientUserId: String) {
-        sendEphemeral(recipientUserId, "TYPING_STOP")
+        sendEphemeral(recipientUserId)
     }
 
     suspend fun sendDeliveryReceipt(envelopeId: String, senderUserId: String) {
-        sendEphemeral(senderUserId, "DELIVERY_RECEIPT")
+        sendEphemeral(senderUserId)
     }
 
     suspend fun sendReadReceipt(envelopeId: String, senderUserId: String) {
-        sendEphemeral(senderUserId, "READ_RECEIPT")
+        sendEphemeral(senderUserId)
     }
 
     suspend fun sendCallOffer(recipientUserId: String, sdp: String): Boolean {
-        return sendCallSignal(recipientUserId, "CALL_OFFER", sdp.toByteArray())
+        return sendCallSignal(recipientUserId, sdp.toByteArray())
     }
 
     suspend fun sendCallAnswer(recipientUserId: String, sdp: String): Boolean {
-        return sendCallSignal(recipientUserId, "CALL_ANSWER", sdp.toByteArray())
+        return sendCallSignal(recipientUserId, sdp.toByteArray())
     }
 
     suspend fun sendCallIce(recipientUserId: String, candidate: String): Boolean {
-        return sendCallSignal(recipientUserId, "CALL_ICE", candidate.toByteArray())
+        return sendCallSignal(recipientUserId, candidate.toByteArray())
     }
 
     suspend fun sendCallEnd(recipientUserId: String): Boolean {
-        return sendCallSignal(recipientUserId, "CALL_END", ByteArray(0))
+        return sendCallSignal(recipientUserId, ByteArray(0))
     }
 
     suspend fun requestRESTFallback(message: OutgoingMessage): Result<Any> {
@@ -222,19 +226,20 @@ object WebSocketManager {
 
     private suspend fun authenticate(ws: WebSocket, jwt: String): Boolean {
         val id = nextRequestId()
+        val body = com.google.protobuf.ByteString.copyFrom(jwt.toByteArray())
         val frame = WebSocketResources.WebSocketMessage.newBuilder()
             .setType(WebSocketResources.WebSocketMessage.Type.REQUEST)
             .setRequest(WebSocketResources.WebSocketRequestMessage.newBuilder()
                 .setVerb("POST")
                 .setPath("/v1/auth")
-                .setBody(ByteString.copyFrom(jwt.toByteArray()))
+                .setBody(body)
                 .setId(id)
                 .build())
             .build()
 
         val deferred = CompletableDeferred<WebSocketResources.WebSocketResponseMessage>()
         pendingRequests[id] = deferred
-        ws.send(ByteString.of(*frame.toByteArray()))
+        ws.send(frame.toByteArray().toByteString())
 
         return withTimeoutOrNull(10000L) {
             val response = deferred.await()
@@ -285,7 +290,7 @@ object WebSocketManager {
                         .setId(id)
                         .build())
                     .build()
-                ws.send(ByteString.of(*frame.toByteArray()))
+                ws.send(frame.toByteArray().toByteString())
             }
         }
     }
@@ -299,11 +304,13 @@ object WebSocketManager {
         connect()
     }
 
-    private suspend fun sendEphemeral(recipientUserId: String, messageType: String) {
+    private suspend fun sendEphemeral(recipientUserId: String) {
         if (_connectionState.value != ConnectionState.CONNECTED) return
+        val content = com.google.protobuf.ByteString.copyFrom(ByteArray(0))
         val envelope = EnvelopeProtos.Envelope.newBuilder()
             .setType(EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET)
             .setDestinationServiceId(recipientUserId)
+            .setContent(content)
             .setEphemeral(true)
             .setClientTimestamp(System.currentTimeMillis())
             .build()
@@ -318,15 +325,16 @@ object WebSocketManager {
                 .setId(id)
                 .build())
             .build()
-        webSocket?.send(ByteString.of(*frame.toByteArray()))
+        webSocket?.send(frame.toByteArray().toByteString())
     }
 
-    private suspend fun sendCallSignal(recipientUserId: String, type: String, data: ByteArray): Boolean {
+    private suspend fun sendCallSignal(recipientUserId: String, data: ByteArray): Boolean {
         if (_connectionState.value != ConnectionState.CONNECTED) return false
+        val content = com.google.protobuf.ByteString.copyFrom(data)
         val envelope = EnvelopeProtos.Envelope.newBuilder()
             .setType(EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET)
             .setDestinationServiceId(recipientUserId)
-            .setContent(ByteString.copyFrom(data))
+            .setContent(content)
             .setClientTimestamp(System.currentTimeMillis())
             .build()
 
@@ -340,7 +348,7 @@ object WebSocketManager {
                 .setId(id)
                 .build())
             .build()
-        webSocket?.send(ByteString.of(*frame.toByteArray()))
+        webSocket?.send(frame.toByteArray().toByteString())
         return true
     }
 

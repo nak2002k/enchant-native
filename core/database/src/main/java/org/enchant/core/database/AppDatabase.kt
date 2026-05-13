@@ -116,6 +116,14 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
             """)
 
             db.execSQL("""
+                CREATE TABLE IF NOT EXISTS groups_table (
+                    group_id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+                    avatar_media_id TEXT, my_role TEXT NOT NULL DEFAULT 'member',
+                    member_count INTEGER DEFAULT 0
+                )
+            """)
+
+            db.execSQL("""
                 CREATE TABLE IF NOT EXISTS recipients (
                     recipient_id TEXT PRIMARY KEY, username TEXT, display_name TEXT,
                     phone_number TEXT, avatar_media_id TEXT, avatar_local_path TEXT,

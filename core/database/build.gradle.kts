@@ -17,6 +17,7 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.0.21")
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
     implementation(project(":core:base"))
