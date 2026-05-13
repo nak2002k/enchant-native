@@ -9,9 +9,9 @@
 
 | Metric | Value |
 |--------|-------|
-| **Phase** | Phase 1 — Foundation |
-| **Total files** | ~85 (configs, protos, Kotlin sources, resources) |
-| **Kotlin source files** | 31 (core) + 2 (app stubs) |
+| **Phase** | Phase 2 — Auth & Onboarding |
+| **Total files** | ~120 (configs, protos, Kotlin sources, resources) |
+| **Kotlin source files** | 53 (core + feature + app) |
 | **Proto files** | 16 |
 | **Build modules** | 30 (1 app + 15 core + 15 feature) |
 | **Last commit** | `7da01c7 — Phase 1 fixes` |
@@ -52,6 +52,47 @@
 | `StorageService.proto` | ✅ Manifest-based multi-device sync |
 | `InternalSerialization.proto` | ✅ Processing pipeline metadata |
 | `SessionRecord.proto` | ✅ Ratchet state serialization |
+
+---
+
+## Phase 2 — Auth & Onboarding ✅
+
+### `:core:auth` (3 files)
+| File | Purpose | Implementation |
+|------|---------|---------------|
+| `AuthStateMachine.kt` | Sealed `RegistrationEvent` + `RegistrationState` + pure `applyEvent()` reducer; 13x+13 state matrix, `validateRestoredState()`, `getRequiredPermissions()` | ✅ 150 lines — full state machine with all transitions |
+| `AuthRepository.kt` | All 12 API calls: requestOtp, verifyOtp, refreshToken, logout, listDevices, revokeDevice, deleteAccount, fetchJwks, registerKeys, rotateSignedPreKey, uploadOpks, getOpkCount | ✅ 220 lines — all auth & IKS endpoints |
+| `AuthManager.kt` | High-level orchestration: AuthState (Unknown/Unauthenticated/Authenticated), OTP flow, token management, profile CRUD, logout with local cleanup | ✅ 190 lines — full auth lifecycle |
+
+### `:feature:auth` (11 screens + ViewModel)
+| File | Implementation |
+|------|---------------|
+| `AuthViewModel.kt` | ViewModel wrapping AuthManager — StateFlow-based reactive UI binding | ✅ |
+| `WelcomeScreen.kt` | Brand hero + "Agree & Continue" + Restore link | ✅ |
+| `PhoneEntryScreen.kt` | Phone number input with country picker + E.164 validation + loading/error states | ✅ |
+| `CountryCodePickerScreen.kt` | Searchable bottom sheet with 30 countries | ✅ |
+| `OtpVerifyScreen.kt` | 6-digit input + auto-submit + countdown timer + resend + error/attempts display | ✅ |
+| `PermissionsScreen.kt` | Card-based permission list with API level awareness + Skip flow | ✅ |
+| `ProfileSetupScreen.kt` | Display name + About + real-time character counters | ✅ |
+| `UsernamePickerScreen.kt` | @handle input + debounced availability check + Skip | ✅ |
+| `KeyGenerationScreen.kt` | 5-step progress bar + retry on error + auto-navigate on complete | ✅ |
+| `TwoStepPinScreen.kt` | Custom numpad + 6-dot indicator + confirm + mismatch detection | ✅ |
+| `RestorePromptScreen.kt` | Backup found / fresh start decision with loading state | ✅ |
+| `AppLockScreen.kt` | PIN setup with confirm + biometric fallback | ✅ |
+
+### `:core:navigation` (1 file)
+| File | Implementation |
+|------|---------------|
+| `NavRoute.kt` | 40+ sealed route classes covering auth, chat, calls, settings, social | ✅ |
+
+### `:core:push` (5 files)
+| File | Purpose | Implementation |
+|------|---------|---------------|
+| `FcmReceiveService.kt` | FirebaseMessagingService — onMessageReceived (foreground vs background), onNewToken, onDeletedMessages | ✅ |
+| `FcmFetchManager.kt` | Fetch scheduling + cancellation + backoff counter | ✅ |
+| `FcmFetchForegroundService.kt` | Foreground service with notification channel, auto-stop after fetch | ✅ |
+| `PushTokenRegistrar.kt` | FCM token register/deregister with backend + Play Services check | ✅ |
+| `HuaweiPushFallback.kt` | 30s polling fallback for Huawei devices (no GMS) | ✅ |
 
 ---
 
@@ -102,17 +143,6 @@
 ---
 
 ## Next Up
-
-### Phase 2 — Auth & Onboarding (35 files)
-| File | Purpose |
-|------|---------|
-| `AuthStateMachine.kt` | Event-driven registration state machine |
-| `AuthRepository.kt` | Network calls for OTP, keys, profile |
-| `AuthManager.kt` | High-level auth orchestration |
-| `WelcomeScreen.kt` → `KeyGenerationScreen.kt` | 10+ Compose screens |
-| `FcmReceiveService.kt` | FCM push wake-up |
-| `FcmFetchManager.kt` | Foreground vs background fetch strategy |
-| `PushTokenRegistrar.kt` | FCM token lifecycle |
 
 ### Phase 3 — Core Chat (40 files)
 ### Phase 4 — Calls (18 files)
