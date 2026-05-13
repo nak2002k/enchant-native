@@ -1,33 +1,34 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.protobuf)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "org.enchant.core.crypto"
+    namespace = "org.enchant.contacts"
     compileSdk = 35
     defaultConfig { minSdk = 26 }
+    buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
-}
-
-protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:${libs.versions.protobuf.get()}" }
-    generateProtoTasks {
-        all().forEach { it.builtins { create("java") { option("lite") } } }
-    }
 }
 
 dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
-    implementation(libs.protobuf.javalite)
-    implementation(libs.sqlcipher)
-    implementation(libs.sqlite)
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons)
+    implementation(libs.lifecycle.viewmodel)
+    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.activity.compose)
+    implementation(libs.coil.core)
+    implementation(libs.coil.compose)
     implementation(project(":core:base"))
-    implementation(project(":core:protos"))
+    implementation(project(":core:network"))
+    implementation(project(":core:database"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)

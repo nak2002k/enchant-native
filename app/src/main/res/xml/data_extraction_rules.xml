@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="enchant.db"/>
+        <exclude domain="database" path="enchant_jobs.db"/>
+        <exclude domain="sharedpref" path="enchant_prefs.xml"/>
+        <exclude domain="file" path="keys/"/>
+        <exclude domain="file" path="sessions/"/>
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="enchant.db"/>
+        <include domain="sharedpref" path="enchant_prefs.xml"/>
+    </device-transfer>
+</data-extraction-rules>

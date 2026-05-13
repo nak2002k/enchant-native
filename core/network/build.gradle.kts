@@ -1,31 +1,25 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.protobuf)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "org.enchant.core.crypto"
+    namespace = "org.enchant.core.network"
     compileSdk = 35
     defaultConfig { minSdk = 26 }
+    buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
-}
-
-protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:${libs.versions.protobuf.get()}" }
-    generateProtoTasks {
-        all().forEach { it.builtins { create("java") { option("lite") } } }
-    }
 }
 
 dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
-    implementation(libs.protobuf.javalite)
-    implementation(libs.sqlcipher)
-    implementation(libs.sqlite)
+    implementation(libs.okhttp.core)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)
@@ -34,4 +28,5 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.okhttp.mock)
 }
