@@ -1,0 +1,35 @@
+syntax = "proto2";
+
+package enchant;
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "AttachmentPointerProtos";
+
+message AttachmentPointer {
+    enum Flags {
+        VOICE_MESSAGE = 1;
+        BORDERLESS = 2;
+        GIF = 8;
+    }
+
+    oneof attachment_identifier {
+        fixed64 cdnId = 1;
+        string cdnKey = 15;
+    }
+    optional bytes clientUuid = 20;
+    optional string contentType = 2;
+    optional bytes key = 3;
+    optional uint32 size = 4;
+    optional bytes thumbnail = 5;
+    optional bytes digest = 6;
+    optional string fileName = 7;
+    optional uint32 flags = 8;
+    optional uint32 width = 9;
+    optional uint32 height = 10;
+    optional string caption = 11;
+    optional string blurHash = 12;
+    optional uint64 uploadTimestamp = 13;
+    optional uint32 cdnNumber = 14;
+    optional bytes incrementalMac = 19;
+    optional uint32 chunkSize = 17;
+}

@@ -23,14 +23,12 @@ coroutines = "1.9.0"
 
 # Compose
 compose-bom = "2024.12.01"
-compose-compiler = "2.0.21"
 
 # AndroidX
 lifecycle = "2.8.7"
 navigation = "2.8.5"
-room = "2.6.1"
 workmanager = "2.10.0"
-datastore = "1.1.1"
+activity-compose = "1.9.3"
 
 # Networking
 okhttp = "4.12.0"
@@ -46,6 +44,9 @@ firebase-bom = "33.6.0"
 
 # Database
 sqlcipher = "4.6.1"
+
+# Serialization
+kotlinx-serialization-json = "1.7.3"
 
 # Performance
 leakcanary = "2.14"
@@ -108,16 +109,17 @@ firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-config = { module = "com.google.firebase:firebase-remote-config" }
 
-# Database
-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-
 sqlcipher = { module = "net.zetetic:android-database-sqlcipher", version.ref = "sqlcipher" }
 sqlite = { module = "androidx.sqlite:sqlite-ktx" }
 
 # Encryption
 security-crypto = { module = "androidx.security:security-crypto", version = "1.1.0-alpha06" }
+
+# Activity
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+
+# Serialization
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization-json" }
 
 # WorkManager
 workmanager = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
@@ -217,6 +219,7 @@ include(":core:database")
 include(":core:crypto")
 include(":core:model")
 include(":core:jobmanager")
+include(":core:protos")
 include(":core:signalstore")
 include(":core:notifications")
 include(":core:push")
@@ -406,6 +409,7 @@ dependencies {
     implementation(project(":core:performance"))
     implementation(project(":core:accessibility"))
     implementation(project(":core:crash"))
+    implementation(project(":core:protos"))
     implementation(project(":core:config"))
 
     // Feature modules

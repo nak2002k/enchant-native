@@ -1,0 +1,307 @@
+syntax = "proto2";
+
+package enchant;
+
+import "enchant/DataMessage.proto";
+import "enchant/StoryMessage.proto";
+import "enchant/AttachmentPointer.proto";
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "SyncMessageProtos";
+
+message SyncMessage {
+    message Sent {
+        message UnidentifiedDeliveryStatus {
+            optional string destinationServiceId = 3;
+            optional bool unidentified = 2;
+            optional bytes destinationPniIdentityKey = 5;
+            optional bytes destinationServiceIdBinary = 6;
+        }
+
+        message StoryMessageRecipient {
+            optional string destinationServiceId = 1;
+            repeated string distributionListIds = 2;
+            optional bool isAllowedToReply = 3;
+            optional bytes destinationServiceIdBinary = 5;
+        }
+
+        optional string destinationE164 = 1;
+        optional string destinationServiceId = 7;
+        optional uint64 timestamp = 2;
+        optional DataMessage message = 3;
+        optional uint64 expirationStartTimestamp = 4;
+        repeated UnidentifiedDeliveryStatus unidentifiedStatus = 5;
+        optional bool isRecipientUpdate = 6 [default = false];
+        optional StoryMessage storyMessage = 8;
+        repeated StoryMessageRecipient storyMessageRecipients = 9;
+        optional DataMessage editMessage = 10;
+        optional bytes destinationServiceIdBinary = 12;
+    }
+
+    message Contacts {
+        optional AttachmentPointer blob = 1;
+        optional bool complete = 2 [default = false];
+    }
+
+    message Blocked {
+        repeated string numbers = 1;
+        repeated string acis = 3;
+        repeated bytes groupIds = 2;
+        repeated bytes acisBinary = 4;
+    }
+
+    message Request {
+        enum Type {
+            UNKNOWN = 0;
+            CONTACTS = 1;
+            BLOCKED = 3;
+            CONFIGURATION = 4;
+            KEYS = 5;
+        }
+        optional Type type = 1;
+    }
+
+    message Read {
+        optional string senderAci = 3;
+        optional uint64 timestamp = 2;
+        optional bytes senderAciBinary = 4;
+    }
+
+    message Viewed {
+        optional string senderAci = 3;
+        optional uint64 timestamp = 2;
+        optional bytes senderAciBinary = 4;
+    }
+
+    message Configuration {
+        optional bool readReceipts = 1;
+        optional bool unidentifiedDeliveryIndicators = 2;
+        optional bool typingIndicators = 3;
+        optional bool linkPreviews = 6;
+    }
+
+    message StickerPackOperation {
+        enum Type {
+            INSTALL = 0;
+            REMOVE = 1;
+        }
+        optional bytes packId = 1;
+        optional bytes packKey = 2;
+        optional Type type = 3;
+    }
+
+    message ViewOnceOpen {
+        optional string senderAci = 3;
+        optional uint64 timestamp = 2;
+        optional bytes senderAciBinary = 4;
+    }
+
+    message FetchLatest {
+        enum Type {
+            UNKNOWN = 0;
+            LOCAL_PROFILE = 1;
+            STORAGE_MANIFEST = 2;
+            SUBSCRIPTION_STATUS = 3;
+        }
+        optional Type type = 1;
+    }
+
+    message Keys {
+        optional string accountEntropyPool = 3;
+        optional bytes mediaRootBackupKey = 4;
+    }
+
+    message MessageRequestResponse {
+        enum Type {
+            UNKNOWN = 0;
+            ACCEPT = 1;
+            DELETE = 2;
+            BLOCK = 3;
+            BLOCK_AND_DELETE = 4;
+            SPAM = 5;
+            BLOCK_AND_SPAM = 6;
+        }
+        optional string threadAci = 2;
+        optional bytes groupId = 3;
+        optional Type type = 4;
+        optional bytes threadAciBinary = 5;
+    }
+
+    message CallEvent {
+        enum Type {
+            UNKNOWN_TYPE = 0;
+            AUDIO_CALL = 1;
+            VIDEO_CALL = 2;
+            GROUP_CALL = 3;
+            AD_HOC_CALL = 4;
+        }
+        enum Direction {
+            UNKNOWN_DIRECTION = 0;
+            INCOMING = 1;
+            OUTGOING = 2;
+        }
+        enum Event {
+            UNKNOWN_EVENT = 0;
+            ACCEPTED = 1;
+            NOT_ACCEPTED = 2;
+            DELETE = 3;
+            OBSERVED = 4;
+        }
+        optional bytes conversationId = 1;
+        optional uint64 callId = 2;
+        optional uint64 timestamp = 3;
+        optional Type type = 4;
+        optional Direction direction = 5;
+        optional Event event = 6;
+    }
+
+    message CallLogEvent {
+        enum Type {
+            CLEAR = 0;
+            MARKED_AS_READ = 1;
+            MARKED_AS_READ_IN_CONVERSATION = 2;
+            CLEAR_IN_CONVERSATION = 3;
+        }
+        optional Type type = 1;
+        optional uint64 timestamp = 2;
+        optional bytes conversationId = 3;
+        optional uint64 callId = 4;
+    }
+
+    message Verified {
+        enum State {
+            DEFAULT = 0;
+            VERIFIED = 1;
+            UNVERIFIED = 2;
+        }
+        optional string destinationAci = 5;
+        optional bytes identityKey = 2;
+        optional State state = 3;
+        optional bytes nullMessage = 4;
+        optional bytes destinationAciBinary = 6;
+    }
+
+    message OutgoingPayment {
+        message MobileCoin {
+            optional bytes recipientAddress = 1;
+            optional uint64 amountPicoMob = 2;
+            optional uint64 feePicoMob = 3;
+            optional bytes receipt = 4;
+            optional uint64 ledgerBlockTimestamp = 5;
+            optional uint64 ledgerBlockIndex = 6;
+            repeated bytes spentKeyImages = 7;
+            repeated bytes outputPublicKeys = 8;
+        }
+        optional string recipientServiceId = 1;
+        optional string note = 2;
+        oneof attachment_identifier { MobileCoin mobileCoin = 3; }
+    }
+
+    message PniChangeNumber {
+        optional bytes identityKeyPair = 1;
+        optional bytes signedPreKey = 2;
+        optional bytes lastResortKyberPreKey = 5;
+        optional uint32 registrationId = 3;
+        optional string newE164 = 4;
+    }
+
+    message CallLinkUpdate {
+        enum Type { UPDATE = 0; }
+        optional bytes rootKey = 1;
+        optional bytes adminPasskey = 2;
+        optional Type type = 3;
+    }
+
+    message DeviceNameChange {
+        optional uint32 deviceId = 2;
+    }
+
+    message AttachmentBackfillRequest {
+        optional AddressableMessage targetMessage = 1;
+        optional ConversationIdentifier targetConversation = 2;
+    }
+
+    message AttachmentBackfillResponse {
+        message AttachmentData {
+            enum Status { PENDING = 0; TERMINAL_ERROR = 1; }
+            oneof data {
+                AttachmentPointer attachment = 1;
+                Status status = 2;
+            }
+        }
+        enum Error { MESSAGE_NOT_FOUND = 0; }
+        message AttachmentDataList {
+            repeated AttachmentData attachments = 1;
+            optional AttachmentData longText = 2;
+        }
+        optional AddressableMessage targetMessage = 1;
+        optional ConversationIdentifier targetConversation = 2;
+        oneof data {
+            AttachmentDataList attachments = 3;
+            Error error = 4;
+        }
+    }
+
+    message DeleteForMe {
+        message MessageDeletes {
+            optional ConversationIdentifier conversation = 1;
+            repeated AddressableMessage messages = 2;
+        }
+        message ConversationDelete {
+            optional ConversationIdentifier conversation = 1;
+            repeated AddressableMessage mostRecentMessages = 2;
+            optional bool isFullDelete = 3;
+        }
+        message LocalOnlyConversationDelete {
+            optional ConversationIdentifier conversation = 1;
+        }
+        repeated MessageDeletes messageDeletes = 1;
+        repeated ConversationDelete conversationDeletes = 2;
+        repeated LocalOnlyConversationDelete localOnlyConversationDeletes = 3;
+    }
+
+    oneof content {
+        Sent sent = 1;
+        Contacts contacts = 2;
+        Request request = 4;
+        Blocked blocked = 6;
+        Verified verified = 7;
+        Configuration configuration = 9;
+        ViewOnceOpen viewOnceOpen = 11;
+        FetchLatest fetchLatest = 12;
+        Keys keys = 13;
+        MessageRequestResponse messageRequestResponse = 14;
+        OutgoingPayment outgoingPayment = 15;
+        PniChangeNumber pniChangeNumber = 18;
+        CallEvent callEvent = 19;
+        CallLinkUpdate callLinkUpdate = 20;
+        CallLogEvent callLogEvent = 21;
+        DeleteForMe deleteForMe = 22;
+        DeviceNameChange deviceNameChange = 23;
+        AttachmentBackfillRequest attachmentBackfillRequest = 24;
+        AttachmentBackfillResponse attachmentBackfillResponse = 25;
+    }
+
+    repeated Read read = 5;
+    repeated StickerPackOperation stickerPackOperation = 10;
+    repeated Viewed viewed = 16;
+    optional bytes padding = 8;
+}
+
+message ConversationIdentifier {
+    oneof identifier {
+        string threadServiceId = 1;
+        bytes threadGroupId = 2;
+        string threadE164 = 3;
+        bytes threadServiceIdBinary = 4;
+    }
+}
+
+message AddressableMessage {
+    oneof author {
+        string authorServiceId = 1;
+        string authorE164 = 2;
+        bytes authorServiceIdBinary = 4;
+    }
+    optional uint64 sentTimestamp = 3;
+}

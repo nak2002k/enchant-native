@@ -1,0 +1,34 @@
+syntax = "proto2";
+
+package enchant;
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "ProvisioningProtos";
+
+message ProvisioningAddress {
+    optional string uuid = 1;
+    optional uint32 deviceId = 2;
+}
+
+message ProvisionEnvelope {
+    optional bytes publicKey = 1;
+    optional bytes ciphertext = 2;
+}
+
+message ProvisionMessage {
+    optional bytes aciIdentityKeyPublic = 1;
+    optional bytes aciIdentityKeyPrivate = 2;
+    optional bytes pniIdentityKeyPublic = 3;
+    optional bytes pniIdentityKeyPrivate = 4;
+    optional string aciUuid = 5;
+    optional string pniUuid = 6;
+    optional string phoneNumber = 7;
+    optional string provisioningCode = 8;
+    optional string userAgent = 9;
+    optional bytes profileKey = 10;
+    optional bool readReceipts = 11;
+    optional bytes primaryBackupKey = 12;
+    optional string accountEntropyPool = 13;
+    optional bytes masterKey = 14;
+    optional bytes mediaRootBackupKey = 15;
+}

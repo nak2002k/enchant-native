@@ -1,0 +1,46 @@
+syntax = "proto2";
+
+package enchant.crypto;
+
+option java_package = "org.enchant.core.crypto.protos";
+option java_outer_classname = "SessionRecordProtos";
+
+message SessionRecord {
+    optional int32 version = 1 [default = 1];
+    optional SessionState sessionState = 2;
+}
+
+message SessionState {
+    optional bytes aliceBaseKey = 1;
+    optional bytes rootKey = 2;
+
+    optional bytes sendingChainKey = 3;
+    optional bytes sendingRatchetKeyPublic = 4;
+    optional bytes sendingRatchetKeyPrivate = 5;
+    optional int32 sendingMessageNumber = 6;
+
+    optional bytes receivingChainKey = 7;
+    optional bytes receivingRatchetKeyPublic = 8;
+    optional int32 receivingMessageNumber = 9;
+    optional int32 previousChainLength = 10;
+
+    repeated SkippedMessageKey skippedMessageKeys = 11;
+
+    optional bytes ourIdentityPublic = 12;
+    optional bytes theirIdentityPublic = 13;
+    optional int32 theirSignedPrekeyId = 14;
+    optional uint64 createdAt = 15;
+    optional uint64 lastUsedAt = 16;
+}
+
+message SkippedMessageKey {
+    optional string key = 1;
+    optional MessageKey messageKey = 2;
+}
+
+message MessageKey {
+    optional bytes key = 1;
+    optional bytes nonce = 2;
+    optional bytes chainKey = 3;
+    optional uint64 timestamp = 4;
+}

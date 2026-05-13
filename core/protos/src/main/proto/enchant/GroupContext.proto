@@ -1,0 +1,191 @@
+syntax = "proto2";
+
+package enchant;
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "GroupContextProtos";
+
+message GroupContextV2 {
+    optional bytes masterKey = 1;
+    optional uint32 revision = 2;
+    optional bytes groupChange = 3;
+}
+
+message GroupChange {
+    message Actions {
+        message AddMemberAction {
+            optional Member added = 1;
+            optional bool joinFromInviteLink = 2;
+        }
+
+        message DeleteMemberAction {
+            optional bytes deletedUserId = 1;
+        }
+
+        message ModifyMemberRoleAction {
+            optional bytes userId = 1;
+            optional Member.Role role = 2;
+        }
+
+        message ModifyTitleAction {
+            optional string title = 1;
+        }
+
+        message ModifyAvatarAction {
+            optional string avatar = 1;
+        }
+
+        message ModifyDisappearingMessagesTimerAction {
+            optional uint32 timer = 1;
+        }
+
+        message ModifyAttributesAccessAction {
+            optional AccessControl access = 1;
+        }
+
+        message ModifyMemberAccessAction {
+            optional AccessControl access = 1;
+        }
+
+        message ModifyAddFromInviteLinkAccessAction {
+            optional AccessControl access = 1;
+        }
+
+        message AddPendingMemberAction {
+            optional PendingMember added = 1;
+        }
+
+        message DeletePendingMemberAction {
+            optional bytes deletedUserId = 1;
+        }
+
+        message PromotePendingMemberAction {
+            optional bytes userId = 1;
+            optional Member.Role role = 2;
+        }
+
+        message AddRequestingMemberAction {
+            optional RequestingMember added = 1;
+        }
+
+        message DeleteRequestingMemberAction {
+            optional bytes deletedUserId = 1;
+        }
+
+        message PromoteRequestingMemberAction {
+            optional bytes userId = 1;
+            optional Member.Role role = 2;
+        }
+
+        message AddBannedMemberAction {
+            optional BannedMember added = 1;
+        }
+
+        message DeleteBannedMemberAction {
+            optional bytes deletedUserId = 1;
+        }
+
+        message ModifyInviteLinkPasswordAction {
+            optional bytes inviteLinkPassword = 1;
+        }
+
+        message ModifyAnnouncementsOnlyAction {
+            optional bool announcementsOnly = 1;
+        }
+
+        repeated AddMemberAction addMember = 1;
+        repeated DeleteMemberAction deleteMember = 2;
+        repeated ModifyMemberRoleAction modifyMemberRole = 3;
+        repeated ModifyTitleAction modifyTitle = 4;
+        repeated ModifyAvatarAction modifyAvatar = 5;
+        repeated ModifyDisappearingMessagesTimerAction modifyDisappearingMessagesTimer = 6;
+        repeated ModifyAttributesAccessAction modifyAttributesAccess = 7;
+        repeated ModifyMemberAccessAction modifyMemberAccess = 8;
+        repeated ModifyAddFromInviteLinkAccessAction modifyAddFromInviteLinkAccess = 9;
+        repeated AddPendingMemberAction addPendingMember = 10;
+        repeated DeletePendingMemberAction deletePendingMember = 11;
+        repeated PromotePendingMemberAction promotePendingMember = 12;
+        repeated AddRequestingMemberAction addRequestingMember = 13;
+        repeated DeleteRequestingMemberAction deleteRequestingMember = 14;
+        repeated PromoteRequestingMemberAction promoteRequestingMember = 15;
+        repeated AddBannedMemberAction addBannedMember = 16;
+        repeated DeleteBannedMemberAction deleteBannedMember = 17;
+        repeated ModifyInviteLinkPasswordAction modifyInviteLinkPassword = 18;
+        repeated ModifyAnnouncementsOnlyAction modifyAnnouncementsOnly = 19;
+    }
+
+    optional bytes groupId = 1;
+    optional uint32 revision = 2;
+    optional Actions actions = 3;
+}
+
+message Group {
+    optional bytes publicKey = 1;
+    optional bytes encryptedTitle = 2;
+    optional bytes encryptedDescription = 3;
+    optional string avatar = 4;
+    optional uint32 disappearingMessagesTimer = 5;
+    optional AccessControl accessControl = 6;
+    optional uint32 revision = 7;
+    repeated Member members = 8;
+    repeated PendingMember pendingMembers = 9;
+    repeated RequestingMember requestingMembers = 10;
+    optional bytes inviteLinkPassword = 11;
+    optional bool announcementsOnly = 12;
+    repeated BannedMember bannedMembers = 13;
+}
+
+message Member {
+    enum Role {
+        UNKNOWN = 0;
+        DEFAULT = 1;
+        ADMINISTRATOR = 2;
+    }
+
+    optional bytes userId = 1;
+    optional Role role = 2;
+    optional bytes profileKey = 3;
+    optional bytes presentation = 4;
+    optional uint32 joinedAtRevision = 5;
+}
+
+message PendingMember {
+    optional bytes userId = 1;
+    optional Member.Role role = 2;
+    optional bytes addedByUserId = 3;
+    optional uint64 timestamp = 4;
+}
+
+message RequestingMember {
+    optional bytes userId = 1;
+    optional bytes profileKey = 2;
+    optional bytes presentation = 3;
+    optional uint64 timestamp = 4;
+}
+
+message BannedMember {
+    optional bytes userId = 1;
+    optional uint64 createdAt = 2;
+}
+
+message AccessControl {
+    enum AccessRequired {
+        UNKNOWN = 0;
+        ANY = 1;
+        MEMBER = 2;
+        ADMINISTRATOR = 3;
+        UNSATISFIABLE = 4;
+    }
+
+    optional AccessRequired attributes = 1;
+    optional AccessRequired members = 2;
+    optional AccessRequired addFromInviteLink = 3;
+}
+
+message GroupJoinInfo {
+    optional bytes publicKey = 1;
+    optional bytes encryptedTitle = 2;
+    optional uint32 memberCount = 3;
+    optional uint32 revision = 4;
+    optional bool announcementsOnly = 5;
+}

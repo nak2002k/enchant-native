@@ -1,0 +1,48 @@
+syntax = "proto2";
+
+package enchant;
+
+import "enchant/AttachmentPointer.proto";
+import "enchant/BodyRange.proto";
+import "enchant/GroupContext.proto";
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "StoryMessageProtos";
+
+message StoryMessage {
+    optional bytes profileKey = 1;
+    optional GroupContextV2 group = 2;
+    oneof attachment {
+        AttachmentPointer fileAttachment = 3;
+        TextAttachment textAttachment = 4;
+    }
+    optional bool allowsReplies = 5;
+    repeated BodyRange bodyRanges = 6;
+}
+
+message TextAttachment {
+    enum Style {
+        DEFAULT = 0;
+        REGULAR = 1;
+        BOLD = 2;
+        SERIF = 3;
+        SCRIPT = 4;
+        CONDENSED = 5;
+    }
+
+    message Gradient {
+        optional uint32 angle = 3;
+        repeated uint32 colors = 4;
+        repeated float positions = 5;
+    }
+
+    optional string text = 1;
+    optional Style textStyle = 2;
+    optional uint32 textForegroundColor = 3;
+    optional uint32 textBackgroundColor = 4;
+    optional .enchant.DataMessage.Preview preview = 5;
+    oneof background {
+        Gradient gradient = 6;
+        uint32 color = 7;
+    }
+}

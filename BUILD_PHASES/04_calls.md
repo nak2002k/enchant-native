@@ -15,11 +15,17 @@ Build WebRTC voice/video calling with proper state machine (like Signal's `Signa
 ## Backend API Contracts
 
 ### WebSocket Call Signaling
-Sent/received as WS frames with message types:
-- `CALL_OFFER` — SDP offer bytes
-- `CALL_ANSWER` — SDP answer bytes
-- `CALL_ICE` — ICE candidate bytes
-- `CALL_END` — Hangup signal
+Sent/received as Envelope(type=DOUBLE_RATCHET) wrapping Content(call_message=CallMessage).
+
+The `CallMessage` protobuf (defined in `core/protos/src/main/proto/enchant/CallMessage.proto`) carries:
+- `Offer` — call offer with opaque signaling bytes, call ID, type (audio/video)
+- `Answer` — call answer with opaque bytes
+- `IceUpdate` — ICE candidates with opaque bytes
+- `Hangup` — hangup signal with type (NORMAL, ACCEPTED, DECLINED, BUSY)
+- `Busy` — busy signal
+- `Opaque` — modern multi-ring opaque signaling with urgency flag
+
+The `opaque` field contains multi-ring capable signaling data (encrypted WebRTC SDP/ICE bundled into opaque protobufs), replacing the older raw SDP string approach. `destinationDeviceId` targets a specific device in multi-device scenarios.
 
 ### GET /v1/calls/turn-credentials
 **Auth:** JWT required

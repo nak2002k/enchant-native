@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package enchant;
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "ReceiptMessageProtos";
+
+message ReceiptMessage {
+    enum Type {
+        DELIVERY = 0;
+        READ = 1;
+        VIEWED = 2;
+    }
+
+    optional Type type = 1;
+    repeated uint64 timestamp = 2;
+}

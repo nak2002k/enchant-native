@@ -170,7 +170,7 @@ const val KEY_ALIAS_DB_ENCRYPTION = "enchant_db_key"
 
 ## Module: `:core:network` (8 files)
 
-HTTP client, WebSocket client, authentication interceptor, rate limit handler, protobuf parsing.
+HTTP client, WebSocket client, authentication interceptor, rate limit handler, protobuf parsing (uses generated classes from `:core:protos`).
 
 ### File: `core/network/src/main/java/org/enchant/core/network/ApiClient.kt`
 
@@ -325,25 +325,30 @@ Every 30s: GET /v1/keepalive
 90s idle timeout: server disconnects
 ```
 
-**Wire format (matching server's protobuf):**
+**Wire format (matching server's protobuf — using generated classes):**
 ```kotlin
-// Request frame (type 1)
-data class WsRequest(
-    val id: Long,                // Client-assigned request ID
-    val verb: String,            // POST, GET, PUT
-    val path: String,            // /api/v1/message, /v1/auth
-    val body: ByteArray,         // Raw bytes (JWT, protobuf Envelope, etc.)
-    val headers: List<String> = emptyList()  // Optional: "Key: Value" pairs (field 5)
-)
+// Generated from WebSocketResources.proto (in :core:protos module)
+// All WebSocket frames are serialized as WebSocketMessage protobuf.
+// Import: import org.enchant.protos.WebSocketResources.*
 
-// Response frame (type 2)
-data class WsResponse(
-    val id: Long,                // Matches request ID
-    val status: Int,             // 200, 400, 401, etc.
-    val message: String,         // Status message
-    val body: ByteArray? = null, // Optional response body
-    val headers: List<String> = emptyList()  // Optional response headers (field 5)
-)
+// Usage in WebSocketManager:
+//   val frame = WebSocketMessage.newBuilder()
+//       .setType(WebSocketMessage.Type.REQUEST)
+//       .setRequest(WebSocketRequestMessage.newBuilder()
+//           .setVerb("POST")
+//           .setPath("/api/v1/message")
+//           .setBody(envelopeBytes)
+//           .setId(requestId)
+//           .build())
+//       .build()
+
+// The Envelope inside the body is also protobuf:
+//   val envelope = EnvelopeProtos.Envelope.newBuilder()
+//       .setType(EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET)
+//       .setDestinationServiceId(recipientUserId)
+//       .setContent(encryptedPayload)
+//       .setClientTimestamp(System.currentTimeMillis())
+//       .build()
 ```
 
 **Test requirements:** 25 tests
@@ -516,17 +521,53 @@ SQLCipher database with 14 tables, DAOs, migrations.
 
 ### File: `core/database/src/main/java/org/enchant/core/database/AppDatabase.kt`
 
-**Purpose:** SQLCipher database with all tables and migrations.
+**Purpose:** Pure SQLCipher database with connection pool (1 writer + 4 readers), typed DAOs, and versioned migrator. No Room — all raw SQL through SQLCipher's `SupportSQLiteDatabase`. Architecture documented in `docs/DATABASE_ARCHITECTURE.md`.
 
 | Function | Signature | Description | Must Handle |
 |---|---|---|---|
-| `init` | `suspend fun init(context: Context)` | Open or create encrypted database | First run → create tables; migration needed → apply sequentially; key wrong → throw |
-| `getDbKey` | `private fun getDbKey(): ByteArray` | Get database encryption key from SecurePreferences | No key → generate via KeyStore + store |
-| `writableDatabase` | `fun writableDatabase(): SupportSQLiteDatabase` | Get writable database instance | Not initialized → throw |
-| `readableDatabase` | `fun readableDatabase(): SupportSQLiteDatabase` | Get readable database instance | Not initialized → throw |
-| `close` | `fun close()` | Close database | Already closed → no-op |
-| `runInTransaction` | `suspend fun <T> runInTransaction(block: suspend () -> T): T` | Execute block in a transaction | Transaction fails → rollback |
-| `isInitialized` | `val isInitialized: Boolean` | Check if database is ready | — |
+| `init` | `suspend fun init(context: Context): AppDatabase` | Open or create encrypted database with SQLCipher + pool | First run → create DDL; migration needed → apply sequentially; key wrong → throw |
+| `getInstance` | `fun getInstance(): AppDatabase` | Singleton accessor | Not initialized → throw |
+| `pool` | `val pool: DatabasePool` | 1-writer + 4-thread-local-readers | Concurrent reads via WAL mode |
+| `notifier` | `val notifier: TableNotifier` | Trigger-based reactive table observer | DAOs emit `Flow<List<T>>` changes via this |
+| `migrator` | `val migrator: DatabaseMigrator` | Sequential versioned migration runner | Transactions per migration |
+| `close` | `fun close()` | Close all connections, null singleton | Already closed → no-op |
+
+**Key management:**
+```kotlin
+// DB key = 32 random bytes, generated on first run
+// Stored: encrypted with Android KeyStore (AES-256-GCM, alias "enchant_db_key")
+// Retrieved: KeyStore.decrypt("enchant_db_key", storedCiphertext)
+// Key hierarchy: Android KeyStore (hardware StrongBox) → AES wrapping key → DB passphrase
+```
+
+**Connection pool pattern:**
+```kotlin
+class DatabasePool(context: Context, passphrase: ByteArray) {
+    private val factory = SupportFactory(passphrase)
+    private val openHelper by lazy { createOpenHelper(context) }
+    val writer: SupportSQLiteDatabase by lazy { openHelper.writableDatabase }
+    private val readerThreadLocal = ThreadLocal.withInitial { openHelper.readableDatabase }
+    val reader: SupportSQLiteDatabase get() = readerThreadLocal.get()
+
+    private fun createOpenHelper(ctx: Context) = factory.create(
+        SupportSQLiteOpenHelper.Configuration.builder(ctx)
+            .name("enchant.db")
+            .callback(MigrationCallback(migrations, DB_VERSION))
+            .build()
+    )
+}
+```
+
+**Pragmas (set on every connection open):**
+```sql
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+PRAGMA foreign_keys = ON;
+PRAGMA cipher_page_size = 1024;
+PRAGMA kdf_iter = 256000;
+PRAGMA cipher_hmac_algorithm = HMAC_SHA512;
+PRAGMA cipher_kdf_algorithm = PBKDF2_HMAC_SHA512;
+```
 
 **Tables (14 total):**
 
@@ -548,17 +589,25 @@ SQLCipher database with 14 tables, DAOs, migrations.
 | `installed_stickers` | packId TEXT, stickerId TEXT, emoji TEXT, position INTEGER, PRIMARY KEY(packId, stickerId) | packId |
 
 **Migration strategy:**
-- Start at version 1 with all tables
-- Each migration is a numbered file: `Migration2.kt`, `Migration3.kt`, etc.
-- Each implements `fun migrate(db: SupportSQLiteDatabase)`
-- Apply sequentially in `onUpgrade`
+- Database version tracked via `PRAGMA user_version`
+- V1: full DDL executed in `SupportSQLiteOpenHelper.Callback.onCreate()`
+- Each migration is a class implementing `Migration` interface:
+  ```kotlin
+  interface Migration {
+      val version: Int
+      suspend fun migrate(db: SupportSQLiteDatabase)
+  }
+  ```
+- `DatabaseMigrator` applies pending migrations in order inside `onUpgrade`, each in its own transaction
+- After each migration: `db.execSQL("PRAGMA user_version = $version")`
+- Migration tested via: create V1 schema → apply migration → verify V2 schema + data preserved
 
 **Test requirements:** 12 tests
-- 3 database lifecycle (init first run, init existing, close)
-- 3 migrations (v1→v2, v2→v3, multiple migrations)
+- 3 database lifecycle (init first run with full DDL, init existing, close)
+- 3 migrations (v1→v2, v2→v3, failed migration → rollback)
 - 2 transaction (success commits, failure rolls back)
-- 2 encryption (DB key generated, DB opens with correct key)
-- 2 edge cases (init with corrupt DB → recreate, concurrent write access)
+- 2 encryption (DB key generated via KeyStore, DB opens with correct key, wrong key → exception)
+- 2 edge cases (corrupt DB → recreate, concurrent read/write via pool)
 
 ---
 
@@ -657,16 +706,15 @@ SQLCipher database with 14 tables, DAOs, migrations.
 
 ### File: `core/database/src/main/java/org/enchant/core/database/entities/Entities.kt`
 
-**Purpose:** All Room/SQLite entity data classes.
+**Purpose:** All SQLCipher entity data classes (pure data classes, no ORM annotations).
 
 ```kotlin
-@Entity(tableName = "messages")
 data class MessageEntity(
-    @PrimaryKey(autoGenerate = true) val localId: Long = 0,
+    val localId: Long = 0,
     val conversationId: String,
     val senderId: String,
     val senderDeviceId: String?,
-    @Index(unique = true) val envelopeId: String?,
+    val envelopeId: String?,
     val messageType: String,
     val content: String,
     val mediaKey: String?,
@@ -689,7 +737,7 @@ data class MessageEntity(
 // ... similar for all other entities
 ```
 
-**Test requirements:** 3 tests — each entity serializable with Room, column count matches
+**Test requirements:** 3 tests — each entity serializes/deserializes correctly, column count matches DDL
 
 ---
 
@@ -895,15 +943,15 @@ data class RatchetMessage(
 
 ```kotlin
 data class EncryptedPayload(
-    val messageType: String,              // "PREKEY_MESSAGE" or "SIGNAL_MESSAGE"
-    val payload: ByteArray,               // Encrypted bytes (base64url encoded for transport)
-    val recipientDeviceId: String?        // Specific device or null for fan-out
+    val messageType: EnvelopeProtos.Envelope.Type,  // PREKEY_MESSAGE or DOUBLE_RATCHET
+    val payload: ByteArray,                          // Double Ratchet ciphertext
+    val recipientDeviceId: String?                   // Specific device or null for fan-out
 )
 
 data class DecryptedResult(
-    val plaintext: ByteArray,
+    val plaintext: ByteArray,                        // Serialized Content protobuf bytes
     val senderDeviceId: String?,
-    val isNewSession: Boolean             // True if this message established a new session
+    val isNewSession: Boolean                        // True if this message established a new session
 )
 ```
 

@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+package enchant;
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "BodyRangeProtos";
+
+message BodyRange {
+    enum Style {
+        NONE = 0;
+        BOLD = 1;
+        ITALIC = 2;
+        SPOILER = 3;
+        STRIKETHROUGH = 4;
+        MONOSPACE = 5;
+    }
+
+    optional uint32 start = 1;
+    optional uint32 length = 2;
+
+    oneof associatedValue {
+        string mentionAci = 3;
+        Style style = 4;
+        bytes mentionAciBinary = 5;
+    }
+}

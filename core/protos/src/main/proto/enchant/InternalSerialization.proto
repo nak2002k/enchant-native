@@ -1,0 +1,51 @@
+syntax = "proto2";
+
+package enchant;
+
+import "enchant/Content.proto";
+
+option java_package = "org.enchant.protos";
+option java_multiple_files = true;
+
+message EnvelopeMetadata {
+    required bytes sourceServiceId = 1;
+    optional string sourceE164 = 2;
+    required int32 sourceDeviceId = 3;
+    required bool sealedSender = 4;
+    optional bytes groupId = 5;
+    required bytes destinationServiceId = 6;
+    optional int32 ciphertextMessageType = 7;
+}
+
+message CompleteMessage {
+    required bytes envelope = 1;
+    required bytes content = 2;
+    required EnvelopeMetadata metadata = 3;
+    required int64 serverDeliveredTimestamp = 4;
+}
+
+message SignalServiceContentProto {
+    optional AddressProto localAddress = 1;
+    optional MetadataProto metadata = 2;
+    oneof data {
+        Content legacyDataMessage = 3;
+        Content content = 4;
+    }
+}
+
+message MetadataProto {
+    optional AddressProto address = 1;
+    optional int32 senderDevice = 2;
+    optional int64 timestamp = 3;
+    optional int64 serverReceivedTimestamp = 5;
+    optional int64 serverDeliveredTimestamp = 6;
+    optional bool needsReceipt = 4;
+    optional string serverGuid = 7;
+    optional bytes groupId = 8;
+    optional string destinationUuid = 9;
+}
+
+message AddressProto {
+    optional bytes uuid = 1;
+    optional string e164 = 2;
+}

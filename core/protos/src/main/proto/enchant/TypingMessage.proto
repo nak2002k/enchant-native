@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package enchant;
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "TypingMessageProtos";
+
+message TypingMessage {
+    enum Action {
+        STARTED = 0;
+        STOPPED = 1;
+    }
+
+    optional uint64 timestamp = 1;
+    optional Action action = 2;
+    optional bytes groupId = 3;
+}

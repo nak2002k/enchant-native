@@ -1,0 +1,62 @@
+syntax = "proto2";
+
+package enchant;
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "CallMessageProtos";
+
+message CallMessage {
+    message Offer {
+        enum Type {
+            OFFER_AUDIO_CALL = 0;
+            OFFER_VIDEO_CALL = 1;
+        }
+        optional uint64 id = 1;
+        optional Type type = 3;
+        optional bytes opaque = 4;
+    }
+
+    message Answer {
+        optional uint64 id = 1;
+        optional bytes opaque = 3;
+    }
+
+    message IceUpdate {
+        optional uint64 id = 1;
+        optional bytes opaque = 5;
+    }
+
+    message Busy {
+        optional uint64 id = 1;
+    }
+
+    message Hangup {
+        enum Type {
+            HANGUP_NORMAL = 0;
+            HANGUP_ACCEPTED = 1;
+            HANGUP_DECLINED = 2;
+            HANGUP_BUSY = 3;
+            HANGUP_NEED_PERMISSION = 4;
+        }
+        optional uint64 id = 1;
+        optional Type type = 2;
+        optional uint32 deviceId = 3;
+    }
+
+    message Opaque {
+        enum Urgency {
+            DROPPABLE = 0;
+            HANDLE_IMMEDIATELY = 1;
+        }
+        optional bytes data = 1;
+        optional Urgency urgency = 2;
+    }
+
+    optional Offer offer = 1;
+    optional Answer answer = 2;
+    repeated IceUpdate iceUpdate = 3;
+    optional Busy busy = 5;
+    optional Hangup hangup = 7;
+    optional uint32 destinationDeviceId = 9;
+    optional Opaque opaque = 10;
+}

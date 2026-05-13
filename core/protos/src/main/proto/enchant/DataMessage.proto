@@ -1,0 +1,237 @@
+syntax = "proto2";
+
+package enchant;
+
+import "enchant/AttachmentPointer.proto";
+import "enchant/BodyRange.proto";
+import "enchant/GroupContext.proto";
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "DataMessageProtos";
+
+message DataMessage {
+    enum Flags {
+        END_SESSION = 1;
+        EXPIRATION_TIMER_UPDATE = 2;
+        PROFILE_KEY_UPDATE = 4;
+    }
+
+    message Quote {
+        enum Type {
+            NORMAL = 0;
+            GIFT_BADGE = 1;
+            POLL = 2;
+        }
+
+        message QuotedAttachment {
+            optional string contentType = 1;
+            optional string fileName = 2;
+            optional AttachmentPointer thumbnail = 3;
+        }
+
+        optional uint64 id = 1;
+        optional string authorAci = 5;
+        optional string text = 3;
+        repeated QuotedAttachment attachments = 4;
+        repeated BodyRange bodyRanges = 6;
+        optional Type type = 7;
+        optional bytes authorAciBinary = 8;
+    }
+
+    message Contact {
+        message Name {
+            optional string givenName = 1;
+            optional string familyName = 2;
+            optional string prefix = 3;
+            optional string suffix = 4;
+            optional string middleName = 5;
+            optional string nickname = 7;
+        }
+
+        message Phone {
+            enum Type {
+                HOME = 1;
+                MOBILE = 2;
+                WORK = 3;
+                CUSTOM = 4;
+            }
+            optional string value = 1;
+            optional Type type = 2;
+            optional string label = 3;
+        }
+
+        message Email {
+            enum Type {
+                HOME = 1;
+                MOBILE = 2;
+                WORK = 3;
+                CUSTOM = 4;
+            }
+            optional string value = 1;
+            optional Type type = 2;
+            optional string label = 3;
+        }
+
+        message PostalAddress {
+            enum Type {
+                HOME = 1;
+                WORK = 2;
+                CUSTOM = 3;
+            }
+            optional Type type = 1;
+            optional string label = 2;
+            optional string street = 3;
+            optional string pobox = 4;
+            optional string neighborhood = 5;
+            optional string city = 6;
+            optional string region = 7;
+            optional string postcode = 8;
+            optional string country = 9;
+        }
+
+        message Avatar {
+            optional AttachmentPointer avatar = 1;
+            optional bool isProfile = 2;
+        }
+
+        optional Name name = 1;
+        repeated Phone number = 3;
+        repeated Email email = 4;
+        repeated PostalAddress address = 5;
+        optional Avatar avatar = 6;
+        optional string organization = 7;
+    }
+
+    message Preview {
+        optional string url = 1;
+        optional string title = 2;
+        optional AttachmentPointer image = 3;
+        optional string description = 4;
+        optional uint64 date = 5;
+    }
+
+    message Sticker {
+        optional bytes packId = 1;
+        optional bytes packKey = 2;
+        optional uint32 stickerId = 3;
+        optional AttachmentPointer data = 4;
+        optional string emoji = 5;
+    }
+
+    message Reaction {
+        optional string emoji = 1;
+        optional bool remove = 2;
+        optional string targetAuthorAci = 4;
+        optional uint64 targetSentTimestamp = 5;
+        optional bytes targetAuthorAciBinary = 6;
+    }
+
+    message Delete {
+        optional uint64 targetSentTimestamp = 1;
+    }
+
+    message GroupCallUpdate {
+        optional string eraId = 1;
+    }
+
+    message StoryContext {
+        optional string authorAci = 1;
+        optional uint64 sentTimestamp = 2;
+        optional bytes authorAciBinary = 3;
+    }
+
+    message GiftBadge {
+        optional bytes receiptCredentialPresentation = 1;
+    }
+
+    message PollCreate {
+        optional string question = 1;
+        optional bool allowMultiple = 2;
+        repeated string options = 3;
+    }
+
+    message PollVote {
+        optional bytes targetAuthorAciBinary = 1;
+        optional uint64 targetSentTimestamp = 2;
+        repeated uint32 optionIndexes = 3;
+        optional uint32 voteCount = 4;
+    }
+
+    message PinMessage {
+        optional bytes targetAuthorAciBinary = 1;
+        optional uint64 targetSentTimestamp = 2;
+        oneof pinDuration {
+            uint32 pinDurationSeconds = 3;
+            bool pinDurationForever = 4;
+        }
+    }
+
+    message UnpinMessage {
+        optional bytes targetAuthorAciBinary = 1;
+        optional uint64 targetSentTimestamp = 2;
+    }
+
+    message Payment {
+        message Amount {
+            message MobileCoin {
+                optional uint64 picoMob = 1;
+            }
+            oneof Amount { MobileCoin mobileCoin = 1; }
+        }
+
+        message Notification {
+            message MobileCoin {
+                optional bytes receipt = 1;
+            }
+            oneof Transaction { MobileCoin mobileCoin = 1; }
+            optional string note = 2;
+        }
+
+        message Activation {
+            enum Type { REQUEST = 0; ACTIVATED = 1; }
+            optional Type type = 1;
+        }
+
+        oneof Item {
+            Notification notification = 1;
+            Activation activation = 2;
+        }
+    }
+
+    message PollTerminate {
+        optional uint64 targetSentTimestamp = 1;
+    }
+
+    message AdminDelete {
+        optional bytes targetAuthorAciBinary = 1;
+        optional uint64 targetSentTimestamp = 2;
+    }
+
+    optional string body = 1;
+    repeated AttachmentPointer attachments = 2;
+    optional GroupContextV2 groupV2 = 15;
+    optional uint32 flags = 4;
+    optional uint32 expireTimer = 5;
+    optional uint32 expireTimerVersion = 23;
+    optional bytes profileKey = 6;
+    optional uint64 timestamp = 7;
+    optional Quote quote = 8;
+    repeated Contact contact = 9;
+    repeated Preview preview = 10;
+    optional Sticker sticker = 11;
+    optional uint32 requiredProtocolVersion = 12;
+    optional bool isViewOnce = 14;
+    optional Reaction reaction = 16;
+    optional Delete delete = 17;
+    repeated BodyRange bodyRanges = 18;
+    optional GroupCallUpdate groupCallUpdate = 19;
+    optional Payment payment = 20;
+    optional StoryContext storyContext = 21;
+    optional GiftBadge giftBadge = 22;
+    optional PollCreate pollCreate = 24;
+    optional PollTerminate pollTerminate = 25;
+    optional PollVote pollVote = 26;
+    optional PinMessage pinMessage = 27;
+    optional UnpinMessage unpinMessage = 28;
+    optional AdminDelete adminDelete = 29;
+}

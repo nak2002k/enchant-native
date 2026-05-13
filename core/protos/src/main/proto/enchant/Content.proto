@@ -1,0 +1,50 @@
+syntax = "proto2";
+
+package enchant;
+
+import "enchant/DataMessage.proto";
+import "enchant/SyncMessage.proto";
+import "enchant/CallMessage.proto";
+import "enchant/ReceiptMessage.proto";
+import "enchant/TypingMessage.proto";
+import "enchant/StoryMessage.proto";
+
+option java_package = "org.enchant.protos";
+option java_outer_classname = "ContentProtos";
+
+message Content {
+    oneof content {
+        DataMessage dataMessage = 1;
+        SyncMessage syncMessage = 2;
+        CallMessage callMessage = 3;
+        NullMessage nullMessage = 4;
+        ReceiptMessage receiptMessage = 5;
+        TypingMessage typingMessage = 6;
+        bytes decryptionErrorMessage = 8;
+        StoryMessage storyMessage = 9;
+        EditMessage editMessage = 11;
+    }
+
+    optional bytes senderKeyDistributionMessage = 7;
+    optional PniSignatureMessage pniSignatureMessage = 10;
+}
+
+message NullMessage {
+    optional bytes padding = 1;
+}
+
+message EditMessage {
+    optional uint64 targetSentTimestamp = 1;
+    optional DataMessage dataMessage = 2;
+}
+
+message PniSignatureMessage {
+    optional bytes pni = 1;
+    optional bytes signature = 2;
+}
+
+message DecryptionErrorMessage {
+    optional bytes ratchetKey = 1;
+    optional uint64 timestamp = 2;
+    optional uint32 deviceId = 3;
+}

@@ -37,22 +37,22 @@ Client → Server: GET /v1/keepalive
 Server → Client: 200 OK
 ```
 
-**Envelope protobuf fields (matching backend — 13 fields):**
-| Field # | Type | Name | Required | Description |
+**Envelope protobuf (defined in `core/protos/src/main/proto/enchant/Envelope.proto`):**
+The full Envelope protobuf with 22 fields is defined in `docs/PROTOBUF_SCHEMA.md §3`. Key fields:
+
+| Field # | Name | Type | Required | Description |
 |---------|------|------|----------|-------------|
-| 1 | string | `envelope_id` | Optional (server-populated) | Unique UUID assigned by server on send; used for delivery tracking and ack |
-| 2 | string | `sender_user_id` | Optional (server-populated) | Sender's user UUID. For SEALED_SENDER, this is empty |
-| 3 | string | `sender_device_id` | Optional (server-populated) | Sender's device UUID |
-| 4 | string | `recipient_user_id` | **Required** | Recipient's user UUID — determines who receives the message |
-| 5 | string | `recipient_device_id` | Optional | Specific device UUID. Empty string = fan-out to all recipient's devices |
-| 6 | string | `message_type` | **Required** | One of: `SIGNAL_MESSAGE`, `PREKEY_MESSAGE`, `CALL_OFFER`, `CALL_ANSWER`, `CALL_ICE`, `CALL_END`, `DELIVERY_RECEIPT`, `READ_RECEIPT`, `TYPING_START`, `TYPING_STOP`, `KEY_EXCHANGE`, `MLS_COMMIT`, `MLS_WELCOME` |
-| 7 | bytes | `payload` | **Required** | Encrypted message content (server never inspects — E2EE opaque blob) |
-| 8 | uint64 | `server_ts` | Optional (server-populated) | Server-assigned Unix timestamp |
-| 9 | string | `sender_ts` | Optional | Client-side timestamp (ISO 8601) |
-| 10 | bool | `sealed` | Optional | Sealed sender flag: true means sender identity is hidden; sender_user_id will be empty |
-| 11 | string | `reply_token` | Optional | For sealed sender — enables delivery receipt routing without server knowing sender |
-| 12 | bool | `ephemeral` | Optional | True = online-only delivery, no persistence (used for typing indicators, receipts) |
-| 13 | bool | `urgent` | Optional | Urgency flag — may affect push notification behavior |
+| 1 | `type` | enum | Yes | `DOUBLE_RATCHET=1`, `PREKEY_MESSAGE=3`, `UNIDENTIFIED_SENDER=6`, `PLAINTEXT_CONTENT=8` |
+| 11 | `sourceServiceId` | string | Server-populated | Sender's ACI UUID |
+| 7 | `sourceDeviceId` | uint32 | Server-populated | Sender's device ID |
+| 13 | `destinationServiceId` | string | **Yes** | Recipient's UUID |
+| 5 | `clientTimestamp` | uint64 | **Yes** | Client timestamp (epoch millis) |
+| 8 | `content` | bytes | **Yes** | Encrypted Content protobuf (E2EE opaque blob) |
+| 9 | `serverGuid` | string | Server-populated | Server-assigned UUID for delivery tracking |
+| 10 | `serverTimestamp` | uint64 | Server-populated | Server timestamp |
+| 12 | `ephemeral` | bool | No | True = no offline persistence (typing, receipts) |
+| 14 | `urgent` | bool | No | Urgency flag, defaults to true |
+| 16 | `story` | bool | No | True for story messages |
 
 **Sending rules:**
 - Client must set: `recipient_user_id` (required), `message_type` (required), `payload` (required), `sender_ts` (recommended)
@@ -64,7 +64,7 @@ Server → Client: 200 OK
 **Auth:** JWT required
 **Rate limit:** 200/min per device
 **Request:** `{"recipient_user_id": "uuid", "recipient_device_id": "uuid?", "message_type": "string", "payload": "string", "sender_ts": "string?"}`
-**message_type must be one of:** `SIGNAL_MESSAGE`, `PREKEY_MESSAGE`, `CALL_OFFER`, `CALL_ANSWER`, `CALL_ICE`, `CALL_END`, `DELIVERY_RECEIPT`, `READ_RECEIPT`, `TYPING_START`, `TYPING_STOP`, `KEY_EXCHANGE`, `MLS_COMMIT`, `MLS_WELCOME`
+**message_type is always `SIGNAL_MESSAGE` or `PREKEY_MESSAGE`** — the inner Content protobuf's oneof distinguishes subtypes (DataMessage, CallMessage, ReceiptMessage, TypingMessage, etc.). The server only cares about session vs. prekey.
 **Payload max:** 64KB for most, 2MB for KEY_EXCHANGE/MLS_COMMIT/MLS_WELCOME
 **Response 200:** `{"envelope_ids": ["uuid1", "uuid2", ...]}`
 **Errors:** 400 (missing fields, invalid message_type), 413 (payload too large), 429
@@ -133,49 +133,65 @@ Server → Client: 200 OK
 
 ### Outgoing Message Flow
 ```
-1. Check session exists for recipient → if not, establish via X3DH:
+1. Build Content protobuf:
+   a. Create DataMessage (body, attachments, reactions, etc.) OR
+   b. Create ReceiptMessage, TypingMessage, CallMessage, etc.
+   c. Wrap in Content { data_message = ... }
+
+2. Check session exists for recipient → if not, establish via X3DH:
    a. GET /v1/keys/bundle/{recipient_user_id}
    b. Parse response: device_id, identity_key, signed_prekey, one_time_prekey (optional)
    c. X3DH.aliceInitiate(ourIK, ourEK, bobIK, bobSPK, bobOPK?) → shared secret
    d. DoubleRatchet.initializeAlice(sharedSecret, bobSPK) → session state
    e. Store session in database
 
-2. Ratchet encrypt plaintext:
-   a. DoubleRatchet.encrypt(state, plaintext) → RatchetMessage
+3. Ratchet encrypt Content protobuf bytes:
+   a. DoubleRatchet.encrypt(state, contentBytes) → RatchetMessage
    b. Serialize RatchetMessage header + ciphertext → payload bytes
 
-3. Send via WebSocket:
-   a. POST /api/v1/message with envelope (recipient, payload, type=PREKEY_MESSAGE or SIGNAL_MESSAGE)
-   b. Receive envelope_id from server
+4. Build Envelope protobuf:
+   a. Envelope {
+       type = PREKEY_MESSAGE (if new session) or DOUBLE_RATCHET,
+       destinationServiceId = recipient,
+       content = payload bytes,
+       clientTimestamp = now
+     }
 
-4. Insert to local DB with status=SENDING, envelope_id from response
-5. On server ack → update status to SENT
-6. On delivery receipt → update status to DELIVERED
-7. On read receipt → update status to READ
+5. Send via WebSocket:
+   a. Wrap Envelope in WebSocketRequestMessage { verb=POST, path=/api/v1/message, body=envelope_bytes }
+   b. Wrap in WebSocketMessage { type=REQUEST, request = ... }
+   c. Send binary protobuf frame
+
+6. Receive response → extract serverGuid → insert to local DB with status=SENDING
+7. On server ack → update status to SENT
+8. On delivery receipt → update status to DELIVERED
+9. On read receipt → update status to READ
 ```
 
 ### Incoming Message Flow
 ```
-1. WebSocket receives PUT /api/v1/message with envelope
-2. Client sends 200 ACK back
+1. WebSocket receives WebSocketMessage(type=REQUEST, verb=PUT, path=/api/v1/message)
+2. Deserialize body as Envelope protobuf
+3. Send 200 ACK RESPONSE back
 
-3. Check session exists for sender → 
+4. Check session exists for sender → 
    - If PREKEY_MESSAGE: X3DH.bobRespond() → establishes session
-   - If SIGNAL_MESSAGE: DoubleRatchet.decrypt(state, message) → plaintext
+   - If DOUBLE_RATCHET: DoubleRatchet.decrypt(state, message) → content bytes
 
-4. Parse decrypted content → determine message type (text, image, reaction, receipt, etc.)
+5. Deserialize decrypted bytes as Content protobuf
+6. Determine content type from oneof (data_message, sync_message, call_message, etc.)
 
-5. Dispatch to type-specific handler:
-   - Text/image/video/voice → insert to DB, update UI
-   - Reaction → add/remove reaction on existing message
-   - Receipt → update message status
-   - Typing → show/hide typing indicator
-   - Edit → update message content
-   - Delete → mark message as deleted
-   - Group update → update group metadata
+7. Dispatch to type-specific handler:
+   - data_message → process text/media/reactions/polls/quotes/edits/deletions
+   - sync_message → process multi-device sync (sent, contacts, config, call events)
+   - call_message → route to CallManager (offer, answer, ice, hangup)
+   - receipt_message → update message status (DELIVERED, READ, VIEWED)
+   - typing_message → show/hide typing indicator
+   - story_message → insert to status feed
+   - null_message → ignore (cover traffic)
 
-6. Send delivery receipt back via WS
-7. When user views → send read receipt via WS
+8. Send delivery receipt via Content { receipt_message { type=DELIVERY } }
+9. When user views → send read receipt via Content { receipt_message { type=READ } }
 ```
 
 ### Error Handling Matrix
