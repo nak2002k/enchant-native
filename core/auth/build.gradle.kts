@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "org.enchant.auth"
+    namespace = "org.enchant.core.auth"
     compileSdk = 35
     defaultConfig { minSdk = 26 }
     buildFeatures { compose = true; buildConfig = true }
@@ -17,23 +17,10 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.ui)
-    implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons)
-    implementation(libs.lifecycle.viewmodel)
-    implementation(libs.lifecycle.runtime.compose)
-    implementation(libs.activity.compose)
-    implementation(libs.compose.navigation)
-    implementation(libs.coil.core)
-    implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.play.services.auth.api.phone)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:crypto"))
-    implementation(project(":core:auth"))
-    implementation(project(":core:navigation"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)

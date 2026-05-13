@@ -23,6 +23,7 @@ rootProject.name = "Enchant"
 
 include(":app")
 
+include(":core:auth")
 include(":core:base")
 include(":core:network")
 include(":core:database")
