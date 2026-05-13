@@ -161,15 +161,18 @@
 | Only 30 countries hardcoded | `CountryCodePickerScreen.kt` | ✅ Expanded to 130+ countries covering all UN members |
 | Empty catch blocks swallowing exceptions | Multiple files | ✅ Removed where possible; added meaningful handling where needed |
 
-### Known Remaining Stubs
+### Crypto Implementation Status (Updated 2026-05-14)
 
-| File | Reason | Planned Fix |
-|------|--------|-------------|
-| `CryptoHelper.x25519DiffieHellman()` | SHA-256 placeholder — needs real libsodium X25519 DH | Phase 3 (E2EE pipeline) |
-| `X3DH.aliceInitiate()` / `bobRespond()` | Returns null — needs libsodium DH + HKDF | Phase 3 |
-| `DoubleRatchet.encrypt()` / `decrypt()` | Returns null — needs XChaCha20-Poly1305 AEAD | Phase 3 |
-| `SessionManager.encryptMessage()` / `decryptMessage()` | Returns null — wires X3DH + DoubleRatchet | Phase 3 |
-| `KeyManager.generateAndUploadKeys()` | No-op — needs crypto protocol integration | Phase 3 |
+| Primitive | Implementation | Backend |
+|-----------|---------------|---------|
+| X25519 DH | ✅ JDK `KeyAgreement("X25519")` via SunEC/Conscrypt | Real X25519 DH |
+| Ed25519 sign/verify | ✅ JDK `Signature("Ed25519")` via SunEC/Conscrypt; BouncyCastle fallback for API 26-27 | Real Ed25519 |
+| AES-256-GCM | ✅ `javax.crypto.Cipher("AES/GCM/NoPadding")` | Real AEAD |
+| HKDF-SHA256 | ✅ Custom HKDF via `HmacSHA256` | Real KDF |
+| X3DH | ✅ Full protocol: DH1+DH2+DH3+[DH4] → HKDF → SK | Implemented |
+| Double Ratchet | ✅ Full encrypt/decrypt with ratchet stepping, skipped key buffer (1000 max), serialize/deserialize | Implemented |
+| SessionManager | ✅ Encrypt/decrypt orchestrates X3DH + DoubleRatchet + AES-GCM | Implemented |
+| KeyManager | ✅ Ed25519 key generation, SecurePreferences persistence | Implemented |
 
 ---
 

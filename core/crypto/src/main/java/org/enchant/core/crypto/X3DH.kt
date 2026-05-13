@@ -16,14 +16,51 @@ data class X3dhHeader(
 )
 
 object X3DH {
+
     suspend fun aliceInitiate(
         ourIdentityKey: CryptoHelper.KeyPair,
         ourEphemeralKey: CryptoHelper.KeyPair,
         theirIdentityKeyPublic: ByteArray,
         theirSignedPrekeyPublic: ByteArray,
         theirOneTimePrekeyPublic: ByteArray? = null
-    ): X3dhResult? {
-        return null
+    ): X3dhResult {
+        val ikPrivX = CryptoHelper.ed25519SkToX25519(ourIdentityKey.privateKey)
+        val ikPubX = CryptoHelper.ed25519PkToX25519(ourIdentityKey.publicKey)
+
+        val dh1 = CryptoHelper.x25519DiffieHellman(ikPrivX, theirSignedPrekeyPublic)
+        val dh2 = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirIdentityKeyPublic)
+        val dh3 = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirSignedPrekeyPublic)
+
+        val dhInput = if (theirOneTimePrekeyPublic != null) {
+            val dh4 = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirOneTimePrekeyPublic)
+            dh1 + dh2 + dh3 + dh4
+        } else {
+            dh1 + dh2 + dh3
+        }
+
+        val salt = ByteArray(32)
+        val sk = CryptoHelper.hkdfSha256(dhInput, salt, "EnchantX3DH".encodeToByteArray(), 32)
+        val rootMaterial = CryptoHelper.hkdfSha256(sk, salt, "EnchantRoot".encodeToByteArray(), 64)
+        val rootKey = rootMaterial.copyOfRange(0, 32)
+        val chainKey = rootMaterial.copyOfRange(32, 64)
+
+        CryptoHelper.zeroBytes(ikPrivX)
+        CryptoHelper.zeroBytes(dh1)
+        CryptoHelper.zeroBytes(dh2)
+        CryptoHelper.zeroBytes(dh3)
+
+        return X3dhResult(
+            sharedSecret = sk,
+            rootKey = rootKey,
+            sendingChainKey = chainKey,
+            receivingChainKey = chainKey,
+            header = X3dhHeader(
+                identityKey = ourIdentityKey.publicKey,
+                ephemeralKey = ourEphemeralKey.publicKey,
+                signedPrekeyId = 0,
+                oneTimePrekeyId = null
+            )
+        )
     }
 
     suspend fun bobRespond(
@@ -32,7 +69,48 @@ object X3DH {
         ourOneTimePrekeyKeyPair: CryptoHelper.KeyPair? = null,
         theirIdentityKeyPublic: ByteArray,
         theirEphemeralKeyPublic: ByteArray
-    ): X3dhResult? {
-        return null
+    ): X3dhResult {
+        val ikPrivX = CryptoHelper.ed25519SkToX25519(ourIdentityKey.privateKey)
+        val ikPubX = CryptoHelper.ed25519PkToX25519(ourIdentityKey.publicKey)
+
+        val dh1 = CryptoHelper.x25519DiffieHellman(ourSignedPrekeyKeyPair.privateKey, theirIdentityKeyPublic)
+        val dh2 = CryptoHelper.x25519DiffieHellman(ikPrivX, theirEphemeralKeyPublic)
+        val dh3 = CryptoHelper.x25519DiffieHellman(ourSignedPrekeyKeyPair.privateKey, theirEphemeralKeyPublic)
+
+        val dhInput = if (ourOneTimePrekeyKeyPair != null) {
+            val dh4 = CryptoHelper.x25519DiffieHellman(ourOneTimePrekeyKeyPair.privateKey, theirEphemeralKeyPublic)
+            dh1 + dh2 + dh3 + dh4
+        } else {
+            dh1 + dh2 + dh3
+        }
+
+        val salt = ByteArray(32)
+        val sk = CryptoHelper.hkdfSha256(dhInput, salt, "EnchantX3DH".encodeToByteArray(), 32)
+        val rootMaterial = CryptoHelper.hkdfSha256(sk, salt, "EnchantRoot".encodeToByteArray(), 64)
+        val rootKey = rootMaterial.copyOfRange(0, 32)
+        val chainKey = rootMaterial.copyOfRange(32, 64)
+
+        CryptoHelper.zeroBytes(ikPrivX)
+        CryptoHelper.zeroBytes(dh1)
+        CryptoHelper.zeroBytes(dh2)
+
+        return X3dhResult(
+            sharedSecret = sk,
+            rootKey = rootKey,
+            sendingChainKey = chainKey,
+            receivingChainKey = chainKey,
+            header = X3dhHeader(
+                identityKey = ByteArray(0),
+                ephemeralKey = ByteArray(0),
+                signedPrekeyId = 0
+            )
+        )
+    }
+
+    private operator fun ByteArray.plus(other: ByteArray): ByteArray {
+        val result = ByteArray(this.size + other.size)
+        System.arraycopy(this, 0, result, 0, this.size)
+        System.arraycopy(other, 0, result, this.size, other.size)
+        return result
     }
 }
