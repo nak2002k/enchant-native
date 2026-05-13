@@ -13,7 +13,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun UsernamePickerScreen(
     onUsernameEntered: (String) -> Unit,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
+    onCheckAvailability: suspend (String) -> Boolean
 ) {
     var username by remember { mutableStateOf("") }
     var isChecking by remember { mutableStateOf(false) }
@@ -24,7 +25,7 @@ fun UsernamePickerScreen(
     val statusText = when {
         isChecking -> "Checking availability..."
         isAvailable == true -> "Available!"
-        isAvailable == false -> "Taken"
+        isAvailable == false -> "Username taken"
         else -> ""
     }
 
@@ -57,7 +58,8 @@ fun UsernamePickerScreen(
                             isAvailable = null
                             searchJob = scope.launch {
                                 delay(300)
-                                isAvailable = true
+                                val available = onCheckAvailability(cleaned)
+                                isAvailable = available
                                 isChecking = false
                             }
                         } else {

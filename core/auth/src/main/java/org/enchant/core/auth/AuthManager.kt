@@ -4,11 +4,11 @@ import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.enchant.core.base.AppConfig
-import org.enchant.core.base.DI
-import org.enchant.core.base.KeyStoreManager
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.base.SecurePreferences
-import org.enchant.core.crypto.CryptoHelper
 import org.enchant.core.crypto.KeyManager
 import org.enchant.core.network.ApiClient
 
@@ -22,6 +22,7 @@ sealed class AuthState {
 object AuthManager {
     private var initialized = false
     private lateinit var repository: AuthRepository
+    private lateinit var apiClient: ApiClient
     private val _currentState = MutableStateFlow<RegistrationState>(RegistrationState.Welcome)
     private val _authState = MutableStateFlow<AuthState>(AuthState.Unknown)
 
@@ -30,7 +31,9 @@ object AuthManager {
 
     suspend fun init() {
         if (initialized) return
-        repository = AuthRepository(ApiClient())
+        apiClient = ApiClient()
+        apiClient.init()
+        repository = AuthRepository(apiClient)
         val storedState = AuthStateMachine.validateRestoredState()
         _currentState.value = storedState
         _authState.value = when (storedState) {
@@ -57,10 +60,9 @@ object AuthManager {
                 Result.success(Unit)
             },
             onFailure = { error ->
-                val retryAfter = extractRetryAfter(error.message)
                 _currentState.value = RegistrationState.Error(
                     message = error.message ?: "Failed to send code",
-                    retryAfter = retryAfter
+                    retryAfter = null
                 )
                 Result.failure(error)
             }
@@ -69,11 +71,11 @@ object AuthManager {
 
     suspend fun verifyOtp(code: String): Result<Unit> {
         val state = _currentState.value
-        if (state !is RegistrationState.OtpVerification) return Result.failure(IllegalStateException("Not in OTP state"))
-
+        if (state !is RegistrationState.OtpVerification) {
+            return Result.failure(IllegalStateException("Not in OTP state"))
+        }
         _currentState.value = RegistrationState.Loading
         val result = repository.verifyOtp(state.challengeId, code)
-
         return result.fold(
             onSuccess = { authResponse ->
                 SecurePreferences.putString("auth.jwt", authResponse.accessToken)
@@ -84,8 +86,7 @@ object AuthManager {
                 Result.success(Unit)
             },
             onFailure = { error ->
-                val message = error.message ?: "Verification failed"
-                _currentState.value = RegistrationState.Error(message = message)
+                _currentState.value = RegistrationState.Error(message = error.message ?: "Verification failed")
                 Result.failure(error)
             }
         )
@@ -93,7 +94,9 @@ object AuthManager {
 
     suspend fun resendOtp(): Result<Unit> {
         val state = _currentState.value
-        if (state !is RegistrationState.OtpVerification) return Result.failure(IllegalStateException("Not in OTP state"))
+        if (state !is RegistrationState.OtpVerification) {
+            return Result.failure(IllegalStateException("Not in OTP state"))
+        }
         return requestOtp(state.identifier)
     }
 
@@ -113,13 +116,18 @@ object AuthManager {
                     false
                 }
             )
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            _currentState.value = RegistrationState.Welcome
+            _authState.value = AuthState.Unauthenticated
             false
         }
     }
 
     suspend fun logout() {
-        try { repository.logout() } catch (_: Exception) {}
+        try {
+            repository.logout()
+        } catch (e: Exception) {
+        }
         SecurePreferences.remove("auth.jwt")
         SecurePreferences.remove("auth.refresh_token")
         SecurePreferences.remove("auth.user_id")
@@ -135,9 +143,9 @@ object AuthManager {
             val result = repository.deleteAccount()
             logout()
             result
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             logout()
-            Result.failure(Exception("Account deletion failed"))
+            Result.failure(Exception("Account deletion failed: ${e.message}"))
         }
     }
 
@@ -154,22 +162,21 @@ object AuthManager {
 
     suspend fun updateProfile(username: String, displayName: String, about: String?): Result<Unit> {
         if (username.length !in 3..32 || !username.matches(Regex("^[a-z0-9_]+$"))) {
-            return Result.failure(IllegalArgumentException("Invalid username"))
+            return Result.failure(IllegalArgumentException("Invalid username format"))
         }
         if (displayName.isEmpty() || displayName.length > 64) {
             return Result.failure(IllegalArgumentException("Invalid display name"))
         }
         if (about != null && about.length > 139) {
-            return Result.failure(IllegalArgumentException("About too long"))
+            return Result.failure(IllegalArgumentException("About exceeds 139 characters"))
         }
-
         return try {
-            val body = kotlinx.serialization.json.JsonObject(mapOf(
-                "username" to kotlinx.serialization.json.JsonPrimitive(username),
-                "display_name" to kotlinx.serialization.json.JsonPrimitive(displayName),
-                "about" to kotlinx.serialization.json.JsonPrimitive(about ?: "")
-            ))
-            ApiClient().put("/v1/profile", body)
+            val body = buildJsonObject {
+                put("username", username)
+                put("display_name", displayName)
+                if (about != null) put("about", about)
+            }
+            apiClient.put("/v1/profile", body)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -179,23 +186,14 @@ object AuthManager {
     suspend fun searchUsername(prefix: String): Result<List<String>> {
         if (prefix.isEmpty()) return Result.success(emptyList())
         return try {
-            val result = ApiClient().get("/v1/profile/search", mapOf("username" to prefix))
+            val result = apiClient.get("/v1/profile/search", mapOf("username" to prefix))
             result.map { json ->
-                val results = json["results"]?.jsonObject
-                results?.entries?.map { it.value.jsonObject["username"]?.kotlinx.serialization.json.JsonPrimitive?.content ?: "" }
-                    ?: emptyList()
+                json["results"]?.jsonArray?.map { item ->
+                    item.jsonObject["username"]?.jsonPrimitive?.content ?: ""
+                } ?: emptyList()
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    private fun extractRetryAfter(message: String?): Long? {
-        return try {
-            message?.let {
-                val regex = """(\d+)""".toRegex()
-                regex.find(it)?.groupValues?.getOrNull(1)?.toLongOrNull()
-            }
-        } catch (_: Exception) { null }
     }
 }

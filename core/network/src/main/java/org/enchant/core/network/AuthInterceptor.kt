@@ -1,12 +1,23 @@
 package org.enchant.core.network
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
 
 object AuthInterceptor : Interceptor {
     private var refreshing = false
     private var currentToken: String? = null
+    private val refreshClient = OkHttpClient()
+    private val json = Json { ignoreUnknownKeys = true }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
@@ -44,19 +55,22 @@ object AuthInterceptor : Interceptor {
     private fun refreshToken(): String? {
         val refreshToken = SecurePreferences.getString("auth.refresh_token") ?: return null
         return try {
-            val response = okhttp3.OkHttpClient().newCall(
-                okhttp3.Request.Builder()
-                    .url("${org.enchant.core.base.AppConfig.gatewayUrl}/v1/auth/refresh")
-                    .post(okhttp3.RequestBody.create(null, """{"refresh_token":"$refreshToken"""".toByteArray()))
-                    .build()
-            ).execute()
+            val bodyJson = """{"refresh_token":"$refreshToken"}"""
+            val request = Request.Builder()
+                .url("${AppConfig.gatewayUrl}/v1/auth/refresh")
+                .post(bodyJson.toRequestBody("application/json".toMediaType()))
+                .build()
+            val response = refreshClient.newCall(request).execute()
             if (response.isSuccessful) {
                 val body = response.body?.string()
-                val newJwt = body?.let { extractJsonField(it, "access_token") }
-                if (newJwt != null) {
-                    SecurePreferences.putString("auth.jwt", newJwt)
-                }
-                newJwt
+                if (body != null) {
+                    val parsed = json.parseToJsonElement(body).jsonObject
+                    val newJwt = parsed["access_token"]?.jsonPrimitive?.content
+                    if (newJwt != null) {
+                        SecurePreferences.putString("auth.jwt", newJwt)
+                    }
+                    newJwt
+                } else null
             } else {
                 SecurePreferences.remove("auth.jwt")
                 SecurePreferences.remove("auth.refresh_token")
@@ -65,10 +79,5 @@ object AuthInterceptor : Interceptor {
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun extractJsonField(json: String, field: String): String? {
-        val pattern = """"$field"\s*:\s*"([^"]+)"""".toRegex()
-        return pattern.find(json)?.groupValues?.getOrNull(1)
     }
 }

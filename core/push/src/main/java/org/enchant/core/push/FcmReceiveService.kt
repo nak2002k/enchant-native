@@ -1,7 +1,7 @@
 package org.enchant.core.push
 
-import android.app.PendingIntent
-import android.content.Intent
+import android.app.ActivityManager
+import android.content.Context
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import org.enchant.core.base.SecurePreferences
@@ -15,11 +15,10 @@ class FcmReceiveService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         scope.launch {
-            val isForeground = true
-            if (isForeground) {
+            if (isAppInForeground()) {
                 FcmFetchManager.scheduleFetch()
             } else {
-                val intent = Intent(this@FcmReceiveService, FcmFetchForegroundService::class.java)
+                val intent = android.content.Intent(this@FcmReceiveService, FcmFetchForegroundService::class.java)
                 startForegroundService(intent)
             }
         }
@@ -35,6 +34,16 @@ class FcmReceiveService : FirebaseMessagingService() {
     override fun onDeletedMessages() {
         scope.launch {
             FcmFetchManager.scheduleFetch()
+        }
+    }
+
+    private fun isAppInForeground(): Boolean {
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            ?: return false
+        val runningProcesses = activityManager.runningAppProcesses ?: return false
+        return runningProcesses.any { process ->
+            process.processName == packageName &&
+            process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
         }
     }
 }

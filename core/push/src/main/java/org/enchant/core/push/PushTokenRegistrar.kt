@@ -3,7 +3,11 @@ package org.enchant.core.push
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.network.ApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 object PushTokenRegistrar {
     private const val PUSH_TOKEN_KEY = "push.fcm_token"
@@ -13,10 +17,11 @@ object PushTokenRegistrar {
         withContext(Dispatchers.IO) {
             try {
                 val apiClient = ApiClient()
-                val body = kotlinx.serialization.json.JsonObject(mapOf(
-                    "token" to kotlinx.serialization.json.JsonPrimitive(token),
-                    "platform" to kotlinx.serialization.json.JsonPrimitive("ANDROID")
-                ))
+                apiClient.init()
+                val body = buildJsonObject {
+                    put("token", token)
+                    put("platform", "ANDROID")
+                }
                 apiClient.post("/v1/push/register", body)
                 SecurePreferences.putString(PUSH_TOKEN_KEY, token)
             } catch (_: Exception) {
@@ -28,6 +33,7 @@ object PushTokenRegistrar {
         withContext(Dispatchers.IO) {
             try {
                 val apiClient = ApiClient()
+                apiClient.init()
                 apiClient.del("/v1/push/register")
             } catch (_: Exception) {
             }
@@ -38,13 +44,9 @@ object PushTokenRegistrar {
     suspend fun getFcmToken(): String? {
         return withContext(Dispatchers.IO) {
             try {
-                com.google.firebase.messaging.FirebaseMessaging.getInstance().token
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            SecurePreferences.putString(PUSH_TOKEN_KEY, task.result)
-                        }
-                    }
-                SecurePreferences.getString(PUSH_TOKEN_KEY)
+                val token = FirebaseMessaging.getInstance().token.await()
+                SecurePreferences.putString(PUSH_TOKEN_KEY, token)
+                token
             } catch (_: Exception) {
                 SecurePreferences.getString(PUSH_TOKEN_KEY)
             }
