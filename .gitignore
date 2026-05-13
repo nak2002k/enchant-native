@@ -38,3 +38,5 @@ build/
 local.properties
 *.keystore
 google-services.json
+keystore.properties
+.env

@@ -5,6 +5,7 @@ package enchant;
 import "enchant/AttachmentPointer.proto";
 import "enchant/BodyRange.proto";
 import "enchant/GroupContext.proto";
+import "enchant/DataMessage.proto";
 
 option java_package = "org.enchant.protos";
 option java_outer_classname = "StoryMessageProtos";

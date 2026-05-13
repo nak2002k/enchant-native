@@ -24,7 +24,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.activity.compose)
-    implementation(libs.navigation.compose)
+    implementation(libs.compose.navigation)
     implementation(libs.coil.core)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)

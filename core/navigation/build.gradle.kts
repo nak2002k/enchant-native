@@ -21,7 +21,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.adaptive)
-    implementation(libs.navigation.compose)
+    implementation(libs.compose.navigation)
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)

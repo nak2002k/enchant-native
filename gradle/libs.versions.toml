@@ -17,10 +17,10 @@ leakcanary = "2.14"
 junit5 = "5.11.4"
 mockk = "1.13.13"
 turbine = "1.2.0"
-compose-test = "1.7.6"
 robolectric = "4.14.1"
 protobuf = "4.29.2"
 security-crypto = "1.1.0-alpha06"
+play-services-auth = "18.1.0"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -40,7 +40,7 @@ lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime-ktx", versi
 lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle" }
-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+
 okhttp-core = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
 okhttp-mock = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp" }
@@ -69,6 +69,12 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4" }
 compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 compose-ui-tooling-debug = { module = "androidx.compose.ui:ui-tooling" }
+
+# AndroidX Test
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+
+# Google Play Services
+play-services-auth-api-phone = { module = "com.google.android.gms:play-services-auth-api-phone", version.ref = "play-services-auth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
