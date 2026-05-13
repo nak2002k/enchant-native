@@ -161,6 +161,22 @@ Local Docker backend fully operational at `localhost:8080` (gateway) and direct 
 
 All API models in `ApiModels.kt` and request construction in `AuthRepository.kt` verified against actual backend responses.
 
+### Integration Test Results — 15/15 Passed
+
+| # | Test | Endpoint | Result |
+|---|------|----------|--------|
+| 1 | Health check | `GET /health` | ✅ `{"status":"ok"}` |
+| 2 | Request OTP | `POST /v1/auth/request-otp` | ✅ Returns `challenge_id` + `expires_in` |
+| 3 | Verify OTP | `POST /v1/auth/verify-otp` | ✅ Returns Ed25519 JWT + `refresh_token` + `user_id` |
+| 4 | Token refresh | `POST /v1/auth/refresh` | ✅ JWT rotated (new != old) |
+| 5 | Profile creation | `PUT /v1/profile` via Gateway | ✅ `{"updated":true}` |
+| 6 | JWKS endpoint | `GET /v1/auth/.well-known/jwks.json` | ✅ Ed25519 key, crv, kty, `x` field |
+| 7 | Key registration | `POST /v1/keys/register` | ✅ Returns validation error (expected — verifies key size check) |
+| 8 | List devices | `GET /v1/auth/devices` | ✅ Returns `devices` array |
+| 9-15 | Remaining | OTP flow + auth sub-checks | ✅ All passed |
+
+Test script: `/tmp/backend_test.sh` (bash + curl + python3, runs against `localhost:8001` and `localhost:8080`)
+
 ---
 
 ## Completed Audits
