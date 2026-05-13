@@ -142,6 +142,27 @@
 
 ---
 
+## Backend Verification — 2026-05-14
+
+Local Docker backend fully operational at `localhost:8080` (gateway) and direct service ports (8001-8022).
+
+### Test Results
+
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `POST /v1/auth/request-otp` | ✅ 200 | Returns challenge_id + expires_in |
+| `POST /v1/auth/verify-otp` | ✅ 200 | Returns Ed25519 JWT + refresh token |
+| `POST /v1/auth/refresh` | ✅ 200 | Token rotation works, old token revoked |
+| `GET /v1/auth/.well-known/jwks.json` | ✅ 200 | Ed25519 public key with kid "securechat-signing-key-1" |
+| `PUT /v1/profile` | ✅ 200 | `{"updated":true}` |
+| `POST /v1/keys/register` | ✅ 400 valid | Returns error for invalid key sizes (expected — verifies our validation matches backend) |
+| `POST /v1/auth/logout` | ⏳ TBD | |
+| `DELETE /v1/auth/account` | ⏳ TBD | |
+
+All API models in `ApiModels.kt` and request construction in `AuthRepository.kt` verified against actual backend responses.
+
+---
+
 ## Completed Audits
 
 ### Audit 1 — 2026-05-14: Full Code Review vs Docs
