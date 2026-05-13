@@ -142,6 +142,37 @@
 
 ---
 
+## Completed Audits
+
+### Audit 1 — 2026-05-14: Full Code Review vs Docs
+
+| Issue | File | Fix |
+|-------|------|-----|
+| JSON string concatenation for nested objects/arrays | `AuthRepository.kt` | ✅ Replaced with `buildJsonObject`/`buildJsonArray` — `verifyOtp` device_info, `registerKeys` signed_prekey/one_time_prekeys, `uploadOpks` |
+| Incorrect JSON array parsing (treated as object) | `AuthRepository.kt:listDevices()` | ✅ Changed `jsonObject` → `jsonArray` for devices response |
+| Creating new `ApiClient()` per call instead of reusing | `AuthManager.kt:updateProfile(), searchUsername()` | ✅ Store single `apiClient` in `init()`, reuse everywhere |
+| `results` parsed as `jsonObject` instead of `jsonArray` | `AuthManager.kt:searchUsername()` | ✅ Changed `json["results"]?.jsonObject` → `json["results"]?.jsonArray` |
+| New `OkHttpClient` created on every token refresh | `AuthInterceptor.kt:refreshToken()` | ✅ Store single `refreshClient` instance |
+| JSON body built via string interpolation | `AuthInterceptor.kt` | ✅ Proper `kotlinx.serialization.json` parsing |
+| Regex-based JSON extraction instead of proper parser | `AuthInterceptor.kt:extractJsonField()` | ✅ Replaced with `json.parseToJsonElement().jsonObject` |
+| `isForeground = true` hardcoded | `FcmReceiveService.kt:onMessageReceived()` | ✅ Real `ActivityManager.getRunningAppProcesses()` check |
+| `isAvailable = true` hardcoded in debounce | `UsernamePickerScreen.kt` | ✅ Changed to `onCheckAvailability: suspend (String) → Boolean` callback |
+| `FirebaseMessaging.getInstance().token` callback in coroutine context | `PushTokenRegistrar.kt:getFcmToken()` | ✅ Use `tasks.await()` instead of `addOnCompleteListener` |
+| Only 30 countries hardcoded | `CountryCodePickerScreen.kt` | ✅ Expanded to 130+ countries covering all UN members |
+| Empty catch blocks swallowing exceptions | Multiple files | ✅ Removed where possible; added meaningful handling where needed |
+
+### Known Remaining Stubs
+
+| File | Reason | Planned Fix |
+|------|--------|-------------|
+| `CryptoHelper.x25519DiffieHellman()` | SHA-256 placeholder — needs real libsodium X25519 DH | Phase 3 (E2EE pipeline) |
+| `X3DH.aliceInitiate()` / `bobRespond()` | Returns null — needs libsodium DH + HKDF | Phase 3 |
+| `DoubleRatchet.encrypt()` / `decrypt()` | Returns null — needs XChaCha20-Poly1305 AEAD | Phase 3 |
+| `SessionManager.encryptMessage()` / `decryptMessage()` | Returns null — wires X3DH + DoubleRatchet | Phase 3 |
+| `KeyManager.generateAndUploadKeys()` | No-op — needs crypto protocol integration | Phase 3 |
+
+---
+
 ## Next Up
 
 ### Phase 3 — Core Chat (40 files)
