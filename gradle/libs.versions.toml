@@ -1,5 +1,6 @@
 [versions]
 kotlin = "2.0.21"
+kotlin-reflect = "2.0.21"
 agp = "8.7.3"
 coroutines = "1.9.0"
 compose-bom = "2024.12.01"
@@ -24,6 +25,7 @@ play-services-auth = "18.1.0"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin-reflect" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
