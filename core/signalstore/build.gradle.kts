@@ -21,6 +21,8 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(project(":core:base"))
     implementation(project(":core:database"))
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)

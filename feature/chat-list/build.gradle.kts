@@ -32,6 +32,8 @@ dependencies {
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     implementation(project(":core:model"))
     implementation(project(":core:protos"))
     implementation(project(":feature:chat"))

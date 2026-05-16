@@ -243,7 +243,7 @@ object MessageSendPipeline {
         if (isTyping && now - lastTypingTs < 3000) return
         if (isTyping) lastTypingTs = now
 
-        val payload = CryptoHelper.base64UrlEncode(if (isTyping) "TYPING_START" else "TYPING_STOP")
+        val payload = CryptoHelper.base64UrlEncode((if (isTyping) "TYPING_START" else "TYPING_STOP").encodeToByteArray())
         val encrypted = SessionManager.encryptMessage(recipientUserId, payload.encodeToByteArray()) ?: return
 
         scope.launch {

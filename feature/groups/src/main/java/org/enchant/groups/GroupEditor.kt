@@ -3,6 +3,7 @@ package org.enchant.groups
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
 
@@ -185,7 +186,7 @@ class GroupEditor(
     }
 
     private fun updateRevision(json: kotlinx.serialization.json.JsonObject) {
-        json["revision"]?.kotlinx.serialization.json.jsonPrimitive?.content?.let {
+        json["revision"]?.jsonPrimitive?.content?.let {
             revision = it
         }
     }

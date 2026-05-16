@@ -31,13 +31,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 db.execSQL("PRAGMA foreign_keys = ON")
                 createTables(db)
             }
-
-            override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-                (Thread.currentThread().contextClassLoader?.loadClass("kotlinx.coroutines.runBlocking")
-                    ?.getMethod("runBlocking", kotlinx.coroutines.CoroutineScope::class.java)
-                    ?.invoke(null, kotlinx.coroutines.GlobalScope))?.let {}
-            }
-
+            override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
             override fun onConfigure(db: SQLiteDatabase) {
                 db.enableWriteAheadLogging()
             }

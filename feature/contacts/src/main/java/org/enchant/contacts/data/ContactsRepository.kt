@@ -2,7 +2,9 @@ package org.enchant.contacts.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -80,30 +82,32 @@ class ContactsRepository(
                     contacts
                 },
                 onFailure = {
-                    pool.read { db ->
+                    pool.readWith { db ->
                         CursorMapper.mapToList<RecipientEntity>(
-                            db.query("SELECT * FROM recipients", null)
+                            db.rawQuery("SELECT * FROM recipients", null)
                         ).map { Contact(userId = it.recipientId, username = it.username, displayName = it.displayName) }
                     }
                 }
             )
         } catch (e: Exception) {
-            pool.read { db ->
+            pool.readWith { db ->
                 CursorMapper.mapToList<RecipientEntity>(
-                    db.query("SELECT * FROM recipients", null)
+                    db.rawQuery("SELECT * FROM recipients", null)
                 ).map { Contact(userId = it.recipientId, username = it.username, displayName = it.displayName) }
             }
         }
     }
 
     fun getCachedContacts(): Flow<List<Contact>> = callbackFlow {
-        val entities = pool.read { db ->
-            CursorMapper.mapToList<RecipientEntity>(
-                db.query("SELECT * FROM recipients ORDER BY display_name ASC", null)
-            )
+        val collectJob = launch {
+            val entities = pool.readWith { db ->
+                CursorMapper.mapToList<RecipientEntity>(
+                    db.rawQuery("SELECT * FROM recipients ORDER BY display_name ASC", null)
+                )
+            }
+            trySend(entities.map { Contact(userId = it.recipientId, username = it.username, displayName = it.displayName) })
         }
-        trySend(entities.map { Contact(userId = it.recipientId, username = it.username, displayName = it.displayName) })
-        awaitClose {}
+        awaitClose { collectJob.cancel() }
     }
 
     suspend fun removeContact(contactUserId: String): ContactResult {

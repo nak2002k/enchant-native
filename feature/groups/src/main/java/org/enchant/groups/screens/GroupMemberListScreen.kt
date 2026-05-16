@@ -86,7 +86,7 @@ fun GroupMemberListScreen(
                                     "ADMIN" -> Icons.Default.Shield to MaterialTheme.colorScheme.tertiary
                                     else -> null to null
                                 }
-                                if (icon != null) {
+                                if (icon != null && tint != null) {
                                     Icon(icon, member.role, tint = tint, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                 }

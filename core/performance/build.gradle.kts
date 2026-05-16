@@ -23,6 +23,8 @@ dependencies {
     implementation(libs.workmanager)
     implementation(project(":core:base"))
     implementation(project(":core:database"))
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)

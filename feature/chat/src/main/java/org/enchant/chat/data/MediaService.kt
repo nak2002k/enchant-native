@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import org.enchant.core.base.AppConfig
 import org.enchant.core.crypto.CryptoHelper
 import org.enchant.core.network.ApiClient
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.util.UUID
 
@@ -43,7 +44,7 @@ object MediaService {
 
     fun pickImage(fromCamera: Boolean): Intent {
         val ctx = AppConfig.applicationContext ?: return Intent()
-        if (fromCamera) {
+        return if (fromCamera) {
             val photoFile = createTempFile(ctx, "photo_", ".jpg")
             val uri = FileProvider.getUriForFile(
                 ctx, "${ctx.packageName}.fileprovider", photoFile
@@ -81,7 +82,7 @@ object MediaService {
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setAudioSamplingRate(44100)
-                setAudioBitRate(128000)
+                setAudioEncodingBitRate(128000)
                 setOutputFile(file.absolutePath)
                 prepare()
                 start()
@@ -156,7 +157,7 @@ object MediaService {
                 val client = apiClient!!
                 val response = client.postRaw("/v1/media/upload", encryptedData, mimeType)
                 val json = response.getOrNull() ?: return@withContext Result.failure(Exception("Upload failed"))
-                val mediaId = json["media_id"]?.kotlinx.serialization.json.jsonPrimitive?.content
+                val mediaId = json["media_id"]?.jsonPrimitive?.content
                     ?: return@withContext Result.failure(Exception("No media_id in response"))
 
                 Result.success(MediaUploadResult(

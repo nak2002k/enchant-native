@@ -34,6 +34,8 @@ dependencies {
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)

@@ -6,6 +6,7 @@ import android.text.util.Linkify
 import android.util.Patterns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.regex.Pattern
 import org.enchant.core.network.ApiClient
 

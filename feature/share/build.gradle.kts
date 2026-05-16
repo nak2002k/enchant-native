@@ -30,6 +30,8 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(project(":core:base"))
     implementation(project(":core:database"))
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     implementation(project(":core:network"))
     implementation(project(":feature:chat"))
     testImplementation(libs.junit5.api)

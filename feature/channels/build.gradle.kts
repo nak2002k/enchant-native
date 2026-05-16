@@ -33,6 +33,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:database"))
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:protos"))

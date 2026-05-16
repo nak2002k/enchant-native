@@ -1,8 +1,10 @@
 package org.enchant.groups.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -121,7 +123,7 @@ class GroupsRepository(
                         Group(
                             groupId = obj["group_id"]?.jsonPrimitive?.content ?: "",
                             name = obj["name"]?.jsonPrimitive?.content ?: "",
-                            role = obj["role"]?.jsonPrimitive?.content ?: "member",
+                            myRole = obj["role"]?.jsonPrimitive?.content ?: "member",
                             memberCount = obj["member_count"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
                         )
                     } ?: emptyList()
@@ -137,28 +139,30 @@ class GroupsRepository(
                     groups
                 },
                 onFailure = {
-                    pool.read { db ->
+                    pool.readWith { db ->
                         CursorMapper.mapToList<GroupEntity>(
-                            db.query("SELECT * FROM groups_table", null)
+                            db.rawQuery("SELECT * FROM groups_table", null)
                         ).map { Group(groupId = it.groupId, name = it.name, myRole = it.myRole, memberCount = it.memberCount) }
                     }
                 }
             )
         } catch (e: Exception) {
-            pool.read { db ->
+            pool.readWith { db ->
                 CursorMapper.mapToList<GroupEntity>(
-                    db.query("SELECT * FROM groups_table", null)
+                    db.rawQuery("SELECT * FROM groups_table", null)
                 ).map { Group(groupId = it.groupId, name = it.name, myRole = it.myRole, memberCount = it.memberCount) }
             }
         }
     }
 
     fun getCachedGroups(): Flow<List<Group>> = callbackFlow {
-        val entities = pool.read { db ->
-            CursorMapper.mapToList<GroupEntity>(db.query("SELECT * FROM groups_table ORDER BY name", null))
+        val collectJob = launch {
+            val entities = pool.readWith { db ->
+                CursorMapper.mapToList<GroupEntity>(db.rawQuery("SELECT * FROM groups_table ORDER BY name", null))
+            }
+            trySend(entities.map { Group(groupId = it.groupId, name = it.name, myRole = it.myRole, memberCount = it.memberCount) })
         }
-        trySend(entities.map { Group(groupId = it.groupId, name = it.name, myRole = it.myRole, memberCount = it.memberCount) })
-        awaitClose {}
+        awaitClose { collectJob.cancel() }
     }
 
     suspend fun getGroupInfo(groupId: String): GroupResult {

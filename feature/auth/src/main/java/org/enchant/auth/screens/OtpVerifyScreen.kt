@@ -51,7 +51,7 @@ fun OtpVerifyScreen(
 
             OutlinedTextField(
                 value = code,
-                onValueChange = { newValue ->
+                onValueChange = { newValue: String ->
                     if (newValue.length <= 6 && newValue.all { it.isDigit() }) {
                         code = newValue
                         if (newValue.length == 6) {

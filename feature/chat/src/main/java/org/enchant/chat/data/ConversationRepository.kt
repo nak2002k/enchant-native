@@ -1,7 +1,9 @@
 package org.enchant.chat.data
 
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MessageDao
@@ -31,7 +33,7 @@ class ConversationRepository(
     fun getConversations(filter: ConversationFilter = ConversationFilter.ALL): Flow<List<Conversation>> = callbackFlow {
         val allConversations = conversationDao.getAll()
         val allConversationsList = mutableListOf<ConversationEntity>()
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = launch {
             allConversations.collect { list ->
                 allConversationsList.clear()
                 allConversationsList.addAll(list)
@@ -57,7 +59,7 @@ class ConversationRepository(
         awaitClose { collectJob.cancel() }
     }
 
-    suspend fun getMessagePage(conversationId: String, cursor: Long? = null, limit: Int = 50): MessagePage = pool.read { db ->
+    suspend fun getMessagePage(conversationId: String, cursor: Long? = null, limit: Int = 50): MessagePage = pool.readWith { db ->
         val cursorClause = if (cursor != null) "AND local_id < ?" else ""
         val args = mutableListOf(conversationId)
         cursor?.let { args.add(it.toString()) }
@@ -87,14 +89,25 @@ class ConversationRepository(
         pool.write { db ->
             db.beginTransaction()
             try {
-                messageDao.insert(message)
-                conversationDao.upsert(ConversationEntity(
-                    conversationId = message.conversationId,
-                    type = conversationType,
-                    lastMessage = message.content.take(100),
-                    lastMessageEnvelopeId = message.envelopeId,
-                    lastMessageTimestamp = message.timestamp,
-                    unreadCount = 0
+                db.execSQL("""
+                    INSERT OR IGNORE INTO messages
+                        (conversation_id, sender_id, envelope_id, message_type,
+                         content, status, timestamp, server_ts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, arrayOf(
+                    message.conversationId, message.senderId, message.envelopeId,
+                    message.messageType, message.content, message.status,
+                    message.timestamp.toString(), message.serverTs?.toString()
+                ))
+                db.execSQL("""
+                    INSERT OR REPLACE INTO conversations
+                        (conversation_id, type, last_message, last_message_envelope_id,
+                         last_message_timestamp, unread_count)
+                    VALUES (?, ?, ?, ?, ?, 0)
+                """, arrayOf(
+                    message.conversationId, conversationType,
+                    message.content.take(100), message.envelopeId,
+                    message.timestamp.toString()
                 ))
                 db.setTransactionSuccessful()
             } finally {
@@ -182,7 +195,7 @@ class ConversationRepository(
 
     fun searchConversations(query: String): Flow<List<Conversation>> = callbackFlow {
         val flow = conversationDao.search(query)
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = launch {
             flow.collect { entities ->
                 trySend(entities.map { Conversation.fromEntity(it) })
             }
@@ -192,7 +205,7 @@ class ConversationRepository(
 
     fun searchMessages(query: String): Flow<List<Message>> = callbackFlow {
         val flow = messageDao.searchMessages(query)
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = launch {
             flow.collect { entities ->
                 trySend(entities.map { Message.fromEntity(it) })
             }
@@ -212,7 +225,7 @@ class ConversationRepository(
         db.execSQL("UPDATE conversations SET disappear_timer_seconds = ? WHERE conversation_id = ?", arrayOf(timerSeconds.toString(), conversationId))
     }
 
-    suspend fun getPinnedMessages(conversationId: String): List<Message> = pool.read { db ->
+    suspend fun getPinnedMessages(conversationId: String): List<Message> = pool.readWith { db ->
         db.query("SELECT * FROM messages WHERE conversation_id = ? AND is_starred = 1 AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 10", arrayOf(conversationId))
             .use { org.enchant.core.database.util.CursorMapper.mapToList<MessageEntity>(it) }
             .map { Message.fromEntity(it) }
