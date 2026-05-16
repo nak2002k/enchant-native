@@ -1,2 +1,3 @@
 #!/bin/sh
-exec "$(dirname "$0")/gradlew" "$@"
+GRADLE=$(which gradle 2>/dev/null || echo "$(dirname "$0")/gradlew")
+exec "$GRADLE" "$@"

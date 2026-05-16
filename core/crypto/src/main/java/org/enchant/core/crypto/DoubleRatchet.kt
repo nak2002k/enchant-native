@@ -11,6 +11,7 @@ data class RatchetState(
     val sendingMessageNumber: Int = 0,
     val receivingChainKey: ByteArray? = null,
     val receivingRatchetKeyPublic: ByteArray? = null,
+    val receivingRatchetKeyPrivate: ByteArray? = null,
     val receivingMessageNumber: Int = 0,
     val previousSendingChainLength: Int = 0,
     val skippedMessageKeys: MutableMap<String, MessageKey> = mutableMapOf(),
@@ -23,6 +24,7 @@ data class RatchetState(
         sendingRatchetKeyPrivate?.let { CryptoHelper.zeroBytes(it) }
         receivingChainKey?.let { CryptoHelper.zeroBytes(it) }
         receivingRatchetKeyPublic?.let { CryptoHelper.zeroBytes(it) }
+        receivingRatchetKeyPrivate?.let { CryptoHelper.zeroBytes(it) }
         skippedMessageKeys.values.forEach { CryptoHelper.zeroBytes(it.key) }
     }
 }
@@ -47,10 +49,8 @@ data class RatchetMessage(
 
 object DoubleRatchet {
     private const val MAX_SKIPPED_KEYS = 1000
-    private const val HEADER_SIZE = 44
     private const val DH_KEY_SIZE = 32
-    private const val MSG_NUM_SIZE = 4
-    private const val PCL_SIZE = 4
+    private const val HEADER_SIZE = 128
 
     fun initializeAsAlice(
         sharedSecret: ByteArray,
@@ -95,6 +95,7 @@ object DoubleRatchet {
             rootKey = rootMaterial.copyOfRange(0, 32),
             receivingChainKey = rootMaterial.copyOfRange(32, 64),
             receivingRatchetKeyPublic = receivingKeyPair.publicKey,
+            receivingRatchetKeyPrivate = receivingKeyPair.privateKey,
             receivingMessageNumber = 0
         )
     }
@@ -130,8 +131,11 @@ object DoubleRatchet {
         val ciphertext = CryptoHelper.encryptAesGcm(plaintext, msgKey.key)
         val headerNonce = msgKey.nonce
 
-        val header = ByteBuffer.allocate(HEADER_SIZE).order(ByteOrder.BIG_ENDIAN).apply {
-            put(s.sendingRatchetKeyPublic ?: ByteArray(DH_KEY_SIZE))
+        val dhKey = s.sendingRatchetKeyPublic ?: ByteArray(DH_KEY_SIZE)
+        val header = ByteBuffer.allocate(4 + 4 + dhKey.size + 4 + 4 + 4).order(ByteOrder.BIG_ENDIAN).apply {
+            putInt(dhKey.size)
+            putInt(0)
+            put(dhKey)
             putInt(s.sendingMessageNumber)
             putInt(s.receivingMessageNumber)
             putInt(s.previousSendingChainLength)
@@ -151,7 +155,12 @@ object DoubleRatchet {
         val header = parseHeader(message.header) ?: return Pair(s, ByteArray(0))
 
         if (header.dhPublicKey.contentEquals(s.receivingRatchetKeyPublic).not()) {
-            val dhOut = CryptoHelper.x25519DiffieHellman(s.sendingRatchetKeyPrivate!!, header.dhPublicKey)
+            val dhPriv = s.receivingRatchetKeyPrivate ?: s.sendingRatchetKeyPrivate ?: return Pair(s, ByteArray(0))
+            val dhOut = try {
+                CryptoHelper.x25519DiffieHellman(dhPriv, header.dhPublicKey)
+            } catch (_: Exception) {
+                return Pair(s, ByteArray(0))
+            }
             val rootMaterial = CryptoHelper.hkdfSha256(s.rootKey + dhOut, ByteArray(32), "EnchantRatchet".encodeToByteArray(), 64)
             CryptoHelper.zeroBytes(dhOut)
 
@@ -226,7 +235,7 @@ object DoubleRatchet {
     }
 
     fun serializeState(state: RatchetState): ByteArray {
-        val buf = ByteBuffer.allocate(1024).order(ByteOrder.BIG_ENDIAN)
+        val buf = ByteBuffer.allocate(2048).order(ByteOrder.BIG_ENDIAN)
         buf.putInt(state.version)
         buf.putInt(state.rootKey.size)
         buf.put(state.rootKey)
@@ -235,15 +244,21 @@ object DoubleRatchet {
         state.sendingChainKey?.let { buf.put(it) }
         val hasSendingKey = state.sendingRatchetKeyPublic != null
         buf.putInt(if (hasSendingKey) 1 else 0)
-        state.sendingRatchetKeyPublic?.let { buf.put(it) }
-        state.sendingRatchetKeyPrivate?.let { buf.put(it) }
+        state.sendingRatchetKeyPublic?.let { pk ->
+            buf.putInt(pk.size); buf.put(pk)
+        }
+        state.sendingRatchetKeyPrivate?.let { pk ->
+            buf.putInt(pk.size); buf.put(pk)
+        }
         buf.putInt(state.sendingMessageNumber)
 
         buf.putInt(if (state.receivingChainKey != null) 1 else 0)
         state.receivingChainKey?.let { buf.put(it) }
         val hasReceivingKey = state.receivingRatchetKeyPublic != null
         buf.putInt(if (hasReceivingKey) 1 else 0)
-        state.receivingRatchetKeyPublic?.let { buf.put(it) }
+        state.receivingRatchetKeyPublic?.let { pk ->
+            buf.putInt(pk.size); buf.put(pk)
+        }
         buf.putInt(state.receivingMessageNumber)
         buf.putInt(state.previousSendingChainLength)
 
@@ -264,14 +279,14 @@ object DoubleRatchet {
             val hasSendingChain = buf.getInt() == 1
             val sendingChainKey = if (hasSendingChain) { val k = ByteArray(32); buf.get(k); k } else null
             val hasSendingRatchet = buf.getInt() == 1
-            val sendingRatchetPublic = if (hasSendingRatchet) { val k = ByteArray(32); buf.get(k); k } else null
-            val sendingRatchetPrivate = if (hasSendingRatchet) { val k = ByteArray(32); buf.get(k); k } else null
+            val sendingRatchetPublic = if (hasSendingRatchet) { val k = ByteArray(buf.getInt()); buf.get(k); k } else null
+            val sendingRatchetPrivate = if (sendingRatchetPublic != null) { val k = ByteArray(buf.getInt()); buf.get(k); k } else null
             val sendingMsgNum = buf.getInt()
 
             val hasReceivingChain = buf.getInt() == 1
             val receivingChainKey = if (hasReceivingChain) { val k = ByteArray(32); buf.get(k); k } else null
             val hasReceivingRatchet = buf.getInt() == 1
-            val receivingRatchetPublic = if (hasReceivingRatchet) { val k = ByteArray(32); buf.get(k); k } else null
+            val receivingRatchetPublic = if (hasReceivingRatchet) { val k = ByteArray(buf.getInt()); buf.get(k); k } else null
             val receivingMsgNum = buf.getInt()
             val pcl = buf.getInt()
 
@@ -295,7 +310,9 @@ object DoubleRatchet {
     private fun parseHeader(data: ByteArray): RatchetHeader? {
         return try {
             val buf = ByteBuffer.wrap(data).order(ByteOrder.BIG_ENDIAN)
-            val dhKey = ByteArray(32); buf.get(dhKey)
+            val dhKeySize = buf.getInt()
+            buf.getInt()
+            val dhKey = ByteArray(if (dhKeySize in 1..128) dhKeySize else 32); buf.get(dhKey)
             val ns = buf.getInt()
             val nr = buf.getInt()
             val pcl = buf.getInt()

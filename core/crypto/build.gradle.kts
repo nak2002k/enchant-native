@@ -15,6 +15,10 @@ android {
     }
 }
 
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
 dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
@@ -22,6 +26,8 @@ dependencies {
     implementation(libs.protobuf.javalite)
     implementation(libs.bouncycastle)
     implementation(libs.workmanager)
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
 
     implementation(project(":core:base"))
     implementation(project(":core:database"))
@@ -32,4 +38,5 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }

@@ -53,7 +53,7 @@ object CryptoHelper {
         val privateKey = factory.generatePrivate(keySpec)
         val xdhFactory = KeyFactory.getInstance("XDH")
         val params = NamedParameterSpec("X25519")
-        val xdhSpec = XECPrivateKeySpec(params, sk.copyOfRange(2, 34))
+        val xdhSpec = XECPrivateKeySpec(params, sk.copyOfRange(sk.size - 32, sk.size))
         val xdhPrivate = xdhFactory.generatePrivate(xdhSpec)
         return xdhPrivate.encoded
     }
@@ -151,6 +151,7 @@ object CryptoHelper {
     }
 
     fun sha256(data: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(data)
+    fun sha384(data: ByteArray): ByteArray = MessageDigest.getInstance("SHA-384").digest(data)
     fun sha512(data: ByteArray): ByteArray = MessageDigest.getInstance("SHA-512").digest(data)
 
     fun constantTimeEquals(a: ByteArray, b: ByteArray): Boolean {
@@ -170,7 +171,8 @@ object CryptoHelper {
 
     private fun hmacSha256(key: ByteArray, data: ByteArray): ByteArray {
         val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(key, "HmacSHA256"))
+        val k = if (key.size > 64) MessageDigest.getInstance("SHA-256").digest(key) else key
+        mac.init(SecretKeySpec(k, "HmacSHA256"))
         return mac.doFinal(data)
     }
 
