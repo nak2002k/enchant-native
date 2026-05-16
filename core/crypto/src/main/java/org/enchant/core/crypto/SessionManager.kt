@@ -128,6 +128,8 @@ object SessionManager {
         return hex.chunked(4).joinToString("-").take(47)
     }
 
+    fun getIdentityKey(userId: String): ByteArray? = identityKeys[userId]
+
     fun setIdentityKey(userId: String, publicKey: ByteArray) {
         identityKeys[userId] = publicKey
     }

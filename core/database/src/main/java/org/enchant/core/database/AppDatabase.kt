@@ -185,6 +185,17 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                     emoji TEXT, position INTEGER, PRIMARY KEY(pack_id, sticker_id)
                 )
             """)
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS reactions (
+                    message_local_id INTEGER NOT NULL,
+                    emoji TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    conversation_id TEXT NOT NULL,
+                    PRIMARY KEY(message_local_id, user_id, emoji)
+                )
+            """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_reactions_msg ON reactions(message_local_id)")
+
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_stickers_pack ON installed_stickers(pack_id)")
         }
     }

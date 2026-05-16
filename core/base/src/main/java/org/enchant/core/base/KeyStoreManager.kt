@@ -156,6 +156,22 @@ object KeyStoreManager {
         }
     }
 
+    suspend fun getOrCreateDatabaseKey(): ByteArray {
+        val alias = KEY_ALIAS_DB_ENCRYPTION
+        if (!keyExists(alias)) {
+            generateKey(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+        }
+        val raw = SecurePreferences.getString("db.passphrase")
+        if (raw == null) {
+            val key = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+            val wrapped = encrypt(alias, key) ?: throw IllegalStateException("Failed to encrypt DB key")
+            SecurePreferences.putString("db.passphrase", wrapped.joinToString(",") { it.toString() })
+            return key
+        }
+        val bytes = raw.split(",").map { it.toInt().toByte() }.toByteArray()
+        return decrypt(alias, bytes) ?: throw IllegalStateException("Failed to decrypt DB key")
+    }
+
     fun isHardwareBacked(): Boolean = _isHardwareBacked
 
     private fun getKeyStore(): KeyStore {

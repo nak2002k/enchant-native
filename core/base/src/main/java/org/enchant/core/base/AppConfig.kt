@@ -4,6 +4,8 @@ import android.content.Context
 
 object AppConfig {
     private var initialized = false
+    var applicationContext: Context? = null
+        private set
     private var _gatewayUrl: String = ""
     private var _wsUrl: String = ""
     private var _turnUrl: String? = null
@@ -32,6 +34,7 @@ object AppConfig {
 
     fun init(context: Context) {
         if (initialized) return
+        applicationContext = context
         val prefs = context.getSharedPreferences("enchant_config", Context.MODE_PRIVATE)
 
         _gatewayUrl = prefs.getString("gateway_url", "https://api.enchant.app")

@@ -31,6 +31,14 @@ object SecurePreferences {
         return prefs?.getString(key, default)
     }
 
+    fun putInt(key: String, value: Int) {
+        prefs?.edit()?.putInt(key, value)?.apply()
+    }
+
+    fun getInt(key: String, default: Int = 0): Int {
+        return prefs?.getInt(key, default) ?: default
+    }
+
     fun putLong(key: String, value: Long) {
         prefs?.edit()?.putLong(key, value)?.apply()
     }

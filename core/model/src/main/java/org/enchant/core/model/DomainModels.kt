@@ -1,0 +1,76 @@
+package org.enchant.core.model
+
+import org.enchant.core.database.entity.ConversationEntity
+import org.enchant.core.database.entity.MessageEntity
+
+data class Conversation(
+    val id: String,
+    val type: ConversationType,
+    val lastMessage: String? = null,
+    val lastMessageTimestamp: Long? = null,
+    val unreadCount: Int = 0,
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false,
+    val isMuted: Boolean = false,
+    val muteUntil: Long? = null,
+    val disappearTimerSeconds: Int = 0
+) {
+    companion object {
+        fun fromEntity(e: ConversationEntity): Conversation = Conversation(
+            id = e.conversationId,
+            type = ConversationType.valueOf(e.type.uppercase()),
+            lastMessage = e.lastMessage,
+            lastMessageTimestamp = e.lastMessageTimestamp,
+            unreadCount = e.unreadCount,
+            isPinned = e.isPinned,
+            isArchived = e.isArchived,
+            isMuted = e.isMuted,
+            muteUntil = e.muteUntil,
+            disappearTimerSeconds = e.disappearTimerSeconds
+        )
+    }
+}
+
+enum class ConversationType { DIRECT, GROUP, CHANNEL }
+
+data class Message(
+    val localId: Long = 0,
+    val conversationId: String,
+    val senderId: String,
+    val content: String,
+    val status: MessageStatus,
+    val timestamp: Long,
+    val isEdited: Boolean = false,
+    val isStarred: Boolean = false,
+    val isDeleted: Boolean = false,
+    val mediaKey: String? = null,
+    val mediaMimeType: String? = null,
+    val mediaSize: Long? = null,
+    val replyToEnvelopeId: String? = null
+) {
+    companion object {
+        fun fromEntity(e: MessageEntity): Message = Message(
+            localId = e.localId,
+            conversationId = e.conversationId,
+            senderId = e.senderId,
+            content = e.content,
+            status = MessageStatus.valueOf(e.status.uppercase()),
+            timestamp = e.timestamp,
+            isEdited = e.isEdited,
+            isStarred = e.isStarred,
+            isDeleted = e.isDeleted,
+            mediaKey = e.mediaKey,
+            mediaMimeType = e.mediaMimeType,
+            mediaSize = e.mediaSize,
+            replyToEnvelopeId = e.replyToEnvelopeId
+        )
+    }
+}
+
+enum class MessageStatus { SENDING, SENT, DELIVERED, READ, FAILED, PENDING }
+
+data class Reaction(val messageId: String, val emoji: String, val userId: String)
+data class Mention(val userId: String, val start: Int, val length: Int)
+data class BodyRange(val start: Int, val length: Int, val type: BodyRangeType, val value: String? = null)
+enum class BodyRangeType { BOLD, ITALIC, CODE, MENTION, LINK, SPOILER }
+data class LinkPreview(val url: String, val title: String?, val description: String?, val imageUrl: String?)

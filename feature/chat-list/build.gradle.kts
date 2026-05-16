@@ -10,7 +10,11 @@ android {
     defaultConfig { minSdk = 26 }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-    kotlinOptions { jvmTarget = "17" }
+    kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
 }
 
 dependencies {
@@ -25,8 +29,12 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.activity.compose)
     implementation(project(":core:base"))
+    implementation(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(project(":core:model"))
     implementation(project(":core:protos"))
+    implementation(project(":feature:chat"))
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)

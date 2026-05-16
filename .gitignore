@@ -40,3 +40,22 @@ local.properties
 google-services.json
 keystore.properties
 .env
+
+# Secrets & Keys
+**/secrets/**
+**/credentials/**
+*.p12
+*.pfx
+*.jks
+
+# Generated & Temp
+*.hprof
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Ensure build dirs covered
+**/build/
+**/out/
+**/.cxx/
