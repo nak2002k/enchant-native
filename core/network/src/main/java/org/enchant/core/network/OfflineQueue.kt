@@ -25,12 +25,57 @@ object OfflineQueue {
 
     val pendingCount: StateFlow<Int> = _pendingCount.asStateFlow()
 
+    suspend fun init() {
+        restoreFromDisk()
+    }
+
+    private suspend fun restoreFromDisk() {
+        val count = SecurePreferences.getInt("offline.queue.count", 0)
+        for (i in 0 until count) {
+            val data = SecurePreferences.getString("offline.queue.$i") ?: continue
+            try {
+                val parts = data.split("|", limit = 7)
+                if (parts.size == 7) {
+                    val msg = QueuedMessage(
+                        id = parts[0],
+                        recipientUserId = parts[1],
+                        recipientDeviceId = parts[2].ifEmpty { null },
+                        messageType = parts[3],
+                        payload = java.util.Base64.getUrlDecoder().decode(parts[4]),
+                        senderTs = parts[5].toLongOrNull() ?: 0L,
+                        createdAt = parts[6].toLongOrNull() ?: System.currentTimeMillis()
+                    )
+                    queue.offer(msg)
+                }
+            } catch (_: Exception) {}
+        }
+        _pendingCount.value = queue.size
+    }
+
+    private suspend fun persistToDisk() {
+        val items = queue.toList()
+        SecurePreferences.putInt("offline.queue.count", items.size)
+        items.forEachIndexed { i, msg ->
+            val data = listOf(
+                msg.id,
+                msg.recipientUserId,
+                msg.recipientDeviceId ?: "",
+                msg.messageType,
+                java.util.Base64.getUrlEncoder().encodeToString(msg.payload),
+                msg.senderTs.toString(),
+                msg.createdAt.toString()
+            ).joinToString("|")
+            SecurePreferences.putString("offline.queue.$i", data)
+        }
+    }
+
     suspend fun enqueue(message: QueuedMessage) {
         if (queue.size >= maxEntries) {
             queue.poll()
         }
         queue.offer(message)
         _pendingCount.value = queue.size
+        persistToDisk()
     }
 
     suspend fun drain() {
@@ -40,6 +85,7 @@ object OfflineQueue {
             batch.add(msg)
         }
         _pendingCount.value = 0
+        persistToDisk()
 
         for (msg in batch) {
             val outgoing = OutgoingMessage(
@@ -56,6 +102,7 @@ object OfflineQueue {
                 if (retried.retryCount < 5) {
                     queue.offer(retried)
                     _pendingCount.value = queue.size
+                    persistToDisk()
                 }
             }
         }
@@ -69,5 +116,6 @@ object OfflineQueue {
     suspend fun clearAll() {
         queue.clear()
         _pendingCount.value = 0
+        SecurePreferences.putInt("offline.queue.count", 0)
     }
 }
