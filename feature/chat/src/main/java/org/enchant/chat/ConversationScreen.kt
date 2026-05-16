@@ -227,6 +227,8 @@ fun ConversationScreen(
             },
             onDocument = {
                 showAttachments = false
+                val intent = org.enchant.chat.data.MediaService.pickDocument()
+                context.startActivity(intent)
             },
             onLocation = {
                 showAttachments = false
@@ -325,21 +327,22 @@ private fun ComposerBar(
             )
 
             if (text.isBlank()) {
+                var isPressed by remember { mutableStateOf(false) }
                 IconButton(
-                    onPress = {
-                        isRecording = true
-                        onVoiceStart()
-                    },
-                    onRelease = {
-                        isRecording = false
-                        onVoiceStop()
-                    },
-                    onClick = {}
+                    onClick = {
+                        if (!isPressed) {
+                            isPressed = true
+                            onVoiceStart()
+                        } else {
+                            isPressed = false
+                            onVoiceStop()
+                        }
+                    }
                 ) {
                     Icon(
-                        if (isRecording) Icons.Default.Mic else Icons.Default.Mic,
+                        if (isPressed) Icons.Default.Mic else Icons.Default.Mic,
                         "Voice message",
-                        tint = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        tint = if (isPressed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                     )
                 }
                 IconButton(onClick = onEmoji) {

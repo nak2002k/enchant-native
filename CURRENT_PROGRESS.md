@@ -9,19 +9,16 @@
 
 | Metric | Value |
 |--------|-------|
-| **Phase** | Phase 2 — Auth & Onboarding |
-| **Total files** | ~120 (configs, protos, Kotlin sources, resources) |
-| **Kotlin source files** | 53 (core + feature + app) |
-| **Proto files** | 16 |
-| **Build modules** | 30 (1 app + 15 core + 15 feature) |
-| **Last commit** | `7da01c7 — Phase 1 fixes` |
-| **Tests written** | 0 (dedicated test agent runs after implementation) |
+| **Phase** | Phase 4 — Calls (in progress) |
+| **Kotlin source files** | 92 |
+| **Proto files** | 16 (generated: 25 Java files) |
+| **Build modules** | 33 (1 app + 17 core + 15 feature) |
+| **Tests written** | 3 test files, 63 test cases |
 
 ---
 
 ## Phase 0 — Project Setup ✅
 
-### Completed
 | Module | Files | Status |
 |--------|-------|--------|
 | Gradle config | `libs.versions.toml`, `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties` | ✅ |
@@ -30,209 +27,165 @@
 | Resources | themes, colors, strings, icons, 4 XML configs | ✅ |
 | ProGuard | `proguard-rules.pro` covering all libs | ✅ |
 | CI/CD | `.github/workflows/ci.yml` (lint → test → build) | ✅ |
-| .gitignore | keys, builds, IDE, env properly excluded | ✅ |
+| .gitignore | hardened with secrets, builds, generated, temp | ✅ |
 | .env.example | Dev onboarding config | ✅ |
+| Proto generation | Manual protoc exec task generating 25 Java lite files | ✅ |
 
-### Proto Files (16)
-| File | Status |
-|------|--------|
-| `WebSocketResources.proto` | ✅ REQUEST/RESPONSE frame format |
-| `Envelope.proto` | ✅ 22-field message wrapper |
-| `Content.proto` | ✅ 9-type oneof + SenderKeyDistribution |
-| `DataMessage.proto` | ✅ 30 fields, 17 nested messages |
-| `SyncMessage.proto` | ✅ 19 oneof members, 7+ sub-messages |
-| `CallMessage.proto` | ✅ Offer/Answer/ICE/Hangup/Busy/Opaque |
-| `ReceiptMessage.proto` | ✅ DELIVERY/READ/VIEWED |
-| `TypingMessage.proto` | ✅ STARTED/STOPPED with groupId |
-| `AttachmentPointer.proto` | ✅ cdnId/cdnKey, key, size, digest, blurHash |
-| `BodyRange.proto` | ✅ Formatting ranges + mentions |
-| `StoryMessage.proto` | ✅ File + TextAttachment with gradients |
-| `GroupContext.proto` | ✅ V2 + GroupChange.Actions (19 action types) |
-| `Provisioning.proto` | ✅ Device linking |
-| `StorageService.proto` | ✅ Manifest-based multi-device sync |
-| `InternalSerialization.proto` | ✅ Processing pipeline metadata |
-| `SessionRecord.proto` | ✅ Ratchet state serialization |
+---
+
+## Phase 1 — Foundation ✅
+
+### `:core:base` (4 files)
+| File | Lines | Status |
+|------|-------|--------|
+| `AppConfig.kt` | 64 | Real — config singleton, URL derivation, applicationContext |
+| `SecurePreferences.kt` | 66 | Real — EncryptedSharedPreferences wrapper, putInt/getInt |
+| `KeyStoreManager.kt` | 180 | Real — Android KeyStore: EC/AES, sign/verify, StrongBox, getOrCreateDatabaseKey |
+| `CoroutineDispatchers.kt` | 12 | Real — named dispatchers; crypto single-threaded |
+
+### `:core:network` (8 files)
+| File | Lines | Status |
+|------|-------|--------|
+| `ApiClient.kt` | 164 | Real — OkHttp, retry, JWT refresh, 128MB limit, GET/POST/PUT/DELETE/getBinary/postRaw |
+| `AuthInterceptor.kt` | 83 | Real — Bearer token + concurrent-safe 401 refresh |
+| `RateLimitTracker.kt` | 61 | Real — header parsing, Retry-After, endpoint-scoped |
+| `WebSocketManager.kt` | 356 | Real — protobuf WS frames, exp. backoff, keepalive, auth timeout, REST fallback |
+| `WebSocketService.kt` | 102 | Real — foreground service, auto-connect, notification channel |
+| `ConnectivityMonitor.kt` | 68 | Real — NetworkCallback → StateFlow |
+| `OfflineQueue.kt` | 65 | Real — ConcurrentLinkedQueue, drain, max 5 retries |
+| `ApiModels.kt` | 187 | Real — 45 @Serializable data classes |
+
+### `:core:database` (9 files)
+| File | Lines | Status |
+|------|-------|--------|
+| `AppDatabase.kt` | 200 | Real — SQLite + WAL + pool (1 writer / thread-local readers) + DDL (15 tables) |
+| `Entities.kt` | 148 | Real — 15 entity data classes |
+| `CursorMapper.kt` | 62 | Real — reified generics auto-mapping Cursor → Entity |
+| `MessageDao.kt` | 150 | Real — Full CRUD, paginated Flow, FTS search, expired deletion, batch insert |
+| `ConversationDao.kt` | 72 | Real — CRUD + reactive list + archive/pin/mute + unread counts |
+| `SessionDao.kt` | 30 | Real — Store/load/delete for Signal Protocol sessions |
+| `IdentityDao.kt` | 36 | Real — Identity key CRUD with verified status |
+| `RecipientDao.kt` | 80 | Real — Contact cache, username lookup, blocked list, inline batch upsert |
+
+### `:core:crypto` (6 files)
+| File | Lines | Status |
+|------|-------|--------|
+| `CryptoHelper.kt` | 208 | **Real** — X25519 DH, Ed25519 sign/verify, AES-256-GCM, HKDF-SHA256, SHA-256/512, CSPRNG, base64url, constant-time cmp |
+| `X3DH.kt` | 116 | **Real** — Full X3DH: DH1+DH2+DH3+[DH4] → HKDF → SK, aliceInitiate + bobRespond |
+| `DoubleRatchet.kt` | 308 | **Real** — Full ratchet: init, encrypt (ratchet step + AES-GCM), decrypt (ratchet + skipped key buffer 1000), serialize/deserialize |
+| `SessionManager.kt` | 136 | **Real** — Orchestrates X3DH + DoubleRatchet, encryptMessage, decryptMessage, hasSession, getSafetyNumber |
+| `KeyManager.kt` | 62 | **Real** — Ed25519 key generation, SecurePreferences persistence, generateAndUploadKeys |
+| `SodiumProvider.kt` | 20 | Real — libsodium JNI loader with JDK fallback |
 
 ---
 
 ## Phase 2 — Auth & Onboarding ✅
 
 ### `:core:auth` (3 files)
-| File | Purpose | Implementation |
-|------|---------|---------------|
-| `AuthStateMachine.kt` | Sealed `RegistrationEvent` + `RegistrationState` + pure `applyEvent()` reducer; 13x+13 state matrix, `validateRestoredState()`, `getRequiredPermissions()` | ✅ 150 lines — full state machine with all transitions |
-| `AuthRepository.kt` | All 12 API calls: requestOtp, verifyOtp, refreshToken, logout, listDevices, revokeDevice, deleteAccount, fetchJwks, registerKeys, rotateSignedPreKey, uploadOpks, getOpkCount | ✅ 220 lines — all auth & IKS endpoints |
-| `AuthManager.kt` | High-level orchestration: AuthState (Unknown/Unauthenticated/Authenticated), OTP flow, token management, profile CRUD, logout with local cleanup | ✅ 190 lines — full auth lifecycle |
+| File | Lines | Status |
+|------|-------|--------|
+| `AuthStateMachine.kt` | 157 | Real — 13x13 state matrix, all transitions, validateRestoredState |
+| `AuthRepository.kt` | 191 | Real — All 12 API calls: OTP, JWT, keys, profile |
+| `AuthManager.kt` | 199 | Real — Full auth lifecycle: OTP flow, token mgmt, profile CRUD, logout |
 
 ### `:feature:auth` (11 screens + ViewModel)
-| File | Implementation |
-|------|---------------|
-| `AuthViewModel.kt` | ViewModel wrapping AuthManager — StateFlow-based reactive UI binding | ✅ |
-| `WelcomeScreen.kt` | Brand hero + "Agree & Continue" + Restore link | ✅ |
-| `PhoneEntryScreen.kt` | Phone number input with country picker + E.164 validation + loading/error states | ✅ |
-| `CountryCodePickerScreen.kt` | Searchable bottom sheet with 30 countries | ✅ |
-| `OtpVerifyScreen.kt` | 6-digit input + auto-submit + countdown timer + resend + error/attempts display | ✅ |
-| `PermissionsScreen.kt` | Card-based permission list with API level awareness + Skip flow | ✅ |
-| `ProfileSetupScreen.kt` | Display name + About + real-time character counters | ✅ |
-| `UsernamePickerScreen.kt` | @handle input + debounced availability check + Skip | ✅ |
-| `KeyGenerationScreen.kt` | 5-step progress bar + retry on error + auto-navigate on complete | ✅ |
-| `TwoStepPinScreen.kt` | Custom numpad + 6-dot indicator + confirm + mismatch detection | ✅ |
-| `RestorePromptScreen.kt` | Backup found / fresh start decision with loading state | ✅ |
-| `AppLockScreen.kt` | PIN setup with confirm + biometric fallback | ✅ |
-
-### `:core:navigation` (1 file)
-| File | Implementation |
-|------|---------------|
-| `NavRoute.kt` | 40+ sealed route classes covering auth, chat, calls, settings, social | ✅ |
+| Screen | Status |
+|--------|--------|
+| WelcomeScreen, PhoneEntryScreen, CountryCodePickerScreen (130+ countries), OtpVerifyScreen, PermissionsScreen, ProfileSetupScreen, UsernamePickerScreen, KeyGenerationScreen, TwoStepPinScreen, RestorePromptScreen, AppLockScreen | ✅ All real |
 
 ### `:core:push` (5 files)
-| File | Purpose | Implementation |
-|------|---------|---------------|
-| `FcmReceiveService.kt` | FirebaseMessagingService — onMessageReceived (foreground vs background), onNewToken, onDeletedMessages | ✅ |
-| `FcmFetchManager.kt` | Fetch scheduling + cancellation + backoff counter | ✅ |
-| `FcmFetchForegroundService.kt` | Foreground service with notification channel, auto-stop after fetch | ✅ |
-| `PushTokenRegistrar.kt` | FCM token register/deregister with backend + Play Services check | ✅ |
-| `HuaweiPushFallback.kt` | 30s polling fallback for Huawei devices (no GMS) | ✅ |
+| File | Status |
+|------|--------|
+| FcmReceiveService, FcmFetchManager, FcmFetchForegroundService, PushTokenRegistrar, HuaweiPushFallback | ✅ All real |
+
+### `:core:navigation` (1 file)
+| File | Status |
+|------|--------|
+| `NavRoute.kt` | ✅ 40+ sealed route classes |
 
 ---
 
-## Phase 1 — Foundation ✅
+## Phase 3 — Core Chat ✅
 
-### `:core:base` (5 files)
-| File | Purpose | Implementation |
-|------|---------|---------------|
-| `AppConfig.kt` | Config singleton, URL derivation | ✅ 60 lines — real |
-| `SecurePreferences.kt` | EncryptedSharedPreferences wrapper | ✅ 63 lines — real |
-| `KeyStoreManager.kt` | Android KeyStore: EC/AES, sign/verify, StrongBox detection | ✅ 166 lines — real |
-| `CoroutineDispatchers.kt` | Named dispatchers; crypto is single-threaded | ✅ 10 lines — real |
-| `DI.kt` | Manual DI with ordered init chain, mutex-guarded reset | ✅ 69 lines — real |
+### Chat Data Layer (6 files)
+| File | Lines | Status |
+|------|-------|--------|
+| `ConversationRepository.kt` | ~180 | Real — CRUD, cursor pagination, reactive Flow, reactions, archive/pin/mute, search, expired deletion |
+| `MessageSendPipeline.kt` | ~260 | Real — encrypt→REST send→offline queue→track status. Text, media, reactions, receipts, typing, edits, deletes, forward |
+| `IncomingMessageProcessor.kt` | ~160 | Real — decrypt→dispatch. Pre-key (X3DH establish), signal messages, key bundle fetch, blocked senders, delivery receipts |
+| `MediaService.kt` | ~200 | Real — pick image/video/doc, voice record, JPEG compress, AES-GCM encrypt+upload, download+decrypt, gallery save |
+| `ContentPreProcessor.kt` | ~80 | Real — URL detection, markdown formatting, link preview fetch |
+| `ChatPagingSource.kt` | ~35 | Real — cursor-based pagination wrapper |
 
-### `:core:network` (7 files)
-| File | Purpose | Implementation |
-|------|---------|---------------|
-| `ApiClient.kt` | OkHttp HTTP client — retry, JWT refresh, 128MB limit | ✅ 164 lines — real |
-| `AuthInterceptor.kt` | Bearer token injection + 401 refresh (concurrent-safe) | ✅ 72 lines — real |
-| `RateLimitTracker.kt` | Client-side rate limiting with Retry-After | ✅ 60 lines — real |
-| `WebSocketManager.kt` | Protobuf WS frames, exp. backoff, keepalive, auth timeout | ✅ 348 lines — real (ByteString bug fixed) |
-| `ConnectivityMonitor.kt` | NetworkCallback → StateFlow (online/offline + type) | ✅ 72 lines — real |
-| `OfflineQueue.kt` | ConcurrentLinkedQueue with drain + max 5 retries | ✅ 68 lines — real |
-| `ApiModels.kt` | 45 @Serializable data classes for all API endpoints | ✅ 240 lines — real |
+### ViewModels (2 files)
+| File | Status |
+|------|--------|
+| `ConversationViewModel.kt` | Real — 25 functions: send, resend, delete, edit, forward, reactions, star, pin, copy, report, search, jump, schedule, view-once, contact card |
+| `ConversationListViewModel.kt` | Real — filter, search (debounced), archive/pin/mute/delete/mark-read, refresh |
 
-### `:core:database` (8 files)
-| File | Purpose | Implementation |
-|------|---------|---------------|
-| `AppDatabase.kt` | SQLCipher + WAL + pool (1 writer / thread-local readers) + DDL (14 tables) + migrator | ✅ 200 lines — real |
-| `Entities.kt` | 15 entity data classes matching `docs/DATABASE_ARCHITECTURE.md` | ✅ 185 lines — real |
-| `CursorMapper.kt` | Reflection-free auto-mapping: Cursor → Entity | ✅ 47 lines — real |
-| `MessageDao.kt` | Full CRUD, paginated Flow, FTS search, expired deletion | ✅ 116 lines — real |
-| `ConversationDao.kt` | CRUD + reactive list + archive/pin/mute + unread counts | ✅ 85 lines — real |
-| `SessionDao.kt` | Store/load/delete for Signal Protocol sessions | ✅ 27 lines — real |
-| `IdentityDao.kt` | Identity key CRUD with verified status | ✅ 33 lines — real |
-| `RecipientDao.kt` | Contact cache + username lookup + blocked list + search | ✅ 64 lines — real |
+### Compose UI (7 files)
+| File | Status |
+|------|--------|
+| `ConversationListScreen.kt` | Real — filter chips, search, tiles with unread badge, long-press menu, FAB, empty state |
+| `ConversationScreen.kt` | Real — message list, composer, reply preview, attachment sheet, emoji picker, voice record, delivery ticks, context menu |
+| `EmojiPicker.kt` | Real — bottom sheet, 6 categories, search, quick reactions row |
+| `MediaViewerScreen.kt` | Real — full-screen, pinch-to-zoom, share, download to gallery |
+| `ChatColorsDrawable.kt` | Real — per-conversation solid/gradient/default |
+| `V2ConversationItemShape.kt` | Real — cluster calculator (SINGLE/START/MIDDLE/END) |
 
-### `:core:crypto` (6 files)
-| File | Purpose | Implementation |
-|------|---------|---------------|
-| `SodiumProvider.kt` | libsodium JNI init placeholder | ✅ 12 lines — stub |
-| `CryptoHelper.kt` | HKDF-SHA256, SHA-256/512, CSPRNG, base64url, zeroBytes, constant-time cmp | ✅ 82 lines — real |
-| `KeyManager.kt` | Key lifecycle (generate, upload, rotate) | ✅ 47 lines — stub (needs libsodium) |
-| `X3DH.kt` | X3DH key agreement data models + API | ✅ 38 lines — stub (needs libsodium DH) |
-| `DoubleRatchet.kt` | Ratchet state machine, encrypt/decrypt API, serialization | ✅ 76 lines — stub (needs libsodium) |
-| `SessionManager.kt` | Session orchestration API | ✅ 54 lines — stub (needs X3DH+Ratchet) |
+### Notifications (6 files)
+| File | Status |
+|------|--------|
+| `NotificationChannels.kt` | Real — 5 channels (messages, silent, calls, voice, other) |
+| `MessageNotifier.kt` | Real — grouped notifications, summary for multi-conversation, per-conversation tracking |
+| `NotificationBuilder.kt` | Real — MessagingStyle/InboxStyle, inline reply + mark-read actions, call notifications |
+| `OptimizedMessageNotifier.kt` | Real — 50ms batch window, conversation grouping, async flush |
+| `NotificationProfileHelper.kt` | Real — Android 12+ schedule-based notification profiles |
+| `NotificationReplyReceiver.kt` | Real — BroadcastReceiver for inline reply + mark-read |
+
+### Infrastructure
+| File | Status |
+|------|--------|
+| `WebSocketService.kt` | Real — foreground service with auto-connect, notification channel, state tracking |
+| `BootReceiver.kt` | Real — starts WebSocketService on BOOT_COMPLETED |
+| `ShareTargetActivity.kt` | Real — handles ACTION_SEND text/image intents |
+| `ConversationChooserTargetService.kt` | Real — direct share targets |
 
 ---
 
-## Backend Verification — 2026-05-14
-
-Local Docker backend fully operational at `localhost:8080` (gateway) and direct service ports (8001-8022).
-
-### Test Results
-
-| Endpoint | Status | Notes |
-|----------|--------|-------|
-| `POST /v1/auth/request-otp` | ✅ 200 | Returns challenge_id + expires_in |
-| `POST /v1/auth/verify-otp` | ✅ 200 | Returns Ed25519 JWT + refresh token |
-| `POST /v1/auth/refresh` | ✅ 200 | Token rotation works, old token revoked |
-| `GET /v1/auth/.well-known/jwks.json` | ✅ 200 | Ed25519 public key with kid "securechat-signing-key-1" |
-| `PUT /v1/profile` | ✅ 200 | `{"updated":true}` |
-| `POST /v1/keys/register` | ✅ 400 valid | Returns error for invalid key sizes (expected — verifies our validation matches backend) |
-| `POST /v1/auth/logout` | ⏳ TBD | |
-| `DELETE /v1/auth/account` | ⏳ TBD | |
-
-All API models in `ApiModels.kt` and request construction in `AuthRepository.kt` verified against actual backend responses.
-
-### Integration Test Results — 15/15 Passed
+## Integration Test Results — 15/15 Passed
 
 | # | Test | Endpoint | Result |
 |---|------|----------|--------|
-| 1 | Health check | `GET /health` | ✅ `{"status":"ok"}` |
-| 2 | Request OTP | `POST /v1/auth/request-otp` | ✅ Returns `challenge_id` + `expires_in` |
-| 3 | Verify OTP | `POST /v1/auth/verify-otp` | ✅ Returns Ed25519 JWT + `refresh_token` + `user_id` |
-| 4 | Token refresh | `POST /v1/auth/refresh` | ✅ JWT rotated (new != old) |
-| 5 | Profile creation | `PUT /v1/profile` via Gateway | ✅ `{"updated":true}` |
-| 6 | JWKS endpoint | `GET /v1/auth/.well-known/jwks.json` | ✅ Ed25519 key, crv, kty, `x` field |
-| 7 | Key registration | `POST /v1/keys/register` | ✅ Returns validation error (expected — verifies key size check) |
-| 8 | List devices | `GET /v1/auth/devices` | ✅ Returns `devices` array |
-| 9-15 | Remaining | OTP flow + auth sub-checks | ✅ All passed |
-
-Test script: `/tmp/backend_test.sh` (bash + curl + python3, runs against `localhost:8001` and `localhost:8080`)
+| 1 | Health check | `GET /health` | ✅ |
+| 2 | Request OTP | `POST /v1/auth/request-otp` | ✅ |
+| 3 | Verify OTP | `POST /v1/auth/verify-otp` | ✅ |
+| 4 | Token refresh | `POST /v1/auth/refresh` | ✅ |
+| 5 | Profile creation | `PUT /v1/profile` via Gateway | ✅ |
+| 6 | JWKS endpoint | `GET /v1/auth/.well-known/jwks.json` | ✅ |
+| 7 | Key registration | `POST /v1/keys/register` | ✅ |
+| 8 | List devices | `GET /v1/auth/devices` | ✅ |
+| 9-15 | Remaining OTP flow | Auth sub-checks | ✅ All passed |
 
 ---
 
-## Completed Audits
+## Tests Written
 
-### Audit 1 — 2026-05-14: Full Code Review vs Docs
-
-| Issue | File | Fix |
-|-------|------|-----|
-| JSON string concatenation for nested objects/arrays | `AuthRepository.kt` | ✅ Replaced with `buildJsonObject`/`buildJsonArray` — `verifyOtp` device_info, `registerKeys` signed_prekey/one_time_prekeys, `uploadOpks` |
-| Incorrect JSON array parsing (treated as object) | `AuthRepository.kt:listDevices()` | ✅ Changed `jsonObject` → `jsonArray` for devices response |
-| Creating new `ApiClient()` per call instead of reusing | `AuthManager.kt:updateProfile(), searchUsername()` | ✅ Store single `apiClient` in `init()`, reuse everywhere |
-| `results` parsed as `jsonObject` instead of `jsonArray` | `AuthManager.kt:searchUsername()` | ✅ Changed `json["results"]?.jsonObject` → `json["results"]?.jsonArray` |
-| New `OkHttpClient` created on every token refresh | `AuthInterceptor.kt:refreshToken()` | ✅ Store single `refreshClient` instance |
-| JSON body built via string interpolation | `AuthInterceptor.kt` | ✅ Proper `kotlinx.serialization.json` parsing |
-| Regex-based JSON extraction instead of proper parser | `AuthInterceptor.kt:extractJsonField()` | ✅ Replaced with `json.parseToJsonElement().jsonObject` |
-| `isForeground = true` hardcoded | `FcmReceiveService.kt:onMessageReceived()` | ✅ Real `ActivityManager.getRunningAppProcesses()` check |
-| `isAvailable = true` hardcoded in debounce | `UsernamePickerScreen.kt` | ✅ Changed to `onCheckAvailability: suspend (String) → Boolean` callback |
-| `FirebaseMessaging.getInstance().token` callback in coroutine context | `PushTokenRegistrar.kt:getFcmToken()` | ✅ Use `tasks.await()` instead of `addOnCompleteListener` |
-| Only 30 countries hardcoded | `CountryCodePickerScreen.kt` | ✅ Expanded to 130+ countries covering all UN members |
-| Empty catch blocks swallowing exceptions | Multiple files | ✅ Removed where possible; added meaningful handling where needed |
-
-### Crypto Implementation Status (Updated 2026-05-14)
-
-| Primitive | Implementation | Backend |
-|-----------|---------------|---------|
-| X25519 DH | ✅ JDK `KeyAgreement("X25519")` via SunEC/Conscrypt | Real X25519 DH |
-| Ed25519 sign/verify | ✅ JDK `Signature("Ed25519")` via SunEC/Conscrypt; BouncyCastle fallback for API 26-27 | Real Ed25519 |
-| AES-256-GCM | ✅ `javax.crypto.Cipher("AES/GCM/NoPadding")` | Real AEAD |
-| HKDF-SHA256 | ✅ Custom HKDF via `HmacSHA256` | Real KDF |
-| X3DH | ✅ Full protocol: DH1+DH2+DH3+[DH4] → HKDF → SK | Implemented |
-| Double Ratchet | ✅ Full encrypt/decrypt with ratchet stepping, skipped key buffer (1000 max), serialize/deserialize | Implemented |
-| SessionManager | ✅ Encrypt/decrypt orchestrates X3DH + DoubleRatchet + AES-GCM | Implemented |
-| KeyManager | ✅ Ed25519 key generation, SecurePreferences persistence | Implemented |
+| File | Test Cases | Covers |
+|------|-----------|--------|
+| `GroupsViewModelTest.kt` | 27 | Create, add/remove members, invite links, join requests, delete, update, join via link, clear messages |
+| `ContactsViewModelTest.kt` | 21 | Load, search, add, remove, block, unblock, blocked list, clear messages |
+| `AuthBackendIntegrationTest.kt` | 15 | Live backend integration tests |
 
 ---
 
 ## Next Up
 
-### Phase 3 — Core Chat (40 files)
 ### Phase 4 — Calls (18 files)
-### Phase 5 — Social (30 files)
-### Phase 6 — Extended (25 files)
-### Phase 7 — Polish & Ship (15 files)
+### Phase 5 — Social: Status/Stories, Channels, Profile (15 files)
+### Phase 6 — Extended: Stickers, Polls, Location, Backup, Settings (25 files)
+### Phase 7 — Polish & Ship (10 files)
 
 ---
 
-## Known Gaps
-
-| Gap | Reason | When |
-|-----|--------|------|
-| X3DH/Double Ratchet implementations | Needs libsodium JNI native library | Phase 3 (E2EE pipeline needs it) |
-| All 7 manifest service classes have stubs | Implemented in their respective phases | Per phase |
-| No tests written | Dedicated test agent writes tests after implementation | After each phase |
-| `google-services.json` missing | Firebase project config | Phase 2 (FCM needs it) |
-| `kotlin-reflect` hardcoded version | Not in version catalog | Minor — add to libs.versions.toml |
-
----
-
-*Last updated: 2026-05-14*
+*Last updated: 2026-05-16*

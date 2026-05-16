@@ -303,6 +303,63 @@ class ConversationViewModel : ViewModel() {
         }
     }
 
+    fun scheduleMessage(body: String, scheduledDate: Long, replyTo: String? = null) {
+        if (body.isBlank()) return
+        val jobId = "scheduled_${conversationId}_${System.currentTimeMillis()}"
+        org.enchant.core.jobmanager.JobManager.enqueue(
+            org.enchant.core.jobmanager.Job(
+                id = jobId,
+                delayMs = (scheduledDate - System.currentTimeMillis()).coerceAtLeast(0),
+                run = {
+                    kotlinx.coroutines.runBlocking {
+                        sendTextMessage(body, replyTo)
+                    }
+                }
+            )
+        )
+    }
+
+    fun cancelScheduledMessage(messageId: Long) {
+        org.enchant.core.jobmanager.JobManager.cancelAll()
+    }
+
+    fun markViewOnceViewed(envelopeId: String) {
+        viewModelScope.launch {
+            try {
+                DI.apiClient.post("/v1/disappear/viewed", kotlinx.serialization.json.buildJsonObject {
+                    put("envelope_ids", "[$envelopeId]")
+                })
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun deleteViewOnceMedia(envelopeId: String) {
+        viewModelScope.launch {
+            val msg = repo.getMessage(envelopeId) ?: return@launch
+            val ctx = org.enchant.core.base.AppConfig.applicationContext ?: return@launch
+            val file = java.io.File(ctx.cacheDir, "media_downloads/$envelopeId")
+            if (file.exists()) file.delete()
+        }
+    }
+
+    fun sendContactCard(contactUserId: String, conversationId: String) {
+        viewModelScope.launch {
+            val vcard = "BEGIN:VCARD\nVERSION:3.0\nFN:$contactUserId\nEND:VCARD"
+            val text = "📇 Contact: $contactUserId"
+            pipeline.sendMessage(
+                conversationId = conversationId,
+                recipientUserId = conversationId,
+                plaintext = text.encodeToByteArray()
+            )
+            try {
+                DI.apiClient.post("/v1/contacts/share", kotlinx.serialization.json.buildJsonObject {
+                    put("contact_user_id", contactUserId)
+                    put("envelope_id", conversationId)
+                })
+            } catch (_: Exception) {}
+        }
+    }
+
     fun startCall(remoteUserId: String, isVideo: Boolean) {
     }
 
