@@ -54,9 +54,7 @@ object DoubleRatchet {
 
     fun initializeAsAlice(
         sharedSecret: ByteArray,
-        theirSignedPrekeyPublic: ByteArray,
-        ourIdentityKeyPublic: ByteArray,
-        theirIdentityKeyPublic: ByteArray
+        theirSignedPrekeyPublic: ByteArray
     ): RatchetState {
         val salt = ByteArray(32)
         val sendingKeyPair = CryptoHelper.generateX25519KeyPair()
@@ -71,7 +69,6 @@ object DoubleRatchet {
             sendingRatchetKeyPublic = sendingKeyPair.publicKey,
             sendingRatchetKeyPrivate = sendingKeyPair.privateKey,
             sendingMessageNumber = 0,
-            receivingChainKey = rootMaterial.copyOfRange(32, 64),
             receivingRatchetKeyPublic = theirSignedPrekeyPublic,
             receivingMessageNumber = 0,
             previousSendingChainLength = 0
@@ -80,22 +77,19 @@ object DoubleRatchet {
 
     fun initializeAsBob(
         sharedSecret: ByteArray,
-        theirEphemeralKeyPublic: ByteArray,
-        ourIdentityKeyPublic: ByteArray,
-        theirIdentityKeyPublic: ByteArray
+        theirRatchetKeyPublic: ByteArray,
+        ourSignedPrekeyPrivate: ByteArray
     ): RatchetState {
         val salt = ByteArray(32)
-        val receivingKeyPair = CryptoHelper.generateX25519KeyPair()
 
-        val dhOut = CryptoHelper.x25519DiffieHellman(receivingKeyPair.privateKey, theirEphemeralKeyPublic)
+        val dhOut = CryptoHelper.x25519DiffieHellman(ourSignedPrekeyPrivate, theirRatchetKeyPublic)
         val rootMaterial = CryptoHelper.hkdfSha256(sharedSecret + dhOut, salt, "EnchantRatchet".encodeToByteArray(), 64)
         CryptoHelper.zeroBytes(dhOut)
 
         return RatchetState(
             rootKey = rootMaterial.copyOfRange(0, 32),
             receivingChainKey = rootMaterial.copyOfRange(32, 64),
-            receivingRatchetKeyPublic = receivingKeyPair.publicKey,
-            receivingRatchetKeyPrivate = receivingKeyPair.privateKey,
+            receivingRatchetKeyPublic = theirRatchetKeyPublic,
             receivingMessageNumber = 0
         )
     }

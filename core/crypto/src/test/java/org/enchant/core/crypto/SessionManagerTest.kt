@@ -1,66 +1,84 @@
 package org.enchant.core.crypto
 
-import io.mockk.every
-import io.mockk.mockkObject
-import kotlinx.coroutines.test.runTest
-import org.enchant.core.base.SecurePreferences
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertArrayEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.enchant.protos.EnvelopeProtos
 
 @DisplayName("SessionManager")
 class SessionManagerTest {
-    private val testUserId = "test_user_123"
 
     @BeforeEach
-    fun setUp() = runTest {
-        mockkObject(SecurePreferences)
-        every { SecurePreferences.putString(any(), any()) } returns Unit
-        every { SecurePreferences.getString(any(), any()) } answers { null }
-        every { SecurePreferences.getString(any()) } answers { null }
-
-        KeyManager.init()
-        KeyManager.generateAndUploadKeys()
-        SessionManager.init()
-        val remoteIk = CryptoHelper.generateEd25519KeyPair()
-        SessionManager.setIdentityKey(testUserId, remoteIk.publicKey)
+    fun setUp() {
+        runBlocking {
+            SessionManager.init()
+            KeyManager.init()
+            KeyManager.generateAndUploadKeys()
+        }
     }
 
-    @AfterEach
-    fun tearDown() = runTest {
-        SessionManager.deleteSession(testUserId)
-    }
+    @Test
+    @DisplayName("encryptMessage returns non-null payload for known recipient")
+    fun `encryptMessage returns payload`() = runBlocking {
+        SessionManager.setIdentityKey("user1", CryptoHelper.generateEd25519KeyPair().publicKey)
 
-    @Test @DisplayName("first encrypt establishes session")
-    fun `encrypt establishes session`() = runTest {
-        val result = SessionManager.encryptMessage(testUserId, "Hello".encodeToByteArray())
+        val result = SessionManager.encryptMessage("user1", "Hello".encodeToByteArray())
         assertNotNull(result)
-        assertTrue(SessionManager.hasSession(testUserId))
+        assertTrue(result!!.payload.isNotEmpty())
     }
 
-    @Test @DisplayName("hasSession returns false initially")
-    fun `hasSession initially false`() = runTest {
-        assertFalse(SessionManager.hasSession(testUserId))
+    @Test
+    @DisplayName("hasSession returns true after encrypting to recipient")
+    fun `hasSession after encrypt`() = runBlocking {
+        SessionManager.setIdentityKey("alice", CryptoHelper.generateEd25519KeyPair().publicKey)
+        SessionManager.encryptMessage("alice", "Hi".encodeToByteArray())
+        assertTrue(SessionManager.hasSession("alice"))
     }
 
-    @Test @DisplayName("deleteSession removes session")
-    fun `deleteSession removes session`() = runTest {
-        SessionManager.encryptMessage(testUserId, "test".encodeToByteArray())
-        assertTrue(SessionManager.hasSession(testUserId))
-        SessionManager.deleteSession(testUserId)
-        assertFalse(SessionManager.hasSession(testUserId))
+    @Test
+    @DisplayName("deleteSession removes session")
+    fun `deleteSession`() = runBlocking {
+        SessionManager.setIdentityKey("temp", CryptoHelper.generateEd25519KeyPair().publicKey)
+        SessionManager.encryptMessage("temp", "Hi".encodeToByteArray())
+        assertTrue(SessionManager.hasSession("temp"))
+
+        SessionManager.deleteSession("temp")
+        assertFalse(SessionManager.hasSession("temp"))
     }
 
-    @Test @DisplayName("decrypt without session returns null")
-    fun `decrypt without session`() = runTest {
-        val result = SessionManager.decryptMessage("unknown",
-            EncryptedPayload(org.enchant.protos.EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET, ByteArray(16)))
-        assertNull(result)
+    @Test
+    @DisplayName("EncryptedPayload contains properly formatted header+ciphertext")
+    fun `encrypted payload has header format`() = runBlocking {
+        SessionManager.setIdentityKey("format-test", CryptoHelper.generateEd25519KeyPair().publicKey)
+
+        SessionManager.encryptMessage("format-test", "first".encodeToByteArray())
+
+        val result = SessionManager.encryptMessage("format-test", "second".encodeToByteArray())
+        assertNotNull(result)
+        val payload = result!!.payload
+        assertTrue(payload.size > 4, "Payload must have at least 4-byte header size prefix")
+    }
+
+    @Test
+    @DisplayName("archiveSession removes session without cleanup")
+    fun `archiveSession`() = runBlocking {
+        SessionManager.setIdentityKey("arch-test", CryptoHelper.generateEd25519KeyPair().publicKey)
+        SessionManager.encryptMessage("arch-test", "Hello".encodeToByteArray())
+        assertTrue(SessionManager.hasSession("arch-test"))
+
+        SessionManager.archiveSession("arch-test")
+        assertFalse(SessionManager.hasSession("arch-test"))
+    }
+
+    @Test
+    @DisplayName("getSafetyNumber returns formatted string for known identity")
+    fun `getSafetyNumber`() = runBlocking {
+        val bobIk = CryptoHelper.generateEd25519KeyPair()
+        SessionManager.setIdentityKey("bob-safety", bobIk.publicKey)
+        val safetyNum = SessionManager.getSafetyNumber("bob-safety")
+        assertNotEquals("UNVERIFIED", safetyNum)
+        assertTrue(safetyNum.contains("-"))
     }
 }

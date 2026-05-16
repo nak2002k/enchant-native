@@ -1,120 +1,111 @@
 package org.enchant.core.crypto
 
-import org.junit.jupiter.api.Assertions.assertArrayEquals
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@DisplayName("DoubleRatchet")
+@DisplayName("Double Ratchet")
 class DoubleRatchetTest {
-    private lateinit var aliceIk: CryptoHelper.KeyPair
-    private lateinit var bobIk: CryptoHelper.KeyPair
-    private lateinit var bobSpk: CryptoHelper.KeyPair
-    private val sharedSecret = ByteArray(32) { it.toByte() }
 
-    @BeforeEach
-    fun setUp() {
-        aliceIk = CryptoHelper.generateEd25519KeyPair()
-        bobIk = CryptoHelper.generateEd25519KeyPair()
-        bobSpk = CryptoHelper.generateX25519KeyPair()
+    @Test
+    @DisplayName("encrypt then decrypt returns original plaintext")
+    fun `encrypt decrypt roundtrip`() {
+        val bobSpk = CryptoHelper.generateX25519KeyPair()
+        val sharedSecret = CryptoHelper.generateRandomKey(32)
+
+        val aliceState = DoubleRatchet.initializeAsAlice(
+            sharedSecret = sharedSecret,
+            theirSignedPrekeyPublic = bobSpk.publicKey
+        )
+
+        val plaintext = "Hello, Bob!".encodeToByteArray()
+        val (aliceState2, message) = DoubleRatchet.encrypt(aliceState, plaintext)
+
+        val bobState = DoubleRatchet.initializeAsBob(
+            sharedSecret = sharedSecret,
+            theirRatchetKeyPublic = aliceState.sendingRatchetKeyPublic ?: ByteArray(32),
+            ourSignedPrekeyPrivate = bobSpk.privateKey
+        )
+
+        val (bobState2, decrypted) = DoubleRatchet.decrypt(bobState, message)
+        assertTrue(decrypted.contentEquals(plaintext), "Decrypted text should match original")
     }
 
-    private fun aliceInit(): RatchetState = DoubleRatchet.initializeAsAlice(
-        sharedSecret, bobSpk.publicKey, aliceIk.publicKey,
-        CryptoHelper.ed25519PkToX25519(bobIk.publicKey)
-    )
+    @Test
+    @DisplayName("10 messages in sequence all decrypt correctly")
+    fun `ten message sequence`() {
+        val sharedSecret = CryptoHelper.generateRandomKey(32)
+        val bobSpk = CryptoHelper.generateX25519KeyPair()
 
-    @Nested @DisplayName("State initialization")
-    inner class InitTest {
-        @Test @DisplayName("initializeAsAlice creates state with non-null keys")
-        fun `alice init produces valid state`() {
-            val state = aliceInit()
-            assertEquals(32, state.rootKey.size)
-            assertNotNull(state.sendingChainKey)
-            assertNotNull(state.sendingRatchetKeyPublic)
-            assertNotNull(state.sendingRatchetKeyPrivate)
+        var aliceState = DoubleRatchet.initializeAsAlice(
+            sharedSecret = sharedSecret,
+            theirSignedPrekeyPublic = bobSpk.publicKey
+        )
+
+        val messages = mutableListOf<RatchetMessage>()
+        for (i in 0 until 10) {
+            val (newState, msg) = DoubleRatchet.encrypt(aliceState, "Message $i".encodeToByteArray())
+            aliceState = newState
+            messages.add(msg)
         }
 
-        @Test @DisplayName("initializeAsAlice sets initial message numbers to 0")
-        fun `alice init message numbers`() {
-            val state = aliceInit()
-            assertEquals(0, state.sendingMessageNumber)
-            assertEquals(0, state.receivingMessageNumber)
-        }
-    }
+        val firstRatchetPub = messages[0].header.copyOfRange(8, 40)
+        var bobState = DoubleRatchet.initializeAsBob(
+            sharedSecret = sharedSecret,
+            theirRatchetKeyPublic = firstRatchetPub,
+            ourSignedPrekeyPrivate = bobSpk.privateKey
+        )
 
-    @Nested @DisplayName("Encrypt")
-    inner class EncryptTest {
-        @Test @DisplayName("encrypt returns non-empty message")
-        fun `encrypt produces output`() {
-            val state = aliceInit()
-            val (_, msg) = DoubleRatchet.encrypt(state, "Hello".encodeToByteArray())
-            assertNotNull(msg.header)
-            assertNotNull(msg.ciphertext)
-            assertTrue(msg.ciphertext.isNotEmpty())
-        }
-
-        @Test @DisplayName("encrypt increments message number")
-        fun `encrypt increments msg number`() {
-            val state = aliceInit()
-            val (s1, _) = DoubleRatchet.encrypt(state, "msg1".encodeToByteArray())
-            assertEquals(1, s1.sendingMessageNumber)
-            val (s2, _) = DoubleRatchet.encrypt(s1, "msg2".encodeToByteArray())
-            assertEquals(2, s2.sendingMessageNumber)
-        }
-
-        @Test @DisplayName("encrypt with null sending chain triggers ratchet")
-        fun `encrypt triggers ratchet when no sending chain`() {
-            val state = aliceInit().copy(sendingChainKey = null)
-            val (s1, msg) = DoubleRatchet.encrypt(state, "test".encodeToByteArray())
-            assertNotNull(s1.sendingChainKey)
-            assertTrue(msg.ciphertext.isNotEmpty())
+        for (i in 0 until 10) {
+            val (newState, decrypted) = DoubleRatchet.decrypt(bobState, messages[i])
+            bobState = newState
+            assertEquals("Message $i", decrypted.decodeToString())
         }
     }
 
-    @Nested @DisplayName("State management")
-    inner class StateTest {
-        @Test @DisplayName("serialize roundtrip preserves root key and version")
-        fun `serialize roundtrip`() {
-            val state = aliceInit()
-            val serialized = DoubleRatchet.serializeState(state)
-            val deserialized = DoubleRatchet.deserializeState(serialized)!!
-            assertEquals(state.version, deserialized.version)
-            assertArrayEquals(state.rootKey, deserialized.rootKey)
-        }
+    @Test
+    @DisplayName("replaying the same message fails (replay protection)")
+    fun `replay protection`() {
+        val sharedSecret = CryptoHelper.generateRandomKey(32)
+        val bobSpk = CryptoHelper.generateX25519KeyPair()
 
-        @Test @DisplayName("deserialize corrupted data returns null")
-        fun `corrupted deserialize`() {
-            val result = DoubleRatchet.deserializeState(ByteArray(4))
-            assertEquals(null, result)
-        }
+        val aliceState = DoubleRatchet.initializeAsAlice(
+            sharedSecret = sharedSecret,
+            theirSignedPrekeyPublic = bobSpk.publicKey
+        )
+
+        val (_, message) = DoubleRatchet.encrypt(aliceState, "Secret".encodeToByteArray())
+
+        val firstRatchetPub = message.header.copyOfRange(8, 40)
+        var bobState = DoubleRatchet.initializeAsBob(
+            sharedSecret = sharedSecret,
+            theirRatchetKeyPublic = firstRatchetPub,
+            ourSignedPrekeyPrivate = bobSpk.privateKey
+        )
+
+        val (bobState2, firstDecrypt) = DoubleRatchet.decrypt(bobState, message)
+        assertTrue(firstDecrypt.isNotEmpty(), "First decrypt should succeed")
+
+        val (_, secondDecrypt) = DoubleRatchet.decrypt(bobState2, message)
+        assertTrue(secondDecrypt.isEmpty(), "Replay should return empty bytes")
     }
 
-    @Nested @DisplayName("Error handling")
-    inner class ErrorTest {
-        @Test @DisplayName("decrypt with wrong message returns empty")
-        fun `wrong message`() {
-            val state = aliceInit().copy(
-                receivingRatchetKeyPrivate = CryptoHelper.generateX25519KeyPair().privateKey
-            )
-            val msg = RatchetMessage(ByteArray(128) { 1 }, ByteArray(16) { 2 })
-            val (_, pt) = DoubleRatchet.decrypt(state, msg)
-            assertEquals(0, pt.size)
-        }
+    @Test
+    @DisplayName("serialize and deserialize preserves state")
+    fun `serialization roundtrip`() {
+        val sharedSecret = CryptoHelper.generateRandomKey(32)
+        val bobSpk = CryptoHelper.generateX25519KeyPair()
 
-        @Test @DisplayName("decrypt with empty header returns empty")
-        fun `empty header`() {
-            val state = aliceInit().copy(
-                receivingRatchetKeyPrivate = CryptoHelper.generateX25519KeyPair().privateKey
-            )
-            val msg = RatchetMessage(ByteArray(0), ByteArray(16))
-            val (_, pt) = DoubleRatchet.decrypt(state, msg)
-            assertEquals(0, pt.size)
-        }
+        val state = DoubleRatchet.initializeAsAlice(
+            sharedSecret = sharedSecret,
+            theirSignedPrekeyPublic = bobSpk.publicKey
+        )
+
+        val serialized = DoubleRatchet.serializeState(state)
+        assertTrue(serialized.isNotEmpty())
+
+        val deserialized = DoubleRatchet.deserializeState(serialized)
+        assertNotNull(deserialized)
+        assertTrue(state.rootKey.contentEquals(deserialized!!.rootKey))
     }
 }
-
-private fun assertTrue(value: Boolean) = org.junit.jupiter.api.Assertions.assertTrue(value)

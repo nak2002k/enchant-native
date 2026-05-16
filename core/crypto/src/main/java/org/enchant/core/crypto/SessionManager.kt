@@ -25,6 +25,7 @@ data class DecryptedResult(
 object SessionManager {
     private val mutex = Mutex()
     private var initialized = false
+    private var selfUserId: String = "self"
     private var sessionDao: SessionDao? = null
     private var identityDao: IdentityDao? = null
     private val sessions = mutableMapOf<String, RatchetState>()
@@ -34,21 +35,18 @@ object SessionManager {
         if (initialized) return
         sessionDao = dao
         identityDao = idDao
-        if (dao != null) {
-            val allSessions = loadAllSessions(dao)
-            sessions.putAll(allSessions)
-        }
+        selfUserId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: "self"
         initialized = true
     }
 
-    private suspend fun loadAllSessions(dao: SessionDao): Map<String, RatchetState> {
-        return emptyMap()
+    private fun sessionKey(peerId: String): String {
+        return if (selfUserId < peerId) "$selfUserId:$peerId:0" else "$peerId:$selfUserId:0"
     }
 
     suspend fun encryptMessage(recipientUserId: String, plaintext: ByteArray): EncryptedPayload? {
         return withContext(Dispatchers.Default) {
             mutex.withLock {
-                val sessionKey = "$recipientUserId:0"
+                val sessionKey = sessionKey(recipientUserId)
                 var state = sessions[sessionKey]
 
                 if (state == null) {
@@ -57,48 +55,26 @@ object SessionManager {
                     val ek = CryptoHelper.generateX25519KeyPair()
 
                     val theirIkPublic = identityKeys[recipientUserId]
-
-                    val spk = if (theirIkPublic != null) {
-                        val fakeSpk = CryptoHelper.generateX25519KeyPair()
-                        val x3dhResult = X3DH.aliceInitiate(
-                            ourIdentityKey = ikPair,
-                            ourEphemeralKey = CryptoHelper.KeyPair(ek.publicKey, ek.privateKey),
-                            theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(theirIkPublic),
-                            theirSignedPrekeyPublic = fakeSpk.publicKey
-                        )
-                        state = DoubleRatchet.initializeAsAlice(
-                            sharedSecret = x3dhResult.sharedSecret,
-                            theirSignedPrekeyPublic = fakeSpk.publicKey,
-                            ourIdentityKeyPublic = ikPair.publicKey,
-                            theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(theirIkPublic)
-                        )
-                        sessions[sessionKey] = state!!
-                        fakeSpk
+                    val fakeSpk = CryptoHelper.generateX25519KeyPair()
+                    val theirIdentityX = if (theirIkPublic != null) {
+                        CryptoHelper.ed25519PkToX25519(theirIkPublic)
                     } else {
                         val genIk = CryptoHelper.generateEd25519KeyPair()
-                        val fakeSpk = CryptoHelper.generateX25519KeyPair()
                         identityKeys[recipientUserId] = genIk.publicKey
-                        val x3dhResult = X3DH.aliceInitiate(
-                            ourIdentityKey = ikPair,
-                            ourEphemeralKey = CryptoHelper.KeyPair(ek.publicKey, ek.privateKey),
-                            theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(genIk.publicKey),
-                            theirSignedPrekeyPublic = fakeSpk.publicKey
-                        )
-                        state = DoubleRatchet.initializeAsAlice(
-                            sharedSecret = x3dhResult.sharedSecret,
-                            theirSignedPrekeyPublic = fakeSpk.publicKey,
-                            ourIdentityKeyPublic = ikPair.publicKey,
-                            theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(genIk.publicKey)
-                        )
-                        sessions[sessionKey] = state!!
-                        fakeSpk
+                        CryptoHelper.ed25519PkToX25519(genIk.publicKey)
                     }
 
-                    return@withLock EncryptedPayload(
-                        messageType = EnvelopeProtos.Envelope.Type.PREKEY_MESSAGE,
-                        payload = plaintext,
-                        recipientDeviceId = null
+                    val x3dhResult = X3DH.aliceInitiate(
+                        ourIdentityKey = ikPair,
+                        ourEphemeralKey = CryptoHelper.KeyPair(ek.publicKey, ek.privateKey),
+                        theirIdentityKeyPublic = theirIdentityX,
+                        theirSignedPrekeyPublic = fakeSpk.publicKey
                     )
+                    state = DoubleRatchet.initializeAsAlice(
+                        sharedSecret = x3dhResult.sharedSecret,
+                        theirSignedPrekeyPublic = fakeSpk.publicKey
+                    )
+                    sessions[sessionKey] = state!!
                 }
 
                 val (newState, message) = DoubleRatchet.encrypt(state, plaintext)
@@ -127,33 +103,12 @@ object SessionManager {
     suspend fun decryptMessage(senderUserId: String, payload: EncryptedPayload): DecryptedResult? {
         return withContext(Dispatchers.Default) {
             mutex.withLock {
-                val sessionKey = "$senderUserId:0"
+                val sessionKey = sessionKey(senderUserId)
                 var state = sessions[sessionKey]
 
-                if (state == null && payload.messageType == EnvelopeProtos.Envelope.Type.PREKEY_MESSAGE) {
-                    val theirIk = identityKeys[senderUserId]
-                    if (theirIk != null) {
-                        val ikPair = KeyManager.getIdentityKeyPair() ?: return@withLock null
-                        val fakeSpk = CryptoHelper.generateX25519KeyPair()
-                        val x3dhResult = X3DH.bobRespond(
-                            ourIdentityKey = ikPair,
-                            ourSignedPrekeyKeyPair = fakeSpk,
-                            ourOneTimePrekeyKeyPair = null,
-                            theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(theirIk),
-                            theirEphemeralKeyPublic = CryptoHelper.ed25519PkToX25519(theirIk)
-                        )
-                        state = DoubleRatchet.initializeAsBob(
-                            sharedSecret = x3dhResult.sharedSecret,
-                            theirEphemeralKeyPublic = x3dhResult.header.ephemeralKey,
-                            ourIdentityKeyPublic = ikPair.publicKey,
-                            theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(theirIk)
-                        )
-                        sessions[sessionKey] = state
-                    }
-                    state = sessions[sessionKey]
+                if (state == null) {
+                    return@withLock null
                 }
-
-                if (state == null) return@withLock null
 
                 val buf = ByteBuffer.wrap(payload.payload).order(ByteOrder.BIG_ENDIAN)
                 if (buf.remaining() < 4) return@withLock null
@@ -189,26 +144,23 @@ object SessionManager {
 
     private suspend fun persistSession(key: String, state: RatchetState) {
         val dao = sessionDao ?: return
-        val parts = key.split(":")
-        if (parts.size != 2) return
         val serialized = DoubleRatchet.serializeState(state)
-        dao.store(parts[0], parts[1], serialized)
+        dao.store(key, "0", serialized)
     }
 
     suspend fun hasSession(userId: String): Boolean = mutex.withLock {
-        sessions.containsKey("$userId:0")
+        sessions.containsKey(sessionKey(userId))
     }
 
     suspend fun deleteSession(userId: String) {
         mutex.withLock {
-            sessions.remove("$userId:0")?.zero()
-            sessionDao?.delete(userId, "0")
+            sessions.remove(sessionKey(userId))?.zero()
         }
     }
 
     suspend fun archiveSession(userId: String) {
         mutex.withLock {
-            sessions.remove("$userId:0")?.zero()
+            sessions.remove(sessionKey(userId))?.zero()
         }
     }
 

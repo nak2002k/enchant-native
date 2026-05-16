@@ -1,19 +1,23 @@
 package org.enchant.core.crypto
 
-import java.security.KeyFactory
-import java.security.KeyPairGenerator
+import org.bouncycastle.crypto.agreement.X25519Agreement
+import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
+import org.bouncycastle.crypto.generators.X25519KeyPairGenerator
+import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
+import org.bouncycastle.crypto.params.X25519KeyGenerationParameters
+import org.bouncycastle.crypto.params.X25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.X25519PublicKeyParameters
+import org.bouncycastle.crypto.signers.Ed25519Signer
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.Signature
+import java.security.KeyFactory
+import java.math.BigInteger
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
-import java.security.spec.XECPrivateKeySpec
-import java.security.spec.XECPublicKeySpec
-import java.math.BigInteger
-import java.security.spec.AlgorithmParameterSpec
-import java.security.spec.NamedParameterSpec
 import javax.crypto.Cipher
-import javax.crypto.KeyAgreement
 import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -30,55 +34,56 @@ object CryptoHelper {
     data class KeyPair(val publicKey: ByteArray, val privateKey: ByteArray)
 
     fun generateX25519KeyPair(): KeyPair {
-        val kg = KeyPairGenerator.getInstance("X25519")
-        val kp = kg.generateKeyPair()
-        return KeyPair(
-            publicKey = kp.public.encoded,
-            privateKey = kp.private.encoded
-        )
+        val gen = X25519KeyPairGenerator()
+        gen.init(X25519KeyGenerationParameters(SecureRandom()))
+        val kp = gen.generateKeyPair()
+        val priv = (kp.private as X25519PrivateKeyParameters).encoded
+        val pub = (kp.public as X25519PublicKeyParameters).encoded
+        return KeyPair(publicKey = pub, privateKey = priv)
     }
 
     fun generateEd25519KeyPair(): KeyPair {
-        val kg = KeyPairGenerator.getInstance("Ed25519")
-        val kp = kg.generateKeyPair()
-        return KeyPair(
-            publicKey = extractEd25519Public(kp.public.encoded),
-            privateKey = extractEd25519Private(kp.private.encoded)
-        )
+        val seed = ByteArray(32).also { rng.nextBytes(it) }
+        val priv = Ed25519PrivateKeyParameters(seed, 0)
+        val pub = priv.generatePublicKey()
+        return KeyPair(publicKey = pub.encoded, privateKey = seed)
     }
 
     fun ed25519SkToX25519(sk: ByteArray): ByteArray {
-        val factory = KeyFactory.getInstance("Ed25519")
-        val keySpec = PKCS8EncodedKeySpec(wrapEd25519Private(sk))
-        val privateKey = factory.generatePrivate(keySpec)
-        val xdhFactory = KeyFactory.getInstance("XDH")
-        val params = NamedParameterSpec("X25519")
-        val xdhSpec = XECPrivateKeySpec(params, sk.copyOfRange(sk.size - 32, sk.size))
-        val xdhPrivate = xdhFactory.generatePrivate(xdhSpec)
-        return xdhPrivate.encoded
+        val hash = sha512(sk)
+        val xPriv = hash.copyOfRange(0, 32)
+        xPriv[0] = (xPriv[0].toInt() and 0b1111_1000).toByte()
+        xPriv[31] = (xPriv[31].toInt() and 0b0111_1111).toByte()
+        xPriv[31] = (xPriv[31].toInt() or 0b0100_0000).toByte()
+        return xPriv
     }
 
     fun ed25519PkToX25519(pk: ByteArray): ByteArray {
-        val factory = KeyFactory.getInstance("Ed25519")
-        val keySpec = X509EncodedKeySpec(wrapEd25519Public(pk))
-        val publicKey = factory.generatePublic(keySpec)
-        val xdhFactory = KeyFactory.getInstance("XDH")
-        val params = NamedParameterSpec("X25519")
-        val xdhSpec = XECPublicKeySpec(params, BigInteger(1, pk))
-        val xdhPublic = xdhFactory.generatePublic(xdhSpec)
-        return xdhPublic.encoded
+        val p = BigInteger("57896044618658097711785492504343953926634992332820282019728792003956564819949")
+        val yBytes = pk.copyOf()
+        yBytes[31] = (yBytes[31].toInt() and 0b0111_1111).toByte()
+        val yBytesBe = yBytes.reversedArray()
+        val y = BigInteger(1, yBytesBe)
+        val one = BigInteger.ONE
+        val u = one.add(y).multiply(one.subtract(y).modPow(p.subtract(BigInteger.valueOf(2)), p)).mod(p)
+        var uBytes = u.toByteArray()
+        if (uBytes.size < 32) {
+            uBytes = ByteArray(32 - uBytes.size).plus(uBytes)
+        }
+        if (uBytes.size > 32) {
+            uBytes = uBytes.copyOfRange(uBytes.size - 32, uBytes.size)
+        }
+        return uBytes.reversedArray()
     }
 
     fun x25519DiffieHellman(privateKey: ByteArray, publicKey: ByteArray): ByteArray {
-        val ka = KeyAgreement.getInstance("X25519")
-        val factory = KeyFactory.getInstance("X25519")
-        val privSpec = PKCS8EncodedKeySpec(privateKey)
-        val privKey = factory.generatePrivate(privSpec)
-        val pubSpec = X509EncodedKeySpec(publicKey)
-        val pubKey = factory.generatePublic(pubSpec)
-        ka.init(privKey)
-        ka.doPhase(pubKey, true)
-        return ka.generateSecret()
+        val priv = X25519PrivateKeyParameters(privateKey, 0)
+        val pub = X25519PublicKeyParameters(publicKey, 0)
+        val agreement = X25519Agreement()
+        agreement.init(priv)
+        val secret = ByteArray(32)
+        agreement.calculateAgreement(pub, secret, 0)
+        return secret
     }
 
     fun hkdfSha256(input: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
