@@ -2,8 +2,9 @@ package org.enchant.core.database
 
 import android.content.Context
 import android.database.Cursor
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
+import net.sqlcipher.database.SQLiteDatabase
+import net.sqlcipher.database.SQLiteDatabaseHook
+import net.sqlcipher.database.SQLiteOpenHelper
 
 interface Migration {
     val version: Int
@@ -11,8 +12,19 @@ interface Migration {
 }
 
 class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Migration>) {
+    private val hook = object : SQLiteDatabaseHook {
+        override fun preKey(db: SQLiteDatabase) {
+            db.execSQL("PRAGMA cipher_page_size = 1024")
+            db.execSQL("PRAGMA kdf_iter = 256000")
+            db.execSQL("PRAGMA cipher_hmac_algorithm = HMAC_SHA512")
+            db.execSQL("PRAGMA cipher_kdf_algorithm = PBKDF2_HMAC_SHA512")
+            db.execSQL("PRAGMA cipher_memory_security = ON")
+        }
+        override fun postKey(db: SQLiteDatabase) {}
+    }
+
     private val openHelper: SQLiteOpenHelper by lazy {
-        object : SQLiteOpenHelper(context, "enchant.db", null, DB_VERSION) {
+        object : SQLiteOpenHelper(context, "enchant.db", null, DB_VERSION, hook) {
             override fun onCreate(db: SQLiteDatabase) {
                 db.execSQL("PRAGMA journal_mode = WAL")
                 db.execSQL("PRAGMA synchronous = NORMAL")
@@ -32,11 +44,10 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
         }
     }
 
-    val writer: SQLiteDatabase by lazy { openHelper.writableDatabase }
-    private val readerThreadLocal = ThreadLocal.withInitial { openHelper.readableDatabase }
+    val writer: SQLiteDatabase by lazy { openHelper.getWritableDatabase(passphrase) }
+    private val readerThreadLocal = ThreadLocal.withInitial { openHelper.getReadableDatabase(passphrase) }
     val reader: SQLiteDatabase get() = readerThreadLocal.get()
 
-    fun read(): SQLiteDatabase = reader
     fun <T> readWith(block: (SQLiteDatabase) -> T): T = block(reader)
     fun <T> write(block: (SQLiteDatabase) -> T): T = synchronized(writer) { block(writer) }
 
@@ -199,6 +210,7 @@ class DatabaseMigrator(private val migrations: List<Migration>) {
             val migration = migrations.find { it.version == version } ?: continue
             db.beginTransaction()
             try {
+                migration.migrate(db)
                 db.execSQL("PRAGMA user_version = $version")
                 db.setTransactionSuccessful()
             } finally {

@@ -59,7 +59,7 @@
 ### `:core:database` (9 files)
 | File | Lines | Status |
 |------|-------|--------|
-| `AppDatabase.kt` | 200 | Real — SQLite + WAL + pool (1 writer / thread-local readers) + DDL (15 tables) |
+| `AppDatabase.kt` | 200 | Real — SQLCipher + WAL + pool (1 writer / thread-local readers) + DDL (15 tables) |
 | `Entities.kt` | 148 | Real — 15 entity data classes |
 | `CursorMapper.kt` | 62 | Real — reified generics auto-mapping Cursor → Entity |
 | `MessageDao.kt` | 150 | Real — Full CRUD, paginated Flow, FTS search, expired deletion, batch insert |

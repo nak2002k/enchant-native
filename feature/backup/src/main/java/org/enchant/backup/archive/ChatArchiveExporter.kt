@@ -1,7 +1,6 @@
 package org.enchant.backup.archive
 
 import android.content.ContentValues
-import android.database.sqlite.SQLiteDatabase
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject

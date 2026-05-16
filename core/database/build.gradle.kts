@@ -26,6 +26,8 @@ dependencies {
     implementation(libs.kotlin.reflect)
     implementation(project(":core:base"))
     implementation(project(":core:protos"))
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)
