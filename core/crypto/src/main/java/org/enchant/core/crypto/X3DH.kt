@@ -25,7 +25,6 @@ object X3DH {
         theirOneTimePrekeyPublic: ByteArray? = null
     ): X3dhResult {
         val ikPrivX = CryptoHelper.ed25519SkToX25519(ourIdentityKey.privateKey)
-        val ikPubX = CryptoHelper.ed25519PkToX25519(ourIdentityKey.publicKey)
 
         val dh1 = CryptoHelper.x25519DiffieHellman(ikPrivX, theirSignedPrekeyPublic)
         val dh2 = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirIdentityKeyPublic)
@@ -71,7 +70,6 @@ object X3DH {
         theirEphemeralKeyPublic: ByteArray
     ): X3dhResult {
         val ikPrivX = CryptoHelper.ed25519SkToX25519(ourIdentityKey.privateKey)
-        val ikPubX = CryptoHelper.ed25519PkToX25519(ourIdentityKey.publicKey)
 
         val dh1 = CryptoHelper.x25519DiffieHellman(ourSignedPrekeyKeyPair.privateKey, theirIdentityKeyPublic)
         val dh2 = CryptoHelper.x25519DiffieHellman(ikPrivX, theirEphemeralKeyPublic)
@@ -100,9 +98,10 @@ object X3DH {
             sendingChainKey = chainKey,
             receivingChainKey = chainKey,
             header = X3dhHeader(
-                identityKey = ByteArray(0),
-                ephemeralKey = ByteArray(0),
-                signedPrekeyId = 0
+                identityKey = ourIdentityKey.publicKey,
+                ephemeralKey = theirEphemeralKeyPublic,
+                signedPrekeyId = 0,
+                oneTimePrekeyId = null
             )
         )
     }
