@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.protobuf)
 }
 
 android {
@@ -17,25 +16,41 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-}
-
-protobuf {
-    protoc { path = "/opt/homebrew/bin/protoc" }
-    generateProtoTasks {
-        all().configureEach { task ->
-            task.builtins {
-                java {
-                    option("lite")
-                }
-            }
+    sourceSets {
+        getByName("main") {
+            java.srcDir(project.layout.buildDirectory.dir("generated/source/proto/java"))
         }
     }
 }
 
-tasks.register("generateProto") {
-    dependsOn("generateDebugProto")
+val protoSrcDir = file("src/main/proto")
+val protoOutputDir = project.layout.buildDirectory.dir("generated/source/proto/java").get().asFile
+
+val generateProto by tasks.registering(Exec::class) {
+    description = "Generate Java Lite protobuf classes"
+    group = "generation"
+    workingDir = rootDir
+
+    val fileList = protoSrcDir.walkTopDown()
+        .filter { it.isFile && it.extension == "proto" }
+        .map { it.absolutePath }
+        .toList()
+
+    commandLine("/opt/homebrew/bin/protoc")
+    args("--proto_path=$protoSrcDir")
+    args("--java_out=lite:${protoOutputDir.absolutePath}")
+    args(fileList)
+
+    inputs.dir(protoSrcDir)
+    outputs.dir(protoOutputDir)
+
+    doFirst { protoOutputDir.mkdirs() }
+}
+
+tasks.matching { it.name.startsWith("compile") }.configureEach {
+    dependsOn(generateProto)
 }
 
 dependencies {
-    implementation(libs.protobuf.javalite)
+    implementation("com.google.protobuf:protobuf-javalite:${libs.versions.protobuf.get()}")
 }

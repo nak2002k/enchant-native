@@ -54,6 +54,8 @@ keystore.properties
 *.tmp
 *.swp
 *.swo
+**/generated/
+**/configuration-cache/
 
 # Ensure build dirs covered
 **/build/
