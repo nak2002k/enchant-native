@@ -149,10 +149,17 @@ object DoubleRatchet {
         return Pair(s, RatchetMessage(header = header, ciphertext = ciphertext))
     }
 
+    private val consumedKeys = mutableSetOf<String>()
+
     fun decrypt(state: RatchetState, message: RatchetMessage, ad: ByteArray? = null): Pair<RatchetState, ByteArray> {
         var s = state
         val adBytes = ad ?: ByteArray(0)
         val header = parseHeader(message.header) ?: return Pair(s, ByteArray(0))
+
+        val skipKey = makeKeyId(header.dhPublicKey, header.messageNumberSend)
+        if (consumedKeys.contains(skipKey)) {
+            return Pair(s, ByteArray(0))
+        }
 
         if (header.dhPublicKey.contentEquals(s.receivingRatchetKeyPublic).not()) {
             val dhPriv = s.receivingRatchetKeyPrivate ?: s.sendingRatchetKeyPrivate ?: return Pair(s, ByteArray(0))
@@ -186,17 +193,21 @@ object DoubleRatchet {
             )
         }
 
-        val skipKey = "${ByteBuffer.wrap(header.dhPublicKey).long}:${header.messageNumberSend}"
         val existingSkip = s.skippedMessageKeys[skipKey]
         if (existingSkip != null) {
             s.skippedMessageKeys.remove(skipKey)
-            val plaintext = CryptoHelper.decryptAesGcm(message.ciphertext, existingSkip.key)
+            val plaintext = try {
+                CryptoHelper.decryptAesGcm(message.ciphertext, existingSkip.key)
+            } catch (_: Exception) {
+                return Pair(s, ByteArray(0))
+            }
+            consumedKeys.add(skipKey)
             return Pair(s, plaintext)
         }
 
         var chainKey = s.receivingChainKey ?: return Pair(s, ByteArray(0))
         var msgNum = s.receivingMessageNumber
-        val skipMap = s.skippedMessageKeys.toMutableMap()
+        var skipMap = s.skippedMessageKeys.toMutableMap()
 
         while (msgNum < header.messageNumberSend && skipMap.size < MAX_SKIPPED_KEYS) {
             val msgKeyData = CryptoHelper.hkdfSha256(chainKey, ByteArray(32), "EnchantMsg".encodeToByteArray(), 80)
@@ -205,10 +216,14 @@ object DoubleRatchet {
                 nonce = msgKeyData.copyOfRange(32, 44),
                 chainKey = msgKeyData.copyOfRange(44, 76)
             )
-            skipMap["${ByteBuffer.wrap(header.dhPublicKey).long}:$msgNum"] = skipMsgKey
+            val kId = makeKeyId(header.dhPublicKey, msgNum)
+            if (skipMap.size >= MAX_SKIPPED_KEYS) {
+                val oldest = skipMap.entries.minByOrNull { it.value.timestamp }
+                if (oldest != null) skipMap.remove(oldest.key)
+            }
+            skipMap[kId] = skipMsgKey
             chainKey = msgKeyData.copyOfRange(44, 76)
             msgNum++
-            if (skipMap.size >= MAX_SKIPPED_KEYS) break
         }
 
         val msgKeyData = CryptoHelper.hkdfSha256(chainKey, ByteArray(32), "EnchantMsg".encodeToByteArray(), 80)
@@ -221,10 +236,11 @@ object DoubleRatchet {
 
         val plaintext = try {
             CryptoHelper.decryptAesGcm(message.ciphertext, msgKey.key)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return Pair(s, ByteArray(0))
         }
 
+        consumedKeys.add(skipKey)
         s = s.copy(
             receivingChainKey = nextChainKey,
             receivingMessageNumber = msgNum + 1,
@@ -232,6 +248,11 @@ object DoubleRatchet {
         )
 
         return Pair(s, plaintext)
+    }
+
+    private fun makeKeyId(dhPublicKey: ByteArray, msgNum: Int): String {
+        val hex = CryptoHelper.sha256(dhPublicKey).take(8).joinToString("") { String.format("%02x", it) }
+        return "$hex:$msgNum"
     }
 
     fun serializeState(state: RatchetState): ByteArray {
