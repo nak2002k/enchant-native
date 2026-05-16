@@ -268,6 +268,15 @@ object WebSocketManager {
                             serverTimestamp = if (envelope.hasServerTimestamp()) envelope.serverTimestamp else null,
                             ephemeral = envelope.ephemeral
                         ))
+                        val ack = WebSocketResources.WebSocketMessage.newBuilder()
+                            .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
+                            .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
+                                .setId(request.id)
+                                .setStatus(200)
+                                .setMessage("OK")
+                                .build())
+                            .build()
+                        webSocket?.send(ack.toByteArray().toByteString())
                     }
                 }
                 else -> {}

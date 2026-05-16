@@ -71,13 +71,19 @@ class ApiClient {
     suspend fun uploadFile(path: String, fileBytes: ByteArray, mimeType: String): Result<JsonObject> =
         postRaw(path, fileBytes, mimeType)
 
+    private var retryCount = 0
+    private val maxRetries = 2
+    private val max429Retries = 1
+    private val max5xxRetries = 1
+
     private suspend fun request(
         method: String,
         path: String,
         body: JsonObject? = null,
         queryParams: Map<String, String>? = null,
         rawBody: ByteArray? = null,
-        mimeType: String? = null
+        mimeType: String? = null,
+        depth: Int = 0
     ): Result<JsonObject> {
         return withContext(Dispatchers.IO) {
             try {
@@ -90,6 +96,7 @@ class ApiClient {
 
                 when {
                     response.isSuccessful -> {
+                        retryCount = 0
                         val responseBody = response.body?.string()
                         if (responseBody.isNullOrEmpty()) {
                             Result.success(JsonObject(emptyMap()))
@@ -103,17 +110,21 @@ class ApiClient {
                     }
                     response.code == 429 -> {
                         val retryAfter = headers["Retry-After"]?.toLongOrNull()
-                        if (retryAfter != null) {
+                        if (retryAfter != null && depth < max429Retries) {
                             RateLimitTracker.updateFromHeaders(path, headers)
                             kotlinx.coroutines.delay(retryAfter * 1000)
-                            request(method, path, body, queryParams, rawBody, mimeType)
+                            request(method, path, body, queryParams, rawBody, mimeType, depth + 1)
                         } else {
                             Result.failure(Exception("Rate limited"))
                         }
                     }
                     response.code in 500..599 -> {
-                        kotlinx.coroutines.delay(2000)
-                        request(method, path, body, queryParams, rawBody, mimeType)
+                        if (depth < max5xxRetries) {
+                            kotlinx.coroutines.delay(2000)
+                            request(method, path, body, queryParams, rawBody, mimeType, depth + 1)
+                        } else {
+                            Result.failure(Exception("Server error: HTTP ${response.code}"))
+                        }
                     }
                     else -> {
                         val errorBody = response.body?.string() ?: response.message
@@ -121,19 +132,14 @@ class ApiClient {
                     }
                 }
             } catch (e: Exception) {
-                retryOnNetworkError(method, path, body, queryParams, rawBody, mimeType, e)
+                if (depth < maxRetries) {
+                    kotlinx.coroutines.delay(1000L * (depth + 1))
+                    request(method, path, body, queryParams, rawBody, mimeType, depth + 1)
+                } else {
+                    Result.failure(e)
+                }
             }
         }
-    }
-
-    private suspend fun retryOnNetworkError(
-        method: String, path: String, body: JsonObject?,
-        queryParams: Map<String, String>?, rawBody: ByteArray?, mimeType: String?,
-        originalError: Exception, attempt: Int = 1
-    ): Result<JsonObject> {
-        if (attempt > 2) return Result.failure(originalError)
-        kotlinx.coroutines.delay(1000L * attempt)
-        return request(method, path, body, queryParams, rawBody, mimeType)
     }
 
     private fun buildRequest(
