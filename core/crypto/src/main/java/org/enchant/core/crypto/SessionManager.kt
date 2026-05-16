@@ -69,6 +69,7 @@ object SessionManager {
                 }
 
                 val (newState, message) = DoubleRatchet.encrypt(state, plaintext)
+                state.zero()
                 sessions[sessionKey] = newState
 
                 EncryptedPayload(
@@ -92,8 +93,12 @@ object SessionManager {
                 )
 
                 val (newState, plaintext) = DoubleRatchet.decrypt(state, ratchetMessage)
-                if (plaintext.isEmpty()) return@withLock null
+                if (plaintext.isEmpty()) {
+                    state.zero()
+                    return@withLock null
+                }
 
+                state.zero()
                 sessions[sessionKey] = newState
                 DecryptedResult(
                     plaintext = plaintext,
@@ -110,13 +115,13 @@ object SessionManager {
 
     suspend fun deleteSession(userId: String) {
         mutex.withLock {
-            sessions.remove("$userId:0")
+            sessions.remove("$userId:0")?.zero()
         }
     }
 
     suspend fun archiveSession(userId: String) {
         mutex.withLock {
-            sessions.remove("$userId:0")
+            sessions.remove("$userId:0")?.zero()
         }
     }
 

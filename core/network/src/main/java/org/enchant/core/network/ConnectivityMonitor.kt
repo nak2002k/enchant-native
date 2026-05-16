@@ -22,7 +22,7 @@ object ConnectivityMonitor {
 
     fun init(context: Context) {
         if (initialized) return
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         val activeNetwork = cm.activeNetwork
         val capabilities = cm.getNetworkCapabilities(activeNetwork)
         updateState(capabilities)

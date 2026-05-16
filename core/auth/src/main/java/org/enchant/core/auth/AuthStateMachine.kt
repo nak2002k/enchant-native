@@ -126,6 +126,10 @@ object AuthStateMachine {
         }
     }
 
+    fun transition(current: RegistrationState, event: RegistrationEvent): RegistrationState {
+        return applyEvent(current, event)
+    }
+
     fun getRequiredPermissions(): List<String> {
         val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

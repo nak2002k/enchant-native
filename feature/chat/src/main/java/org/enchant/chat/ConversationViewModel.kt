@@ -260,7 +260,7 @@ class ConversationViewModel : ViewModel() {
 
     fun copyToClipboard(text: String) {
         val ctx = org.enchant.core.base.AppConfig.applicationContext ?: return
-        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
         cm.setPrimaryClip(ClipData.newPlainText("message", text))
     }
 

@@ -34,7 +34,7 @@ object WebRtcService {
                     .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase?.eglBaseContext, true, true))
                     .createPeerConnectionFactory()
 
-                audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
                 initialized = true
             } catch (e: Exception) {
                 android.util.Log.e("WebRtcService", "Init failed", e)

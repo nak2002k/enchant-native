@@ -15,14 +15,30 @@ data class RatchetState(
     val previousSendingChainLength: Int = 0,
     val skippedMessageKeys: MutableMap<String, MessageKey> = mutableMapOf(),
     val version: Int = 1
-)
+) {
+    fun zero() {
+        CryptoHelper.zeroBytes(rootKey)
+        sendingChainKey?.let { CryptoHelper.zeroBytes(it) }
+        sendingRatchetKeyPublic?.let { CryptoHelper.zeroBytes(it) }
+        sendingRatchetKeyPrivate?.let { CryptoHelper.zeroBytes(it) }
+        receivingChainKey?.let { CryptoHelper.zeroBytes(it) }
+        receivingRatchetKeyPublic?.let { CryptoHelper.zeroBytes(it) }
+        skippedMessageKeys.values.forEach { CryptoHelper.zeroBytes(it.key) }
+    }
+}
 
 data class MessageKey(
     val key: ByteArray,
     val nonce: ByteArray,
     val chainKey: ByteArray,
     val timestamp: Long = System.currentTimeMillis()
-)
+) {
+    fun zero() {
+        CryptoHelper.zeroBytes(key)
+        CryptoHelper.zeroBytes(nonce)
+        CryptoHelper.zeroBytes(chainKey)
+    }
+}
 
 data class RatchetMessage(
     val header: ByteArray,

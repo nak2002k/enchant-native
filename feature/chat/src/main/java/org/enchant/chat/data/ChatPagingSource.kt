@@ -1,37 +1,36 @@
 package org.enchant.chat.data
 
+import androidx.paging.PagingSource
+import androidx.paging.PagingState
 import org.enchant.core.model.Message
 
 class ChatPagingSource(
     private val repository: ConversationRepository,
     private val conversationId: String,
     private val pageSize: Int = 50
-) {
-    private var currentCursor: Long? = null
-    private var hasMore = true
+) : PagingSource<Long, Message>() {
 
-    suspend fun loadNext(): List<Message> {
-        if (!hasMore) return emptyList()
-        val page = repository.getMessagePage(conversationId, currentCursor, pageSize)
-        currentCursor = page.nextCursor
-        hasMore = page.hasMore
-        return page.messages
+    override suspend fun load(params: LoadParams<Long>): LoadResult<Long, Message> {
+        return try {
+            val cursor = params.key
+            val page = repository.getMessagePage(
+                conversationId = conversationId,
+                cursor = cursor,
+                limit = params.loadSize
+            )
+            LoadResult.Page(
+                data = page.messages,
+                prevKey = null,
+                nextKey = page.nextCursor
+            )
+        } catch (e: Exception) {
+            LoadResult.Error(e)
+        }
     }
 
-    suspend fun loadPrevious(): List<Message> {
-        return loadNext()
-    }
-
-    suspend fun refresh(): List<Message> {
-        currentCursor = null
-        hasMore = true
-        return loadNext()
-    }
-
-    fun hasMorePages(): Boolean = hasMore
-
-    fun reset() {
-        currentCursor = null
-        hasMore = true
+    override fun getRefreshKey(state: PagingState<Long, Message>): Long? {
+        return state.anchorPosition?.let { anchorPosition ->
+            state.closestItemToPosition(anchorPosition)?.localId
+        }
     }
 }

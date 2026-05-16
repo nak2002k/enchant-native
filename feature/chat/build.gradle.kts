@@ -39,6 +39,8 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:protos"))
     implementation(libs.kotlinx.serialization.json)
+    implementation("androidx.paging:paging-runtime-ktx:3.3.5")
+    implementation("androidx.paging:paging-compose:3.3.5")
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)

@@ -28,7 +28,7 @@ object NotificationProfileHelper {
         allowedContacts: List<String>
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val count = prefs.getInt(PROFILE_COUNT_KEY, 0)
         prefs.edit().putInt(PROFILE_COUNT_KEY, count + 1).apply()
@@ -52,7 +52,7 @@ object NotificationProfileHelper {
 
     fun deleteProfile(context: Context, profileId: String) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
             .remove("${profileId}_start_h")

@@ -53,7 +53,7 @@ class FcmFetchForegroundService : android.app.Service() {
                 "Message Fetch",
                 NotificationManager.IMPORTANCE_LOW
             )
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
             manager.createNotificationChannel(channel)
         }
     }
