@@ -64,10 +64,12 @@ fun OtpVerifyScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 isError = errorMessage != null,
-                supportingText = when {
-                    errorMessage != null -> errorMessage
-                    remainingAttempts != null -> "$remainingAttempts attempts remaining"
-                    else -> null
+                supportingText = if (errorMessage != null) {
+                    { Text(errorMessage) }
+                } else if (remainingAttempts != null) {
+                    { Text("$remainingAttempts attempts remaining") }
+                } else {
+                    null
                 }
             )
 

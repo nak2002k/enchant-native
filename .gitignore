@@ -61,3 +61,4 @@ keystore.properties
 **/build/
 **/out/
 **/.cxx/
+.opencode_ref

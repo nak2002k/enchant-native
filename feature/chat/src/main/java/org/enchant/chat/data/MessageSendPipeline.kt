@@ -211,7 +211,7 @@ object MessageSendPipeline {
         checkInit()
         val payload = CryptoHelper.base64UrlEncode("DELIVERY:$envelopeId".encodeToByteArray())
         val encrypted = SessionManager.encryptMessage(senderUserId, payload.encodeToByteArray()) ?: return
-        kotlinx.coroutines.GlobalScope.launch {
+        scope.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", senderUserId)
@@ -226,7 +226,7 @@ object MessageSendPipeline {
         checkInit()
         val payload = CryptoHelper.base64UrlEncode("READ:$envelopeId".encodeToByteArray())
         val encrypted = SessionManager.encryptMessage(senderUserId, payload.encodeToByteArray()) ?: return
-        kotlinx.coroutines.GlobalScope.launch {
+        scope.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", senderUserId)

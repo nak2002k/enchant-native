@@ -88,7 +88,7 @@ fun TwoStepPinScreen(
                         modifier = Modifier.size(72.dp)
                     ) { }
                     FilledTonalButton(
-                        onClick = { Text("0") },
+                        onClick = { /* digit 0 */ },
                         modifier = Modifier.size(72.dp)
                     ) {
                         Text("0", style = MaterialTheme.typography.headlineMedium)

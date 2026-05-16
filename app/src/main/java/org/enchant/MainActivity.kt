@@ -6,6 +6,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -208,7 +209,9 @@ fun AppNavigation() {
         composable("profile_setup") {
             ProfileSetupScreen(
                 onProfileDataEntered = { displayName, about, _ ->
-                    AuthManager.updateProfile("user_${System.currentTimeMillis()}", displayName, about)
+                    kotlinx.coroutines.MainScope().launch {
+                        AuthManager.updateProfile("user_${System.currentTimeMillis()}", displayName, about)
+                    }
                     navController.navigate("username_picker")
                 }
             )
@@ -306,7 +309,7 @@ fun AppNavigation() {
         composable("outgoing_call/{userId}") {
             OutgoingCallScreen(
                 remoteName = callUiState.callState.remoteUserId ?: "Unknown",
-                isSpeakerOn = callUiState.callState.isSpeakerOn,
+                isVideoCall = callUiState.callState.isVideoCall,
                 onToggleSpeaker = { callViewModel.toggleSpeaker() },
                 onEndCall = { callViewModel.endCall() },
                 onSwitchToVideo = { callViewModel.toggleVideo() }
@@ -333,13 +336,14 @@ fun AppNavigation() {
         composable("active_video_call/{callId}") {
             val state = callUiState.callState
             ActiveVideoCallScreen(
+                remoteUserId = state.remoteUserId ?: "Unknown",
+                durationSeconds = state.durationSeconds,
                 isMuted = state.isMuted,
                 isSpeakerOn = state.isSpeakerOn,
                 onToggleMute = { callViewModel.toggleMute() },
                 onToggleSpeaker = { callViewModel.toggleSpeaker() },
                 onEndCall = { callViewModel.endCall() },
-                onFlipCamera = { callViewModel.flipCamera() },
-                onSwitchToVoice = { callViewModel.toggleVideo() }
+                onFlipCamera = { callViewModel.flipCamera() }
             )
         }
     }

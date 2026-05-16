@@ -3,6 +3,7 @@ package org.enchant.feature.share
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.service.chooser.ChooserTarget
@@ -12,8 +13,8 @@ import org.enchant.core.base.SecurePreferences
 class ConversationChooserTargetService : ChooserTargetService() {
     override fun onGetChooserTargets(
         targetActivity: ComponentName,
-        matchedFilter: Intent?
-    ): MutableList<ChooserTarget> {
+        matchedFilter: IntentFilter?
+    ): List<ChooserTarget> {
         val targets = mutableListOf<ChooserTarget>()
         try {
             val convId = SecurePreferences.getString("share.target_conversation_id")

@@ -113,8 +113,8 @@ class ConversationListViewModel(
             try {
                 apiClient.put("/v1/notifications/preferences/conversations/$conversationId",
                     kotlinx.serialization.json.buildJsonObject {
-                        put("muted", until != null)
-                        if (until != null) put("mute_duration_seconds", (until - System.currentTimeMillis()) / 1000)
+                        put("muted", kotlinx.serialization.json.JsonPrimitive(until != null))
+                        if (until != null) put("mute_duration_seconds", kotlinx.serialization.json.JsonPrimitive((until - System.currentTimeMillis()) / 1000))
                     }
                 )
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
@@ -132,7 +132,7 @@ class ConversationListViewModel(
             repo.markConversationRead(conversationId)
             try {
                 apiClient.post("/v1/messages/read", kotlinx.serialization.json.buildJsonObject {
-                    put("conversation_id", conversationId)
+                    put("conversation_id", kotlinx.serialization.json.JsonPrimitive(conversationId))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }

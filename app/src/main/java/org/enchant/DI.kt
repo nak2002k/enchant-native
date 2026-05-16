@@ -91,8 +91,9 @@ object DI {
                 ApiClient.setInstance(client)
                 _apiClient = client
 
-                _connectivityMonitor = ConnectivityMonitor(context)
-                _offlineQueue = OfflineQueue()
+                ConnectivityMonitor.init(context)
+                _connectivityMonitor = ConnectivityMonitor
+                _offlineQueue = OfflineQueue
 
                 _conversationRepository = ConversationRepository(
                     messageDao = _messageDao!!,
@@ -125,11 +126,6 @@ object DI {
         }
     }
 
-    fun getWebSocketManager(): WebSocketManager {
-        checkInit()
-        return _webSocketManager!!
-    }
-
     fun reset() {
         _webSocketManager = null
         _apiClient = null
@@ -146,9 +142,5 @@ object DI {
         _connectivityMonitor = null
         _offlineQueue = null
         _initialized = false
-    }
-
-    private fun checkInit(): Unit {
-        if (!_initialized) throw IllegalStateException("DI not initialized. Call DI.init() first.")
     }
 }

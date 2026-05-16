@@ -23,13 +23,12 @@ android {
     }
 }
 
-val protoSrcDir = file("src/main/proto")
-val protoOutputDir = project.layout.buildDirectory.dir("generated/source/proto/java").get().asFile
+val protoSrcDir: java.io.File = file("src/main/proto")
+val protoOutputDir: java.io.File = project.layout.buildDirectory.dir("generated/source/proto/java").get().asFile
 
 val generateProto by tasks.registering(Exec::class) {
-    description = "Generate Java Lite protobuf classes"
+    description = "Generate Java protobuf classes"
     group = "generation"
-    workingDir = rootDir
 
     val fileList = protoSrcDir.walkTopDown()
         .filter { it.isFile && it.extension == "proto" }
@@ -52,6 +51,5 @@ tasks.matching { it.name.startsWith("compile") }.configureEach {
 }
 
 dependencies {
-    implementation("com.google.protobuf:protobuf-java:${libs.versions.protobuf.get()}")
-    implementation("com.google.protobuf:protobuf-javalite:${libs.versions.protobuf.get()}")
+    api("com.google.protobuf:protobuf-javalite:${libs.versions.protobuf.get()}")
 }
