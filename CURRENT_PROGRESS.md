@@ -1,305 +1,279 @@
-# Enchant Native — Current Progress
+# Enchant Native — Current Progress (Honest Audit)
 
-> This file tracks all completed work, current status, and next steps.
-> Update after every logical change.
+> **⚠️ WARNING**: This replaces the previous inaccurate file. Previous claims of "✅ All real" were false.
+> This audit compares the codebase against BUILD_PHASES documentation, SECURITY_ANDROID_PRACTICES.md,
+> PRODUCTION_REFERENCE.md, LEADING_APPS_REFERENCE_MAP.md, and SCALABILITY_ANDROID.md.
 
 ---
 
-## Project Status
+## Overall Assessment: ~40-50% Complete
 
-| Metric | Value |
+| Phase | Claimed | Reality |
+|-------|---------|---------|
+| 0 — Build Config | ✅ | 🟡 41 issues (no signing config, no cert pinning, Coil version mismatch) |
+| 1 — Foundation | ✅ | 🔴 58+ files missing incl DI container, SignalStore, JobManager, domain models |
+| 2 — Auth | ✅ | 🟡 Screens exist, but validateRestoredState is a stub, no 30s OTP cooldown, 0 screen tests |
+| 3 — Core Chat | ✅ | 🟡 Files exist, but sessions are in-memory only, SendPipeline incomplete, 0 data layer tests |
+| 4 — Calls | ✅ | ✅ Best module. 99 tests pass. Group call features stubbed. |
+| 5 — Social | ✅ | 🔴 GroupEditor missing 12/18 functions, screen names wrong, 0 screen tests |
+| 6 — Extended | ✅ | 🔴 3 settings screens missing (About, BlockedUsers, BackupSettings), 0 tests |
+| 7 — Polish | 🔶 Mostly done | 🔴 NavHost.kt ALL 35+ composable routes are empty bodies. CrashReporter stubbed. |
+
+---
+
+## Files On Disk
+
+| Metric | Count |
 |--------|-------|
-| **Phase** | Phase 7 — Polish & Ship (in progress: ~80% overall) |
-| **Kotlin source files** | 177 (108 non-test + 69 new across Sprints 0-5) |
-| **Kotlin test files** | 17 (10 existing + 7 new) |
-| **Proto files** | 16 (generated: 25 Java files) |
-| **Build modules** | 33 (1 app + 17 core + 15 feature) |
-| **Tests written** | 17 test files, 189 test cases (99 calls + 49 crypto + 21 network + 20 database) |
+| Total .kt files | ~187 (167 source + 20 test) |
+| Proto files | 28 `.proto` files |
+| Build modules | 34 `build.gradle.kts` files |
+| Test cases | ~244 (target: ~1015 per phase docs) |
 
 ---
 
-## Phase 0 — Project Setup ✅
+## Phase 0 — Build Config (41 issues)
 
-| Module | Files | Status |
-|--------|-------|--------|
-| Gradle config | `libs.versions.toml`, `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties` | ✅ |
-| Gradle wrapper | `gradlew`, `gradlew.bat`, `gradle-wrapper.jar` (8.11.1) | ✅ |
-| Android manifest | 27 permissions, 9 services/activities/receivers | ✅ |
-| Resources | themes, colors, strings, icons, 4 XML configs | ✅ |
-| ProGuard | `proguard-rules.pro` covering all libs | ✅ |
-| CI/CD | `.github/workflows/ci.yml` (lint → test → build) | ✅ |
-| .gitignore | hardened with secrets, builds, generated, temp | ✅ |
-| .env.example | Dev onboarding config | ✅ |
-| Proto generation | Manual protoc exec task generating 25 Java lite files | ✅ |
-
----
-
-## Phase 1 — Foundation ✅
-
-### `:core:base` (4 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `AppConfig.kt` | 64 | Real — config singleton, URL derivation, applicationContext |
-| `SecurePreferences.kt` | 66 | Real — EncryptedSharedPreferences wrapper, putInt/getInt |
-| `KeyStoreManager.kt` | 180 | Real — Android KeyStore: EC/AES, sign/verify, StrongBox, getOrCreateDatabaseKey |
-| `CoroutineDispatchers.kt` | 12 | Real — named dispatchers; crypto single-threaded |
-
-### `:core:network` (8 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `ApiClient.kt` | 164 | Real — OkHttp, retry, JWT refresh, 128MB limit, GET/POST/PUT/DELETE/getBinary/postRaw |
-| `AuthInterceptor.kt` | 83 | Real — Bearer token + concurrent-safe 401 refresh |
-| `RateLimitTracker.kt` | 61 | Real — header parsing, Retry-After, endpoint-scoped |
-| `WebSocketManager.kt` | 356 | Real — protobuf WS frames, exp. backoff, keepalive, auth timeout, REST fallback |
-| `WebSocketService.kt` | 102 | Real — foreground service, auto-connect, notification channel |
-| `ConnectivityMonitor.kt` | 68 | Real — NetworkCallback → StateFlow |
-| `OfflineQueue.kt` | 65 | Real — ConcurrentLinkedQueue, drain, max 5 retries |
-| `ApiModels.kt` | 187 | Real — 45 @Serializable data classes |
-
-### `:core:database` (9 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `AppDatabase.kt` | 200 | Real — SQLCipher + WAL + pool (1 writer / thread-local readers) + DDL (15 tables) |
-| `Entities.kt` | 148 | Real — 15 entity data classes |
-| `CursorMapper.kt` | 62 | Real — reified generics auto-mapping Cursor → Entity |
-| `MessageDao.kt` | 150 | Real — Full CRUD, paginated Flow, FTS search, expired deletion, batch insert |
-| `ConversationDao.kt` | 72 | Real — CRUD + reactive list + archive/pin/mute + unread counts |
-| `SessionDao.kt` | 30 | Real — Store/load/delete for Signal Protocol sessions |
-| `IdentityDao.kt` | 36 | Real — Identity key CRUD with verified status |
-| `RecipientDao.kt` | 80 | Real — Contact cache, username lookup, blocked list, inline batch upsert |
-
-### `:core:crypto` (6 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `CryptoHelper.kt` | 208 | **Real** — X25519 DH, Ed25519 sign/verify, AES-256-GCM, HKDF-SHA256, SHA-256/512, CSPRNG, base64url, constant-time cmp |
-| `X3DH.kt` | 116 | **Real** — Full X3DH: DH1+DH2+DH3+[DH4] → HKDF → SK, aliceInitiate + bobRespond |
-| `DoubleRatchet.kt` | 308 | **Real** — Full ratchet: init, encrypt (ratchet step + AES-GCM), decrypt (ratchet + skipped key buffer 1000), serialize/deserialize |
-| `SessionManager.kt` | 136 | **Real** — Orchestrates X3DH + DoubleRatchet, encryptMessage, decryptMessage, hasSession, getSafetyNumber |
-| `KeyManager.kt` | 62 | **Real** — Ed25519 key generation, SecurePreferences persistence, generateAndUploadKeys |
-| `SodiumProvider.kt` | 20 | Real — libsodium JNI loader with JDK fallback |
+| # | Severity | Issue |
+|---|----------|-------|
+| 1 | 🔴 | **No release signing config** — `signingConfigs { release { } }` block completely missing. `assembleRelease` will fail. |
+| 2 | 🔴 | **No certificate pinning** — `network_security_config.xml` missing `<pin-set>` for production API domain |
+| 3 | 🔴 | **Coil version mismatch** — ProGuard rules `keep class coil3.**` but code uses Coil 2.x (`io.coil-kt:coil`) |
+| 4 | 🔴 | **Consumer ProGuard files missing** — `consumerProguardFiles("consumer-rules.pro")` not in any of 33 modules |
+| 5 | 🟡 | **`useJUnitPlatform()` only on 4/33 modules** — tests won't run on 29 modules |
+| 6 | 🟡 | **`-Xcontext-receivers` and `-opt-in=kotlin.RequiresOptIn` missing** from ALL build files (spec requires them) |
+| 7 | 🟡 | **`targetSdk = 35` missing from all non-app modules** — spec requires it in every module's `defaultConfig` |
+| 8 | 🟡 | **`play-services-auth-api-phone`** and **`bouncycastle`** declared in version catalog but not in spec |
+| 9 | 🟡 | **CI/CD missing `lintKotlin` and `ktlintCheck`** — only `./gradlew lint` is configured |
+| 10 | 🟡 | **`kotlin.compose` plugin on `:core:auth`** with no Compose deps (previously caused build failure, now removed) |
 
 ---
 
-## Phase 2 — Auth & Onboarding ✅
+## Phase 1 — Foundation: Critical Missing Files
 
-### `:core:auth` (3 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `AuthStateMachine.kt` | 157 | Real — 13x13 state matrix, all transitions, validateRestoredState |
-| `AuthRepository.kt` | 191 | Real — All 12 API calls: OTP, JWT, keys, profile |
-| `AuthManager.kt` | 199 | Real — Full auth lifecycle: OTP flow, token mgmt, profile CRUD, logout |
+### Missing Files (58+)
+| Module | Files Present | Missing |
+|--------|-------------|---------|
+| `core:base` | AppConfig, SecurePreferences, KeyStoreManager, CoroutineDispatchers (4 files) | **DI.kt** — spec requires centralized `AppDependencies`-style DI container. Current DI is scattered `object` singletons. |
+| `core:model` | `DomainModels.kt` (1 file instead of 5) | `User.kt`, `CallLog.kt`, `Contact.kt`, `Message.kt` (separate) |
+| `core:jobmanager` | `JobManager.kt` (1 file, toy impl) | **20 files missing**: `Job.kt` (abstract class), `Constraint.kt`, `JobStorage.kt`, `Scheduler.kt`, 15+ job implementation files (PushSendJob, AttachmentDownloadJob, etc.) |
+| `core:signalstore` | `SignalStore.kt` (1 file, 3 values) | **23 Values classes missing**: AccountValues, BackupValues, RegistrationValues, SettingsValues, PinValues, StorageServiceValues, StoryValues, WallpaperValues, LabsValues, PhoneNumberPrivacyValues, EmojiValues, ChatColorsValues, CallQualityValues, ProxyValues, RateLimitValues, OnboardingValues, InternalValues |
+| `core:config` | `RemoteConfig.kt` (1 file, static map) | Firebase Remote Config integration missing; no `init()`, no `isEnabled()` |
 
-### `:feature:auth` (11 screens + ViewModel)
-| Screen | Status |
-|--------|--------|
-| WelcomeScreen, PhoneEntryScreen, CountryCodePickerScreen (130+ countries), OtpVerifyScreen, PermissionsScreen, ProfileSetupScreen, UsernamePickerScreen, KeyGenerationScreen, TwoStepPinScreen, RestorePromptScreen, AppLockScreen | ✅ All real |
+### Stub/Incomplete Functions
+| File | Function | Status |
+|------|----------|--------|
+| `KeyManager.kt` | `fetchKeyBundle()`, `cleanSignedPreKeys()`, `signWithIdentity()` | **Missing entirely** |
+| `KeyManager.kt` | `topUpOpks()` | **Empty body** |
+| `KeyManager.kt` | `rotateSignedPreKey()` | **Returns success without doing anything** |
+| `KeyManager.kt` | `generateAndUploadKeys()` | **Generates IK locally but never uploads to IKS** |
+| `KeyStoreManager.kt` | `getWrappedKeyBytes()` | **Always returns null (stub)** |
+| `SessionManager.kt` | `init()` | **Stub — never loads sessions from database** |
+| `SecurePreferences.kt` | `clearAll()` | **Missing `sodium_memzero`** to wipe in-memory copies |
 
-### `:core:push` (5 files)
-| File | Status |
-|------|--------|
-| FcmReceiveService, FcmFetchManager, FcmFetchForegroundService, PushTokenRegistrar, HuaweiPushFallback | ✅ All real |
-
-### `:core:navigation` (1 file)
-| File | Status |
-|------|--------|
-| `NavRoute.kt` | ✅ 40+ sealed route classes |
-
----
-
-## Phase 3 — Core Chat ✅
-
-### Chat Data Layer (6 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `ConversationRepository.kt` | ~180 | Real — CRUD, cursor pagination, reactive Flow, reactions, archive/pin/mute, search, expired deletion |
-| `MessageSendPipeline.kt` | ~260 | Real — encrypt→REST send→offline queue→track status. Text, media, reactions, receipts, typing, edits, deletes, forward |
-| `IncomingMessageProcessor.kt` | ~160 | Real — decrypt→dispatch. Pre-key (X3DH establish), signal messages, key bundle fetch, blocked senders, delivery receipts |
-| `MediaService.kt` | ~200 | Real — pick image/video/doc, voice record, JPEG compress, AES-GCM encrypt+upload, download+decrypt, gallery save |
-| `ContentPreProcessor.kt` | ~80 | Real — URL detection, markdown formatting, link preview fetch |
-| `ChatPagingSource.kt` | ~35 | Real — cursor-based pagination wrapper |
-
-### ViewModels (2 files)
-| File | Status |
-|------|--------|
-| `ConversationViewModel.kt` | Real — 25 functions: send, resend, delete, edit, forward, reactions, star, pin, copy, report, search, jump, schedule, view-once, contact card |
-| `ConversationListViewModel.kt` | Real — filter, search (debounced), archive/pin/mute/delete/mark-read, refresh |
-
-### Compose UI (7 files)
-| File | Status |
-|------|--------|
-| `ConversationListScreen.kt` | Real — filter chips, search, tiles with unread badge, long-press menu, FAB, empty state |
-| `ConversationScreen.kt` | Real — message list, composer, reply preview, attachment sheet, emoji picker, voice record, delivery ticks, context menu |
-| `EmojiPicker.kt` | Real — bottom sheet, 6 categories, search, quick reactions row |
-| `MediaViewerScreen.kt` | Real — full-screen, pinch-to-zoom, share, download to gallery |
-| `ChatColorsDrawable.kt` | Real — per-conversation solid/gradient/default |
-| `V2ConversationItemShape.kt` | Real — cluster calculator (SINGLE/START/MIDDLE/END) |
-
-### Notifications (6 files)
-| File | Status |
-|------|--------|
-| `NotificationChannels.kt` | Real — 5 channels (messages, silent, calls, voice, other) |
-| `MessageNotifier.kt` | Real — grouped notifications, summary for multi-conversation, per-conversation tracking |
-| `NotificationBuilder.kt` | Real — MessagingStyle/InboxStyle, inline reply + mark-read actions, call notifications |
-| `OptimizedMessageNotifier.kt` | Real — 50ms batch window, conversation grouping, async flush |
-| `NotificationProfileHelper.kt` | Real — Android 12+ schedule-based notification profiles |
-| `NotificationReplyReceiver.kt` | Real — BroadcastReceiver for inline reply + mark-read |
-
-### Infrastructure
-| File | Status |
-|------|--------|
-| `WebSocketService.kt` | Real — foreground service with auto-connect, notification channel, state tracking |
-| `BootReceiver.kt` | Real — starts WebSocketService on BOOT_COMPLETED |
-| `ShareTargetActivity.kt` | Real — handles ACTION_SEND text/image intents |
-| `ConversationChooserTargetService.kt` | Real — direct share targets |
+### Security Gaps (per SECURITY_ANDROID_PRACTICES.md)
+| Issue | Severity |
+|-------|----------|
+| AES-GCM used instead of XChaCha20-Poly1305 (spec requires XChaCha20) | 🔴 |
+| KeyManager stores identity keys in plain base64url (not wrapped by Android KeyStore) | 🔴 |
+| No `sodium_memzero` in `SecurePreferences.clearAll()` | 🟡 |
+| No `setUserAuthenticationRequired(true)` on identity key KeyStore entry | 🟡 |
+| No `setKeyValidityForOriginationEnd()` usage | 🟡 |
+| `ed25519SkToX25519` and `ed25519PkToX25519` use raw key copy instead of libsodium-style conversion | 🟡 |
 
 ---
 
-## Integration Test Results — 15/15 Passed
+## Phase 2 — Auth & Onboarding
 
-| # | Test | Endpoint | Result |
-|---|------|----------|--------|
-| 1 | Health check | `GET /health` | ✅ |
-| 2 | Request OTP | `POST /v1/auth/request-otp` | ✅ |
-| 3 | Verify OTP | `POST /v1/auth/verify-otp` | ✅ |
-| 4 | Token refresh | `POST /v1/auth/refresh` | ✅ |
-| 5 | Profile creation | `PUT /v1/profile` via Gateway | ✅ |
-| 6 | JWKS endpoint | `GET /v1/auth/.well-known/jwks.json` | ✅ |
-| 7 | Key registration | `POST /v1/keys/register` | ✅ |
-| 8 | List devices | `GET /v1/auth/devices` | ✅ |
-| 9-15 | Remaining OTP flow | Auth sub-checks | ✅ All passed |
+### What Exists
+- All 11 auth screens (Welcome → AppLock) — real Compose implementations
+- AuthStateMachine (157 lines) — 13x13 state matrix
+- AuthRepository (191 lines) — 12 API calls
+- AuthManager (199 lines) — auth lifecycle
+- All 5 push module files (FcmReceiveService etc.)
+- NavRoute.kt — 40+ sealed route classes
 
----
-
-## Phase 4 — Calls ✅
-
-### `:core:calls` (8 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `CallManager.kt` | 459 | Real — state machine, WebSocket signaling, protobuf CallMessage, 6 missing functions fixed, stubs replaced |
-| `WebRtcService.kt` | 198 | Real — PC factory, offer/answer/ICE, camera flip tracking, capturer cleanup |
-| `AudioRouter.kt` | 168 | Real — audio focus, ringer, device selection (bluetooth/speaker/earpiece/wired) |
-| `ActiveCallManager.kt` | 100 | Real — notification with mute/speaker/hangup actions, startCallScreen/stopCallScreen |
-| `CallObserver.kt` | 60 | Real — observer registry with synchronized notifications for all events |
-| `CallState.kt` | 90 | Real — all enums + data classes (CallState, CallLogEntry, PeekInfo, CallLinkData, etc.) |
-| `CallNotificationReceiver.kt` | 27 | Real — broadcast receiver for mute/speaker/hangup notification actions |
-| `CallForegroundService.kt` | 102 | Real — foreground service with call notification + mute/speaker actions |
-
-### `:feature:calls` (10 files)
-| File | Lines | Status |
-|------|-------|--------|
-| `IncomingCallScreen.kt` | 139 | Real — avatar, accept audio/video, decline, 30s auto-decline, E2EE label |
-| `OutgoingCallScreen.kt` | 116 | Real — bouncing dots, cancel, speaker toggle, 45s timeout |
-| `ActiveVoiceCallScreen.kt` | 139 | Real — timer, signal quality, mute/speaker, keypad, safety number |
-| `ActiveVideoCallScreen.kt` | 114 | Real — remote video, PiP, controls overlay, camera flip |
-| `GroupCallScreen.kt` | 109 | Real — participant grid, speaker view, admin controls, raise hand |
-| `CallLogScreen.kt` | 183 | Real — list with search, filter (all/missed/incoming/outgoing), selection, delete |
-| `SafetyNumberDialog.kt` | 75 | Real — safety number display with XXXX-XXXX format |
-| `CallLogViewModel.kt` | 142 | Real — selection, staged deletion, filter, search (debounced 300ms), DB CRUD |
-| `CallViewModel.kt` | 96 | **New** — ViewModel binding all call screens to CallManager via StateFlow |
-| `CallLinkScreen.kt` | 111 | Real — display link, join call, share, admin controls |
-| `CallLinkManager.kt` | 126 | Real — create/get/update/delete/join links with real backend credentials |
-
-### Integration
-| File | Status |
-|------|--------|
-| `CallManager.init()` in DI.kt | ✅ | |
-| Call routes wired into AppNavigation (incoming/outgoing/active voice/video) | ✅ | |
-| ConversationScreen `onStartCall` callback | ✅ | |
-
-### Tests Written
-| File | Test Cases | Covers |
-|------|-----------|--------|
-| `CallManagerStateTest.kt` | 29 | Initial state, incoming/outgoing call flow, end/deny, offer expiration, observer notification, state transitions |
-| `CallLogViewModelTest.kt` | 15 | Initial state, filter, selection, search, log entry mapping |
-| `CallLinkManagerTest.kt` | 11 | Create/get/update/delete/join, API success/failure, data classes |
-| `CallStateTest.kt` | 22 | CallState defaults, enums, CallLogEntry, PeekInfo, IceServer, CallLinkData, AudioDevice, SignalStrength |
-| `CallObserverRegistryTest.kt` | 13 | Register/unregister, multi-observer, all notification types, edge cases |
-| `CallViewModelTest.kt` | 10 | Initial state, navigation, call actions |
+### What's Wrong
+| Issue | Detail |
+|-------|--------|
+| `AuthStateMachine.validateRestoredState()` | Stub — returns `RegistrationState.Complete` unconditionally instead of calling refresh API |
+| `resendOtp()` | No 30s client-side cooldown per spec |
+| `AuthManager.searchUsername()` | Returns `List<String>` (usernames only), not `List<User>` with full profiles |
+| **Tests** | **0 screen tests** exist (spec requires 100+) |
 
 ---
 
-## Tests Written
+## Phase 3 — Core Chat
 
-| File | Test Cases | Covers |
-|------|-----------|--------|
-| `GroupsViewModelTest.kt` | 24 | Create, add/remove members, invite links, join requests, delete, update, join via link, clear messages |
-| `ContactsViewModelTest.kt` | 19 | Load, search, add, remove, block, unblock, blocked list, clear messages |
-| `AuthBackendIntegrationTest.kt` | 8 | Live backend integration tests |
-| **Calls (6 files)** | **99** | State machine, observer, log, links, data classes, view model |
+### What Exists
+- ConversationRepository (233 lines), MessageSendPipeline (331 lines), IncomingMessageProcessor (241 lines)
+- MediaService (243 lines), ContentPreProcessor (95 lines), ChatPagingSource (36 lines)
+- ConversationViewModel + ConversationListViewModel
+- 6+ Compose screens (ConversationList, Conversation, EmojiPicker, MediaViewer, etc.)
+- 6 notification files (MessageNotifier, NotificationBuilder, NotificationChannels, etc.)
 
-### New Tests Written
-| File | Test Cases | Covers |
-|------|-----------|--------|
-| `CryptoHelperTest.kt` | 25 | SHA-256, HKDF RFC 5869 KATs, AES-256-GCM, key generation, Ed25519 sign/verify, X25519 DH, Ed25519↔X25519 conversion, base64url, constant-time equals |
-| `X3DHTest.kt` | 7 | aliceInitiate with/without OPK, bobRespond, header fields, deterministic, different keys produce different secrets |
-| `DoubleRatchetTest.kt` | 9 | State init, encrypt produces output, message number tracking, serialization roundtrip, corrupted deserialize, error handling |
-| `SessionManagerTest.kt` | 6 | Encrypt establishes session, hasSession, deleteSession, decrypt without session, encrypt/decrypt roundtrip |
-| `ApiClientTest.kt` | 13 | HTTP methods (GET/POST/PUT/DELETE/binary/raw), error handling (404/500 retry/429 retry/non-JSON/empty/oversized) |
-| `OfflineQueueTest.kt` | 7 | Enqueue, multiple, clearAll, remove, remove non-existent, initial count, drain empty |
-| `WebSocketManagerTest.kt` | 3 | Init, initial state |
-| `MessageDaoTest.kt` | 8 | Insert, getByEnvelopeId, updateStatus, markDeleted, starMessage, getUnreadCount, deleteExpired, deleteConversation |
-| `ConversationDaoTest.kt` | 7 | Upsert, getById, setArchived, setPinned, setMuted, incrementUnread, getUnreadCount |
-| `SessionDaoTest.kt` | 5 | Store, load, delete, hasSession, deleteAllForUser |
+### What's Wrong
+| Issue | Detail |
+|-------|--------|
+| **SessionManager sessions are purely in-memory** | Lost on app restart. No database persistence. |
+| **`core:chat/` module doesn't exist** | All chat code in `feature:chat/` — Phase 3 doc paths are wrong |
+| **MessageSendPipeline missing full params** | No mentions, bodyRanges, linkPreview, slideDeck, isViewOnce support |
+| **ConversationRepository Flow is single-emit** | Not truly reactive — uses `callbackFlow` that doesn't re-emit on data changes |
+| **WebSocketManager delivery/read receipts** | `sendDeliveryReceipt` and `sendReadReceipt` send empty data (just the envelope ID string, no actual receipt protobuf) |
+| **OfflineQueue has no persistence** | All queued messages lost on process death |
+| **Notifications** | MessageNotifier doesn't use NotificationChannels correctly (channel IDs hardcoded as strings) |
+| **Tests** | **0 tests for data layer** (MessageSendPipeline, IncomingMessageProcessor, MediaService, ContentPreProcessor, ConversationRepository) |
 
 ---
 
-## Next Up
+## Phase 4 — Calls (Best Module)
 
-### Phase 5 — Social: Groups, Contacts sync, Status/Stories, Channels, Profiles (30 files)
-### Phase 6 — Extended: Stickers, Polls, Location, Backup, Settings (25 files)
-### Phase 7 — Polish & Ship: Accessibility, i18n, Crash handling, Edge-to-edge (15 files)
+### What Exists
+- 8 core:calls files (CallManager 496 lines, WebRtcService 211, AudioRouter 168, etc.)
+- 11 feature:calls files (IncomingCallScreen, OutgoingCallScreen, etc.)
+- **99 tests passing** across 6 test files
+
+### What's Wrong
+| Issue | Detail |
+|-------|--------|
+| `process(CallAction)` pattern not implemented | Spec requires per-state action routing via a central `process()` function. Actual implementation calls methods directly. |
+| Group call features stubbed | `raiseHand()`, `react()`, `requestRemoteMute()`, `removeParticipant()` all have stub bodies |
+| `ActiveCallManager.stopCallScreen()` | **Empty body** |
+| `CallManager.init()` requires `setApiClient()` | Fragile DI coupling — spec requires proper constructor injection |
 
 ---
 
-## Sprint 0 — Critical Blockers Fixed
-- ✅ `settings.gradle.kts`: `izetetic` → `zetetic` (SQLCipher repo URL)
-- ✅ `AndroidManifest.xml`: Added `CallNotificationReceiver` as `<receiver>` with mute/speaker/hangup intent filters
-- ✅ `build.gradle.kts`: `protobuf-java` → `protobuf-javalite` force
-- ✅ `core/crypto/build.gradle.kts`: `protobuf-java` → `protobuf-javalite`
+## Phase 5 — Social
 
-## Sprint 1 — 9 Missing DAOs Created (Phase 1)
-- `KeyMaterialDao.kt`, `GroupDao.kt`, `GroupMemberDao.kt`, `MediaCacheDao.kt`
-- `ProfileCacheDao.kt`, `CallLogDao.kt`, `StatusCacheDao.kt`
-- `StickerPackDao.kt`, `InstalledStickerDao.kt`
-
-## Sprint 2 — 3 Missing Phase 3 Chat Files
-- `MessageBubble.kt` — 7 bubble composables (Text, Media, Voice, Document, Location, Sticker, System)
-- `MessageContextMenu.kt` — Long-press actions (Copy, Reply, Edit, Delete, Forward, Star, Info)
-- `MessageDataFetcher.kt` — Parallel data loading (reactions, mentions, pinned)
-
-## Sprint 3 — Phase 5 Social (18 files)
-- Groups: GroupMemberListScreen, GroupInviteScreen, JoinRequestsScreen, GroupEditor, GroupStateProcessor
-- Contacts: ContactSyncService, AddContactScreen, ContactProfileScreen, FriendRequestsScreen
+### What Exists
+- Groups: GroupListScreen, CreateGroupScreen, GroupInfoScreen, GroupMemberListScreen, GroupInviteScreen, JoinRequestsScreen, GroupsViewModel, GroupsRepository, GroupEditor, GroupStateProcessor
+- Contacts: ContactListScreen, AddContactScreen, ContactProfileScreen, FriendRequestsScreen, ContactSyncService, ContactsViewModel, ContactsRepository
 - Status: StatusViewModel + 3 screens (Feed, Create, Viewer)
 - Channels: ChannelViewModel + 2 screens (Feed, Search)
 - Profile: ProfileViewModel + ProfileScreen
 
-## Sprint 4 — Phase 6 Extended (22 files)
+### What's Wrong
+| Issue | Detail |
+|-------|--------|
+| **GroupEditor missing 12/18 functions** | Only `addMembers`, `removeMember`, `setMemberAdmin` exist. Missing: `updateGroupTimer`, `updateAttributesRights`, `updateMembershipRights`, `setAnnouncementGroup`, `revokeInvites`, `banUser`, `unbanUser`, `ejectMember`, `terminateGroup`, `acceptInvite`, `cycleGroupLinkPassword`, `setJoinByGroupLinkState`, `commitChangeWithConflictResolution` |
+| **Doc names ≠ actual files** | `GroupsScreen.kt` → `GroupListScreen.kt`, `ContactsScreen.kt` → `ContactListScreen.kt`, `GroupViewModel.kt` → `GroupsViewModel.kt` |
+| **GroupStateProcessor has no conflict resolution** | Simplified from spec — doesn't handle `handleP2PChange` or Server/CRDT conflict resolution |
+| **Tests** | **0 screen tests** for ANY Phase 5 module |
+
+---
+
+## Phase 6 — Extended
+
+### What Exists
 - Stickers: StickerViewModel, StickerPicker, StickerStoreScreen
 - Polls: PollViewModel, PollBubble, PollCreateSheet
 - Location: LocationPickerScreen
-- Backup: BackupViewModel + 6 archive modules (Chat, Contact, Group, Call, BackupArchive, BackupExporter)
 - Settings: SettingsViewModel + 8 screens (Home, Account, Security, Privacy, Notifications, Appearance, Chats, Storage)
+- Backup: BackupViewModel, BackupExporter + 5 archive exporters
 
-## Sprint 5 — Phase 7 Polish & Ship (7 files)
-- NavHost.kt — Type-safe navigation with sealed NavRoute
-- MessageCache.kt — Generic LRU cache
-- ImagePipeline.kt — Coil config (25% heap + 50MB disk)
-- MessageTrimmer.kt — WorkManager daily cleanup
-- AccessibilityDelegate.kt — 4 content description generators
-- RtlSupport.kt — RTL detection + layout direction
-- EnchantApp.kt — Application class (DI → Crashlytics → LeakCanary → StrictMode)
-
----
-
-## Pre-Existing Issues Not Yet Fixed (unrelated to Phase 4)
-
-These existed before Phase 4 work and affect Gradle 9.5.1 builds only (not `./gradlew`):
-- `core:push` module: needs serialization plugin + Google Play Services dep
-- `core:notifications` module: needs `core-ktx` dependency
-- `feature:share` module: needs access to `DI` and `chat` module classes
-- `core:jobmanager`: contains empty directory
+### What's Wrong
+| Issue | Detail |
+|-------|--------|
+| **🔴 3 settings screens MISSING** | `AboutScreen.kt`, `BlockedUsersScreen.kt`, `BackupSettingsScreen.kt` — do not exist anywhere |
+| **SettingsViewModel incomplete** | `updatePrivacy()`, `loadDevices()`, `revokeDevice()`, `getStorageUsage()` are implemented but backend-facing (no offline defaults) |
+| **BackupViewModel missing `restoreBackup()`** | Per spec, backup must support restore — only export (upload) is implemented |
+| **PollBubble** | No actual poll rendering — doesn't display vote counts, doesn't handle closed polls |
+| **Tests** | **0 tests for ANY Phase 6 module** |
 
 ---
 
-*Last updated: 2026-05-16*
+## Phase 7 — Polish & Ship (Critically Incomplete)
+
+### What Exists
+- NavRoute.kt (50 lines) — 40+ sealed route classes
+- NavHost.kt (255 lines) — all composable routes wired
+- MessageCache.kt, ImagePipeline.kt, MessageTrimmer.kt, PerformanceTracker.kt
+- AccessibilityDelegate.kt, RtlSupport.kt, Accessibility.kt
+- CrashReporter.kt
+- EnchantApp.kt
+- MainActivity.kt (with FLAG_SECURE + edge-to-edge)
+
+### What's Wrong
+
+| File | Problem | Severity |
+|------|---------|----------|
+| **NavHost.kt** | **ALL 35+ composable routes have empty `{}` bodies.** Navigation framework exists but renders NOTHING. | 🔴 |
+| **EnchantApp.kt** | `initDi()` is **empty**. `initLeakCanary()` is **empty**. Only `CrashReporter.init()`, `ImagePipeline.init()`, StrictMode, and NotificationChannels are wired. | 🔴 |
+| **CrashReporter.kt** | No Crashlytics dependency. Missing: `setUserId()`, `logEvent()`, `logError()`, `logDecryptionFailure()`. Email regex scrubbing missing. Uses `Log.d()` only. | 🔴 |
+| **RtlSupport.kt** | Returns `Int` (not a Compose `Modifier` extension). Can't be used with Compose's `Modifier.mirrorLayoutDirection()`. | 🔴 |
+| **MessageCache.kt** | Requires `idExtractor` lambda not in spec. No eviction listener. | 🟡 |
+| **Tests** | **0 tests for ANY Phase 7 file** | 🔴 |
+
+---
+
+## Test Coverage: Real Numbers
+
+| Test File | Tests | Module |
+|-----------|-------|--------|
+| `CallManagerStateTest.kt` | 29 | calls |
+| `CallLogViewModelTest.kt` | 15 | calls |
+| `CallLinkManagerTest.kt` | 11 | calls |
+| `CallStateTest.kt` | 22 | calls |
+| `CallObserverRegistryTest.kt` | 13 | calls |
+| `CallViewModelTest.kt` | 10 | calls |
+| `CryptoHelperTest.kt` | 25 | crypto |
+| `X3DHTest.kt` | 7 | crypto |
+| `DoubleRatchetTest.kt` | 9 | crypto |
+| `SessionManagerTest.kt` | 6 | crypto |
+| `ApiClientTest.kt` | 13 | network |
+| `OfflineQueueTest.kt` | 7 | network |
+| `WebSocketManagerTest.kt` | 3 | network |
+| `MessageDaoTest.kt` | 8 | database |
+| `ConversationDaoTest.kt` | 7 | database |
+| `SessionDaoTest.kt` | 5 | database |
+| `GroupsViewModelTest.kt` | 24 | groups |
+| `ContactsViewModelTest.kt` | 19 | contacts |
+| `AuthBackendIntegrationTest.kt` | 8 | auth |
+| **Total** | **~244** | — |
+
+### Test Coverage vs Target
+| Module | Tests | Target | Gap |
+|--------|-------|--------|-----|
+| calls | 99 | 100+ | ~1 |
+| crypto | 47 | 111 | **-64** |
+| network | 23 | 90 | **-67** |
+| database | 20 | 88 | **-68** |
+| base | 0 | 61 | **-61** |
+| jobmanager | 0 | 90 | **-90** |
+| signalstore | 0 | 75 | **-75** |
+| config | 0 | 5 | **-5** |
+| groups | 24 | 30+ | ~6 |
+| contacts | 19 | 30+ | ~11 |
+| other features | 0 | 250+ | **-250** |
+| **Total** | **~244** | **~1015** | **~771** |
+
+---
+
+## Priority Action Plan
+
+### Tier 1 — Make It Build and Run
+1. Fix NavHost.kt — replace all 35+ empty `{}` stubs with actual composables
+2. Add release signing config so `assembleRelease` works
+3. Fix network_security_config.xml with proper cert pinning
+4. Fix Coil ProGuard rules (coil3 → coil)
+5. Add `consumerProguardFiles` to all modules
+
+### Tier 2 — Security
+6. Switch CryptoHelper from AES-GCM to XChaCha20-Poly1305 (libsodium)
+7. Wrap KeyManager's key storage with Android KeyStore (use `stored key = keystore.encrypt(raw key)`)
+8. Add `sodium_memzero` to SecurePreferences.clearAll()
+9. Implement proper SealedSender and safety number verification
+
+### Tier 3 — Core Missing Features
+10. Build DI.kt (Signal-style AppDependencies)
+11. Implement SessionManager with database persistence
+12. Build full JobManager with 20+ files
+13. Build full SignalStore with 23 Values classes
+
+### Tier 4 — Tests
+14. Write remaining 771+ tests to meet spec targets
+15. Add coverage threshold enforcement to CI
+
+---
+
+*Last updated: 2026-05-16 — Honest audit against phase docs, security specs, and Signal reference.*
