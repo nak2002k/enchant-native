@@ -64,8 +64,13 @@ object MessageSendPipeline {
             try {
                 if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
 
+                val contentBytes = MessageProtobufHelper.buildDataMessageContent(
+                    body = plaintext.decodeToString(),
+                    timestamp = System.currentTimeMillis()
+                )
+
                 val hasSession = SessionManager.hasSession(recipientUserId)
-                val encrypted = SessionManager.encryptMessage(recipientUserId, plaintext)
+                val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes)
                 if (encrypted == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
 
                 val envelopeId = UUID.randomUUID().toString()
@@ -209,14 +214,18 @@ object MessageSendPipeline {
 
     suspend fun sendDeliveryReceipt(envelopeId: String, senderUserId: String) {
         checkInit()
-        val payload = CryptoHelper.base64UrlEncode("DELIVERY:$envelopeId".encodeToByteArray())
-        val encrypted = SessionManager.encryptMessage(senderUserId, payload.encodeToByteArray()) ?: return
+        val ts = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+        val contentBytes = MessageProtobufHelper.buildReceiptContent(
+            envelopeIds = listOf(ts.toString()),
+            type = MessageProtobufHelper.ReceiptType.DELIVERY
+        )
+        val encrypted = SessionManager.encryptMessage(senderUserId, contentBytes) ?: return
         scope.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
-                    put("recipient_user_id", senderUserId)
-                    put("message_type", "SIGNAL_MESSAGE")
-                    put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
+                    put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(senderUserId))
+                    put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
+                    put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
@@ -224,14 +233,18 @@ object MessageSendPipeline {
 
     suspend fun sendReadReceipt(envelopeId: String, senderUserId: String) {
         checkInit()
-        val payload = CryptoHelper.base64UrlEncode("READ:$envelopeId".encodeToByteArray())
-        val encrypted = SessionManager.encryptMessage(senderUserId, payload.encodeToByteArray()) ?: return
+        val ts = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+        val contentBytes = MessageProtobufHelper.buildReceiptContent(
+            envelopeIds = listOf(ts.toString()),
+            type = MessageProtobufHelper.ReceiptType.READ
+        )
+        val encrypted = SessionManager.encryptMessage(senderUserId, contentBytes) ?: return
         scope.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
-                    put("recipient_user_id", senderUserId)
-                    put("message_type", "SIGNAL_MESSAGE")
-                    put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
+                    put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(senderUserId))
+                    put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
+                    put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
@@ -243,8 +256,8 @@ object MessageSendPipeline {
         if (isTyping && now - lastTypingTs < 3000) return
         if (isTyping) lastTypingTs = now
 
-        val payload = CryptoHelper.base64UrlEncode((if (isTyping) "TYPING_START" else "TYPING_STOP").encodeToByteArray())
-        val encrypted = SessionManager.encryptMessage(recipientUserId, payload.encodeToByteArray()) ?: return
+        val contentBytes = MessageProtobufHelper.buildTypingContent(isTyping)
+        val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes) ?: return
 
         scope.launch {
             try {
@@ -294,12 +307,14 @@ object MessageSendPipeline {
         val repo = repository!!
         return withContext(Dispatchers.Default) {
             try {
-                val encrypted = SessionManager.encryptMessage(recipientUserId, "DELETE:$envelopeId".encodeToByteArray())
+                val targetTs = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+                val contentBytes = MessageProtobufHelper.buildDeleteContent(targetTimestamp = targetTs)
+                val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes)
                     ?: return@withContext Result.failure(Exception("Encryption failed"))
                 apiClient!!.post("/v1/messages/send", buildJsonObject {
-                    put("recipient_user_id", recipientUserId)
-                    put("message_type", "SIGNAL_MESSAGE")
-                    put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
+                    put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(recipientUserId))
+                    put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
+                    put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
                 repo.markMessageDeleted(envelopeId)
                 Result.success(Unit)
