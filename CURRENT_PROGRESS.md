@@ -11,10 +11,10 @@
 |--------|-------|
 | **Phase** | Phase 7 — Polish & Ship (in progress: ~80% overall) |
 | **Kotlin source files** | 177 (108 non-test + 69 new across Sprints 0-5) |
-| **Kotlin test files** | 10 |
+| **Kotlin test files** | 17 (10 existing + 7 new) |
 | **Proto files** | 16 (generated: 25 Java files) |
 | **Build modules** | 33 (1 app + 17 core + 15 feature) |
-| **Tests written** | 10 test files, 150 test cases (99 in Phase 4) |
+| **Tests written** | 17 test files, 189 test cases (99 calls + 49 crypto + 21 network + 20 database) |
 
 ---
 
@@ -225,7 +225,21 @@
 | `GroupsViewModelTest.kt` | 24 | Create, add/remove members, invite links, join requests, delete, update, join via link, clear messages |
 | `ContactsViewModelTest.kt` | 19 | Load, search, add, remove, block, unblock, blocked list, clear messages |
 | `AuthBackendIntegrationTest.kt` | 8 | Live backend integration tests |
-| **Calls (6 files)** | **100** | State machine, observer, log, links, data classes, view model |
+| **Calls (6 files)** | **99** | State machine, observer, log, links, data classes, view model |
+
+### New Tests Written
+| File | Test Cases | Covers |
+|------|-----------|--------|
+| `CryptoHelperTest.kt` | 25 | SHA-256, HKDF RFC 5869 KATs, AES-256-GCM, key generation, Ed25519 sign/verify, X25519 DH, Ed25519↔X25519 conversion, base64url, constant-time equals |
+| `X3DHTest.kt` | 7 | aliceInitiate with/without OPK, bobRespond, header fields, deterministic, different keys produce different secrets |
+| `DoubleRatchetTest.kt` | 9 | State init, encrypt produces output, message number tracking, serialization roundtrip, corrupted deserialize, error handling |
+| `SessionManagerTest.kt` | 6 | Encrypt establishes session, hasSession, deleteSession, decrypt without session, encrypt/decrypt roundtrip |
+| `ApiClientTest.kt` | 13 | HTTP methods (GET/POST/PUT/DELETE/binary/raw), error handling (404/500 retry/429 retry/non-JSON/empty/oversized) |
+| `OfflineQueueTest.kt` | 7 | Enqueue, multiple, clearAll, remove, remove non-existent, initial count, drain empty |
+| `WebSocketManagerTest.kt` | 3 | Init, initial state |
+| `MessageDaoTest.kt` | 8 | Insert, getByEnvelopeId, updateStatus, markDeleted, starMessage, getUnreadCount, deleteExpired, deleteConversation |
+| `ConversationDaoTest.kt` | 7 | Upsert, getById, setArchived, setPinned, setMuted, incrementUnread, getUnreadCount |
+| `SessionDaoTest.kt` | 5 | Store, load, delete, hasSession, deleteAllForUser |
 
 ---
 
