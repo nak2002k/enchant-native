@@ -7,7 +7,6 @@ import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.service.chooser.ChooserTarget
 import android.service.chooser.ChooserTargetService
-import org.enchant.core.base.DI
 import org.enchant.core.base.SecurePreferences
 
 class ConversationChooserTargetService : ChooserTargetService() {

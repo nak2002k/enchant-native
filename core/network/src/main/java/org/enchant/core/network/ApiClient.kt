@@ -1,9 +1,6 @@
 package org.enchant.core.network
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -16,6 +13,11 @@ import org.enchant.core.base.AppConfig
 import java.util.concurrent.TimeUnit
 
 class ApiClient {
+    companion object {
+        private var _instance: ApiClient? = null
+        fun getInstance(): ApiClient = _instance ?: error("ApiClient not initialized")
+        fun setInstance(client: ApiClient) { _instance = client }
+    }
     private var initialized = false
     private lateinit var client: OkHttpClient
     private val json = Json { ignoreUnknownKeys = true }

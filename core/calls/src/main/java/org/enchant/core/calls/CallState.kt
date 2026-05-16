@@ -29,6 +29,7 @@ data class CallState(
     val isMuted: Boolean = false,
     val isSpeakerOn: Boolean = false,
     val isOnHold: Boolean = false,
+    val isHandRaised: Boolean = false,
     val durationSeconds: Int = 0,
     val signalStrength: SignalStrength? = null,
     val error: String? = null

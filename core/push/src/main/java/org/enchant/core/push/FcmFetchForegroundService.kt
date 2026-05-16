@@ -8,6 +8,10 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class FcmFetchForegroundService : android.app.Service() {
     companion object {
@@ -31,8 +35,8 @@ class FcmFetchForegroundService : android.app.Service() {
 
         startForeground(NOTIFICATION_ID, notification)
 
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            kotlinx.coroutines.delay(2000)
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(2000)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }

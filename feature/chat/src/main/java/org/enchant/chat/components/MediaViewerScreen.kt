@@ -79,7 +79,7 @@ fun MediaViewerScreen(
             Text("Loading...", color = Color.White, modifier = Modifier.align(Alignment.Center))
         }
 
-        AnimatedVisibility(visible = showControls) {
+        androidx.compose.animation.AnimatedVisibility(visible = showControls) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

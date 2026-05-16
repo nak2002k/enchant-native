@@ -53,7 +53,7 @@ object CryptoHelper {
         val privateKey = factory.generatePrivate(keySpec)
         val xdhFactory = KeyFactory.getInstance("XDH")
         val params = NamedParameterSpec("X25519")
-        val xdhSpec = XECPrivateKeySpec(params, BigInteger(1, sk.copyOfRange(2, 34)))
+        val xdhSpec = XECPrivateKeySpec(params, sk.copyOfRange(2, 34))
         val xdhPrivate = xdhFactory.generatePrivate(xdhSpec)
         return xdhPrivate.encoded
     }
@@ -83,7 +83,8 @@ object CryptoHelper {
 
     fun hkdfSha256(input: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
         if (length <= 0) throw IllegalArgumentException("Length must be positive, got $length")
-        val prk = hmacSha256(salt.ifEmpty { ByteArray(32) }, input)
+        val effectiveSalt = salt.takeIf { it.isNotEmpty() } ?: ByteArray(32)
+        val prk = hmacSha256(effectiveSalt, input)
         val result = ByteArray(length)
         var t = ByteArray(0)
         var counter = 0
@@ -189,7 +190,7 @@ object CryptoHelper {
     }
 
     private fun wrapEd25519Private(raw: ByteArray): ByteArray {
-        if (raw.size == 34 && raw[0] == 0x04) return raw
+        if (raw.size == 34 && raw[0].toInt() == 0x04) return raw
         val prefix = byteArrayOf(0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20)
         return prefix + raw
     }

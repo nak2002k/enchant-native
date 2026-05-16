@@ -102,6 +102,17 @@
             android:foregroundServiceType="microphone|connectedDevice"
             android:exported="false" />
 
+        <!-- Call Notification Receiver -->
+        <receiver
+            android:name=".core.calls.CallNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.enchant.action.CALL_MUTE" />
+                <action android:name="org.enchant.action.CALL_SPEAKER" />
+                <action android:name="org.enchant.action.CALL_HANGUP" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

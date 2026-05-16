@@ -12,6 +12,7 @@ import org.enchant.core.auth.AuthManager
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.KeyStoreManager
 import org.enchant.core.base.SecurePreferences
+import org.enchant.core.calls.CallManager
 import org.enchant.core.crypto.KeyManager
 import org.enchant.core.crypto.SessionManager
 import org.enchant.core.database.DatabasePool
@@ -75,9 +76,10 @@ object DI {
                 _securePreferences = SecurePreferences
 
                 val dbPassphrase = KeyStoreManager.getOrCreateDatabaseKey()
-                _databasePool = DatabasePool(context, dbPassphrase, emptyList())
+                val pool = DatabasePool(context, dbPassphrase, emptyList())
+                _databasePool = pool
+                DatabasePool.instance = pool
 
-                val pool = _databasePool!!
                 _messageDao = MessageDao(pool)
                 _conversationDao = ConversationDao(pool)
                 _sessionDao = SessionDao(pool)
@@ -86,6 +88,7 @@ object DI {
 
                 val client = ApiClient()
                 client.init()
+                ApiClient.setInstance(client)
                 _apiClient = client
 
                 _connectivityMonitor = ConnectivityMonitor(context)
@@ -106,8 +109,11 @@ object DI {
                 WebSocketManager.init()
                 _webSocketManager = WebSocketManager
 
+                CallManager.init()
+                CallManager.setApiClient(client)
+
                 MessageSendPipeline.init(_apiClient!!, _conversationRepository!!)
-                IncomingMessageProcessor.init(_conversationRepository!!)
+                IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client)
                 MediaService.init(_apiClient!!)
                 ContentPreProcessor.init(_apiClient!!)
 

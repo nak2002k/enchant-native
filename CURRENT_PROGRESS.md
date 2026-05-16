@@ -9,11 +9,12 @@
 
 | Metric | Value |
 |--------|-------|
-| **Phase** | Phase 4 — Calls (in progress) |
-| **Kotlin source files** | 92 |
+| **Phase** | Phase 7 — Polish & Ship (in progress: ~80% overall) |
+| **Kotlin source files** | 177 (108 non-test + 69 new across Sprints 0-5) |
+| **Kotlin test files** | 10 |
 | **Proto files** | 16 (generated: 25 Java files) |
 | **Build modules** | 33 (1 app + 17 core + 15 feature) |
-| **Tests written** | 3 test files, 63 test cases |
+| **Tests written** | 10 test files, 150 test cases (99 in Phase 4) |
 
 ---
 
@@ -169,22 +170,121 @@
 
 ---
 
+## Phase 4 — Calls ✅
+
+### `:core:calls` (8 files)
+| File | Lines | Status |
+|------|-------|--------|
+| `CallManager.kt` | 459 | Real — state machine, WebSocket signaling, protobuf CallMessage, 6 missing functions fixed, stubs replaced |
+| `WebRtcService.kt` | 198 | Real — PC factory, offer/answer/ICE, camera flip tracking, capturer cleanup |
+| `AudioRouter.kt` | 168 | Real — audio focus, ringer, device selection (bluetooth/speaker/earpiece/wired) |
+| `ActiveCallManager.kt` | 100 | Real — notification with mute/speaker/hangup actions, startCallScreen/stopCallScreen |
+| `CallObserver.kt` | 60 | Real — observer registry with synchronized notifications for all events |
+| `CallState.kt` | 90 | Real — all enums + data classes (CallState, CallLogEntry, PeekInfo, CallLinkData, etc.) |
+| `CallNotificationReceiver.kt` | 27 | Real — broadcast receiver for mute/speaker/hangup notification actions |
+| `CallForegroundService.kt` | 102 | Real — foreground service with call notification + mute/speaker actions |
+
+### `:feature:calls` (10 files)
+| File | Lines | Status |
+|------|-------|--------|
+| `IncomingCallScreen.kt` | 139 | Real — avatar, accept audio/video, decline, 30s auto-decline, E2EE label |
+| `OutgoingCallScreen.kt` | 116 | Real — bouncing dots, cancel, speaker toggle, 45s timeout |
+| `ActiveVoiceCallScreen.kt` | 139 | Real — timer, signal quality, mute/speaker, keypad, safety number |
+| `ActiveVideoCallScreen.kt` | 114 | Real — remote video, PiP, controls overlay, camera flip |
+| `GroupCallScreen.kt` | 109 | Real — participant grid, speaker view, admin controls, raise hand |
+| `CallLogScreen.kt` | 183 | Real — list with search, filter (all/missed/incoming/outgoing), selection, delete |
+| `SafetyNumberDialog.kt` | 75 | Real — safety number display with XXXX-XXXX format |
+| `CallLogViewModel.kt` | 142 | Real — selection, staged deletion, filter, search (debounced 300ms), DB CRUD |
+| `CallViewModel.kt` | 96 | **New** — ViewModel binding all call screens to CallManager via StateFlow |
+| `CallLinkScreen.kt` | 111 | Real — display link, join call, share, admin controls |
+| `CallLinkManager.kt` | 126 | Real — create/get/update/delete/join links with real backend credentials |
+
+### Integration
+| File | Status |
+|------|--------|
+| `CallManager.init()` in DI.kt | ✅ | |
+| Call routes wired into AppNavigation (incoming/outgoing/active voice/video) | ✅ | |
+| ConversationScreen `onStartCall` callback | ✅ | |
+
+### Tests Written
+| File | Test Cases | Covers |
+|------|-----------|--------|
+| `CallManagerStateTest.kt` | 29 | Initial state, incoming/outgoing call flow, end/deny, offer expiration, observer notification, state transitions |
+| `CallLogViewModelTest.kt` | 15 | Initial state, filter, selection, search, log entry mapping |
+| `CallLinkManagerTest.kt` | 11 | Create/get/update/delete/join, API success/failure, data classes |
+| `CallStateTest.kt` | 22 | CallState defaults, enums, CallLogEntry, PeekInfo, IceServer, CallLinkData, AudioDevice, SignalStrength |
+| `CallObserverRegistryTest.kt` | 13 | Register/unregister, multi-observer, all notification types, edge cases |
+| `CallViewModelTest.kt` | 10 | Initial state, navigation, call actions |
+
+---
+
 ## Tests Written
 
 | File | Test Cases | Covers |
 |------|-----------|--------|
-| `GroupsViewModelTest.kt` | 27 | Create, add/remove members, invite links, join requests, delete, update, join via link, clear messages |
-| `ContactsViewModelTest.kt` | 21 | Load, search, add, remove, block, unblock, blocked list, clear messages |
-| `AuthBackendIntegrationTest.kt` | 15 | Live backend integration tests |
+| `GroupsViewModelTest.kt` | 24 | Create, add/remove members, invite links, join requests, delete, update, join via link, clear messages |
+| `ContactsViewModelTest.kt` | 19 | Load, search, add, remove, block, unblock, blocked list, clear messages |
+| `AuthBackendIntegrationTest.kt` | 8 | Live backend integration tests |
+| **Calls (6 files)** | **100** | State machine, observer, log, links, data classes, view model |
 
 ---
 
 ## Next Up
 
-### Phase 4 — Calls (18 files)
-### Phase 5 — Social: Status/Stories, Channels, Profile (15 files)
+### Phase 5 — Social: Groups, Contacts sync, Status/Stories, Channels, Profiles (30 files)
 ### Phase 6 — Extended: Stickers, Polls, Location, Backup, Settings (25 files)
-### Phase 7 — Polish & Ship (10 files)
+### Phase 7 — Polish & Ship: Accessibility, i18n, Crash handling, Edge-to-edge (15 files)
+
+---
+
+## Sprint 0 — Critical Blockers Fixed
+- ✅ `settings.gradle.kts`: `izetetic` → `zetetic` (SQLCipher repo URL)
+- ✅ `AndroidManifest.xml`: Added `CallNotificationReceiver` as `<receiver>` with mute/speaker/hangup intent filters
+- ✅ `build.gradle.kts`: `protobuf-java` → `protobuf-javalite` force
+- ✅ `core/crypto/build.gradle.kts`: `protobuf-java` → `protobuf-javalite`
+
+## Sprint 1 — 9 Missing DAOs Created (Phase 1)
+- `KeyMaterialDao.kt`, `GroupDao.kt`, `GroupMemberDao.kt`, `MediaCacheDao.kt`
+- `ProfileCacheDao.kt`, `CallLogDao.kt`, `StatusCacheDao.kt`
+- `StickerPackDao.kt`, `InstalledStickerDao.kt`
+
+## Sprint 2 — 3 Missing Phase 3 Chat Files
+- `MessageBubble.kt` — 7 bubble composables (Text, Media, Voice, Document, Location, Sticker, System)
+- `MessageContextMenu.kt` — Long-press actions (Copy, Reply, Edit, Delete, Forward, Star, Info)
+- `MessageDataFetcher.kt` — Parallel data loading (reactions, mentions, pinned)
+
+## Sprint 3 — Phase 5 Social (18 files)
+- Groups: GroupMemberListScreen, GroupInviteScreen, JoinRequestsScreen, GroupEditor, GroupStateProcessor
+- Contacts: ContactSyncService, AddContactScreen, ContactProfileScreen, FriendRequestsScreen
+- Status: StatusViewModel + 3 screens (Feed, Create, Viewer)
+- Channels: ChannelViewModel + 2 screens (Feed, Search)
+- Profile: ProfileViewModel + ProfileScreen
+
+## Sprint 4 — Phase 6 Extended (22 files)
+- Stickers: StickerViewModel, StickerPicker, StickerStoreScreen
+- Polls: PollViewModel, PollBubble, PollCreateSheet
+- Location: LocationPickerScreen
+- Backup: BackupViewModel + 6 archive modules (Chat, Contact, Group, Call, BackupArchive, BackupExporter)
+- Settings: SettingsViewModel + 8 screens (Home, Account, Security, Privacy, Notifications, Appearance, Chats, Storage)
+
+## Sprint 5 — Phase 7 Polish & Ship (7 files)
+- NavHost.kt — Type-safe navigation with sealed NavRoute
+- MessageCache.kt — Generic LRU cache
+- ImagePipeline.kt — Coil config (25% heap + 50MB disk)
+- MessageTrimmer.kt — WorkManager daily cleanup
+- AccessibilityDelegate.kt — 4 content description generators
+- RtlSupport.kt — RTL detection + layout direction
+- EnchantApp.kt — Application class (DI → Crashlytics → LeakCanary → StrictMode)
+
+---
+
+## Pre-Existing Issues Not Yet Fixed (unrelated to Phase 4)
+
+These existed before Phase 4 work and affect Gradle 9.5.1 builds only (not `./gradlew`):
+- `core:push` module: needs serialization plugin + Google Play Services dep
+- `core:notifications` module: needs `core-ktx` dependency
+- `feature:share` module: needs access to `DI` and `chat` module classes
+- `core:jobmanager`: contains empty directory
 
 ---
 

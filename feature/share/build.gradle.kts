@@ -30,6 +30,8 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(project(":core:base"))
     implementation(project(":core:database"))
+    implementation(project(":core:network"))
+    implementation(project(":feature:chat"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)

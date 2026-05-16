@@ -49,7 +49,7 @@ class ConversationRepository(
 
     fun getMessages(conversationId: String, limit: Int = 50, beforeId: Long? = null): Flow<List<Message>> = callbackFlow {
         val flow = messageDao.getConversationMessages(conversationId, limit, beforeId)
-        val collectJob = kotlinx.coroutines.launch {
+        val collectJob = launch {
             flow.collect { entities ->
                 trySend(entities.map { Message.fromEntity(it) })
             }

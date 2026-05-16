@@ -32,10 +32,18 @@ sealed class DecryptedContent {
 
 object IncomingMessageProcessor {
     private var repository: ConversationRepository? = null
+    private var recipientDao: org.enchant.core.database.dao.RecipientDao? = null
+    private var apiClient: org.enchant.core.network.ApiClient? = null
     private var initialized = false
 
-    fun init(repo: ConversationRepository) {
+    fun init(
+        repo: ConversationRepository,
+        recipients: org.enchant.core.database.dao.RecipientDao,
+        client: org.enchant.core.network.ApiClient
+    ) {
         repository = repo
+        recipientDao = recipients
+        apiClient = client
         initialized = true
     }
 
@@ -51,8 +59,7 @@ object IncomingMessageProcessor {
             try {
                 val senderId = envelope.senderUserId ?: return@withContext ProcessResult.Ignored
 
-                val recipientDao = org.enchant.core.base.DI.recipientDao
-                val blocked = recipientDao.getBlocked()
+                val blocked = recipientDao!!.getBlocked()
                 if (blocked.any { it.recipientId == senderId }) {
                     return@withContext ProcessResult.Ignored
                 }
@@ -209,14 +216,19 @@ object IncomingMessageProcessor {
 
     private suspend fun fetchKeyBundle(userId: String): Boolean {
         return try {
-            val client = org.enchant.core.base.DI.apiClient
-            val response = client.get("/v1/keys/bundle/$userId")
+            val response = apiClient!!.get("/v1/keys/bundle/$userId")
             response.fold(
                 onSuccess = { json ->
-                    val devices = json["devices"]?.kotlinx.serialization.json.jsonArray
+                    val devices = json["devices"]?.let { array ->
+                        @Suppress("UNCHECKED_CAST")
+                        (array as? kotlinx.serialization.json.JsonArray)
+                    }
                     if (devices != null && devices.isNotEmpty()) {
-                        val device = devices[0].kotlinx.serialization.json.jsonObject
-                        val ik = device["identity_key"]?.kotlinx.serialization.json.jsonPrimitive?.content ?: return false
+                        val device = devices[0]
+                        val obj = device as? kotlinx.serialization.json.JsonObject ?: return false
+                        val ik = obj["identity_key"]?.let { key ->
+                            (key as? kotlinx.serialization.json.JsonPrimitive)?.content
+                        } ?: return false
                         val ikBytes = CryptoHelper.base64UrlDecode(ik)
                         SessionManager.setIdentityKey(userId, ikBytes)
                         true

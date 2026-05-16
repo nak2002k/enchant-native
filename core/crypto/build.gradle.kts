@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.protobuf)
 }
 
 android {
@@ -20,10 +19,12 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
-    implementation(libs.protobuf.java)
+    implementation(libs.protobuf.javalite)
     implementation(libs.bouncycastle)
+    implementation(libs.workmanager)
 
     implementation(project(":core:base"))
+    implementation(project(":core:database"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)

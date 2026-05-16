@@ -15,7 +15,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.enchant.core.base.AppConfig
-import org.enchant.core.base.DI
 
 class WebSocketService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -44,7 +43,6 @@ class WebSocketService : Service() {
 
         scope.launch {
             try {
-                DI.webSocketManager
                 WebSocketManager.init()
                 WebSocketManager.connect()
                 updateNotification("Connected")

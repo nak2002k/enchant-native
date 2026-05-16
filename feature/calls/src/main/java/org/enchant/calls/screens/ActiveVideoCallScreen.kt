@@ -59,7 +59,7 @@ fun ActiveVideoCallScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     VideoControlButton(Icons.Default.Mic, if (isMuted) "Unmute" else "Mute", isMuted, onToggleMute)
-                    VideoControlButton(Icons.Default.FlipCamera, "Flip", false, onFlipCamera)
+                    VideoControlButton(Icons.Default.FlipCameraAndroid, "Flip", false, onFlipCamera)
                     VideoControlButton(
                         if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
                         if (isSpeakerOn) "Speaker" else "Earpiece", false, onToggleSpeaker

@@ -45,6 +45,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     }
 
     companion object {
+        var instance: DatabasePool? = null
         const val DB_VERSION = 1
 
         fun createTables(db: SQLiteDatabase) {

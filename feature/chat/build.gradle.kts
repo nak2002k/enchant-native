@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -38,6 +39,7 @@ dependencies {
     implementation(project(":core:crypto"))
     implementation(project(":core:model"))
     implementation(project(":core:protos"))
+    implementation(project(":core:jobmanager"))
     implementation(libs.kotlinx.serialization.json)
     implementation("androidx.paging:paging-runtime-ktx:3.3.5")
     implementation("androidx.paging:paging-compose:3.3.5")

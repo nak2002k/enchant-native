@@ -1,14 +1,20 @@
 package org.enchant.core.calls
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.enchant.core.base.DI
+import kotlinx.coroutines.flow.flow
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
-import org.enchant.core.database.entity.CallLogEntity
-import org.enchant.core.database.util.CursorMapper
+import org.enchant.core.database.DatabasePool
 import org.enchant.core.network.ApiClient
+import org.enchant.core.network.WebSocketManager
+import org.enchant.protos.CallMessageProtos
 import org.webrtc.*
 import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -26,10 +32,19 @@ object CallManager {
     private var turnServersFetchedAt: Long = 0
     private var durationJob: Job? = null
     private var initialized = false
+    private var mutedBeforeReconnect = false
+    private var videoBeforeReconnect = false
+    private var offerReceivedAt: Long = 0
     private val incomingIceCandidates = ConcurrentLinkedQueue<String>()
+    private var ringGroupEnabled = true
+    private var capturer: CameraVideoCapturer? = null
 
-    private val apiClient: ApiClient get() = DI.apiClient
-    private val pool get() = DI.databasePool
+    private var _apiClient: ApiClient? = null
+    private val webSocket get() = WebSocketManager
+    private val pool get() = DatabasePool.instance
+
+    fun setApiClient(client: ApiClient) { _apiClient = client }
+    private val apiClient get() = _apiClient ?: error("ApiClient not set. Call setApiClient() first.")
 
     suspend fun init() {
         if (initialized) return
@@ -97,7 +112,7 @@ object CallManager {
 
     fun denyCall() {
         val remoteId = _callState.value.remoteUserId ?: return
-        sendCallSignaling(remoteId, CallMessage.End)
+        CoroutineScope(Dispatchers.IO).launch { sendCallSignaling(remoteId, CallMessage.End) }
         observerRegistry.notifyHangupSent(remoteId)
         cleanup()
     }
@@ -107,9 +122,10 @@ object CallManager {
         if (state.status == CallStatusEnum.IDLE) return
         val remoteId = state.remoteUserId
         if (remoteId != null) {
-            sendCallSignaling(remoteId, CallMessage.End)
+            CoroutineScope(Dispatchers.IO).launch { sendCallSignaling(remoteId, CallMessage.End) }
             observerRegistry.notifyHangupSent(remoteId)
         }
+        AudioRouter.stopRinger()
         val summary = if (state.durationSeconds > 0) {
             CallSummary(state.durationSeconds, state.isVideoCall, state.status == CallStatusEnum.CALLING)
         } else null
@@ -127,10 +143,25 @@ object CallManager {
     fun toggleVideo() {
         val newVideo = !_callState.value.isVideoCall
         _callState.value = _callState.value.copy(isVideoCall = newVideo)
-        if (newVideo) {
-            localStream = localStream
-        } else {
-            WebRtcService.toggleVideoTrack(localStream, false)
+        CoroutineScope(Dispatchers.Default).launch {
+            if (newVideo) {
+                val videoStream = WebRtcService.getLocalStream(true)
+                videoStream?.videoTracks?.firstOrNull()?.let { track ->
+                    localStream?.addTrack(track)
+                    peerConnection?.addTrack(track, listOf("stream"))
+                }
+                localStream = videoStream
+            } else {
+                localStream?.videoTracks?.firstOrNull()?.let { track ->
+                    val sender = peerConnection?.senders?.firstOrNull {
+                        it.track()?.kind() == "video"
+                    }
+                    if (sender != null) {
+                        peerConnection?.removeTrack(sender)
+                    }
+                    localStream?.removeTrack(track)
+                }
+            }
         }
     }
 
@@ -152,9 +183,10 @@ object CallManager {
 
     fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String) {
         if (_callState.value.status != CallStatusEnum.IDLE) {
-            sendCallSignaling(senderUserId, CallMessage.End)
+            CoroutineScope(Dispatchers.IO).launch { sendCallSignaling(senderUserId, CallMessage.End) }
             return
         }
+        offerReceivedAt = System.currentTimeMillis()
         _callState.value = CallState(
             status = CallStatusEnum.RINGING,
             remoteUserId = senderUserId,
@@ -166,12 +198,27 @@ object CallManager {
             AudioRouter.startIncomingRinger()
         }
         observerRegistry.notifyCallStarted(senderUserId, true)
+        CoroutineScope(Dispatchers.Default).launch {
+            delay(30000)
+            if (_callState.value.status == CallStatusEnum.RINGING) {
+                handleReceivedOfferExpired()
+            }
+        }
+    }
+
+    fun handleReceivedOfferExpired() {
+        if (_callState.value.status != CallStatusEnum.RINGING) return
+        AudioRouter.stopRinger()
+        observerRegistry.notifyCallEnded(CallEndReason.TIMEOUT, null)
+        insertCallLog(_callState.value)
+        cleanup()
     }
 
     fun handleReceivedAnswer(sdp: String) {
         val pc = peerConnection ?: return
         WebRtcService.setRemoteDescription(pc, sdp, SessionDescription.Type.ANSWER)
         _callState.value = _callState.value.copy(status = CallStatusEnum.CONNECTED)
+        AudioRouter.stopRinger()
     }
 
     fun handleReceivedIce(candidate: String) {
@@ -196,6 +243,43 @@ object CallManager {
         cleanup()
     }
 
+    suspend fun handleCallReconnect(newSession: String) {
+        val prevMuted = _callState.value.isMuted
+        val prevVideo = _callState.value.isVideoCall
+        val prevSpeaker = _callState.value.isSpeakerOn
+        _callState.value = _callState.value.copy(status = CallStatusEnum.RECONNECTING)
+        cleanup()
+        retrieveTurnServers()
+        localStream = WebRtcService.getLocalStream(prevVideo)
+        peerConnection = WebRtcService.createPeerConnection(turnServers, pcObserver)
+        localStream?.audioTracks?.firstOrNull()?.let { peerConnection?.addTrack(it, listOf("stream")) }
+        localStream?.videoTracks?.firstOrNull()?.let { peerConnection?.addTrack(it, listOf("stream")) }
+        WebRtcService.toggleAudioTrack(localStream, !prevMuted)
+        WebRtcService.setSpeakerphoneOn(prevSpeaker)
+        _callState.value = _callState.value.copy(
+            status = CallStatusEnum.CONNECTING,
+            isMuted = prevMuted,
+            isVideoCall = prevVideo,
+            isSpeakerOn = prevSpeaker
+        )
+        startDurationTimer()
+    }
+
+    fun setRingGroup(shouldRing: Boolean) {
+        ringGroupEnabled = shouldRing
+    }
+
+    suspend fun sendGroupCallUpdateMessage(groupId: String, eraId: String, isCallFull: Boolean) {
+        try {
+            val content = buildJsonObject {
+                put("groupId", groupId)
+                put("eraId", eraId)
+                put("isCallFull", isCallFull.toString())
+            }
+            apiClient.post("/v1/groups/$groupId/messages", content)
+        } catch (_: Exception) {}
+    }
+
     suspend fun retrieveTurnServers() {
         if (System.currentTimeMillis() - turnServersFetchedAt < 3_600_000 && turnServers.isNotEmpty()) return
         try {
@@ -203,8 +287,8 @@ object CallManager {
             response.onSuccess { json ->
                 turnServers = listOf(IceServer(
                     urls = listOf("stun:stun.l.google.com:19302"),
-                    username = json["username"]?.kotlinx.serialization.json.jsonPrimitive?.content,
-                    credential = json["credential"]?.kotlinx.serialization.json.jsonPrimitive?.content
+                    username = json["username"]?.jsonPrimitive?.content,
+                    credential = json["credential"]?.jsonPrimitive?.content
                 ))
                 turnServersFetchedAt = System.currentTimeMillis()
             }
@@ -213,81 +297,139 @@ object CallManager {
         }
     }
 
-    fun getCallLogs(): Flow<List<CallLogEntity>> = kotlinx.coroutines.flow.flow {
-        val logs = pool.read {
-            CursorMapper.mapToList<CallLogEntity>(
-                it.rawQuery("SELECT * FROM call_logs ORDER BY ended_at DESC LIMIT 100", null)
-            )
+    fun getCallLogs(): Flow<List<CallLogEntry>> = flow {
+        val db = pool?.writer ?: return@flow emit(emptyList())
+        val cursor = db.rawQuery("SELECT * FROM call_logs ORDER BY ended_at DESC LIMIT 100", null)
+        val logs = mutableListOf<CallLogEntry>()
+        cursor.use { c ->
+            while (c.moveToNext()) {
+                logs.add(CallLogEntry(
+                    callId = c.getString(c.getColumnIndexOrThrow("call_id")),
+                    remoteUserId = c.getString(c.getColumnIndexOrThrow("remote_user_id")),
+                    type = when (c.getString(c.getColumnIndexOrThrow("type"))) {
+                        "video" -> CallType.VIDEO
+                        "group_audio" -> CallType.GROUP_AUDIO
+                        "group_video" -> CallType.GROUP_VIDEO
+                        else -> CallType.AUDIO
+                    },
+                    direction = if (c.getString(c.getColumnIndexOrThrow("direction")) == "incoming") CallDirection.INCOMING else CallDirection.OUTGOING,
+                    status = when (c.getString(c.getColumnIndexOrThrow("status"))) {
+                        "missed" -> CallStatus.MISSED
+                        "answered" -> CallStatus.ANSWERED
+                        "cancelled" -> CallStatus.CANCELLED
+                        else -> CallStatus.OUTGOING
+                    },
+                    durationSeconds = c.getInt(c.getColumnIndexOrThrow("duration_seconds")),
+                    timestamp = c.getLong(c.getColumnIndexOrThrow("ended_at"))
+                ))
+            }
         }
         emit(logs)
     }
 
     suspend fun insertMissedCall(peerUserId: String, isVideo: Boolean, timestamp: Long = System.currentTimeMillis()) {
         val callId = UUID.randomUUID().toString()
-        pool.write { db ->
-            db.execSQL("""
-                INSERT INTO call_logs (call_id, remote_user_id, type, direction, status, ended_at)
-                VALUES (?, ?, ?, 'incoming', 'missed', ?)
-            """, arrayOf(callId, peerUserId, if (isVideo) "video" else "audio", timestamp.toString()))
+        val db = pool?.writer ?: return
+        db.execSQL("""
+            INSERT INTO call_logs (call_id, remote_user_id, type, direction, status, ended_at)
+            VALUES (?, ?, ?, 'incoming', 'missed', ?)
+        """, arrayOf(callId, peerUserId, if (isVideo) "video" else "audio", timestamp.toString()))
+    }
+
+    suspend fun sendCallSignaling(remoteUserId: String, message: CallMessage): Boolean {
+        return when (message) {
+            is CallMessage.Offer -> webSocket.sendCallOffer(remoteUserId, message.sdp)
+            is CallMessage.Answer -> webSocket.sendCallAnswer(remoteUserId, message.sdp)
+            is CallMessage.Ice -> webSocket.sendCallIce(remoteUserId, message.candidate)
+            is CallMessage.End -> webSocket.sendCallEnd(remoteUserId)
         }
     }
 
-    fun sendCallSignaling(remoteUserId: String, message: CallMessage) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val payload = when (message) {
-                    is CallMessage.Offer -> "offer:${message.sdp}"
-                    is CallMessage.Answer -> "answer:${message.sdp}"
-                    is CallMessage.Ice -> "ice:${message.candidate}"
-                    is CallMessage.End -> "hangup"
-                }
-                apiClient.post("/v1/messages/send", kotlinx.serialization.json.buildJsonObject {
-                    put("recipient_user_id", remoteUserId)
-                    put("message_type", "SIGNAL_MESSAGE")
-                    put("payload", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(payload.encodeToByteArray()))
-                })
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
-        }
+    suspend fun sendCallMessage(remoteUserId: String, callMessage: CallMessageProtos.CallMessage) {
+        val payload = callMessage.toByteArray()
+        webSocket.sendMessage(recipientUserId = remoteUserId, payload = payload, ephemeral = true)
     }
 
     fun selectAudioDevice(device: AudioDevice) = AudioRouter.selectAudioDevice(device)
 
     suspend fun peekGroupCall(groupId: String): PeekInfo? {
         return try {
-            val response = apiClient.get("/v1/groups/$groupId")
-            response.getOrNull()?.let {
-                PeekInfo(activeParticipants = 0, maxParticipants = 500, isActive = false)
+            val response = apiClient.get("/v1/groups/$groupId/peek")
+            response.getOrNull()?.let { json ->
+                PeekInfo(
+                    activeParticipants = json["active_participants"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+                    maxParticipants = json["max_participants"]?.jsonPrimitive?.content?.toIntOrNull() ?: 500,
+                    isActive = json["is_active"]?.jsonPrimitive?.content?.toBoolean() ?: false
+                )
             }
         } catch (_: Exception) { null }
     }
 
     suspend fun peekCallLink(roomId: String): PeekInfo? {
         return try {
-            PeekInfo(activeParticipants = 0, maxParticipants = 50, isActive = false)
+            val response = apiClient.get("/v1/calls/links/$roomId/peek")
+            response.getOrNull()?.let { json ->
+                PeekInfo(
+                    activeParticipants = json["active_participants"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+                    maxParticipants = json["max_participants"]?.jsonPrimitive?.content?.toIntOrNull() ?: 50,
+                    isActive = json["is_active"]?.jsonPrimitive?.content?.toBoolean() ?: false
+                )
+            }
         } catch (_: Exception) { null }
     }
 
-    fun raiseHand(raised: Boolean) {}
-    fun react(emoji: String) {}
-    fun requestRemoteMute(participantId: String) {}
-    fun removeParticipant(participantId: String) {}
+    fun raiseHand(raised: Boolean) {
+        _callState.value = _callState.value.copy(isHandRaised = raised)
+    }
+
+    fun react(emoji: String) {
+        val remoteId = _callState.value.remoteUserId ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val callMessage = CallMessageProtos.CallMessage.newBuilder().build()
+                sendCallMessage(remoteId, callMessage)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun requestRemoteMute(participantId: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val callMessage = CallMessageProtos.CallMessage.newBuilder().build()
+                webSocket.sendMessage(recipientUserId = participantId, payload = callMessage.toByteArray(), ephemeral = true)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun removeParticipant(participantId: String) {
+        val groupId = _callState.value.remoteUserId ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                apiClient.del("/v1/groups/$groupId/members/$participantId")
+            } catch (_: Exception) {}
+        }
+    }
 
     private val pcObserver = object : PeerConnection.Observer {
-        override fun onIceCandidate(candidate: IceCandidate) { incomingIceCandidates.add(candidate.sdp) }
-        override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>) {}
-        override fun onSignalingChange(state: SignalingState?) {}
-        override fun onIceConnectionChange(state: IceConnectionState?) {
-            if (state == IceConnectionState.CONNECTED) {
+        override fun onIceCandidate(candidate: IceCandidate) {
+            incomingIceCandidates.add("${candidate.sdpMid}|${candidate.sdpMLineIndex}|${candidate.sdp}")
+        }
+        override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) {}
+        override fun onSignalingChange(state: PeerConnection.SignalingState) {}
+        override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
+            if (state == PeerConnection.IceConnectionState.CONNECTED) {
                 _callState.value = _callState.value.copy(status = CallStatusEnum.CONNECTED)
             }
         }
         override fun onIceConnectionReceivingChange(p0: Boolean) {}
-        override fun onIceGatheringChange(state: IceGatheringState?) {}
-        override fun onAddStream(stream: MediaStream?) { remoteStream = stream }
-        override fun onRemoveStream(stream: MediaStream?) { remoteStream = null }
-        override fun onDataChannel(channel: DataChannel?) {}
+        override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {}
+        override fun onAddStream(stream: MediaStream) { remoteStream = stream }
+        override fun onRemoveStream(stream: MediaStream) { remoteStream = null }
+        override fun onDataChannel(channel: DataChannel) {}
         override fun onRenegotiationNeeded() {}
-        override fun onAddTrack(receiver: RtpReceiver?, tracks: Array<out MediaStream>?) {}
+        override fun onAddTrack(receiver: RtpReceiver, tracks: Array<MediaStream>) {
+            tracks.firstOrNull()?.let { remoteStream = it }
+        }
     }
 
     private fun startDurationTimer() {
@@ -308,21 +450,28 @@ object CallManager {
         val remoteId = state.remoteUserId ?: return
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                pool.write { db ->
-                    db.execSQL("""
-                        INSERT OR REPLACE INTO call_logs (call_id, remote_user_id, type, direction, duration_seconds, status, ended_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, arrayOf(
-                        callId, remoteId,
-                        if (state.isVideoCall) "video" else "audio",
-                        "outgoing",
-                        state.durationSeconds.toString(),
-                        if (state.durationSeconds > 0) "answered" else "cancelled",
-                        System.currentTimeMillis().toString()
-                    ))
-                }
+                val db = pool?.writer ?: return@launch
+                db.execSQL("""
+                    INSERT OR REPLACE INTO call_logs (call_id, remote_user_id, type, direction, duration_seconds, status, ended_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, arrayOf(
+                    callId, remoteId,
+                    if (state.isVideoCall) "video" else "audio",
+                    "outgoing",
+                    state.durationSeconds.toString(),
+                    if (state.durationSeconds > 0) "answered" else "cancelled",
+                    System.currentTimeMillis().toString()
+                ))
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
+    }
+
+    fun resetForTest() {
+        cleanup()
+        turnServers = emptyList()
+        turnServersFetchedAt = 0
+        offerReceivedAt = 0
+        initialized = false
     }
 
     private fun cleanup() {

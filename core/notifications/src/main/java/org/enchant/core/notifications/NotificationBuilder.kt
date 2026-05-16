@@ -43,20 +43,10 @@ object NotificationBuilder {
         val replyAction = createReplyAction(context, conversationId)
         val markReadAction = createMarkAsReadAction(context, conversationId)
 
-        val style = if (messageCount > 1) {
-            NotificationCompat.InboxStyle()
-                .setBigContentTitle("$messageCount messages")
-                .setSummaryText(conversationDisplayName)
-                .addLine("${senderName ?: ""}: $messagePreview")
-        } else {
-            NotificationCompat.MessagingStyle(
-                Person.Builder().setName(senderName ?: conversationDisplayName).build()
-            ).apply {
-                addMessage(messagePreview, System.currentTimeMillis(),
-                    Person.Builder().setName(senderName ?: conversationDisplayName).build())
-                setConversationTitle(conversationDisplayName)
-            }
-        }
+        val style = NotificationCompat.InboxStyle()
+            .setBigContentTitle(if (messageCount > 1) "$messageCount messages" else conversationDisplayName)
+            .setSummaryText(conversationDisplayName)
+            .addLine("${senderName ?: ""}: $messagePreview")
 
         return NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -67,12 +57,11 @@ object NotificationBuilder {
             .addAction(replyAction)
             .addAction(markReadAction)
             .setAutoCancel(true)
-            .setNumber(messageCount.takeIf { it > 1 })
+            .setNumber(messageCount)
             .setGroup(conversationId)
             .setGroupSummary(messageCount > 1)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setColorizedByLargeIcon(true)
             .build()
     }
 
@@ -138,7 +127,7 @@ object NotificationBuilder {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Action.Builder(
-            android.R.drawable.ic_menu_done, "Mark read", pendingIntent
+            android.R.drawable.ic_menu_send, "Mark read", pendingIntent
         ).build()
     }
 

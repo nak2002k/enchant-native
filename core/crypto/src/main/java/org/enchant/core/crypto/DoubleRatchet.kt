@@ -95,10 +95,6 @@ object DoubleRatchet {
             rootKey = rootMaterial.copyOfRange(0, 32),
             receivingChainKey = rootMaterial.copyOfRange(32, 64),
             receivingRatchetKeyPublic = receivingKeyPair.publicKey,
-            receivingMessageNumber = 0,
-            rootKey = rootMaterial.copyOfRange(0, 32),
-            receivingChainKey = rootMaterial.copyOfRange(32, 64),
-            receivingRatchetKeyPublic = theirEphemeralKeyPublic,
             receivingMessageNumber = 0
         )
     }
@@ -121,7 +117,7 @@ object DoubleRatchet {
             )
         }
 
-        val chainKey = s.sendingChainKey ?: return null
+        val chainKey = s.sendingChainKey ?: return Pair(s, RatchetMessage(ByteArray(44), ByteArray(0)))
         val msgKeyData = CryptoHelper.hkdfSha256(chainKey, ByteArray(32), "EnchantMsg".encodeToByteArray(), 80)
         val msgKey = MessageKey(
             key = msgKeyData.copyOfRange(0, 32),

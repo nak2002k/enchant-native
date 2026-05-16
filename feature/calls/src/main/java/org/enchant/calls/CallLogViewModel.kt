@@ -13,7 +13,6 @@ import org.enchant.core.calls.CallLogEntry
 import org.enchant.core.calls.CallLogFilter
 import org.enchant.core.calls.CallManager
 import org.enchant.core.calls.CallStatus
-import org.enchant.core.calls.CallType
 import org.enchant.core.calls.StagedDeletion
 
 data class CallLogUiState(
@@ -37,30 +36,7 @@ class CallLogViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             CallManager.getCallLogs().collect { logs ->
-                val entries = logs.map { entity ->
-                    CallLogEntry(
-                        callId = entity.callId,
-                        remoteUserId = entity.remoteUserId,
-                        type = when (entity.type) {
-                            "audio" -> CallType.AUDIO
-                            "video" -> CallType.VIDEO
-                            "group_audio" -> CallType.GROUP_AUDIO
-                            "group_video" -> CallType.GROUP_VIDEO
-                            else -> CallType.AUDIO
-                        },
-                        direction = if (entity.direction == "incoming") CallDirection.INCOMING else CallDirection.OUTGOING,
-                        status = when (entity.status) {
-                            "missed" -> CallStatus.MISSED
-                            "answered" -> CallStatus.ANSWERED
-                            "cancelled" -> CallStatus.CANCELLED
-                            "outgoing" -> CallStatus.OUTGOING
-                            else -> CallStatus.MISSED
-                        },
-                        durationSeconds = entity.durationSeconds,
-                        timestamp = entity.endedAt
-                    )
-                }
-                _uiState.value = _uiState.value.copy(entries = entries, isLoading = false)
+                _uiState.value = _uiState.value.copy(entries = logs, isLoading = false)
                 applyFilter(_uiState.value.filter)
             }
         }
@@ -118,8 +94,8 @@ class CallLogViewModel : ViewModel() {
 
     fun confirmDeletion(staged: StagedDeletion) {
         viewModelScope.launch {
-            val pool = org.enchant.core.base.DI.databasePool
-            pool.write { db ->
+            val pool = org.enchant.core.database.DatabasePool.instance
+            pool?.writer?.let { db ->
                 staged.callIds.forEach { id ->
                     db.execSQL("DELETE FROM call_logs WHERE call_id = ?", arrayOf(id))
                 }

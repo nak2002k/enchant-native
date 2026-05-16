@@ -94,11 +94,24 @@ class CallLinkManager(private val apiClient: ApiClient) {
     suspend fun getCallLinkCredentials(roomId: String): Result<CallLinkCredentials> {
         return withContext(Dispatchers.Default) {
             try {
-                Result.success(CallLinkCredentials(
-                    roomId = roomId,
-                    authToken = "",
-                    iceServers = listOf(IceServer(urls = listOf("stun:stun.l.google.com:19302")))
-                ))
+                val response = apiClient.get("/v1/calls/links/$roomId/credentials")
+                response.fold(
+                    onSuccess = { json ->
+                        val token = json["auth_token"]?.jsonPrimitive?.content ?: ""
+                        val iceJson = json["ice_servers"]?.jsonObject
+                        val iceServers = if (iceJson != null) {
+                            listOf(IceServer(
+                                urls = listOf(iceJson["urls"]?.jsonPrimitive?.content ?: "stun:stun.l.google.com:19302"),
+                                username = iceJson["username"]?.jsonPrimitive?.content,
+                                credential = iceJson["credential"]?.jsonPrimitive?.content
+                            ))
+                        } else {
+                            listOf(IceServer(urls = listOf("stun:stun.l.google.com:19302")))
+                        }
+                        Result.success(CallLinkCredentials(roomId = roomId, authToken = token, iceServers = iceServers))
+                    },
+                    onFailure = { Result.failure(it) }
+                )
             } catch (e: Exception) {
                 Result.failure(e)
             }

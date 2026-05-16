@@ -35,6 +35,7 @@ enum class ConversationType { DIRECT, GROUP, CHANNEL }
 
 data class Message(
     val localId: Long = 0,
+    val envelopeId: String? = null,
     val conversationId: String,
     val senderId: String,
     val content: String,
@@ -51,6 +52,7 @@ data class Message(
     companion object {
         fun fromEntity(e: MessageEntity): Message = Message(
             localId = e.localId,
+            envelopeId = e.envelopeId,
             conversationId = e.conversationId,
             senderId = e.senderId,
             content = e.content,

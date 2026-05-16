@@ -60,10 +60,22 @@ class CallForegroundService : Service() {
     }
 
     private fun buildCallNotification(remoteUserId: String, isVideo: Boolean): Notification {
+        val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
         val endIntent = PendingIntent.getBroadcast(
             this, 0,
             Intent(CallNotificationReceiver.ACTION_HANGUP).setClass(this, CallNotificationReceiver::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            pendingFlags
+        )
+        val muteIntent = PendingIntent.getBroadcast(
+            this, 1,
+            Intent(CallNotificationReceiver.ACTION_MUTE).setClass(this, CallNotificationReceiver::class.java),
+            pendingFlags
+        )
+        val speakerIntent = PendingIntent.getBroadcast(
+            this, 2,
+            Intent(CallNotificationReceiver.ACTION_SPEAKER).setClass(this, CallNotificationReceiver::class.java),
+            pendingFlags
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(if (isVideo) "Video call" else "Voice call")
@@ -73,6 +85,8 @@ class CallForegroundService : Service() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End", endIntent)
+            .addAction(android.R.drawable.ic_btn_speak_now, "Mute", muteIntent)
+            .addAction(android.R.drawable.ic_btn_speak_now, "Speaker", speakerIntent)
             .build()
     }
 

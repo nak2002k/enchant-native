@@ -12,7 +12,7 @@ plugins {
 allprojects {
     configurations.configureEach {
         resolutionStrategy {
-            force("com.google.protobuf:protobuf-java:${libs.versions.protobuf.get()}")
+            force("com.google.protobuf:protobuf-javalite:${libs.versions.protobuf.get()}")
         }
     }
 }

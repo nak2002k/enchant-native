@@ -42,7 +42,15 @@ object OfflineQueue {
         _pendingCount.value = 0
 
         for (msg in batch) {
-            val result = WebSocketManager.requestRESTFallback(msg)
+            val outgoing = OutgoingMessage(
+                id = msg.id,
+                recipientUserId = msg.recipientUserId,
+                recipientDeviceId = msg.recipientDeviceId,
+                messageType = msg.messageType,
+                payload = msg.payload,
+                senderTs = msg.senderTs
+            )
+            val result = WebSocketManager.requestRESTFallback(outgoing)
             if (result.isFailure) {
                 val retried = msg.copy(retryCount = msg.retryCount + 1)
                 if (retried.retryCount < 5) {

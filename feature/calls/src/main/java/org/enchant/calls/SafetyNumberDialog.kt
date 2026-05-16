@@ -11,11 +11,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import java.security.MessageDigest
+import java.util.Arrays
 
 object SafetyNumberHelper {
     fun computeFingerprint(ourKey: ByteArray, theirKey: ByteArray): String {
         val combined = ourKey + theirKey
-        val hash = org.enchant.core.crypto.CryptoHelper.sha512(combined)
+        val hash = MessageDigest.getInstance("SHA-512").digest(combined)
         return formatFingerprint(hash)
     }
 
@@ -25,7 +27,7 @@ object SafetyNumberHelper {
     }
 
     fun verify(remote: String, local: String): Boolean {
-        return org.enchant.core.crypto.CryptoHelper.constantTimeEquals(remote.encodeToByteArray(), local.encodeToByteArray())
+        return MessageDigest.isEqual(remote.encodeToByteArray(), local.encodeToByteArray())
     }
 }
 

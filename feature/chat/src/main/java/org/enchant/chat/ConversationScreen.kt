@@ -40,6 +40,7 @@ import java.io.File
 fun ConversationScreen(
     conversationId: String,
     onNavigateBack: () -> Unit,
+    onStartCall: (userId: String, isVideo: Boolean) -> Unit = { _, _ -> },
     viewModel: ConversationViewModel = viewModel()
 ) {
     val messages by viewModel.messages.collectAsState()
@@ -90,7 +91,9 @@ fun ConversationScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            val file = org.enchant.chat.data.MediaService.startRecording()
+            scope.launch {
+                val _unused = org.enchant.chat.data.MediaService.startRecording()
+            }
         }
     }
 
@@ -180,7 +183,7 @@ fun ConversationScreen(
 
             AnimatedVisibility(visible = replyToId != null) {
                 ReplyPreview(
-                    message = messages.find { it.envelopeId == replyToId }?.content ?: "",
+                    message = messages.find { it.replyToEnvelopeId == replyToId }?.content ?: "",
                     onDismiss = { replyToId = null }
                 )
             }
@@ -327,7 +330,7 @@ private fun ComposerBar(
                 placeholder = { Text("Message") },
                 maxLines = 5,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = onSend),
+                keyboardActions = KeyboardActions(onSend = { onSend() }),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = MaterialTheme.colorScheme.surface,
                     focusedBorderColor = MaterialTheme.colorScheme.surface
@@ -399,9 +402,10 @@ fun MessageBubble(
                         "📎 ${message.mediaMimeType}",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    if (message.mediaSize != null) {
+                    val size = message.mediaSize
+                    if (size != null) {
                         Text(
-                            formatFileSize(message.mediaSize),
+                            formatFileSize(size),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

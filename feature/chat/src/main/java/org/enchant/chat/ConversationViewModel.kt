@@ -6,7 +6,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,11 +14,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.enchant.chat.data.ChatPagingSource
 import org.enchant.chat.data.ConversationRepository
 import org.enchant.chat.data.MessageSendPipeline
 import org.enchant.chat.data.SendResult
-import org.enchant.core.base.DI
+import org.enchant.core.base.SecurePreferences
+import kotlinx.coroutines.Job as CoroutineJob
+import org.enchant.core.base.AppConfig
+import org.enchant.core.jobmanager.JobManager
+import org.enchant.core.network.ApiClient
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
@@ -31,7 +37,11 @@ sealed class ScrollEvent {
     data object ToBottom : ScrollEvent()
 }
 
-class ConversationViewModel : ViewModel() {
+class ConversationViewModel(
+    private val repo: ConversationRepository,
+    private val apiClient: ApiClient,
+    private val pipeline: MessageSendPipeline = MessageSendPipeline
+) : ViewModel() {
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 
@@ -52,11 +62,8 @@ class ConversationViewModel : ViewModel() {
 
     private var conversationId: String = ""
     private var pagingSource: ChatPagingSource? = null
-    private var messageJob: Job? = null
-    private var searchJob: Job? = null
-
-    private val repo: ConversationRepository get() = DI.conversationRepository
-    private val pipeline: MessageSendPipeline get() = MessageSendPipeline
+    private var messageJob: CoroutineJob? = null
+    private var searchJob: CoroutineJob? = null
 
     fun init(convId: String) {
         if (conversationId == convId) return
@@ -76,9 +83,9 @@ class ConversationViewModel : ViewModel() {
 
     fun loadMoreMessages() {
         viewModelScope.launch {
-            val more = pagingSource?.loadNext() ?: return@launch
-            if (more.isNotEmpty()) {
-                _messages.value = _messages.value + more
+            val lastId = _messages.value.lastOrNull()?.localId
+            repo.getMessages(conversationId, beforeId = lastId).collect { list ->
+                _messages.value = _messages.value + list
             }
         }
     }
@@ -87,7 +94,7 @@ class ConversationViewModel : ViewModel() {
         if (text.isBlank()) return false
         _sendingState.value = SendState.SENDING
         viewModelScope.launch {
-            val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: ""
+            val selfId = SecurePreferences.getString("auth.user_id") ?: ""
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
                 recipientUserId = conversationId,
@@ -157,8 +164,8 @@ class ConversationViewModel : ViewModel() {
             )
             if (result is SendResult.Success || result is SendResult.Queued) {
                 try {
-                    DI.apiClient.post("/v1/location", kotlinx.serialization.json.buildJsonObject {
-                        put("envelope_id", (result as? SendResult.Success)?.envelopeId ?: "")
+                    apiClient.post("/v1/location", buildJsonObject {
+                        put("envelope_id", JsonPrimitive((result as? SendResult.Success)?.envelopeId ?: ""))
                     })
                 } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
             }
@@ -188,7 +195,7 @@ class ConversationViewModel : ViewModel() {
     fun resendMessage(envelopeId: String) {
         viewModelScope.launch {
             val msg = repo.getMessage(envelopeId) ?: return@launch
-            val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: return@launch
+            val selfId = SecurePreferences.getString("auth.user_id") ?: return@launch
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
                 recipientUserId = conversationId,
@@ -233,33 +240,33 @@ class ConversationViewModel : ViewModel() {
     fun setReaction(messageId: Long, emoji: String) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            pipeline.sendReaction(msg.messageType, emoji)
+            pipeline.sendReaction(msg.envelopeId ?: msg.localId.toString(), emoji)
         }
     }
 
     fun starMessage(messageId: Long, starred: Boolean) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            repo.starMessage(msg.messageType, starred)
+            repo.starMessage(msg.envelopeId ?: msg.localId.toString(), starred)
         }
     }
 
     fun pinMessage(messageId: Long) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            repo.starMessage(msg.messageType, true)
+            repo.starMessage(msg.envelopeId ?: msg.localId.toString(), true)
         }
     }
 
     fun unpinMessage(messageId: Long) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            repo.starMessage(msg.messageType, false)
+            repo.starMessage(msg.envelopeId ?: msg.localId.toString(), false)
         }
     }
 
     fun copyToClipboard(text: String) {
-        val ctx = org.enchant.core.base.AppConfig.applicationContext ?: return
+        val ctx = AppConfig.applicationContext ?: return
         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
         cm.setPrimaryClip(ClipData.newPlainText("message", text))
     }
@@ -267,10 +274,10 @@ class ConversationViewModel : ViewModel() {
     fun reportMessage(envelopeId: String) {
         viewModelScope.launch {
             try {
-                DI.apiClient.post("/v1/report", kotlinx.serialization.json.buildJsonObject {
-                    put("target_user_id", conversationId)
-                    put("reason", "message_report")
-                    put("envelope_id", envelopeId)
+                apiClient.post("/v1/report", buildJsonObject {
+                    put("target_user_id", JsonPrimitive(conversationId))
+                    put("reason", JsonPrimitive("message_report"))
+                    put("envelope_id", JsonPrimitive(envelopeId))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
@@ -306,7 +313,7 @@ class ConversationViewModel : ViewModel() {
     fun scheduleMessage(body: String, scheduledDate: Long, replyTo: String? = null) {
         if (body.isBlank()) return
         val jobId = "scheduled_${conversationId}_${System.currentTimeMillis()}"
-        org.enchant.core.jobmanager.JobManager.enqueue(
+        JobManager.enqueue(
             org.enchant.core.jobmanager.Job(
                 id = jobId,
                 delayMs = (scheduledDate - System.currentTimeMillis()).coerceAtLeast(0),
@@ -320,14 +327,14 @@ class ConversationViewModel : ViewModel() {
     }
 
     fun cancelScheduledMessage(messageId: Long) {
-        org.enchant.core.jobmanager.JobManager.cancelAll()
+        JobManager.cancelAll()
     }
 
     fun markViewOnceViewed(envelopeId: String) {
         viewModelScope.launch {
             try {
-                DI.apiClient.post("/v1/disappear/viewed", kotlinx.serialization.json.buildJsonObject {
-                    put("envelope_ids", "[$envelopeId]")
+                apiClient.post("/v1/disappear/viewed", buildJsonObject {
+                    put("envelope_ids", JsonPrimitive("[$envelopeId]"))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
@@ -336,7 +343,7 @@ class ConversationViewModel : ViewModel() {
     fun deleteViewOnceMedia(envelopeId: String) {
         viewModelScope.launch {
             val msg = repo.getMessage(envelopeId) ?: return@launch
-            val ctx = org.enchant.core.base.AppConfig.applicationContext ?: return@launch
+            val ctx = AppConfig.applicationContext ?: return@launch
             val file = java.io.File(ctx.cacheDir, "media_downloads/$envelopeId")
             if (file.exists()) file.delete()
         }
@@ -352,9 +359,9 @@ class ConversationViewModel : ViewModel() {
                 plaintext = text.encodeToByteArray()
             )
             try {
-                DI.apiClient.post("/v1/contacts/share", kotlinx.serialization.json.buildJsonObject {
-                    put("contact_user_id", contactUserId)
-                    put("envelope_id", conversationId)
+                apiClient.post("/v1/contacts/share", buildJsonObject {
+                    put("contact_user_id", JsonPrimitive(contactUserId))
+                    put("envelope_id", JsonPrimitive(conversationId))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }

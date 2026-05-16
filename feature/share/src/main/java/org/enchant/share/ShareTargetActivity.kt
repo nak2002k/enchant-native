@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.enchant.chat.data.MessageSendPipeline
-import org.enchant.core.base.DI
 import org.enchant.core.base.SecurePreferences
 
 class ShareTargetActivity : Activity() {

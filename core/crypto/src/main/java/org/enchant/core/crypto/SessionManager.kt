@@ -4,8 +4,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.enchant.core.database.dao.SessionDao
-import org.enchant.core.database.AppDatabase
 import org.enchant.protos.EnvelopeProtos
 
 data class EncryptedPayload(

@@ -1,6 +1,5 @@
 package org.enchant.core.calls
 
-import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -14,36 +13,69 @@ object ActiveCallManager {
 
     fun showCallNotification(context: Context, remoteUserId: String, isVideoCall: Boolean) {
         createChannel(context)
+        val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
         val endIntent = PendingIntent.getBroadcast(
             context, 0,
-            Intent("org.enchant.action.CALL_HANGUP").setClass(context, CallNotificationReceiver::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            Intent(CallNotificationReceiver.ACTION_HANGUP).setClass(context, CallNotificationReceiver::class.java),
+            pendingFlags
         )
+        val muteIntent = PendingIntent.getBroadcast(
+            context, 1,
+            Intent(CallNotificationReceiver.ACTION_MUTE).setClass(context, CallNotificationReceiver::class.java),
+            pendingFlags
+        )
+        val speakerIntent = PendingIntent.getBroadcast(
+            context, 2,
+            Intent(CallNotificationReceiver.ACTION_SPEAKER).setClass(context, CallNotificationReceiver::class.java),
+            pendingFlags
+        )
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle(isVideoCall.toString())
+            .setContentTitle(if (isVideoCall) "Video call" else "Voice call")
             .setContentText("Call with $remoteUserId")
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End", endIntent)
+            .addAction(android.R.drawable.ic_btn_speak_now, "Mute", muteIntent)
+            .addAction(android.R.drawable.ic_btn_speak_now, "Speaker", speakerIntent)
             .build()
 
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
     }
 
     fun updateCallNotification(context: Context, durationSeconds: Int) {
-        val nm = NotificationManagerCompat.from(context)
-        nm.notify(NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL_ID)
+        val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val endIntent = PendingIntent.getBroadcast(
+            context, 0,
+            Intent(CallNotificationReceiver.ACTION_HANGUP).setClass(context, CallNotificationReceiver::class.java),
+            pendingFlags
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("Call in progress")
             .setContentText(formatDuration(durationSeconds))
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setOngoing(true)
-            .build())
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End", endIntent)
+            .build()
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
     }
 
     fun cancelCallNotification(context: Context) {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    }
+
+    fun startCallScreen(context: Context, callId: String, isVideoCall: Boolean) {
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        intent?.putExtra("navigate_to", if (isVideoCall) "video_call" else "active_call")
+        intent?.putExtra("call_id", callId)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if (intent != null) context.startActivity(intent)
+    }
+
+    fun stopCallScreen(context: Context) {
     }
 
     private fun createChannel(context: Context) {

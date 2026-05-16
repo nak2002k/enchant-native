@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -28,6 +29,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.activity.compose)
+    implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))

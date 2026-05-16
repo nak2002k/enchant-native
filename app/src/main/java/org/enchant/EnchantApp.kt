@@ -1,22 +1,62 @@
 package org.enchant
 
 import android.app.Application
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import android.os.StrictMode
+import org.enchant.core.crash.CrashReporter
+import org.enchant.core.notifications.NotificationChannels
+import org.enchant.core.performance.ImagePipeline
 
 class EnchantApp : Application() {
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
     override fun onCreate() {
         super.onCreate()
-        appScope.launch {
-            try {
-                DI.init(this@EnchantApp)
-            } catch (e: Exception) {
-                android.util.Log.e("EnchantApp", "DI init failed", e)
-            }
+        initDi()
+        initCrashReporting()
+        initPerformance()
+        if (isDebug()) {
+            initLeakCanary()
+            initStrictMode()
+        }
+        initNotificationChannels()
+    }
+
+    private fun initDi() {
+    }
+
+    private fun initCrashReporting() {
+        CrashReporter.init()
+    }
+
+    private fun initPerformance() {
+        ImagePipeline.init(this)
+    }
+
+    private fun initLeakCanary() {
+    }
+
+    private fun initStrictMode() {
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy.Builder()
+                .detectAll()
+                .penaltyLog()
+                .build()
+        )
+        StrictMode.setVmPolicy(
+            StrictMode.VmPolicy.Builder()
+                .detectAll()
+                .penaltyLog()
+                .build()
+        )
+    }
+
+    private fun initNotificationChannels() {
+        NotificationChannels.createAll(this)
+    }
+
+    private fun isDebug(): Boolean {
+        return try {
+            BuildConfig.DEBUG
+        } catch (_: Exception) {
+            false
         }
     }
 }

@@ -10,11 +10,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.enchant.chat.data.ConversationFilter
 import org.enchant.chat.data.ConversationRepository
-import org.enchant.core.base.DI
 import org.enchant.core.model.Conversation
 import org.enchant.core.network.ApiClient
 
-class ConversationListViewModel : ViewModel() {
+class ConversationListViewModel(
+    private val repo: ConversationRepository,
+    private val apiClient: ApiClient
+) : ViewModel() {
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
 
@@ -32,9 +34,6 @@ class ConversationListViewModel : ViewModel() {
 
     private val _navigationEvent = MutableStateFlow<String?>(null)
     val navigationEvent: StateFlow<String?> = _navigationEvent.asStateFlow()
-
-    private val repo: ConversationRepository get() = DI.conversationRepository
-    private val apiClient: ApiClient get() = DI.apiClient
 
     private var collectJob: Job? = null
     private var searchJob: Job? = null
@@ -96,7 +95,7 @@ class ConversationListViewModel : ViewModel() {
         viewModelScope.launch {
             repo.setArchived(conversationId, false)
             try {
-                DI.apiClient.del("/v1/chats/$conversationId/archive")
+                apiClient.del("/v1/chats/$conversationId/archive")
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }

@@ -4,7 +4,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.enchant.core.base.KeyStoreManager
 import org.enchant.core.base.SecurePreferences
-import org.enchant.core.database.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

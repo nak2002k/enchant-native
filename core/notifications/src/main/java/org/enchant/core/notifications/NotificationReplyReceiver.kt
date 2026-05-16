@@ -1,6 +1,6 @@
 package org.enchant.core.notifications
 
-import android.app.BroadcastReceiver
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import kotlinx.coroutines.CoroutineScope
@@ -26,13 +26,17 @@ class NotificationReplyReceiver : BroadcastReceiver() {
 
         scope.launch {
             try {
-                val apiClient = org.enchant.core.base.DI.apiClient
+                val apiClient = org.enchant.core.network.ApiClient.getInstance()
                 val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: return@launch
-                apiClient.post("/v1/messages/send", kotlinx.serialization.json.buildJsonObject {
-                    put("recipient_user_id", conversationId)
-                    put("message_type", "SIGNAL_MESSAGE")
-                    put("payload", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(replyText.encodeToByteArray()))
-                })
+                apiClient.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(
+                    mapOf(
+                        "recipient_user_id" to kotlinx.serialization.json.JsonPrimitive(conversationId),
+                        "message_type" to kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"),
+                        "payload" to kotlinx.serialization.json.JsonPrimitive(
+                            java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(replyText.encodeToByteArray())
+                        )
+                    )
+                ))
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
@@ -40,10 +44,10 @@ class NotificationReplyReceiver : BroadcastReceiver() {
     private fun handleMarkRead(context: Context, conversationId: String) {
         scope.launch {
             try {
-                val apiClient = org.enchant.core.base.DI.apiClient
-                apiClient.post("/v1/messages/read", kotlinx.serialization.json.buildJsonObject {
-                    put("conversation_id", conversationId)
-                })
+                val apiClient = org.enchant.core.network.ApiClient.getInstance()
+                apiClient.post("/v1/messages/read", kotlinx.serialization.json.JsonObject(
+                    mapOf("conversation_id" to kotlinx.serialization.json.JsonPrimitive(conversationId))
+                ))
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }

@@ -10,7 +10,7 @@ workmanager = "2.10.0"
 activity-compose = "1.9.3"
 okhttp = "4.12.0"
 coil = "2.7.0"
-webrtc = "1.0.32006"
+webrtc = "1.0.7"
 firebase-bom = "33.6.0"
 sqlcipher = "4.6.1"
 kotlinx-serialization-json = "1.7.3"
@@ -23,6 +23,7 @@ protobuf = "4.34.1"
 security-crypto = "1.1.0-alpha06"
 play-services-auth = "18.1.0"
 bouncycastle = "1.78.1"
+core-ktx = "1.15.0"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -61,7 +62,9 @@ security-crypto = { module = "androidx.security:security-crypto", version.ref = 
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization-json" }
 workmanager = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
+core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
+protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf" }
 leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 leakcanary-android-core = { module = "com.squareup.leakcanary:leakcanary-android-core", version.ref = "leakcanary" }
 junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5" }

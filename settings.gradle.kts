@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://repo.izetetic.com/repository/maven-public/") }
+        maven { url = uri("https://repo.zetetic.com/repository/maven-public/") }
     }
 }
 

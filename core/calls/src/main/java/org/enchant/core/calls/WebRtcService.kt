@@ -18,6 +18,8 @@ object WebRtcService {
     private var rootEglBase: EglBase? = null
     private var peerConnectionFactory: PeerConnectionFactory? = null
     private var audioManager: AudioManager? = null
+    private var currentCapturer: CameraVideoCapturer? = null
+    private var currentVideoSource: VideoSource? = null
 
     suspend fun init(context: Context) {
         if (initialized) return
@@ -34,7 +36,7 @@ object WebRtcService {
                     .setVideoEncoderFactory(DefaultVideoEncoderFactory(rootEglBase?.eglBaseContext, true, true))
                     .createPeerConnectionFactory()
 
-                audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+                audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return@withContext
                 initialized = true
             } catch (e: Exception) {
                 android.util.Log.e("WebRtcService", "Init failed", e)
@@ -108,8 +110,12 @@ object WebRtcService {
 
     fun addIceCandidate(pc: PeerConnection, candidate: String) {
         try {
-            val iceCandidate = IceCandidate.create(candidate)
-            iceCandidate?.let { pc.addIceCandidate(it) }
+            val parts = candidate.split("|")
+            val sdpMid = parts.getOrElse(0) { "" }
+            val sdpMLineIndex = parts.getOrElse(1) { "0" }.toIntOrNull() ?: 0
+            val sdp = parts.getOrElse(2) { candidate }
+            val iceCandidate = IceCandidate(sdpMid, sdpMLineIndex, sdp)
+            pc.addIceCandidate(iceCandidate)
         } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 
@@ -125,13 +131,18 @@ object WebRtcService {
 
             if (isVideo && ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 try {
-                    val capturer = Camera2Enumerator(ctx).run {
-                        deviceNames.firstOrNull { isFrontFacing(it) || isBackFacing(it) }
-                    }?.let { createCapturer(it, null) }
-                    val videoSource = factory.createVideoSource(capturer?.isScreencast ?: false)
-                    capturer?.startCapture(1280, 720, 30)
-                    val videoTrack = factory.createVideoTrack("video_${UUID.randomUUID()}", videoSource)
-                    stream.addTrack(videoTrack)
+                    val cameraName = Camera2Enumerator(ctx).run {
+                            deviceNames.firstOrNull { isFrontFacing(it) || isBackFacing(it) }
+                        }
+                        if (cameraName != null) {
+                            val capturer = Camera2Enumerator(ctx).createCapturer(cameraName, null)
+                            currentCapturer = capturer
+                        val videoSource = factory.createVideoSource(capturer?.isScreencast ?: false)
+                        currentVideoSource = videoSource
+                        capturer?.startCapture(1280, 720, 30)
+                        val videoTrack = factory.createVideoTrack("video_${UUID.randomUUID()}", videoSource)
+                        stream.addTrack(videoTrack)
+                    }
                 } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
             }
             stream
@@ -150,11 +161,8 @@ object WebRtcService {
     }
 
     fun switchCamera(videoTrack: VideoTrack?) {
-        val source = videoTrack?.src as? VideoSource
-        source?.capturer?.let {
-            if (it is CameraVideoCapturer) {
-                try { it.switchCamera(null) } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
-            }
+        currentCapturer?.let {
+            try { it.switchCamera(null) } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -179,6 +187,15 @@ object WebRtcService {
             pc.close()
             pc.dispose()
         } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+    }
+
+    fun cleanup() {
+        try {
+            currentCapturer?.stopCapture()
+            currentCapturer?.dispose()
+        } catch (_: Exception) {}
+        currentCapturer = null
+        currentVideoSource = null
     }
 
     fun getFactory(): PeerConnectionFactory? = peerConnectionFactory

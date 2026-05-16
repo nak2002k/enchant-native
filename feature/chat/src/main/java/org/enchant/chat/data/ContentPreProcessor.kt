@@ -75,9 +75,9 @@ object ContentPreProcessor {
                     onSuccess = { json ->
                         LinkPreview(
                             url = url,
-                            title = json["title"]?.kotlinx.serialization.json.jsonPrimitive?.content,
-                            description = json["description"]?.kotlinx.serialization.json.jsonPrimitive?.content,
-                            imageUrl = json["image"]?.kotlinx.serialization.json.jsonPrimitive?.content
+                            title = json["title"]?.jsonPrimitive?.content,
+                            description = json["description"]?.jsonPrimitive?.content,
+                            imageUrl = json["image"]?.jsonPrimitive?.content
                         )
                     },
                     onFailure = { null }
