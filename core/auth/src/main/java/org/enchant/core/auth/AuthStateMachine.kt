@@ -146,11 +146,38 @@ object AuthStateMachine {
         val refreshToken = SecurePreferences.getString("auth.refresh_token")
 
         if (jwt == null && refreshToken == null) return RegistrationState.Welcome
-        if (jwt != null) return RegistrationState.Complete
+
+        if (jwt != null) {
+            try {
+                val parts = jwt.split(".")
+                if (parts.size == 3) {
+                    val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
+                    val payloadStr = payload.decodeToString()
+                    val expMatch = Regex("\"exp\":(\\d+)").find(payloadStr)
+                    if (expMatch != null) {
+                        val exp = expMatch.groupValues[1].toLongOrNull() ?: 0L
+                        if (System.currentTimeMillis() / 1000 < exp) {
+                            return RegistrationState.Complete
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
 
         return if (refreshToken != null) {
             try {
-                RegistrationState.Complete
+                val apiClient = org.enchant.core.network.ApiClient()
+                apiClient.init()
+                val repo = AuthRepository(apiClient)
+                val result = repo.refreshToken(refreshToken)
+                if (result.isSuccess) {
+                    val response = result.getOrThrow()
+                    SecurePreferences.putString("auth.jwt", response.accessToken)
+                    SecurePreferences.putString("auth.refresh_token", response.refreshToken)
+                    RegistrationState.Complete
+                } else {
+                    RegistrationState.Welcome
+                }
             } catch (_: Exception) {
                 RegistrationState.Welcome
             }
