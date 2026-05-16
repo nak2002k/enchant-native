@@ -14,21 +14,74 @@ object CrashReporter {
     fun log(message: String) {
         val scrubbed = scrubSensitive(message)
         Log.d(TAG, scrubbed)
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().log(scrubbed)
+        } catch (_: Exception) {}
+    }
+
+    fun logEvent(name: String, data: Map<String, String>? = null) {
+        val scrubbedName = scrubSensitive(name)
+        Log.d(TAG, "event: $scrubbedName")
+        try {
+            val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+            data?.forEach { (key, value) ->
+                instance.setCustomKey(scrubSensitive(key), scrubSensitive(value))
+            }
+            instance.log("event: $scrubbedName")
+        } catch (_: Exception) {}
+    }
+
+    fun logError(message: String, throwable: Throwable? = null) {
+        val scrubbed = scrubSensitive(message)
+        Log.e(TAG, scrubbed, throwable)
+        try {
+            val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+            instance.log("error: $scrubbed")
+            if (throwable != null) instance.recordException(throwable)
+        } catch (_: Exception) {}
+    }
+
+    fun logDecryptionFailure() {
+        Log.w(TAG, "Decryption failure")
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().log("decryption_failure")
+        } catch (_: Exception) {}
+    }
+
+    fun setUserId(userId: String?) {
+        if (userId != null) Log.d(TAG, "user set")
+        else Log.d(TAG, "user cleared")
+        try {
+            val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+            if (userId != null) instance.setUserId(userId)
+            else instance.setUserId("")
+        } catch (_: Exception) {}
     }
 
     fun recordException(t: Throwable) {
         Log.e(TAG, "Exception", t)
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(t)
+        } catch (_: Exception) {}
     }
 
     fun setCustomKey(key: String, value: String) {
         val scrubbed = scrubSensitive(value)
         Log.d(TAG, "meta: $key=$scrubbed")
+        try {
+            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCustomKey(
+                scrubSensitive(key), scrubbed
+            )
+        } catch (_: Exception) {}
     }
+
+    fun sanitize(input: String): String = scrubSensitive(input)
 
     private fun scrubSensitive(input: String): String {
         return input
             .replace(Regex("[A-Za-z0-9+/]{40,}={0,3}"), "[REDACTED_KEY]")
             .replace(Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"), "[REDACTED_UUID]")
             .replace(Regex("\\+?[1-9]\\d{1,14}"), "[REDACTED_PHONE]")
+            .replace(Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"), "[REDACTED_EMAIL]")
     }
 }
