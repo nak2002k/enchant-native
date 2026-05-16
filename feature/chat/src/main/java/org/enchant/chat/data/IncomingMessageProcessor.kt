@@ -149,65 +149,51 @@ object IncomingMessageProcessor {
                     return@withContext ProcessResult.Error("Decryption failed")
                 }
 
-                val plaintext = decrypted.plaintext.decodeToString()
                 val now = System.currentTimeMillis()
+                val parsed = MessageProtobufHelper.parseContent(decrypted.plaintext)
 
-                if (plaintext.startsWith("DELIVERY:")) {
-                    val envId = plaintext.removePrefix("DELIVERY:")
-                    repo.updateMessageStatus(envId.trim(), MessageStatus.DELIVERED)
-                    return@withContext ProcessResult.Handled
-                }
-
-                if (plaintext.startsWith("READ:")) {
-                    val envId = plaintext.removePrefix("READ:")
-                    repo.updateMessageStatus(envId.trim(), MessageStatus.READ)
-                    return@withContext ProcessResult.Handled
-                }
-
-                if (plaintext.startsWith("TYPING_START") || plaintext.startsWith("TYPING_STOP")) {
-                    return@withContext ProcessResult.Handled
-                }
-
-                if (plaintext.startsWith("DELETE:")) {
-                    val envId = plaintext.removePrefix("DELETE:")
-                    repo.markMessageDeleted(envId.trim())
-                    return@withContext ProcessResult.Handled
-                }
-
-                var finalContent = plaintext
-                var finalMediaKey: String? = null
-                var finalMediaMime: String? = null
-
-                if (plaintext.contains(":") && plaintext.contains("==") || plaintext.contains(":") && plaintext.contains("-")) {
-                    val parts = plaintext.split(":", limit = 2)
-                    if (parts.size == 2 && parts[0].length == 36) {
-                        finalContent = "📎 Media"
-                        finalMediaKey = parts[1]
-                        finalMediaMime = "application/octet-stream"
+                return@withContext when (parsed) {
+                    is MessageProtobufHelper.ParsedContent.DataMessage -> {
+                        repo.insertMessageAndUpdateConversation(
+                            MessageEntity(
+                                conversationId = senderUserId,
+                                senderId = senderUserId,
+                                messageType = "SIGNAL_MESSAGE",
+                                content = parsed.body,
+                                status = "delivered",
+                                timestamp = envelope.serverTimestamp ?: now,
+                                serverTs = now
+                            ),
+                            conversationType = "direct"
+                        )
+                        MessageSendPipeline.sendDeliveryReceipt(
+                            envelopeId = envelope.envelopeId ?: "",
+                            senderUserId = senderUserId
+                        )
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Receipt -> {
+                        val status = when (parsed.type) {
+                            MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
+                            MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
+                        }
+                        parsed.timestamps.forEach { ts ->
+                        }
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Typing -> {
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Delete -> {
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Null -> {
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Unknown -> {
+                        ProcessResult.Error("Unknown content type")
                     }
                 }
-
-                repo.insertMessageAndUpdateConversation(
-                    MessageEntity(
-                        conversationId = senderUserId,
-                        senderId = senderUserId,
-                        messageType = "SIGNAL_MESSAGE",
-                        content = finalContent,
-                        status = "delivered",
-                        timestamp = envelope.serverTimestamp ?: now,
-                        serverTs = now,
-                        mediaKey = finalMediaKey,
-                        mediaMimeType = finalMediaMime
-                    ),
-                    conversationType = "direct"
-                )
-
-                MessageSendPipeline.sendDeliveryReceipt(
-                    envelopeId = envelope.envelopeId ?: "",
-                    senderUserId = senderUserId
-                )
-
-                ProcessResult.Handled
             } catch (e: Exception) {
                 ProcessResult.Error("Signal message processing failed: ${e.message}")
             }
