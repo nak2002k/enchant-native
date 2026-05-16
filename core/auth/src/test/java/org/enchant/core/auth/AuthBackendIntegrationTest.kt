@@ -27,7 +27,6 @@ class AuthBackendIntegrationTest {
     @Test
     fun `1 - request OTP returns challenge_id`() {
         val response = httpPost("$baseUrl/v1/auth/request-otp", """{"identifier":"+15559999999"}""")
-        println("request-otp response: $response")
         assertTrue(response.contains("challenge_id"), "Response should contain challenge_id")
         assertTrue(response.contains("expires_in"), "Response should contain expires_in")
     }
@@ -45,7 +44,6 @@ class AuthBackendIntegrationTest {
 
         val verifyJson = httpPost("$baseUrl/v1/auth/verify-otp",
             """{"challenge_id":"$challengeId","otp":"$otp"}""")
-        println("verify-otp response: $verifyJson")
 
         val verifyObj = json.parseToJsonElement(verifyJson).jsonObject
         jwt = verifyObj["access_token"]?.jsonPrimitive?.content
@@ -65,7 +63,6 @@ class AuthBackendIntegrationTest {
         if (refreshToken.isBlank()) return
 
         val response = httpPost("$baseUrl/v1/auth/refresh", """{"refresh_token":"$refreshToken"}""")
-        println("refresh response: $response")
 
         val obj = json.parseToJsonElement(response).jsonObject
         val newJwt = obj["access_token"]?.jsonPrimitive?.content
@@ -84,7 +81,6 @@ class AuthBackendIntegrationTest {
     @Test
     fun `4 - JWKS endpoint returns Ed25519 public key`() {
         val response = httpGet("$baseUrl/v1/auth/.well-known/jwks.json")
-        println("jwks response: $response")
 
         val obj = json.parseToJsonElement(response).jsonObject
         val keys = obj["keys"]?.jsonArray ?: fail("No keys array in JWKS response")
@@ -104,7 +100,6 @@ class AuthBackendIntegrationTest {
         val response = httpPut("$gatewayUrl/v1/profile",
             """{"username":"intg_test_${System.currentTimeMillis() % 10000}","display_name":"Integration Test","about":"Test profile"}""",
             jwt)
-        println("profile response: $response")
 
         val obj = json.parseToJsonElement(response).jsonObject
         assertEquals(true, obj["updated"]?.jsonPrimitive?.booleanOrNull, "Profile should be updated")
@@ -113,7 +108,6 @@ class AuthBackendIntegrationTest {
     @Test
     fun `6 - request-otp via gateway returns challenge_id`() {
         val response = httpPost("$gatewayUrl/v1/auth/request-otp", """{"identifier":"+15559999997"}""")
-        println("gateway request-otp response: $response")
         assertTrue(response.contains("challenge_id"), "Gateway should route to auth service")
     }
 
@@ -126,7 +120,6 @@ class AuthBackendIntegrationTest {
         val response = httpPostWithAuth("$baseUrl/v1/keys/register",
             """{"identity_key":"$key","signed_prekey":{"public_key":"$key","signature":"$sig"},"one_time_prekeys":[{"public_key":"$key"}]}""",
             jwt)
-        println("key register response: $response")
 
         val obj = json.parseToJsonElement(response).jsonObject
         val error = obj["error"]?.jsonPrimitive?.content
@@ -195,7 +188,6 @@ class AuthBackendIntegrationTest {
             }
             null
         } catch (e: Exception) {
-            println("Warning: Could not read docker logs: ${e.message}")
             null
         }
     }

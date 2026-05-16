@@ -160,7 +160,7 @@ class ConversationViewModel : ViewModel() {
                     DI.apiClient.post("/v1/location", kotlinx.serialization.json.buildJsonObject {
                         put("envelope_id", (result as? SendResult.Success)?.envelopeId ?: "")
                     })
-                } catch (_: Exception) {}
+                } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
             }
             _sendingState.value = if (result is SendResult.Success || result is SendResult.Queued) SendState.SENT else SendState.FAILED
             delay(1000)
@@ -272,7 +272,7 @@ class ConversationViewModel : ViewModel() {
                     put("reason", "message_report")
                     put("envelope_id", envelopeId)
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -329,7 +329,7 @@ class ConversationViewModel : ViewModel() {
                 DI.apiClient.post("/v1/disappear/viewed", kotlinx.serialization.json.buildJsonObject {
                     put("envelope_ids", "[$envelopeId]")
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -356,7 +356,7 @@ class ConversationViewModel : ViewModel() {
                     put("contact_user_id", contactUserId)
                     put("envelope_id", conversationId)
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 

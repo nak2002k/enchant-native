@@ -110,7 +110,7 @@ object WebRtcService {
         try {
             val iceCandidate = IceCandidate.create(candidate)
             iceCandidate?.let { pc.addIceCandidate(it) }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 
     suspend fun getLocalStream(isVideo: Boolean): MediaStream? = withContext(Dispatchers.Default) {
@@ -132,7 +132,7 @@ object WebRtcService {
                     capturer?.startCapture(1280, 720, 30)
                     val videoTrack = factory.createVideoTrack("video_${UUID.randomUUID()}", videoSource)
                     stream.addTrack(videoTrack)
-                } catch (_: Exception) {}
+                } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
             }
             stream
         } catch (e: Exception) {
@@ -153,7 +153,7 @@ object WebRtcService {
         val source = videoTrack?.src as? VideoSource
         source?.capturer?.let {
             if (it is CameraVideoCapturer) {
-                try { it.switchCamera(null) } catch (_: Exception) {}
+                try { it.switchCamera(null) } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
             }
         }
     }
@@ -178,7 +178,7 @@ object WebRtcService {
         try {
             pc.close()
             pc.dispose()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 
     fun getFactory(): PeerConnectionFactory? = peerConnectionFactory

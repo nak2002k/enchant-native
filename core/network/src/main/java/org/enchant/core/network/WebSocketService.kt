@@ -80,7 +80,7 @@ class WebSocketService : Service() {
         isConnected = false
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 
     private fun createNotificationChannel() {

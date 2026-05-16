@@ -105,7 +105,7 @@ object DoubleRatchet {
             )
         }
 
-        val chainKey = s.sendingChainKey!!
+        val chainKey = s.sendingChainKey ?: return null
         val msgKeyData = CryptoHelper.hkdfSha256(chainKey, ByteArray(32), "EnchantMsg".encodeToByteArray(), 80)
         val msgKey = MessageKey(
             key = msgKeyData.copyOfRange(0, 32),
@@ -113,6 +113,7 @@ object DoubleRatchet {
             chainKey = msgKeyData.copyOfRange(44, 76)
         )
         val nextChainKey = msgKeyData.copyOfRange(44, 76)
+        CryptoHelper.zeroBytes(msgKeyData)
 
         val ciphertext = CryptoHelper.encryptAesGcm(plaintext, msgKey.key)
         val headerNonce = msgKey.nonce

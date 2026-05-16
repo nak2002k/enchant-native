@@ -58,7 +58,7 @@ object AudioRouter {
                 @Suppress("DEPRECATION")
                 audioManager?.abandonAudioFocus(null)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         if (playDisconnect) playDisconnectTone()
     }
 
@@ -98,7 +98,7 @@ object AudioRouter {
                     prepare()
                     start()
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -118,7 +118,7 @@ object AudioRouter {
                     prepare()
                     start()
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -129,7 +129,7 @@ object AudioRouter {
                 release()
             }
             mediaPlayer = null
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 
     fun vibrate(context: Context) {
@@ -148,7 +148,7 @@ object AudioRouter {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(longArrayOf(0, 1000, 500, 1000, 500, 1000), 2)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 
     private fun playDisconnectTone() {
@@ -163,6 +163,6 @@ object AudioRouter {
                 start()
                 setOnCompletionListener { release() }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 }

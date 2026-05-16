@@ -11,7 +11,9 @@ object PerformanceTracker {
 
     fun endTrace(name: String, startTime: Long) {
         val elapsed = System.currentTimeMillis() - startTime
-        android.util.Log.d("Perf", "$name: ${elapsed}ms")
+        if (elapsed > 100) {
+            android.util.Log.d("Perf", "$name: ${elapsed}ms")
+        }
     }
 
     fun getAverage(name: String): Double {

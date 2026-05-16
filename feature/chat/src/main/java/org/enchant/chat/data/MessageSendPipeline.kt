@@ -218,7 +218,7 @@ object MessageSendPipeline {
                     put("message_type", "SIGNAL_MESSAGE")
                     put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -233,7 +233,7 @@ object MessageSendPipeline {
                     put("message_type", "SIGNAL_MESSAGE")
                     put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -253,7 +253,7 @@ object MessageSendPipeline {
                     put("message_type", "SIGNAL_MESSAGE")
                     put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
 
         if (isTyping) {

@@ -60,7 +60,7 @@ class CallLinkManager(private val apiClient: ApiClient) {
         withContext(Dispatchers.Default) {
             try {
                 apiClient.put("/v1/calls/links/$roomId", buildJsonObject { put("name", name) })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -68,7 +68,7 @@ class CallLinkManager(private val apiClient: ApiClient) {
         withContext(Dispatchers.Default) {
             try {
                 apiClient.put("/v1/calls/links/$roomId", buildJsonObject { put("restrictions", restrictions.name) })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -76,7 +76,7 @@ class CallLinkManager(private val apiClient: ApiClient) {
         withContext(Dispatchers.Default) {
             try {
                 apiClient.del("/v1/calls/links/$roomId")
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 

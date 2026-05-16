@@ -246,7 +246,7 @@ object CallManager {
                     put("message_type", "SIGNAL_MESSAGE")
                     put("payload", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(payload.encodeToByteArray()))
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -321,7 +321,7 @@ object CallManager {
                         System.currentTimeMillis().toString()
                     ))
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 

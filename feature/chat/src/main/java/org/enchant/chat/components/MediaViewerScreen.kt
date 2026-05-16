@@ -136,7 +136,7 @@ private suspend fun shareMedia(context: android.content.Context, file: File, mim
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(intent, "Share"))
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 }
 
@@ -161,6 +161,6 @@ private suspend fun saveToGallery(context: android.content.Context, file: File, 
                 values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
                 context.contentResolver.update(uri, values, null, null)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 }

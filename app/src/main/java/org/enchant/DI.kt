@@ -44,20 +44,20 @@ object DI {
     private var _recipientDao: RecipientDao? = null
     private var _conversationRepository: ConversationRepository? = null
 
-    val securePreferences: SecurePreferences get() = checkInit().let { _securePreferences!! }
-    val keyStoreManager: KeyStoreManager get() = checkInit().let { _keyStoreManager!! }
-    val appConfig: AppConfig get() = checkInit().let { _appConfig!! }
-    val databasePool: DatabasePool get() = checkInit().let { _databasePool!! }
-    val apiClient: ApiClient get() = checkInit().let { _apiClient!! }
-    val webSocketManager: WebSocketManager get() = checkInit().let { _webSocketManager!! }
-    val connectivityMonitor: ConnectivityMonitor get() = checkInit().let { _connectivityMonitor!! }
-    val offlineQueue: OfflineQueue get() = checkInit().let { _offlineQueue!! }
-    val messageDao: MessageDao get() = checkInit().let { _messageDao!! }
-    val conversationDao: ConversationDao get() = checkInit().let { _conversationDao!! }
-    val sessionDao: SessionDao get() = checkInit().let { _sessionDao!! }
-    val identityDao: IdentityDao get() = checkInit().let { _identityDao!! }
-    val recipientDao: RecipientDao get() = checkInit().let { _recipientDao!! }
-    val conversationRepository: ConversationRepository get() = checkInit().let { _conversationRepository!! }
+    val securePreferences: SecurePreferences get() = checkNotNull(_securePreferences) { "DI not initialized" }
+    val keyStoreManager: KeyStoreManager get() = checkNotNull(_keyStoreManager) { "DI not initialized" }
+    val appConfig: AppConfig get() = checkNotNull(_appConfig) { "DI not initialized" }
+    val databasePool: DatabasePool get() = checkNotNull(_databasePool) { "DI not initialized" }
+    val apiClient: ApiClient get() = checkNotNull(_apiClient) { "DI not initialized" }
+    val webSocketManager: WebSocketManager get() = checkNotNull(_webSocketManager) { "DI not initialized" }
+    val connectivityMonitor: ConnectivityMonitor get() = checkNotNull(_connectivityMonitor) { "DI not initialized" }
+    val offlineQueue: OfflineQueue get() = checkNotNull(_offlineQueue) { "DI not initialized" }
+    val messageDao: MessageDao get() = checkNotNull(_messageDao) { "DI not initialized" }
+    val conversationDao: ConversationDao get() = checkNotNull(_conversationDao) { "DI not initialized" }
+    val sessionDao: SessionDao get() = checkNotNull(_sessionDao) { "DI not initialized" }
+    val identityDao: IdentityDao get() = checkNotNull(_identityDao) { "DI not initialized" }
+    val recipientDao: RecipientDao get() = checkNotNull(_recipientDao) { "DI not initialized" }
+    val conversationRepository: ConversationRepository get() = checkNotNull(_conversationRepository) { "DI not initialized" }
     val isInitialized: Boolean get() = _initialized
 
     suspend fun init(context: Context) {

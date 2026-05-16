@@ -88,7 +88,7 @@ class ConversationListViewModel : ViewModel() {
             repo.setArchived(conversationId, true)
             try {
                 apiClient.post("/v1/chats/$conversationId/archive", null)
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -97,7 +97,7 @@ class ConversationListViewModel : ViewModel() {
             repo.setArchived(conversationId, false)
             try {
                 DI.apiClient.del("/v1/chats/$conversationId/archive")
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -118,7 +118,7 @@ class ConversationListViewModel : ViewModel() {
                         if (until != null) put("mute_duration_seconds", (until - System.currentTimeMillis()) / 1000)
                     }
                 )
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -135,7 +135,7 @@ class ConversationListViewModel : ViewModel() {
                 apiClient.post("/v1/messages/read", kotlinx.serialization.json.buildJsonObject {
                     put("conversation_id", conversationId)
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -155,7 +155,7 @@ class ConversationListViewModel : ViewModel() {
                     },
                     onFailure = {}
                 )
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
             _isRefreshing.value = false
         }
     }

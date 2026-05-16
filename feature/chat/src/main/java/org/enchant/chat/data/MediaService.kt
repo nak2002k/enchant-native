@@ -41,11 +41,12 @@ object MediaService {
         if (!initialized) throw IllegalStateException("MediaService not initialized")
     }
 
-    fun pickImage(fromCamera: Boolean, authority: String = "${AppConfig.applicationContext?.packageName}.fileprovider"): Intent {
-        return if (fromCamera) {
-            val photoFile = createTempFile("photo_", ".jpg")
+    fun pickImage(fromCamera: Boolean): Intent {
+        val ctx = AppConfig.applicationContext ?: return Intent()
+        if (fromCamera) {
+            val photoFile = createTempFile(ctx, "photo_", ".jpg")
             val uri = FileProvider.getUriForFile(
-                AppConfig.applicationContext!!, authority, photoFile
+                ctx, "${ctx.packageName}.fileprovider", photoFile
             )
             Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, uri)
@@ -193,7 +194,8 @@ object MediaService {
 
                 val decrypted = CryptoHelper.decryptAesGcm(ciphertext, mediaKey)
 
-                val cacheDir = File(AppConfig.applicationContext!!.cacheDir, "media_downloads")
+                val ctx = AppConfig.applicationContext ?: return@withContext Result.failure(Exception("No context"))
+                val cacheDir = File(ctx.cacheDir, "media_downloads")
                 cacheDir.mkdirs()
                 val outputFile = File(cacheDir, "${mediaId}_${UUID.randomUUID()}")
                 outputFile.writeBytes(decrypted)
@@ -232,8 +234,8 @@ object MediaService {
         }
     }
 
-    private fun createTempFile(prefix: String, suffix: String): File {
-        val dir = File(AppConfig.applicationContext!!.cacheDir, "media_temp")
+    private fun createTempFile(ctx: android.content.Context, prefix: String, suffix: String): File {
+        val dir = File(ctx.cacheDir, "media_temp")
         dir.mkdirs()
         return File.createTempFile(prefix, suffix, dir)
     }

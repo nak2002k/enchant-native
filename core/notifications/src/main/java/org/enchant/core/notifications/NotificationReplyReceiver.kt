@@ -33,7 +33,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                     put("message_type", "SIGNAL_MESSAGE")
                     put("payload", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(replyText.encodeToByteArray()))
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 
@@ -44,7 +44,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                 apiClient.post("/v1/messages/read", kotlinx.serialization.json.buildJsonObject {
                     put("conversation_id", conversationId)
                 })
-            } catch (_: Exception) {}
+            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         }
     }
 

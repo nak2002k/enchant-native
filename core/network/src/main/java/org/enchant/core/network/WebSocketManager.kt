@@ -272,7 +272,7 @@ object WebSocketManager {
                 }
                 else -> {}
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
     }
 
     private fun startKeepAlive(ws: WebSocket) {

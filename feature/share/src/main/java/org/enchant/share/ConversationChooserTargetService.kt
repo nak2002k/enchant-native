@@ -33,7 +33,7 @@ class ConversationChooserTargetService : ChooserTargetService() {
                     )
                 )
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
         return targets
     }
 }
