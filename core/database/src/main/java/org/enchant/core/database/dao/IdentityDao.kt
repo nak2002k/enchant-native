@@ -21,8 +21,8 @@ class IdentityDao(private val pool: DatabasePool) {
         ))
     }
 
-    suspend fun getByAddress(addressName: String): IdentityEntity? = pool.read { db ->
-        db.query("SELECT * FROM identities WHERE address_name = ?", arrayOf(addressName))
+    suspend fun getByAddress(addressName: String): IdentityEntity? = pool.readWith { db ->
+        db.rawQuery("SELECT * FROM identities WHERE address_name = ?", arrayOf(addressName))
             .use { CursorMapper.mapTo<IdentityEntity>(it) }
     }
 

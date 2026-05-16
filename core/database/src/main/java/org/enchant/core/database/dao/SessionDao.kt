@@ -10,8 +10,8 @@ class SessionDao(private val pool: DatabasePool) {
         """, arrayOf(userId, deviceId, session, System.currentTimeMillis().toString(), System.currentTimeMillis().toString()))
     }
 
-    suspend fun load(userId: String, deviceId: String): ByteArray? = pool.read { db ->
-        db.query("SELECT serialized_session FROM signal_sessions WHERE user_id = ? AND device_id = ?", arrayOf(userId, deviceId))
+    suspend fun load(userId: String, deviceId: String): ByteArray? = pool.readWith { db ->
+        db.rawQuery("SELECT serialized_session FROM signal_sessions WHERE user_id = ? AND device_id = ?", arrayOf(userId, deviceId))
             .use { if (it.moveToFirst()) it.getBlob(0) else null }
     }
 
@@ -19,8 +19,8 @@ class SessionDao(private val pool: DatabasePool) {
         db.execSQL("DELETE FROM signal_sessions WHERE user_id = ? AND device_id = ?", arrayOf(userId, deviceId))
     }
 
-    suspend fun hasSession(userId: String, deviceId: String): Boolean = pool.read { db ->
-        db.query("SELECT 1 FROM signal_sessions WHERE user_id = ? AND device_id = ? LIMIT 1", arrayOf(userId, deviceId))
+    suspend fun hasSession(userId: String, deviceId: String): Boolean = pool.readWith { db ->
+        db.rawQuery("SELECT 1 FROM signal_sessions WHERE user_id = ? AND device_id = ? LIMIT 1", arrayOf(userId, deviceId))
             .use { it.moveToFirst() }
     }
 

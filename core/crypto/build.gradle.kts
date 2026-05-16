@@ -20,10 +20,9 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
-    implementation(libs.protobuf.javalite)
+    implementation(libs.protobuf.java)
     implementation(libs.bouncycastle)
-    implementation(libs.sqlcipher)
-    implementation(libs.sqlite)
+
     implementation(project(":core:base"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)

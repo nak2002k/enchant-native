@@ -46,25 +46,58 @@ class MessageDao(private val pool: DatabasePool) {
     suspend fun insertBatch(messages: List<MessageEntity>) = pool.write { db ->
         db.beginTransaction()
         try {
-            messages.forEach { insert(it) }
+            messages.forEach { msg ->
+                db.execSQL("""
+                    INSERT OR IGNORE INTO messages
+                        (conversation_id, sender_id, sender_device_id, envelope_id, message_type,
+                         content, media_key, media_iv, media_mime_type, media_size,
+                         media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
+                         status, timestamp, server_ts, is_edited, edit_envelope_id,
+                         is_starred, is_deleted, disappear_at, gif_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, arrayOf(
+                    msg.conversationId,
+                    msg.senderId,
+                    msg.senderDeviceId,
+                    msg.envelopeId,
+                    msg.messageType,
+                    msg.content,
+                    msg.mediaKey,
+                    msg.mediaIv,
+                    msg.mediaMimeType,
+                    msg.mediaSize?.toString(),
+                    msg.mediaThumbnailPath,
+                    msg.replyToEnvelopeId,
+                    msg.forwardedFromUserId,
+                    msg.status,
+                    msg.timestamp.toString(),
+                    msg.serverTs?.toString(),
+                    if (msg.isEdited) "1" else "0",
+                    msg.editEnvelopeId,
+                    if (msg.isStarred) "1" else "0",
+                    if (msg.isDeleted) "1" else "0",
+                    msg.disappearAt?.toString(),
+                    msg.gifUrl
+                ))
+            }
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
         }
     }
 
-    suspend fun getById(localId: Long): MessageEntity? = pool.read { db ->
-        db.query("SELECT * FROM messages WHERE local_id = ?", arrayOf(localId.toString()))
+    suspend fun getById(localId: Long): MessageEntity? = pool.readWith { db ->
+        db.rawQuery("SELECT * FROM messages WHERE local_id = ?", arrayOf(localId.toString()))
             .use { CursorMapper.mapTo<MessageEntity>(it) }
     }
 
-    suspend fun getByEnvelopeId(envelopeId: String): MessageEntity? = pool.read { db ->
-        db.query("SELECT * FROM messages WHERE envelope_id = ?", arrayOf(envelopeId))
+    suspend fun getByEnvelopeId(envelopeId: String): MessageEntity? = pool.readWith { db ->
+        db.rawQuery("SELECT * FROM messages WHERE envelope_id = ?", arrayOf(envelopeId))
             .use { CursorMapper.mapTo<MessageEntity>(it) }
     }
 
     fun getConversationMessages(conversationId: String, limit: Int = 50, beforeId: Long? = null): Flow<List<MessageEntity>> = callbackFlow {
-        val cursor = pool.read { db ->
+        val cursor = pool.readWith { db ->
             val sql = """
                 SELECT * FROM messages
                 WHERE conversation_id = ? AND is_deleted = 0
@@ -75,7 +108,7 @@ class MessageDao(private val pool: DatabasePool) {
             val args = mutableListOf(conversationId)
             beforeId?.let { args.add(it.toString()) }
             args.add(limit.toString())
-            db.query(sql, args.toTypedArray())
+            db.rawQuery(sql, args.toTypedArray())
         }
         val messages = cursor.use { CursorMapper.mapToList<MessageEntity>(it) }
         trySend(messages)
@@ -93,14 +126,14 @@ class MessageDao(private val pool: DatabasePool) {
         db.execSQL("UPDATE messages SET is_starred = ? WHERE envelope_id = ?", arrayOf(if (starred) 1 else 0, envelopeId))
     }
 
-    suspend fun getUnreadCount(conversationId: String): Int = pool.read { db ->
-        db.query("SELECT COUNT(*) FROM messages WHERE conversation_id = ? AND status = 'delivered'", arrayOf(conversationId))
+    suspend fun getUnreadCount(conversationId: String): Int = pool.readWith { db ->
+        db.rawQuery("SELECT COUNT(*) FROM messages WHERE conversation_id = ? AND status = 'delivered'", arrayOf(conversationId))
             .use { if (it.moveToFirst()) it.getInt(0) else 0 }
     }
 
     fun searchMessages(query: String): Flow<List<MessageEntity>> = callbackFlow {
-        val cursor = pool.read { db ->
-            db.query("SELECT * FROM messages WHERE content LIKE ? AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 100", arrayOf("%$query%"))
+        val cursor = pool.readWith { db ->
+            db.rawQuery("SELECT * FROM messages WHERE content LIKE ? AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 100", arrayOf("%$query%"))
         }
         val messages = cursor.use { CursorMapper.mapToList<MessageEntity>(it) }
         trySend(messages)

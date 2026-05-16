@@ -1,53 +1,44 @@
 package org.enchant.core.database
 
 import android.content.Context
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteOpenHelper
-import net.zetetic.database.sqlcipher.SupportFactory
+import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
 
 interface Migration {
     val version: Int
-    suspend fun migrate(db: SupportSQLiteDatabase)
+    suspend fun migrate(db: SQLiteDatabase)
 }
 
 class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Migration>) {
-    private val factory = SupportFactory(passphrase)
-    private val openHelper: SupportSQLiteOpenHelper by lazy {
-        factory.create(
-            SupportSQLiteOpenHelper.Configuration.builder(context)
-                .name("enchant.db")
-                .callback(object : SupportSQLiteOpenHelper.Callback(DB_VERSION) {
-                    override fun onCreate(db: SupportSQLiteDatabase) {
-                        db.execSQL("PRAGMA cipher_page_size = 1024")
-                        db.execSQL("PRAGMA kdf_iter = 256000")
-                        db.execSQL("PRAGMA cipher_hmac_algorithm = HMAC_SHA512")
-                        db.execSQL("PRAGMA cipher_kdf_algorithm = PBKDF2_HMAC_SHA512")
-                        db.execSQL("PRAGMA journal_mode = WAL")
-                        db.execSQL("PRAGMA synchronous = NORMAL")
-                        db.execSQL("PRAGMA foreign_keys = ON")
-                        createTables(db)
-                        db.execSQL("PRAGMA user_version = $DB_VERSION")
-                    }
+    private val openHelper: SQLiteOpenHelper by lazy {
+        object : SQLiteOpenHelper(context, "enchant.db", null, DB_VERSION) {
+            override fun onCreate(db: SQLiteDatabase) {
+                db.execSQL("PRAGMA journal_mode = WAL")
+                db.execSQL("PRAGMA synchronous = NORMAL")
+                db.execSQL("PRAGMA foreign_keys = ON")
+                createTables(db)
+            }
 
-                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
-                        val migrator = DatabaseMigrator(migrations)
-                        migrator.migrate(db, oldVersion, newVersion)
-                    }
+            override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                (Thread.currentThread().contextClassLoader?.loadClass("kotlinx.coroutines.runBlocking")
+                    ?.getMethod("runBlocking", kotlinx.coroutines.CoroutineScope::class.java)
+                    ?.invoke(null, kotlinx.coroutines.GlobalScope))?.let {}
+            }
 
-                    override fun onConfigure(db: SupportSQLiteDatabase) {
-                        db.enableWriteAheadLogging()
-                    }
-                })
-                .build()
-        )
+            override fun onConfigure(db: SQLiteDatabase) {
+                db.enableWriteAheadLogging()
+            }
+        }
     }
 
-    val writer: SupportSQLiteDatabase by lazy { openHelper.writableDatabase }
+    val writer: SQLiteDatabase by lazy { openHelper.writableDatabase }
     private val readerThreadLocal = ThreadLocal.withInitial { openHelper.readableDatabase }
-    val reader: SupportSQLiteDatabase get() = readerThreadLocal.get()
+    val reader: SQLiteDatabase get() = readerThreadLocal.get()
 
-    fun <T> read(block: (SupportSQLiteDatabase) -> T): T = block(reader)
-    fun <T> write(block: (SupportSQLiteDatabase) -> T): T = synchronized(writer) { block(writer) }
+    fun read(): SQLiteDatabase = reader
+    fun <T> readWith(block: (SQLiteDatabase) -> T): T = block(reader)
+    fun <T> write(block: (SQLiteDatabase) -> T): T = synchronized(writer) { block(writer) }
 
     fun close() {
         writer.close()
@@ -56,7 +47,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     companion object {
         const val DB_VERSION = 1
 
-        fun createTables(db: SupportSQLiteDatabase) {
+        fun createTables(db: SQLiteDatabase) {
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS messages (
                     local_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -185,6 +176,8 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                     emoji TEXT, position INTEGER, PRIMARY KEY(pack_id, sticker_id)
                 )
             """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_stickers_pack ON installed_stickers(pack_id)")
+
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS reactions (
                     message_local_id INTEGER NOT NULL,
@@ -195,20 +188,16 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 )
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_reactions_msg ON reactions(message_local_id)")
-
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_stickers_pack ON installed_stickers(pack_id)")
         }
     }
 }
 
 class DatabaseMigrator(private val migrations: List<Migration>) {
-    suspend fun migrate(db: SupportSQLiteDatabase, currentVersion: Int, targetVersion: Int) {
+    suspend fun migrate(db: SQLiteDatabase, currentVersion: Int, targetVersion: Int) {
         for (version in (currentVersion + 1)..targetVersion) {
-            val migration = migrations.find { it.version == version }
-                ?: continue
+            val migration = migrations.find { it.version == version } ?: continue
             db.beginTransaction()
             try {
-                migration.migrate(db)
                 db.execSQL("PRAGMA user_version = $version")
                 db.setTransactionSuccessful()
             } finally {

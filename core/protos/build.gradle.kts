@@ -52,5 +52,6 @@ tasks.matching { it.name.startsWith("compile") }.configureEach {
 }
 
 dependencies {
+    implementation("com.google.protobuf:protobuf-java:${libs.versions.protobuf.get()}")
     implementation("com.google.protobuf:protobuf-javalite:${libs.versions.protobuf.get()}")
 }

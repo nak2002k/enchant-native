@@ -1,14 +1,17 @@
-package org.enchant.core.base
+package org.enchant
 
 import android.content.Context
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.enchant.core.auth.AuthManager
 import org.enchant.chat.data.ContentPreProcessor
 import org.enchant.chat.data.ConversationRepository
 import org.enchant.chat.data.IncomingMessageProcessor
 import org.enchant.chat.data.MediaService
 import org.enchant.chat.data.MessageSendPipeline
+import org.enchant.core.auth.AuthManager
+import org.enchant.core.base.AppConfig
+import org.enchant.core.base.KeyStoreManager
+import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.KeyManager
 import org.enchant.core.crypto.SessionManager
 import org.enchant.core.database.DatabasePool
@@ -88,17 +91,17 @@ object DI {
                 _connectivityMonitor = ConnectivityMonitor(context)
                 _offlineQueue = OfflineQueue()
 
-                KeyManager.init()
-                SessionManager.init()
-
-                AuthManager.init()
-
                 _conversationRepository = ConversationRepository(
                     messageDao = _messageDao!!,
                     conversationDao = _conversationDao!!,
                     recipientDao = _recipientDao!!,
                     pool = pool
                 )
+
+                KeyManager.init()
+                SessionManager.init()
+
+                AuthManager.init()
 
                 WebSocketManager.init()
                 _webSocketManager = WebSocketManager
@@ -139,7 +142,7 @@ object DI {
         _initialized = false
     }
 
-    private fun checkInit() {
+    private fun checkInit(): Unit {
         if (!_initialized) throw IllegalStateException("DI not initialized. Call DI.init() first.")
     }
 }

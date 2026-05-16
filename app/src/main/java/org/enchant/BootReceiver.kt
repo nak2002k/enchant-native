@@ -1,4 +1,4 @@
-package org.enchant.core.base
+package org.enchant
 
 import android.content.BroadcastReceiver
 import android.content.Context

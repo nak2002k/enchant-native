@@ -29,15 +29,15 @@ class ConversationDao(private val pool: DatabasePool) {
     }
 
     fun getAll(): Flow<List<ConversationEntity>> = callbackFlow {
-        val cursor = pool.read { db ->
-            db.query("SELECT * FROM conversations ORDER BY last_message_timestamp DESC", null)
+        val cursor = pool.readWith { db ->
+            db.rawQuery("SELECT * FROM conversations ORDER BY last_message_timestamp DESC", null)
         }
         val items = cursor.use { CursorMapper.mapToList<ConversationEntity>(it) }
         trySend(items)
     }
 
-    suspend fun getById(conversationId: String): ConversationEntity? = pool.read { db ->
-        db.query("SELECT * FROM conversations WHERE conversation_id = ?", arrayOf(conversationId))
+    suspend fun getById(conversationId: String): ConversationEntity? = pool.readWith { db ->
+        db.rawQuery("SELECT * FROM conversations WHERE conversation_id = ?", arrayOf(conversationId))
             .use { CursorMapper.mapTo<ConversationEntity>(it) }
     }
 
@@ -57,14 +57,14 @@ class ConversationDao(private val pool: DatabasePool) {
         db.execSQL("UPDATE conversations SET unread_count = unread_count + ? WHERE conversation_id = ?", arrayOf(amount.toString(), conversationId))
     }
 
-    suspend fun getUnreadCount(): Int = pool.read { db ->
-        db.query("SELECT COALESCE(SUM(unread_count), 0) FROM conversations", null)
+    suspend fun getUnreadCount(): Int = pool.readWith { db ->
+        db.rawQuery("SELECT COALESCE(SUM(unread_count), 0) FROM conversations", null)
             .use { if (it.moveToFirst()) it.getInt(0) else 0 }
     }
 
     fun search(query: String): Flow<List<ConversationEntity>> = callbackFlow {
-        val cursor = pool.read { db ->
-            db.query("SELECT * FROM conversations WHERE last_message LIKE ? ORDER BY last_message_timestamp DESC", arrayOf("%$query%"))
+        val cursor = pool.readWith { db ->
+            db.rawQuery("SELECT * FROM conversations WHERE last_message LIKE ? ORDER BY last_message_timestamp DESC", arrayOf("%$query%"))
         }
         val items = cursor.use { CursorMapper.mapToList<ConversationEntity>(it) }
         trySend(items)
