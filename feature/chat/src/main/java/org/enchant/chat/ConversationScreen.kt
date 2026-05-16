@@ -29,6 +29,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import org.enchant.chat.components.EmojiPickerSheet
+import org.enchant.chat.components.MediaViewerScreen
 import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
 import java.io.File
@@ -66,11 +68,13 @@ fun ConversationScreen(
         uri?.let { viewModel.sendMediaMessage(it, "image/*") }
     }
 
+    var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success && _cameraUri != null) {
-            viewModel.sendMediaMessage(_cameraUri!!, "image/jpeg")
+        if (success && cameraUri != null) {
+            viewModel.sendMediaMessage(cameraUri!!, "image/jpeg")
         }
     }
 
@@ -79,7 +83,6 @@ fun ConversationScreen(
     ) { granted ->
         if (granted) {
             val file = org.enchant.chat.data.MediaService.startRecording()
-            _recordingFile = file
         }
     }
 
@@ -219,8 +222,8 @@ fun ConversationScreen(
             onCamera = {
                 showAttachments = false
                 val photoFile = createTempFile(context, "photo_", ".jpg")
-                _cameraUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
-                cameraLauncher.launch(_cameraUri!!)
+                cameraUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+                cameraLauncher.launch(cameraUri!!)
             },
             onDocument = {
                 showAttachments = false
@@ -232,19 +235,26 @@ fun ConversationScreen(
     }
 
     if (showEmojiPicker) {
-        AlertDialog(
-            onDismissRequest = { showEmojiPicker = false },
-            title = { Text("Emoji") },
-            text = { Text("Emoji picker placeholder") },
-            confirmButton = {
-                TextButton(onClick = { showEmojiPicker = false }) { Text("Close") }
-            }
+        EmojiPickerSheet(
+            onEmojiSelected = { emoji ->
+                viewModel.sendTextMessage(emoji)
+                showEmojiPicker = false
+            },
+            onDismiss = { showEmojiPicker = false }
+        )
+    }
+
+    var mediaViewerPath by remember { mutableStateOf<String?>(null) }
+    mediaViewerPath?.let { path ->
+        MediaViewerScreen(
+            mediaPath = path,
+            mimeType = "image/*",
+            onDismiss = { mediaViewerPath = null }
         )
     }
 }
 
-private var _cameraUri: android.net.Uri? = null
-private var _recordingFile: File? = null
+
 
 @Composable
 private fun ReplyPreview(message: String, onDismiss: () -> Unit) {
