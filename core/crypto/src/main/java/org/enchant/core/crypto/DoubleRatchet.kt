@@ -109,7 +109,6 @@ object DoubleRatchet {
             rootKey = rootMaterial.copyOfRange(0, 32),
             receivingChainKey = rootMaterial.copyOfRange(32, 64),
             receivingRatchetKeyPublic = theirRatchetKeyPublic,
-            receivingRatchetKeyPrivate = ourSignedPrekeyPrivate,
             receivingMessageNumber = 0
         )
     }
@@ -143,7 +142,6 @@ object DoubleRatchet {
         CryptoHelper.zeroBytes(msgKeyData)
 
         val ciphertext = CryptoHelper.encryptXChaCha20Poly1305Raw(plaintext, msgKey.key, msgKey.nonce)
-        val headerNonce = msgKey.nonce
 
         val dhKey = s.sendingRatchetKeyPublic ?: ByteArray(DH_KEY_SIZE)
         val header = ByteBuffer.allocate(4 + 4 + dhKey.size + 4 + 4 + 4).order(ByteOrder.BIG_ENDIAN).apply {
@@ -174,7 +172,7 @@ object DoubleRatchet {
         }
 
         if (header.dhPublicKey.contentEquals(s.receivingRatchetKeyPublic).not()) {
-            val dhPriv = s.receivingRatchetKeyPrivate ?: s.sendingRatchetKeyPrivate ?: return Pair(s, ByteArray(0))
+            val dhPriv = s.sendingRatchetKeyPrivate ?: s.receivingRatchetKeyPrivate ?: return Pair(s, ByteArray(0))
             val dhOut = try {
                 CryptoHelper.x25519DiffieHellman(dhPriv, header.dhPublicKey)
             } catch (_: Exception) {

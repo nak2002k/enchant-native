@@ -93,6 +93,7 @@ object CryptoHelper {
 
     fun hkdfSha256(input: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
         if (length <= 0) throw IllegalArgumentException("Length must be positive, got $length")
+        if (length > 32 * 255) throw IllegalArgumentException("Length exceeds HKDF-SHA256 maximum of ${32 * 255}, got $length")
         val effectiveSalt = salt.takeIf { it.isNotEmpty() } ?: ByteArray(32)
         val prk = hmacSha256(effectiveSalt, input)
         val result = ByteArray(length)

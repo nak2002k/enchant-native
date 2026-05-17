@@ -130,7 +130,7 @@ object SessionManager {
                 persistSession(sessionKey, independentState)
 
                 EncryptedPayload(
-                    messageType = if (isNewSession) EnvelopeProtos.Envelope.Type.PREKEY_MESSAGE else EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
+                    messageType = EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
                     payload = combinedPayload,
                     recipientDeviceId = null
                 )

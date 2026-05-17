@@ -400,7 +400,10 @@ class DoubleRatchetTest {
         fun `deserialize corrupted returns null`() {
             val (aliceState, _, _) = createAliceBobStates()
             val serialized = DoubleRatchet.serializeState(aliceState)
-            serialized[0] = (serialized[0].toInt() xor 0xFF).toByte()
+            serialized[4] = 0xFF.toByte()
+            serialized[5] = 0xFF.toByte()
+            serialized[6] = 0xFF.toByte()
+            serialized[7] = 0xFF.toByte()
             val deserialized = DoubleRatchet.deserializeState(serialized)
             assertNull(deserialized)
         }
@@ -536,10 +539,9 @@ class DoubleRatchetTest {
         fun `corrupted header returns empty`() {
             val (aliceState, bobState, _) = createAliceBobStates()
             val (_, message) = DoubleRatchet.encrypt(aliceState, "test".encodeToByteArray())
-            message.header[0] = (message.header[0].toInt() xor 0xFF).toByte()
-            message.header[1] = (message.header[1].toInt() xor 0xFF).toByte()
-            message.header[2] = (message.header[2].toInt() xor 0xFF).toByte()
-            message.header[3] = (message.header[3].toInt() xor 0xFF).toByte()
+            for (i in 8 until message.header.size) {
+                message.header[i] = (message.header[i].toInt() xor 0xFF).toByte()
+            }
             val (_, decrypted) = DoubleRatchet.decrypt(bobState, message)
             assertTrue(decrypted.isEmpty())
         }
@@ -553,16 +555,16 @@ class DoubleRatchetTest {
             assertTrue(decrypted.isEmpty())
         }
 
-        @Test @DisplayName("message with wrong key fails decryption")
+        @Test @DisplayName("message with wrong shared secret fails decryption")
         fun `wrong key fails`() {
             val sharedSecret = CryptoHelper.generateRandomKey(32)
+            val wrongSecret = CryptoHelper.generateRandomKey(32)
             val bobSpk = CryptoHelper.generateX25519KeyPair()
             val aliceState = DoubleRatchet.initializeAsAlice(sharedSecret, bobSpk.publicKey)
-            val wrongBobSpk = CryptoHelper.generateX25519KeyPair()
             val wrongBobState = DoubleRatchet.initializeAsBob(
-                sharedSecret,
+                wrongSecret,
                 aliceState.sendingRatchetKeyPublic!!,
-                wrongBobSpk.privateKey
+                bobSpk.privateKey
             )
             val (_, message) = DoubleRatchet.encrypt(aliceState, "secret".encodeToByteArray())
             val (_, decrypted) = DoubleRatchet.decrypt(wrongBobState, message)

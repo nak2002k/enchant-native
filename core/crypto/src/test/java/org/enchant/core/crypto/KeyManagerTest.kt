@@ -1,11 +1,13 @@
 package org.enchant.core.crypto
 
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
+import org.enchant.core.base.KeyStoreManager
 import org.enchant.core.base.SecurePreferences
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
@@ -21,6 +23,7 @@ class KeyManagerTest {
     fun setUp() {
         KeyManager.reset()
         mockkObject(SecurePreferences)
+        mockkObject(KeyStoreManager)
         every { SecurePreferences.getString(any(), any()) } returns null
         every { SecurePreferences.getString(any()) } returns null
         every { SecurePreferences.putString(any(), any()) } returns Unit
@@ -29,11 +32,14 @@ class KeyManagerTest {
         every { SecurePreferences.getLong(any(), any()) } returns 0L
         every { SecurePreferences.putBoolean(any(), any()) } returns Unit
         every { SecurePreferences.getBoolean(any(), any()) } returns false
+        coEvery { KeyStoreManager.encrypt(any(), any()) } returns ByteArray(32)
+        coEvery { KeyStoreManager.decrypt(any(), any()) } returns ByteArray(32)
     }
 
     @AfterEach
     fun tearDown() {
         unmockkObject(SecurePreferences)
+        unmockkObject(KeyStoreManager)
     }
 
     @Nested @DisplayName("Key Generation")

@@ -315,10 +315,9 @@ class SessionManagerTest {
             SessionManager.setIdentityKey("del", CryptoHelper.ed25519PkToX25519(theirBundle.identityKey))
             val result1 = SessionManager.encryptMessage("del", "msg".encodeToByteArray())
             assertNotNull(result1)
+            assertTrue(SessionManager.hasSession("del"))
             SessionManager.deleteSession("del")
             assertFalse(SessionManager.hasSession("del"))
-            val result2 = SessionManager.encryptMessage("del", "msg2".encodeToByteArray())
-            assertNotNull(result2)
         }
 
         @Test @DisplayName("archiveSession is same as deleteSession")

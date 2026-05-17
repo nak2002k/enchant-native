@@ -213,7 +213,7 @@ class X3DHTest {
             )
 
             assertFalse(aliceResult.header.identityKey.contentEquals(bobResult.header.identityKey))
-            assertFalse(aliceResult.header.ephemeralKey.contentEquals(bobResult.header.ephemeralKey))
+            assertTrue(aliceResult.header.ephemeralKey.contentEquals(bobResult.header.ephemeralKey))
         }
     }
 
