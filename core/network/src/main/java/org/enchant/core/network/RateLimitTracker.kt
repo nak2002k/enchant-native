@@ -12,7 +12,8 @@ object RateLimitTracker {
 
     fun recordCall(endpoint: String) {
         val now = System.currentTimeMillis()
-        callLogs.computeIfAbsent(endpoint) { mutableListOf() }.synchronized { add(now) }
+        val logs = callLogs.computeIfAbsent(endpoint) { mutableListOf() }
+        synchronized(logs) { logs.add(now) }
     }
 
     fun canCall(endpoint: String): Boolean {

@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import android.content.BroadcastReceiver.PendingResult
 import org.enchant.core.crypto.SessionManager
 
 class NotificationReplyReceiver : BroadcastReceiver() {
@@ -27,7 +28,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun handleReply(context: Context, intent: Intent, conversationId: String, scope: CoroutineScope, pendingResult: PendingIntent) {
+    private fun handleReply(context: Context, intent: Intent, conversationId: String, scope: CoroutineScope, pendingResult: PendingResult) {
         val replyText = NotificationBuilder.getReplyText(intent)
         if (replyText.isNullOrBlank()) {
             pendingResult.finish()
@@ -54,7 +55,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun handleMarkRead(context: Context, conversationId: String, scope: CoroutineScope, pendingResult: PendingIntent) {
+    private fun handleMarkRead(context: Context, conversationId: String, scope: CoroutineScope, pendingResult: PendingResult) {
         scope.launch {
             try {
                 val apiClient = org.enchant.core.network.ApiClient.getInstance()

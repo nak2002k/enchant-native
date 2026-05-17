@@ -10,6 +10,7 @@ import org.enchant.core.database.dao.SessionDao
 import org.enchant.protos.EnvelopeProtos
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Collections
 
 data class EncryptedPayload(
     val messageType: EnvelopeProtos.Envelope.Type,

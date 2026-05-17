@@ -50,7 +50,7 @@ object ConnectivityMonitor {
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        cm.registerNetworkCallback(request, callback)
+        callback?.let { cm.registerNetworkCallback(request, it) }
         initialized = true
     }
 
