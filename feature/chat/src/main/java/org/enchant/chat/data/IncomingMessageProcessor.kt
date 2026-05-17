@@ -42,6 +42,20 @@ object IncomingMessageProcessor {
     private var messageDao: MessageDao? = null
     @Volatile
     private var initialized = false
+    private val bufferedMessages = mutableListOf<MessageEntity>()
+    private const val BATCH_FLUSH_THRESHOLD = 20
+
+    private suspend fun flushBuffer() {
+        if (bufferedMessages.isEmpty()) return
+        val batch = bufferedMessages.toList()
+        bufferedMessages.clear()
+        messageDao?.insertBatch(batch)
+    }
+
+    private suspend fun bufferMessage(msg: MessageEntity) {
+        bufferedMessages.add(msg)
+        if (bufferedMessages.size >= BATCH_FLUSH_THRESHOLD) flushBuffer()
+    }
 
     fun init(
         repo: ConversationRepository,
@@ -90,9 +104,13 @@ object IncomingMessageProcessor {
                 ProcessResult.Handled
             } catch (e: Exception) {
                 ProcessResult.Error(e.message ?: "Unknown error")
+            } finally {
+                if (bufferedMessages.size >= BATCH_FLUSH_THRESHOLD) flushBuffer()
             }
         }
     }
+
+    suspend fun flush() = flushBuffer()
 
     private suspend fun processPreKeyMessage(
         envelope: IncomingEnvelope, senderUserId: String, repo: ConversationRepository
@@ -198,7 +216,8 @@ object IncomingMessageProcessor {
                             MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
                         }
                         parsed.timestamps.forEach { ts ->
-                            repo.updateMessageStatus(ts.toString(), status)
+                            val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                            repo.updateMessageStatus(envId, status)
                         }
                         ProcessResult.Handled
                     }

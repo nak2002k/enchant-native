@@ -37,6 +37,7 @@ dependencies {
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
+    implementation(project(":core:crypto"))
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
     implementation(project(":core:protos"))

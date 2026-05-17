@@ -30,7 +30,10 @@ object SessionManager {
     private var sessionDao: SessionDao? = null
     private var identityDao: IdentityDao? = null
     private val sessions = mutableMapOf<String, RatchetState>()
-    private val identityKeys = mutableMapOf<String, ByteArray>()
+    private val identityKeys = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>): Boolean = size > 1000
+    }
+    private val nonBlockingApproval = mutableMapOf<String, Boolean>()
 
     suspend fun init(dao: SessionDao? = null, idDao: IdentityDao? = null) {
         if (initialized) return
@@ -201,7 +204,22 @@ object SessionManager {
     }
 
     fun setIdentityKey(userId: String, publicKey: ByteArray) {
+        val existing = identityKeys[userId]
+        if (existing != null && !existing.contentEquals(publicKey)) {
+            nonBlockingApproval[userId] = false
+        } else if (existing == null) {
+            nonBlockingApproval[userId] = true
+        }
         identityKeys[userId] = publicKey
+    }
+
+    fun isIdentityApproved(userId: String): Boolean = nonBlockingApproval[userId] ?: true
+
+    fun approveIdentity(userId: String) { nonBlockingApproval[userId] = true }
+
+    fun hasIdentityChanged(userId: String): Boolean {
+        val approved = nonBlockingApproval[userId]
+        return approved != null && !approved
     }
 
     private operator fun ByteArray.plus(other: ByteArray): ByteArray {

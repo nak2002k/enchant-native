@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.coil.core)
     implementation(libs.coil.compose)
+    implementation(libs.libphonenumber)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))

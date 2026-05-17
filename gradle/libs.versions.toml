@@ -27,6 +27,7 @@ bouncycastle = "1.78.1"
 core-ktx = "1.15.0"
 biometric = "1.1.0"
 media3 = "1.5.1"
+libphonenumber = "9.0.3"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -89,6 +90,7 @@ bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "boun
 biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+libphonenumber = { module = "com.googlecode.libphonenumber:libphonenumber", version.ref = "libphonenumber" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

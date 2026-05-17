@@ -167,6 +167,11 @@ class MessageDao(private val pool: DatabasePool) {
         DatabaseNotifier.notify("messages")
     }
 
+    suspend fun getEnvelopeIdByServerTs(serverTs: Long): String? = pool.readWith { db ->
+        db.rawQuery("SELECT envelope_id FROM messages WHERE server_ts = ? LIMIT 1", arrayOf(serverTs.toString()))
+            .use { if (it.moveToFirst()) it.getString(0) else null }
+    }
+
     suspend fun updateDisappearAt(envelopeId: String, disappearAt: Long) = pool.write { db ->
         db.execSQL("UPDATE messages SET disappear_at = ? WHERE envelope_id = ?", arrayOf(disappearAt.toString(), envelopeId))
         DatabaseNotifier.notify("messages")

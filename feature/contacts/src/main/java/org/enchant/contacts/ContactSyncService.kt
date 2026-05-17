@@ -99,11 +99,12 @@ class ContactSyncService(
     }
 
     private fun normalizeToE164(number: String): String? {
-        val digits = number.filter { it.isDigit() }
-        if (digits.length < 7 || digits.length > 15) return null
-        return if (digits.startsWith("1") && digits.length == 11) "+$digits"
-        else if (digits.startsWith("91") && digits.length == 12) "+$digits"
-        else if (digits.startsWith("0")) "+${digits.drop(1)}"
-        else "+$digits"
+        return try {
+            val phoneUtil = com.google.i18n.phonenumbers.PhoneNumberUtil.getInstance()
+            val parsed = phoneUtil.parse(number, null)
+            if (phoneUtil.isValidNumber(parsed)) {
+                phoneUtil.format(parsed, com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat.E164)
+            } else null
+        } catch (_: Exception) { null }
     }
 }
