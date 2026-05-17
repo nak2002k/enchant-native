@@ -56,7 +56,8 @@ object MessageSendPipeline {
         conversationId: String,
         recipientUserId: String,
         plaintext: ByteArray,
-        replyTo: String? = null
+        replyTo: String? = null,
+        useSealedSender: Boolean = false
     ): SendResult {
         checkInit()
         val repo = repository!!
@@ -64,6 +65,10 @@ object MessageSendPipeline {
         return withContext(Dispatchers.Default) {
             try {
                 if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
+
+                if (useSealedSender) {
+                    return@withContext sendSealedMessage(recipientUserId, plaintext, null)
+                }
 
                 val contentBytes = MessageProtobufHelper.buildDataMessageContent(
                     body = plaintext.decodeToString(),

@@ -59,8 +59,13 @@ fun MediaMessageBubble(imageUrl: String, isOutgoing: Boolean, clusterPosition: C
     ) {
         Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.widthIn(max = 280.dp).clickable { onTap() }) {
             Column {
-                Box(modifier = Modifier.size(200.dp, 200.dp).clip(RoundedCornerShape(12.dp)).background(Color.LightGray), contentAlignment = Alignment.Center) {
-                    Text("📷", fontSize = 48.sp)
+                Box(modifier = Modifier.sizeIn(maxWidth = 280.dp, maxHeight = 300.dp).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    coil.compose.AsyncImage(
+                        model = imageUrl,
+                        contentDescription = caption ?: "Image",
+                        modifier = Modifier.fillMaxWidth(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.FillWidth
+                    )
                 }
                 caption?.let { Text(it, modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall) }
             }

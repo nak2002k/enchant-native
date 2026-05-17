@@ -1,8 +1,8 @@
 package org.enchant.location
 
 import android.location.Geocoder
+import android.location.LocationManager
 import android.util.Log
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,7 +27,63 @@ fun LocationPickerScreen(
     var longitude by remember { mutableDoubleStateOf(initialLongitude) }
     var address by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
+    var isGettingLocation by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    fun reverseGeocode(lat: Double, lng: Double) {
+        try {
+            val geocoder = Geocoder(context, Locale.getDefault())
+            val results = geocoder.getFromLocation(lat, lng, 1)
+            if (!results.isNullOrEmpty()) {
+                address = results[0].getAddressLine(0) ?: "$lat, $lng"
+            } else {
+                address = "$lat, $lng"
+            }
+        } catch (e: Exception) {
+            address = "$lat, $lng"
+        }
+    }
+
+    fun requestCurrentLocation() {
+        isGettingLocation = true
+        try {
+            val locationManager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager
+            val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+            val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+            val provider = when {
+                isGpsEnabled -> LocationManager.GPS_PROVIDER
+                isNetworkEnabled -> LocationManager.NETWORK_PROVIDER
+                else -> {
+                    isGettingLocation = false
+                    return
+                }
+            }
+
+            locationManager.getLastKnownLocation(provider)?.let { loc ->
+                latitude = loc.latitude
+                longitude = loc.longitude
+                reverseGeocode(loc.latitude, loc.longitude)
+            }
+
+            locationManager.requestSingleUpdate(provider, object : android.location.LocationListener {
+                override fun onLocationChanged(loc: android.location.Location) {
+                    latitude = loc.latitude
+                    longitude = loc.longitude
+                    reverseGeocode(loc.latitude, loc.longitude)
+                    isGettingLocation = false
+                }
+                override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) { isGettingLocation = false }
+            }, null)
+        } catch (e: SecurityException) {
+            isGettingLocation = false
+        } catch (e: Exception) {
+            Log.w("Location", "Location fetch failed: ${e.message}")
+            isGettingLocation = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -68,14 +124,13 @@ fun LocationPickerScreen(
             Spacer(Modifier.height(16.dp))
 
             Box(
-                modifier = Modifier.fillMaxWidth().weight(1f)
-                    .then(Modifier).then(Modifier),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxSize().padding(0.dp)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize()) {
                         Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
@@ -85,7 +140,11 @@ fun LocationPickerScreen(
                             Text(address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(16.dp))
-                        Text("Tap to use current location or search above", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (isGettingLocation) "Getting current location..."
+                            else "Search above or use current location",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -93,15 +152,13 @@ fun LocationPickerScreen(
             Spacer(Modifier.height(16.dp))
 
             OutlinedButton(
-                onClick = {
-                    address = "Current location"
-                    latitude = 0.0; longitude = 0.0
-                },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { requestCurrentLocation() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isGettingLocation
             ) {
                 Icon(Icons.Default.MyLocation, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Use current location")
+                Text(if (isGettingLocation) "Locating..." else "Use current location")
             }
         }
     }
