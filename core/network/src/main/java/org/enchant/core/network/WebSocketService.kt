@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.enchant.core.base.AppConfig
@@ -71,7 +72,9 @@ class WebSocketService : Service() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         disconnect()
+        try { WebSocketManager.disconnect() } catch (_: Exception) {}
         super.onDestroy()
     }
 

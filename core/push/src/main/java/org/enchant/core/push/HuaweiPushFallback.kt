@@ -12,20 +12,25 @@ import org.enchant.core.network.ApiClient
 
 object HuaweiPushFallback {
     private var pollingJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private var scope: CoroutineScope? = null
 
     fun isHuaweiDevice(): Boolean {
         return Build.MANUFACTURER.equals("HUAWEI", ignoreCase = true)
     }
 
     fun startPollingFallback(apiClient: ApiClient) {
-        pollingJob?.cancel()
-        pollingJob = scope.launch {
+        stopPollingFallback()
+        scope = CoroutineScope(Dispatchers.IO)
+        pollingJob = scope?.launch {
             while (isActive) {
                 delay(30000)
                 try {
-                    apiClient.get("/v1/messages/pending")
-                } catch (_: Exception) {
+                    val result = apiClient.get("/v1/messages/pending")
+                    result.getOrNull()?.let { response ->
+                        android.util.Log.d("HuaweiPush", "Pending messages: ${response.toString().take(100)}")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("HuaweiPush", "Poll failed: ${e.message}")
                 }
             }
         }
@@ -34,5 +39,7 @@ object HuaweiPushFallback {
     fun stopPollingFallback() {
         pollingJob?.cancel()
         pollingJob = null
+        scope?.cancel()
+        scope = null
     }
 }

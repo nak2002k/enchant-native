@@ -162,7 +162,15 @@ object AudioRouter {
                 prepare()
                 start()
                 setOnCompletionListener { release() }
+                setOnErrorListener { _, _, _ ->
+                    release()
+                    true
+                }
             }
-        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+        } catch (e: Exception) {
+            mediaPlayer?.release()
+            mediaPlayer = null
+            android.util.Log.w("AudioRouter", "Disconnect tone failed: ${e.message}")
+        }
     }
 }

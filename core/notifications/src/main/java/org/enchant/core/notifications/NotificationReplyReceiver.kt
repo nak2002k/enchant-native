@@ -10,20 +10,29 @@ import kotlinx.coroutines.launch
 import org.enchant.core.crypto.SessionManager
 
 class NotificationReplyReceiver : BroadcastReceiver() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
-        val conversationId = NotificationBuilder.getConversationId(intent) ?: return
+        val pendingResult = goAsync()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        val conversationId = NotificationBuilder.getConversationId(intent) ?: run {
+            pendingResult.finish()
+            return
+        }
 
         when (intent.action) {
-            ACTION_REPLY -> handleReply(context, intent, conversationId)
-            ACTION_MARK_READ -> handleMarkRead(context, conversationId)
+            ACTION_REPLY -> handleReply(context, intent, conversationId, scope, pendingResult)
+            ACTION_MARK_READ -> handleMarkRead(context, conversationId, scope, pendingResult)
+            else -> pendingResult.finish()
         }
     }
 
-    private fun handleReply(context: Context, intent: Intent, conversationId: String) {
+    private fun handleReply(context: Context, intent: Intent, conversationId: String, scope: CoroutineScope, pendingResult: PendingIntent) {
         val replyText = NotificationBuilder.getReplyText(intent)
-        if (replyText.isNullOrBlank()) return
+        if (replyText.isNullOrBlank()) {
+            pendingResult.finish()
+            return
+        }
 
         scope.launch {
             try {
@@ -41,10 +50,11 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                     )
                 ))
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            finally { pendingResult.finish() }
         }
     }
 
-    private fun handleMarkRead(context: Context, conversationId: String) {
+    private fun handleMarkRead(context: Context, conversationId: String, scope: CoroutineScope, pendingResult: PendingIntent) {
         scope.launch {
             try {
                 val apiClient = org.enchant.core.network.ApiClient.getInstance()
@@ -52,6 +62,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                     mapOf("conversation_id" to kotlinx.serialization.json.JsonPrimitive(conversationId))
                 ))
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            finally { pendingResult.finish() }
         }
     }
 

@@ -17,6 +17,7 @@ object ConnectivityMonitor {
     private val _isOnline = MutableStateFlow(true)
     private val _networkType = MutableStateFlow(NetworkType.NONE)
     private var callback: ConnectivityManager.NetworkCallback? = null
+    private var connectivityManager: ConnectivityManager? = null
 
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
     val networkType: StateFlow<NetworkType> = _networkType.asStateFlow()
@@ -24,6 +25,7 @@ object ConnectivityMonitor {
     fun init(context: Context) {
         if (initialized) return
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        connectivityManager = cm
         val activeNetwork = cm.activeNetwork
         val capabilities = cm.getNetworkCapabilities(activeNetwork)
         updateState(capabilities)
@@ -48,8 +50,19 @@ object ConnectivityMonitor {
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
-        cm.registerNetworkCallback(request, callback!!)
+        cm.registerNetworkCallback(request, callback)
         initialized = true
+    }
+
+    fun unregister() {
+        val cm = connectivityManager
+        val cb = callback
+        if (cm != null && cb != null) {
+            try { cm.unregisterNetworkCallback(cb) } catch (_: Exception) {}
+            callback = null
+            connectivityManager = null
+            initialized = false
+        }
     }
 
     private fun updateState(capabilities: NetworkCapabilities?) {

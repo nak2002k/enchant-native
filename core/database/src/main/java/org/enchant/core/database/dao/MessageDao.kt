@@ -115,7 +115,7 @@ class MessageDao(private val pool: DatabasePool) {
             db.rawQuery(sql, args.toTypedArray()).use { CursorMapper.mapToList<MessageEntity>(it) }
         }
         trySend(query())
-        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+        val job = kotlinx.coroutines.launch {
             DatabaseNotifier.tableChanges.collect { table ->
                 if (table == "messages") trySend(query())
             }
@@ -159,7 +159,7 @@ class MessageDao(private val pool: DatabasePool) {
             cursor.use { CursorMapper.mapToList<MessageEntity>(it) }
         }
         try { trySend(query()) } catch (_: Exception) { trySend(emptyList()) }
-        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+        val job = kotlinx.coroutines.launch {
             DatabaseNotifier.tableChanges.collect { table ->
                 if (table == "messages") try { trySend(query()) } catch (_: Exception) {}
             }

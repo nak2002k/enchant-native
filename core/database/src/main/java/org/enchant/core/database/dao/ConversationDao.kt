@@ -39,7 +39,7 @@ class ConversationDao(private val pool: DatabasePool) {
         val items = cursor.use { CursorMapper.mapToList<ConversationEntity>(it) }
         trySend(items)
 
-        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+        val job = kotlinx.coroutines.launch {
             DatabaseNotifier.tableChanges.collect { table ->
                 if (table == "conversations") {
                     val c = pool.readWith { db ->
@@ -92,7 +92,7 @@ class ConversationDao(private val pool: DatabasePool) {
                 .use { CursorMapper.mapToList<ConversationEntity>(it) }
         }
         try { trySend(queryDb()) } catch (_: Exception) { trySend(emptyList()) }
-        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+        val job = kotlinx.coroutines.launch {
             DatabaseNotifier.tableChanges.collect { table ->
                 if (table == "conversations" || table == "messages") {
                     try { trySend(queryDb()) } catch (_: Exception) {}

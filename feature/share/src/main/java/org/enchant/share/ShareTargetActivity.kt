@@ -5,9 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.enchant.chat.data.MessageSendPipeline
 import org.enchant.core.base.SecurePreferences
@@ -17,12 +15,10 @@ class ShareTargetActivity : Activity() {
         const val ACTION_SHARE_TEXT = "org.enchant.action.SHARE_TEXT"
     }
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        scope.launch {
+        lifecycleScope.launch {
             handleIntent(intent)
             finish()
         }

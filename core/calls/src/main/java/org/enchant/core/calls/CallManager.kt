@@ -44,7 +44,7 @@ object CallManager {
     private var _apiClient: ApiClient? = null
     private val webSocket get() = WebSocketManager
     private val pool get() = DatabasePool.instance
-    private val callScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var callScope: CoroutineScope? = null
 
     fun setApiClient(client: ApiClient) { _apiClient = client }
     private val apiClient get() = _apiClient ?: error("ApiClient not set. Call setApiClient() first.")
@@ -53,7 +53,14 @@ object CallManager {
         if (initialized) return
         WebRtcService.init(AppConfig.applicationContext ?: return)
         AudioRouter.init(AppConfig.applicationContext ?: return)
+        callScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         initialized = true
+    }
+
+    fun shutdown() {
+        callScope?.cancel()
+        callScope = null
+        cleanup()
     }
 
     fun registerObserver(observer: CallObserver) = observerRegistry.registerObserver(observer)
@@ -117,7 +124,7 @@ object CallManager {
 
     fun denyCall() {
         val remoteId = _callState.value.remoteUserId ?: return
-        callScope.launch(Dispatchers.IO) { sendCallSignaling(remoteId, CallMessage.End) }
+        callScope?.launch(Dispatchers.IO) { sendCallSignaling(remoteId, CallMessage.End) }
         observerRegistry.notifyHangupSent(remoteId)
         cleanup()
     }
@@ -127,7 +134,7 @@ object CallManager {
         if (state.status == CallStatusEnum.IDLE) return
         val remoteId = state.remoteUserId
         if (remoteId != null) {
-            callScope.launch(Dispatchers.IO) { sendCallSignaling(remoteId, CallMessage.End) }
+            callScope?.launch(Dispatchers.IO) { sendCallSignaling(remoteId, CallMessage.End) }
             observerRegistry.notifyHangupSent(remoteId)
         }
         AudioRouter.stopRinger()
@@ -148,7 +155,7 @@ object CallManager {
     fun toggleVideo() {
         val newVideo = !_callState.value.isVideoCall
         _callState.value = _callState.value.copy(isVideoCall = newVideo)
-        callScope.launch(Dispatchers.Default) {
+        callScope?.launch(Dispatchers.Default) {
             if (newVideo) {
                 val videoStream = WebRtcService.getLocalStream(true)
                 videoStream?.videoTracks?.firstOrNull()?.let { track ->
@@ -188,7 +195,7 @@ object CallManager {
 
     fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String, isVideo: Boolean = false) {
         if (_callState.value.status != CallStatusEnum.IDLE) {
-            callScope.launch(Dispatchers.IO) { sendCallSignaling(senderUserId, CallMessage.End) }
+            callScope?.launch(Dispatchers.IO) { sendCallSignaling(senderUserId, CallMessage.End) }
             return
         }
         offerReceivedAt = System.currentTimeMillis()
@@ -200,12 +207,12 @@ object CallManager {
             isVideoCall = isVideoCall,
             direction = CallDirection.INCOMING
         )
-        callScope.launch(Dispatchers.Default) {
+        callScope?.launch(Dispatchers.Default) {
             AudioRouter.vibrate(AppConfig.applicationContext ?: return@launch)
             AudioRouter.startIncomingRinger()
         }
         observerRegistry.notifyCallStarted(senderUserId, isVideoCall)
-        callScope.launch(Dispatchers.Default) {
+        callScope?.launch(Dispatchers.Default) {
             delay(30000)
             if (_callState.value.status == CallStatusEnum.RINGING) {
                 handleReceivedOfferExpired()
@@ -392,7 +399,7 @@ object CallManager {
 
     fun react(emoji: String) {
         val remoteId = _callState.value.remoteUserId ?: return
-        callScope.launch(Dispatchers.IO) {
+        callScope?.launch(Dispatchers.IO) {
             try {
                 val callMessage = CallMessageProtos.CallMessage.newBuilder()
                     .setOpaque(CallMessageProtos.CallMessage.Opaque.newBuilder()
@@ -406,7 +413,7 @@ object CallManager {
     }
 
     fun requestRemoteMute(participantId: String) {
-        callScope.launch(Dispatchers.IO) {
+        callScope?.launch(Dispatchers.IO) {
             try {
                 val callMessage = CallMessageProtos.CallMessage.newBuilder()
                     .setOpaque(CallMessageProtos.CallMessage.Opaque.newBuilder()
@@ -421,7 +428,7 @@ object CallManager {
 
     fun removeParticipant(participantId: String) {
         val groupId = _callState.value.remoteUserId ?: return
-        callScope.launch(Dispatchers.IO) {
+        callScope?.launch(Dispatchers.IO) {
             try {
                 apiClient.del("/v1/groups/$groupId/members/$participantId")
             } catch (e: Exception) { Log.w("Calls", "Remove participant failed: ${e.message}") }
@@ -452,7 +459,7 @@ object CallManager {
 
     private fun startDurationTimer() {
         durationJob?.cancel()
-        durationJob = callScope.launch(Dispatchers.Default) {
+        durationJob = callScope?.launch(Dispatchers.Default) {
             while (isActive) {
                 delay(1000)
                 val current = _callState.value
@@ -466,7 +473,7 @@ object CallManager {
     private fun insertCallLog(state: CallState) {
         val callId = state.callId ?: UUID.randomUUID().toString()
         val remoteId = state.remoteUserId ?: return
-        callScope.launch(Dispatchers.IO) {
+        callScope?.launch(Dispatchers.IO) {
             try {
                 val db = pool?.writer ?: return@launch
                 db.execSQL("""
@@ -494,7 +501,7 @@ object CallManager {
 
     private fun cleanup() {
         durationJob?.cancel()
-        callScope.coroutineContext.cancelChildren()
+        callScope?.coroutineContext?.cancelChildren()
         AudioRouter.stopRinger()
         AudioRouter.stopAudio(playDisconnect = true)
         peerConnection?.let { WebRtcService.dispose(it) }
