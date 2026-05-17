@@ -49,6 +49,12 @@ object AuthManager {
     }
 
     suspend fun requestOtp(identifier: String): Result<Unit> {
+        val now = System.currentTimeMillis()
+        if (now - lastOtpRequestMs < otpCooldownMs) {
+            val remaining = (otpCooldownMs - (now - lastOtpRequestMs)) / 1000
+            return Result.failure(IllegalStateException("Please wait ${remaining}s before requesting"))
+        }
+        lastOtpRequestMs = now
         _currentState.value = RegistrationState.Loading
         val result = repository.requestOtp(identifier)
         return result.fold(
@@ -93,11 +99,20 @@ object AuthManager {
         )
     }
 
+    private var lastOtpRequestMs = 0L
+    private val otpCooldownMs = 30_000L
+
     suspend fun resendOtp(): Result<Unit> {
+        val now = System.currentTimeMillis()
+        if (now - lastOtpRequestMs < otpCooldownMs) {
+            val remaining = (otpCooldownMs - (now - lastOtpRequestMs)) / 1000
+            return Result.failure(IllegalStateException("Please wait ${remaining}s before resending"))
+        }
         val state = _currentState.value
         if (state !is RegistrationState.OtpVerification) {
             return Result.failure(IllegalStateException("Not in OTP state"))
         }
+        lastOtpRequestMs = now
         return requestOtp(state.identifier)
     }
 

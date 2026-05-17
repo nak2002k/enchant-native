@@ -24,6 +24,20 @@ class AuthBackendIntegrationTest {
     private var refreshToken: String = ""
     private var userId: String = ""
 
+    @BeforeEach
+    fun checkBackend() {
+        try {
+            val url = URI("$baseUrl/health").toURL()
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 2000
+            conn.readTimeout = 2000
+            conn.inputStream.read()
+            conn.disconnect()
+        } catch (_: Exception) {
+            org.junit.jupiter.api.Assumptions.abort("Backend not available at $baseUrl")
+        }
+    }
+
     @Test
     fun `1 - request OTP returns challenge_id`() {
         val response = httpPost("$baseUrl/v1/auth/request-otp", """{"identifier":"+15559999999"}""")

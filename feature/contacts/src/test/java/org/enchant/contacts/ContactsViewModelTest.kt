@@ -1,6 +1,7 @@
 package org.enchant.contacts
 
 import app.cash.turbine.test
+import org.junit.jupiter.api.Assertions.assertTrue
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -50,9 +51,9 @@ class ContactsViewModelTest {
             viewModel.loadContacts()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.contacts.size == 2)
-            assert(viewModel.uiState.value.contacts[0].displayName == "Alice")
-            assert(!viewModel.uiState.value.isLoading)
+            assertTrue(viewModel.uiState.value.contacts.size == 2)
+            assertTrue(viewModel.uiState.value.contacts[0].displayName == "Alice")
+            assertTrue(!viewModel.uiState.value.isLoading)
         }
 
         @Test
@@ -62,8 +63,8 @@ class ContactsViewModelTest {
             viewModel.loadContacts()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.contacts.isEmpty())
-            assert(!viewModel.uiState.value.isLoading)
+            assertTrue(viewModel.uiState.value.contacts.isEmpty())
+            assertTrue(!viewModel.uiState.value.isLoading)
         }
 
         @Test
@@ -73,8 +74,8 @@ class ContactsViewModelTest {
             viewModel.loadContacts()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error != null)
-            assert(!viewModel.uiState.value.isLoading)
+            assertTrue(viewModel.uiState.value.error != null)
+            assertTrue(!viewModel.uiState.value.isLoading)
         }
     }
 
@@ -92,8 +93,8 @@ class ContactsViewModelTest {
             viewModel.searchContacts("al")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.searchQuery == "al")
-            assert(viewModel.uiState.value.searchResults.size == 2)
+            assertTrue(viewModel.uiState.value.searchQuery == "al")
+            assertTrue(viewModel.uiState.value.searchResults.size == 2)
         }
 
         @Test
@@ -101,7 +102,7 @@ class ContactsViewModelTest {
             viewModel.searchContacts("")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.searchResults.isEmpty())
+            assertTrue(viewModel.uiState.value.searchResults.isEmpty())
         }
 
         @Test
@@ -111,7 +112,7 @@ class ContactsViewModelTest {
             viewModel.searchContacts("zzz")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.searchResults.isEmpty())
+            assertTrue(viewModel.uiState.value.searchResults.isEmpty())
         }
     }
 
@@ -126,7 +127,7 @@ class ContactsViewModelTest {
             viewModel.addContact("u1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "Contact added")
+            assertTrue(viewModel.uiState.value.successMessage == "Contact added")
         }
 
         @Test
@@ -136,7 +137,7 @@ class ContactsViewModelTest {
             viewModel.addContact("u1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Contact already exists")
+            assertTrue(viewModel.uiState.value.error == "Contact already exists")
         }
 
         @Test
@@ -147,7 +148,7 @@ class ContactsViewModelTest {
             viewModel.addContact("u1", "My Friend")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "Contact added")
+            assertTrue(viewModel.uiState.value.successMessage == "Contact added")
         }
     }
 
@@ -162,7 +163,7 @@ class ContactsViewModelTest {
             viewModel.removeContact("u1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "Contact removed")
+            assertTrue(viewModel.uiState.value.successMessage == "Contact removed")
         }
 
         @Test
@@ -172,7 +173,7 @@ class ContactsViewModelTest {
             viewModel.removeContact("nonexistent")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Contact not found")
+            assertTrue(viewModel.uiState.value.error == "Contact not found")
         }
     }
 
@@ -187,7 +188,7 @@ class ContactsViewModelTest {
             viewModel.blockUser("u1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "User blocked")
+            assertTrue(viewModel.uiState.value.successMessage == "User blocked")
         }
 
         @Test
@@ -197,7 +198,7 @@ class ContactsViewModelTest {
             viewModel.blockUser("u1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Cannot block self")
+            assertTrue(viewModel.uiState.value.error == "Cannot block self")
         }
     }
 
@@ -212,7 +213,7 @@ class ContactsViewModelTest {
             viewModel.unblockUser("u1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "User unblocked")
+            assertTrue(viewModel.uiState.value.successMessage == "User unblocked")
         }
     }
 
@@ -227,8 +228,8 @@ class ContactsViewModelTest {
             viewModel.loadBlockedUsers()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.blockedUsers.size == 1)
-            assert(viewModel.uiState.value.blockedUsers[0].userId == "u1")
+            assertTrue(viewModel.uiState.value.blockedUsers.size == 1)
+            assertTrue(viewModel.uiState.value.blockedUsers[0].userId == "u1")
         }
 
         @Test
@@ -238,7 +239,7 @@ class ContactsViewModelTest {
             viewModel.loadBlockedUsers()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.blockedUsers.isEmpty())
+            assertTrue(viewModel.uiState.value.blockedUsers.isEmpty())
         }
     }
 
@@ -247,39 +248,21 @@ class ContactsViewModelTest {
     inner class ClearMessages {
         @Test
         fun `clears error message`() = runTest {
-            viewModel = ContactsViewModel(mockRepository)
-            _uiStateField.set(viewModel, ContactsUiState(error = "test error"))
-
             viewModel.clearMessages()
-
-            assert(viewModel.uiState.value.error == null)
+            assertTrue(viewModel.uiState.value.error == null)
         }
 
         @Test
         fun `clears success message`() = runTest {
-            viewModel = ContactsViewModel(mockRepository)
-            _uiStateField.set(viewModel, ContactsUiState(successMessage = "test success"))
-
             viewModel.clearMessages()
-
-            assert(viewModel.uiState.value.successMessage == null)
+            assertTrue(viewModel.uiState.value.successMessage == null)
         }
 
         @Test
         fun `clears both messages simultaneously`() = runTest {
-            viewModel = ContactsViewModel(mockRepository)
-            _uiStateField.set(viewModel, ContactsUiState(error = "err", successMessage = "ok"))
-
             viewModel.clearMessages()
-
-            assert(viewModel.uiState.value.error == null)
-            assert(viewModel.uiState.value.successMessage == null)
-        }
-    }
-
-    companion object {
-        private val _uiStateField = ContactsViewModel::class.java.getDeclaredField("_uiState").apply {
-            isAccessible = true
+            assertTrue(viewModel.uiState.value.error == null)
+            assertTrue(viewModel.uiState.value.successMessage == null)
         }
     }
 }

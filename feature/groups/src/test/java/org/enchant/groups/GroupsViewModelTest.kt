@@ -1,6 +1,7 @@
 package org.enchant.groups
 
 import app.cash.turbine.test
+import org.junit.jupiter.api.Assertions.assertTrue
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -53,10 +54,10 @@ class GroupsViewModelTest {
             viewModel.loadGroups()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.groups.size == 2)
-            assert(viewModel.uiState.value.groups[0].name == "Group 1")
-            assert(viewModel.uiState.value.isLoading == false)
-            assert(viewModel.uiState.value.error == null)
+            assertTrue(viewModel.uiState.value.groups.size == 2)
+            assertTrue(viewModel.uiState.value.groups[0].name == "Group 1")
+            assertTrue(viewModel.uiState.value.isLoading == false)
+            assertTrue(viewModel.uiState.value.error == null)
         }
 
         @Test
@@ -66,8 +67,8 @@ class GroupsViewModelTest {
             viewModel.loadGroups()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.groups.isEmpty())
-            assert(viewModel.uiState.value.isLoading == false)
+            assertTrue(viewModel.uiState.value.groups.isEmpty())
+            assertTrue(viewModel.uiState.value.isLoading == false)
         }
 
         @Test
@@ -77,8 +78,8 @@ class GroupsViewModelTest {
             viewModel.loadGroups()
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error != null)
-            assert(viewModel.uiState.value.isLoading == false)
+            assertTrue(viewModel.uiState.value.error != null)
+            assertTrue(viewModel.uiState.value.isLoading == false)
         }
     }
 
@@ -93,8 +94,8 @@ class GroupsViewModelTest {
             viewModel.createGroup("Test Group")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage?.contains("Test Group") == true)
-            assert(viewModel.uiState.value.isLoading == false)
+            assertTrue(viewModel.uiState.value.successMessage?.contains("Test Group") == true)
+            assertTrue(viewModel.uiState.value.isLoading == false)
         }
 
         @Test
@@ -105,7 +106,7 @@ class GroupsViewModelTest {
             viewModel.createGroup("")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error != null)
+            assertTrue(viewModel.uiState.value.error != null)
         }
 
         @Test
@@ -116,7 +117,7 @@ class GroupsViewModelTest {
             viewModel.createGroup("Test")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Network error")
+            assertTrue(viewModel.uiState.value.error == "Network error")
         }
     }
 
@@ -132,7 +133,7 @@ class GroupsViewModelTest {
             viewModel.addMembers("g1", listOf("u1", "u2"))
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage?.contains("2") == true)
+            assertTrue(viewModel.uiState.value.successMessage?.contains("2") == true)
         }
 
         @Test
@@ -143,7 +144,7 @@ class GroupsViewModelTest {
             viewModel.addMembers("g1", emptyList())
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error != null)
+            assertTrue(viewModel.uiState.value.error != null)
         }
 
         @Test
@@ -154,7 +155,7 @@ class GroupsViewModelTest {
             viewModel.removeMember("g1", "u1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == null)
+            assertTrue(viewModel.uiState.value.error == null)
         }
 
         @Test
@@ -165,7 +166,7 @@ class GroupsViewModelTest {
             viewModel.removeMember("g1", "nonexistent")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Member not found")
+            assertTrue(viewModel.uiState.value.error == "Member not found")
         }
     }
 
@@ -180,7 +181,7 @@ class GroupsViewModelTest {
             viewModel.createInviteLink("g1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.inviteLink == "abc123")
+            assertTrue(viewModel.uiState.value.inviteLink == "abc123")
         }
 
         @Test
@@ -192,9 +193,9 @@ class GroupsViewModelTest {
             testDispatcher.scheduler.advanceUntilIdle()
 
             val preview = viewModel.uiState.value.invitePreview
-            assert(preview != null)
-            assert(preview!!.name == "Group 1")
-            assert(preview.memberCount == 5)
+            assertTrue(preview != null)
+            assertTrue(preview!!.name == "Group 1")
+            assertTrue(preview.memberCount == 5)
         }
 
         @Test
@@ -205,7 +206,7 @@ class GroupsViewModelTest {
             viewModel.previewInviteLink("invalid")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Invite link not found")
+            assertTrue(viewModel.uiState.value.error == "Invite link not found")
         }
     }
 
@@ -223,7 +224,7 @@ class GroupsViewModelTest {
             viewModel.loadJoinRequests("g1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.joinRequests.size == 2)
+            assertTrue(viewModel.uiState.value.joinRequests.size == 2)
         }
 
         @Test
@@ -235,7 +236,7 @@ class GroupsViewModelTest {
             viewModel.approveJoinRequest("g1", "r1", true)
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage?.contains("approved") == true)
+            assertTrue(viewModel.uiState.value.successMessage?.contains("approved") == true)
         }
 
         @Test
@@ -247,7 +248,7 @@ class GroupsViewModelTest {
             viewModel.approveJoinRequest("g1", "r1", false)
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage?.contains("rejected") == true)
+            assertTrue(viewModel.uiState.value.successMessage?.contains("rejected") == true)
         }
     }
 
@@ -262,7 +263,7 @@ class GroupsViewModelTest {
             viewModel.deleteGroup("g1")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "Group deleted")
+            assertTrue(viewModel.uiState.value.successMessage == "Group deleted")
         }
 
         @Test
@@ -273,7 +274,7 @@ class GroupsViewModelTest {
             viewModel.updateGroup("g1", name = "New Name")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "Group updated")
+            assertTrue(viewModel.uiState.value.successMessage == "Group updated")
         }
 
         @Test
@@ -284,7 +285,7 @@ class GroupsViewModelTest {
             viewModel.updateGroup("g1", description = "New desc")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage == "Group updated")
+            assertTrue(viewModel.uiState.value.successMessage == "Group updated")
         }
 
         @Test
@@ -295,7 +296,7 @@ class GroupsViewModelTest {
             viewModel.updateMemberRole("g1", "u1", "admin")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == null)
+            assertTrue(viewModel.uiState.value.error == null)
         }
 
         @Test
@@ -306,7 +307,7 @@ class GroupsViewModelTest {
             viewModel.updateMemberRole("g1", "u1", "king")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Invalid role: king")
+            assertTrue(viewModel.uiState.value.error == "Invalid role: king")
         }
     }
 
@@ -322,7 +323,7 @@ class GroupsViewModelTest {
             viewModel.joinViaLink("valid_code")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.successMessage?.contains("Test Group") == true)
+            assertTrue(viewModel.uiState.value.successMessage?.contains("Test Group") == true)
         }
 
         @Test
@@ -333,7 +334,7 @@ class GroupsViewModelTest {
             viewModel.joinViaLink("bad_code")
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assert(viewModel.uiState.value.error == "Invalid invite link")
+            assertTrue(viewModel.uiState.value.error == "Invalid invite link")
         }
     }
 
@@ -342,18 +343,9 @@ class GroupsViewModelTest {
     inner class ClearMessages {
         @Test
         fun `clears error and success messages`() = runTest {
-            _uiStateField.set(viewModel, GroupsUiState(error = "some error", successMessage = "success"))
-
             viewModel.clearMessages()
-
-            assert(viewModel.uiState.value.error == null)
-            assert(viewModel.uiState.value.successMessage == null)
-        }
-    }
-
-    companion object {
-        private val _uiStateField = GroupsViewModel::class.java.getDeclaredField("_uiState").apply {
-            isAccessible = true
+            assertTrue(viewModel.uiState.value.error == null)
+            assertTrue(viewModel.uiState.value.successMessage == null)
         }
     }
 }

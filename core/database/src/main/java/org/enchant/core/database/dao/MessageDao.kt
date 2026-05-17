@@ -1,11 +1,13 @@
 package org.enchant.core.database.dao
 
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.entity.MessageEntity
 import org.enchant.core.database.util.CursorMapper
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import java.util.concurrent.ConcurrentHashMap
+import org.enchant.core.database.util.DatabaseNotifier
 
 class MessageDao(private val pool: DatabasePool) {
     suspend fun insert(message: MessageEntity): Long = pool.write { db ->
@@ -40,7 +42,9 @@ class MessageDao(private val pool: DatabasePool) {
         stmt.bindLong(20, if (message.isDeleted) 1 else 0)
         message.disappearAt?.let { stmt.bindLong(21, it) } ?: stmt.bindNull(21)
         message.gifUrl?.let { stmt.bindString(22, it) } ?: stmt.bindNull(22)
-        stmt.executeInsert()
+        val result = stmt.executeInsert()
+        DatabaseNotifier.notify("messages")
+        result
     }
 
     suspend fun insertBatch(messages: List<MessageEntity>) = pool.write { db ->
@@ -97,33 +101,41 @@ class MessageDao(private val pool: DatabasePool) {
     }
 
     fun getConversationMessages(conversationId: String, limit: Int = 50, beforeId: Long? = null): Flow<List<MessageEntity>> = callbackFlow {
-        val cursor = pool.readWith { db ->
-            val sql = """
-                SELECT * FROM messages
-                WHERE conversation_id = ? AND is_deleted = 0
-                ${if (beforeId != null) "AND local_id < ?" else ""}
-                ORDER BY timestamp DESC
-                LIMIT ?
-            """
+        val sql = """
+            SELECT * FROM messages
+            WHERE conversation_id = ? AND is_deleted = 0
+            ${if (beforeId != null) "AND local_id < ?" else ""}
+            ORDER BY timestamp DESC
+            LIMIT ?
+        """
+        fun query(): List<MessageEntity> = pool.readWith { db ->
             val args = mutableListOf(conversationId)
             beforeId?.let { args.add(it.toString()) }
             args.add(limit.toString())
-            db.rawQuery(sql, args.toTypedArray())
+            db.rawQuery(sql, args.toTypedArray()).use { CursorMapper.mapToList<MessageEntity>(it) }
         }
-        val messages = cursor.use { CursorMapper.mapToList<MessageEntity>(it) }
-        trySend(messages)
+        trySend(query())
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            DatabaseNotifier.tableChanges.collect { table ->
+                if (table == "messages") trySend(query())
+            }
+        }
+        awaitClose { job.cancel() }
     }
 
     suspend fun updateStatus(envelopeId: String, status: String) = pool.write { db ->
         db.execSQL("UPDATE messages SET status = ? WHERE envelope_id = ?", arrayOf(status, envelopeId))
+        DatabaseNotifier.notify("messages")
     }
 
     suspend fun markDeleted(envelopeId: String) = pool.write { db ->
         db.execSQL("UPDATE messages SET is_deleted = 1 WHERE envelope_id = ?", arrayOf(envelopeId))
+        DatabaseNotifier.notify("messages")
     }
 
     suspend fun starMessage(envelopeId: String, starred: Boolean) = pool.write { db ->
         db.execSQL("UPDATE messages SET is_starred = ? WHERE envelope_id = ?", arrayOf(if (starred) 1 else 0, envelopeId))
+        DatabaseNotifier.notify("messages")
     }
 
     suspend fun getUnreadCount(conversationId: String): Int = pool.readWith { db ->
@@ -141,9 +153,11 @@ class MessageDao(private val pool: DatabasePool) {
 
     suspend fun deleteExpired(now: Long) = pool.write { db ->
         db.execSQL("DELETE FROM messages WHERE disappear_at IS NOT NULL AND disappear_at < ? AND is_deleted = 0", arrayOf(now.toString()))
+        DatabaseNotifier.notify("messages")
     }
 
     suspend fun deleteConversation(conversationId: String) = pool.write { db ->
         db.execSQL("DELETE FROM messages WHERE conversation_id = ?", arrayOf(conversationId))
+        DatabaseNotifier.notify("messages")
     }
 }

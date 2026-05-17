@@ -1,10 +1,13 @@
 package org.enchant.core.database.dao
 
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.entity.ConversationEntity
 import org.enchant.core.database.util.CursorMapper
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import org.enchant.core.database.util.DatabaseNotifier
 
 class ConversationDao(private val pool: DatabasePool) {
     suspend fun upsert(conversation: ConversationEntity) = pool.write { db ->
@@ -26,6 +29,7 @@ class ConversationDao(private val pool: DatabasePool) {
             conversation.muteUntil?.toString(),
             conversation.disappearTimerSeconds.toString()
         ))
+        DatabaseNotifier.notify("conversations")
     }
 
     fun getAll(): Flow<List<ConversationEntity>> = callbackFlow {
@@ -34,6 +38,19 @@ class ConversationDao(private val pool: DatabasePool) {
         }
         val items = cursor.use { CursorMapper.mapToList<ConversationEntity>(it) }
         trySend(items)
+
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            DatabaseNotifier.tableChanges.collect { table ->
+                if (table == "conversations") {
+                    val c = pool.readWith { db ->
+                        db.rawQuery("SELECT * FROM conversations ORDER BY last_message_timestamp DESC", null)
+                    }
+                    val updated = c.use { CursorMapper.mapToList<ConversationEntity>(it) }
+                    trySend(updated)
+                }
+            }
+        }
+        awaitClose { job.cancel() }
     }
 
     suspend fun getById(conversationId: String): ConversationEntity? = pool.readWith { db ->

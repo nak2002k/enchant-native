@@ -34,29 +34,37 @@ class GroupsViewModel(
     fun loadGroups() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val groups = repository.getGroups()
-            _uiState.value = _uiState.value.copy(groups = groups, isLoading = false)
+            try {
+                val groups = repository.getGroups()
+                _uiState.value = _uiState.value.copy(groups = groups, isLoading = false)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            }
         }
     }
 
     fun createGroup(name: String, description: String? = null, memberIds: List<String>? = null) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val result = repository.createGroup(name, description, memberIds)
-            when (result) {
-                is GroupResult.Success -> {
-                    loadGroups()
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        successMessage = "Group '$name' created"
+            try {
+                val result = repository.createGroup(name, description, memberIds)
+                when (result) {
+                    is GroupResult.Success -> {
+                        loadGroups()
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            successMessage = "Group '$name' created"
+                        )
+                    }
+                    is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
+                        isLoading = false, error = result.error
+                    )
+                    else -> _uiState.value = _uiState.value.copy(
+                        isLoading = false, error = "Unexpected result"
                     )
                 }
-                is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
-                    isLoading = false, error = result.error
-                )
-                else -> _uiState.value = _uiState.value.copy(
-                    isLoading = false, error = "Unexpected result"
-                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
             }
         }
     }

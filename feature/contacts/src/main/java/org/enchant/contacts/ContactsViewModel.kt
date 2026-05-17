@@ -33,8 +33,12 @@ class ContactsViewModel(
     fun loadContacts() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val contacts = repository.getContacts()
-            _uiState.value = _uiState.value.copy(contacts = contacts, isLoading = false)
+            try {
+                val contacts = repository.getContacts()
+                _uiState.value = _uiState.value.copy(contacts = contacts, isLoading = false)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            }
         }
     }
 

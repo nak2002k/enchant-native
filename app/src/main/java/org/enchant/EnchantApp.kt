@@ -2,14 +2,22 @@ package org.enchant
 
 import android.app.Application
 import android.os.StrictMode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.enchant.core.crash.CrashReporter
 import org.enchant.core.notifications.NotificationChannels
 import org.enchant.core.performance.ImagePipeline
 
 class EnchantApp : Application() {
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     override fun onCreate() {
         super.onCreate()
-        initDi()
+        appScope.launch {
+            initDi()
+        }
         initCrashReporting()
         initPerformance()
         if (isDebug()) {
@@ -19,7 +27,12 @@ class EnchantApp : Application() {
         initNotificationChannels()
     }
 
-    private fun initDi() {
+    private suspend fun initDi() {
+        try {
+            DI.init(this@EnchantApp)
+        } catch (e: Exception) {
+            android.util.Log.e("EnchantApp", "DI init failed", e)
+        }
     }
 
     private fun initCrashReporting() {
@@ -31,6 +44,11 @@ class EnchantApp : Application() {
     }
 
     private fun initLeakCanary() {
+        try {
+            leakcanary.LeakCanary.config = leakcanary.LeakCanary.config.copy(
+                retainedVisibleThreshold = 3
+            )
+        } catch (_: Exception) {}
     }
 
     private fun initStrictMode() {
