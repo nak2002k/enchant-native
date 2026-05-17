@@ -186,23 +186,24 @@ object CallManager {
         WebRtcService.toggleAudioTrack(localStream, !hold)
     }
 
-    fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String) {
+    fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String, isVideo: Boolean = false) {
         if (_callState.value.status != CallStatusEnum.IDLE) {
             callScope.launch(Dispatchers.IO) { sendCallSignaling(senderUserId, CallMessage.End) }
             return
         }
         offerReceivedAt = System.currentTimeMillis()
+        val isVideoCall = isVideo || sdp.contains("m=video", ignoreCase = true)
         _callState.value = CallState(
             status = CallStatusEnum.RINGING,
             remoteUserId = senderUserId,
             callId = callId,
-            isVideoCall = true
+            isVideoCall = isVideoCall
         )
         callScope.launch(Dispatchers.Default) {
             AudioRouter.vibrate(AppConfig.applicationContext ?: return@launch)
             AudioRouter.startIncomingRinger()
         }
-        observerRegistry.notifyCallStarted(senderUserId, true)
+        observerRegistry.notifyCallStarted(senderUserId, isVideoCall)
         callScope.launch(Dispatchers.Default) {
             delay(30000)
             if (_callState.value.status == CallStatusEnum.RINGING) {

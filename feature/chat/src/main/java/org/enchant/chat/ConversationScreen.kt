@@ -250,7 +250,7 @@ fun ConversationScreen(
                                         messageText = ""
                                     }
                                 },
-                                onForward = { viewModel.forwardMessage(it, "") },
+                                onForward = { envelopeId -> forwardDialogMessageId = envelopeId },
                                 onCopy = { viewModel.copyToClipboard(message.content) },
                                 onReact = { viewModel.setReaction(message.localId, it) },
                                 onReport = { viewModel.reportMessage(it) }
