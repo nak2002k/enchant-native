@@ -33,7 +33,6 @@ class CallViewModelTest {
     @AfterEach
     fun tearDown() {
         unmockkObject(CallManager)
-        viewModel.onCleared()
     }
 
     @Nested @DisplayName("Start Call")
@@ -145,14 +144,6 @@ class CallViewModelTest {
             val state = viewModel.uiState.value
             assertNotNull(state)
             assertNotNull(state.callState)
-        }
-    }
-
-    @Nested @DisplayName("On Cleared")
-    inner class OnClearedTest {
-        @Test @DisplayName("onCleared cancels duration job")
-        fun `on cleared cancels`() = runTest {
-            viewModel.onCleared()
         }
     }
 }

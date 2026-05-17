@@ -88,7 +88,7 @@ class CallLogViewModelTest {
             viewModel.toggleSelected("call-1")
             viewModel.toggleSelected("call-2")
             val staged = viewModel.stageDeletion()
-            assertEquals(2, staged.size)
+            assertEquals(2, staged.callIds.size)
         }
 
         @Test @DisplayName("confirmDeletion deletes staged calls")

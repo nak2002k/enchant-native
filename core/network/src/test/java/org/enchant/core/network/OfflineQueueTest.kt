@@ -125,7 +125,7 @@ class OfflineQueueTest {
         @Test @DisplayName("pendingCount returns correct count")
         fun `pendingCount correct`() = runTest {
             assertEquals(0, OfflineQueue.pendingCount.value)
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "test".encodeToByteArray(), 1000))
+            OfflineQueue.enqueue(QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
             assertEquals(1, OfflineQueue.pendingCount.value)
         }
     }
@@ -134,7 +134,7 @@ class OfflineQueueTest {
     inner class RemoveTest {
         @Test @DisplayName("remove removes message by ID")
         fun `remove by id`() = runTest {
-            val msg = QueuedMessage("unique-id", null, "SIGNAL_MESSAGE", "test".encodeToByteArray(), 1000)
+            val msg = QueuedMessage(id = "unique-id", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
             OfflineQueue.enqueue(msg)
             assertEquals(1, OfflineQueue.pendingCount.value)
             OfflineQueue.remove("unique-id")

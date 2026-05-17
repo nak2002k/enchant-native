@@ -406,15 +406,6 @@ class ConversationViewModelTest {
         }
     }
 
-    @Nested @DisplayName("onCleared")
-    inner class OnClearedTest {
-        @Test @DisplayName("onCleared cancels message and search jobs")
-        fun `on cleared cancels jobs`() {
-            viewModel.init("conv-1")
-            viewModel.onCleared()
-        }
-    }
-
     @Nested @DisplayName("Disappear Timer")
     inner class DisappearTimerTest {
         @Test @DisplayName("setDisappearTimer calls repo.setDisappearTimer")

@@ -279,7 +279,7 @@ class AuthStateMachineTest {
     }
 
     @Nested @DisplayName("getRequiredPermissions()")
-    inner class PermissionsTest {
+    inner class RequiredPermissionsTest {
         @Test @DisplayName("returns non-empty list")
         fun `returns permissions`() {
             val perms = AuthStateMachine.getRequiredPermissions()

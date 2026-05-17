@@ -32,8 +32,8 @@ class CallManagerTest {
         every { SecurePreferences.getString(any(), any()) } returns "self-user"
         every { SecurePreferences.getString(any()) } returns "self-user"
         mockkObject(WebRtcService)
-        every { WebRtcService.getLocalStream(any()) } returns null
-        every { WebRtcService.createPeerConnection(any(), any()) } returns null
+        coEvery { WebRtcService.getLocalStream(any()) } returns null
+        coEvery { WebRtcService.createPeerConnection(any(), any()) } returns null
         mockkObject(AudioRouter)
         CallManager.resetForTest()
     }

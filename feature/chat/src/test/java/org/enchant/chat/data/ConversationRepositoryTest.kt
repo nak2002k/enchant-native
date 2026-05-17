@@ -125,8 +125,8 @@ class ConversationRepositoryTest {
         fun `get messages`() = runTest {
             coEvery { messageDao.getConversationMessages(any(), any(), any()) } returns flowOf(
                 listOf(
-                    MessageEntity(localId = 1, conversationId = "conv-1", senderId = "user-1", content = "Hello", status = "delivered", timestamp = 1000),
-                    MessageEntity(localId = 2, conversationId = "conv-1", senderId = "user-2", content = "Hi", status = "delivered", timestamp = 2000)
+                    MessageEntity(localId = 1, conversationId = "conv-1", senderId = "user-1", messageType = "text", content = "Hello", status = "delivered", timestamp = 1000),
+                    MessageEntity(localId = 2, conversationId = "conv-1", senderId = "user-2", messageType = "text", content = "Hi", status = "delivered", timestamp = 2000)
                 )
             )
             val messages = repo.getMessages("conv-1")
@@ -139,7 +139,7 @@ class ConversationRepositoryTest {
         fun `get messages before id`() = runTest {
             coEvery { messageDao.getConversationMessages(any(), any(), any()) } returns flowOf(
                 listOf(
-                    MessageEntity(localId = 1, conversationId = "conv-1", senderId = "user-1", content = "Old", status = "delivered", timestamp = 500)
+                    MessageEntity(localId = 1, conversationId = "conv-1", senderId = "user-1", messageType = "text", content = "Old", status = "delivered", timestamp = 500)
                 )
             )
             val messages = repo.getMessages("conv-1", beforeId = 10)
@@ -153,9 +153,7 @@ class ConversationRepositoryTest {
     inner class GetMessagePageTest {
         @Test @DisplayName("getMessagePage returns paginated messages")
         fun `get message page`() = runTest {
-            every { pool.readWith(any()) } answers {
-                val block = arg<suspend (org.enchant.core.database.DatabasePool) -> MessagePage>(0)
-                // Simplified: just return a page
+            coEvery { pool.readWith(any()) } answers {
                 MessagePage(
                     messages = listOf(Message(localId = 1, conversationId = "conv-1", senderId = "user-1", content = "msg", status = MessageStatus.DELIVERED, timestamp = 1000)),
                     nextCursor = 1,
