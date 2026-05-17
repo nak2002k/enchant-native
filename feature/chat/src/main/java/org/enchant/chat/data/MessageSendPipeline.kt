@@ -39,13 +39,23 @@ enum class SendError {
 object MessageSendPipeline {
     private var apiClient: ApiClient? = null
     private var repository: ConversationRepository? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var scope: CoroutineScope? = null
     private var lastTypingTs = 0L
     private var typingJob: Job? = null
 
     fun init(client: ApiClient, repo: ConversationRepository) {
         apiClient = client
         repository = repo
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
+    fun shutdown() {
+        scope?.cancel()
+        scope = null
+        apiClient = null
+        repository = null
+        typingJob?.cancel()
+        typingJob = null
     }
 
     private fun checkInit() {
@@ -261,7 +271,7 @@ object MessageSendPipeline {
             type = MessageProtobufHelper.ReceiptType.DELIVERY
         )
         val encrypted = SessionManager.encryptMessage(senderUserId, contentBytes) ?: return
-        scope.launch {
+        scope?.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(senderUserId))
@@ -280,7 +290,7 @@ object MessageSendPipeline {
             type = MessageProtobufHelper.ReceiptType.READ
         )
         val encrypted = SessionManager.encryptMessage(senderUserId, contentBytes) ?: return
-        scope.launch {
+        scope?.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(senderUserId))
@@ -300,7 +310,7 @@ object MessageSendPipeline {
         val contentBytes = MessageProtobufHelper.buildTypingContent(isTyping)
         val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes) ?: return
 
-        scope.launch {
+        scope?.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", recipientUserId)

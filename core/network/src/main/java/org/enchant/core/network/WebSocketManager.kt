@@ -74,6 +74,11 @@ object WebSocketManager {
         .pingInterval(30, TimeUnit.SECONDS)
         .build()
 
+    private val refreshClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
+
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
     val incomingMessages: SharedFlow<IncomingEnvelope> = _incomingMessages.asSharedFlow()
     val connectionErrors: SharedFlow<ConnectionError> = _connectionErrors.asSharedFlow()
@@ -429,10 +434,6 @@ object WebSocketManager {
             val body = kotlinx.serialization.json.buildJsonObject {
                 put("refresh_token", kotlinx.serialization.json.JsonPrimitive(refreshToken))
             }
-            val client = OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build()
             val jsonBody = kotlinx.serialization.json.Json.encodeToString(
                 kotlinx.serialization.json.JsonObject.serializer(), body
             )
@@ -440,7 +441,7 @@ object WebSocketManager {
                 .url("${AppConfig.gatewayUrl}/v1/auth/refresh")
                 .post(jsonBody.toRequestBody("application/json".toMediaType()))
                 .build()
-            val response = client.newCall(request).execute()
+            val response = refreshClient.newCall(request).execute()
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
                 if (responseBody != null) {

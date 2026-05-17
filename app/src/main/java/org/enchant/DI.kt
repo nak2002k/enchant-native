@@ -36,6 +36,7 @@ import org.enchant.core.network.WebSocketManager
 object DI {
     private val mutex = Mutex()
     private var _initialized = false
+    private var _workerScope: CoroutineScope? = null
 
     private var _securePreferences: SecurePreferences? = null
     private var _keyStoreManager: KeyStoreManager? = null
@@ -140,8 +141,8 @@ object DI {
                     MediaService.init(_apiClient!!)
                     ContentPreProcessor.init(_apiClient!!)
 
-                    val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-                    workerScope.launch {
+                    _workerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+                    _workerScope?.launch {
                         while (true) {
                             delay(60_000L)
                             DisappearingMessagesWorker.tick()
@@ -158,6 +159,9 @@ object DI {
     }
 
     fun reset() {
+        _workerScope?.cancel()
+        _workerScope = null
+        MessageSendPipeline.shutdown()
         _webSocketManager = null
         _apiClient = null
         _conversationRepository = null
