@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -29,7 +30,9 @@ dependencies {
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
 
+    implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
+    implementation(project(":core:network"))
     implementation(project(":core:database"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)

@@ -76,6 +76,15 @@ object ActiveCallManager {
     }
 
     fun stopCallScreen(context: Context) {
+        try {
+            val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra("navigate_to", "chat_list")
+            }
+            if (intent != null) context.startActivity(intent)
+            cancelCallNotification(context)
+            AudioRouter.stopAudio(playDisconnect = false)
+        } catch (_: Exception) {}
     }
 
     private fun createChannel(context: Context) {

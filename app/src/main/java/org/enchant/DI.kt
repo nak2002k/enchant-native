@@ -102,7 +102,7 @@ object DI {
                     pool = pool
                 )
 
-                KeyManager.init()
+                KeyManager.init(client)
                 SessionManager.init()
 
                 AuthManager.init()
