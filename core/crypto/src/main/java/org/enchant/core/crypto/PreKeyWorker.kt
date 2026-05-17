@@ -12,7 +12,10 @@ class PreKeyWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     override suspend fun doWork(): Result {
         try {
             KeyManager.topUpOpks()
-            KeyManager.rotateSignedPreKey()
+            KeyManager.cleanSignedPreKeys()
+            if (KeyManager.needsKeyRotation()) {
+                KeyManager.rotateSignedPreKey()
+            }
             return Result.success()
         } catch (e: Exception) {
             return Result.retry()

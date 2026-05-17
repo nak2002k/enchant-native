@@ -163,15 +163,7 @@ object MessageSendPipeline {
                 if (encrypted == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
 
                 val ciphertextB64 = CryptoHelper.base64UrlEncode(encrypted.payload)
-                val sealedPayload = buildJsonObject {
-                    put("sender_identity", senderIdentityB64)
-                    put("ciphertext", ciphertextB64)
-                }
-                val sealedPayloadB64 = CryptoHelper.base64UrlEncode(
-                    kotlinx.serialization.json.Json.encodeToString(
-                        kotlinx.serialization.json.JsonObject.serializer(), sealedPayload
-                    ).encodeToByteArray()
-                )
+                val sealedPayloadB64 = CryptoHelper.base64UrlEncode(ciphertextB64.encodeToByteArray())
 
                 val client = apiClient!!
                 val response = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {

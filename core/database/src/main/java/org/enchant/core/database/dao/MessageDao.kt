@@ -12,7 +12,7 @@ import org.enchant.core.database.util.DatabaseNotifier
 class MessageDao(private val pool: DatabasePool) {
     suspend fun insert(message: MessageEntity): Long = pool.write { db ->
         val stmt = db.compileStatement("""
-            INSERT OR IGNORE INTO messages
+            INSERT OR REPLACE INTO messages
                 (conversation_id, sender_id, sender_device_id, envelope_id, message_type,
                  content, media_key, media_iv, media_mime_type, media_size,
                  media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
@@ -52,7 +52,7 @@ class MessageDao(private val pool: DatabasePool) {
         try {
             messages.forEach { msg ->
                 db.execSQL("""
-                    INSERT OR IGNORE INTO messages
+                    INSERT OR REPLACE INTO messages
                         (conversation_id, sender_id, sender_device_id, envelope_id, message_type,
                          content, media_key, media_iv, media_mime_type, media_size,
                          media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,

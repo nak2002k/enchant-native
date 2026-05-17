@@ -19,6 +19,7 @@ import org.enchant.core.base.KeyStoreManager
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.calls.CallManager
 import org.enchant.core.crypto.KeyManager
+import org.enchant.core.crypto.PreKeyWorker
 import org.enchant.core.crypto.SessionManager
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
@@ -125,6 +126,7 @@ object DI {
 
                 KeyManager.init(client)
                 SessionManager.init()
+                PreKeyWorker.schedule(context)
 
                 WebSocketManager.init()
                 _webSocketManager = WebSocketManager

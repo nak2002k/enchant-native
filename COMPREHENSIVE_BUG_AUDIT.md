@@ -38,11 +38,19 @@
 - **SessionManager tests**: Fixed payload type assertion, simplified deleteSession test
 - **All 206 crypto tests now pass**
 - **C01**: Plaintext content in DB (SQLCipher provides at-rest encryption, acceptable risk)
-- **C06, C07**: Key rotation enforcement (scheduled task needed)
 - **R01, R07, R08, R09, R10**: DI initialization, race conditions, splash screen
 - **Q01-Q12, Q14, Q15**: Code quality issues (singleton patterns, nullable context)
 - **U02-U15**: UI/UX no-op callbacks and placeholder screens
 - **A01, A03, A05, A06, A08-A12**: API contract violations and missing endpoints
+
+### Batch 3 — Fixed (2026-05-18)
+- **N01**: ConversationScreen FLAG_SECURE regression — Removed `clearFlags` from `onDispose`, set permanently in `MainActivity.onCreate`
+- **N02**: MessageDao INSERT OR IGNORE — Changed to `INSERT OR REPLACE` for both `insert` and `insertBatch`
+- **C12**: Sealed sender identity leak — Removed `sender_identity` from sealed payload, sends only ciphertext
+- **R04**: ICE candidate format mismatch — Already consistent (pipe `|` delimiter in both `CallManager` and `WebRtcService`)
+- **C06**: Key rotation enforcement — `PreKeyWorker` now checks `needsKeyRotation()` before rotating
+- **C07**: Clean signed prekeys — `PreKeyWorker` now calls `cleanSignedPreKeys()` on each run
+- **C06/C07**: PreKeyWorker scheduled — Added `PreKeyWorker.schedule(context)` to DI initialization
 
 ---
 

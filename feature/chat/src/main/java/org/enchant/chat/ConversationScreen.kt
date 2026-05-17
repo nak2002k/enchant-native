@@ -76,14 +76,6 @@ fun ConversationScreen(
 
     LaunchedEffect(conversationId) { viewModel.init(conversationId) }
 
-    DisposableEffect(Unit) {
-        val activity = context as? androidx.activity.ComponentActivity
-        activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose {
-            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
-        }
-    }
-
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty() && listState.firstVisibleItemIndex < 2) {
             listState.animateScrollToItem(0)
