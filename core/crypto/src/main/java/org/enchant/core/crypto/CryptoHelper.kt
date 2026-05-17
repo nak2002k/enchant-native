@@ -110,54 +110,56 @@ object CryptoHelper {
         return result
     }
 
-    fun encryptXChaCha20Poly1305(plaintext: ByteArray, key: ByteArray, nonce: ByteArray? = null): ByteArray {
-        val n = nonce ?: generateRandomKey(XCHACHA20_NONCE_SIZE)
+    private fun xChaCha20Poly1305Internal(
+        encrypt: Boolean, data: ByteArray, key: ByteArray, nonce: ByteArray
+    ): ByteArray {
         require(key.size == XCHACHA20_KEY_SIZE) { "Key must be 32 bytes" }
-        require(n.size == XCHACHA20_NONCE_SIZE) { "Nonce must be 24 bytes" }
+        require(nonce.size == XCHACHA20_NONCE_SIZE) { "Nonce must be 24 bytes" }
 
-        val subkey = hChaCha20(key, n.copyOfRange(0, 16))
-        val polyNonce = ByteArray(12).also { n.copyInto(it, 0, 16, 24) }
-
-        val output = try {
-            val cipher = ChaCha20Poly1305()
-            cipher.init(true, ParametersWithIV(KeyParameter(subkey), polyNonce))
-            val buf = ByteArray(cipher.getOutputSize(plaintext.size))
-            val len = cipher.processBytes(plaintext, 0, plaintext.size, buf, 0)
-            cipher.doFinal(buf, len)
-            buf
-        } catch (e: InvalidCipherTextException) {
-            throw RuntimeException("XChaCha20-Poly1305 encryption failed", e)
-        } finally {
-            zeroBytes(subkey)
-        }
-
-        return ByteArray(n.size + output.size).apply {
-            n.copyInto(this, 0)
-            output.copyInto(this, n.size)
-        }
-    }
-
-    fun decryptXChaCha20Poly1305(data: ByteArray, key: ByteArray): ByteArray {
-        require(key.size == XCHACHA20_KEY_SIZE) { "Key must be 32 bytes" }
-        require(data.size >= XCHACHA20_NONCE_SIZE + 16) { "Ciphertext too short" }
-
-        val nonce = data.copyOfRange(0, XCHACHA20_NONCE_SIZE)
-        val ct = data.copyOfRange(XCHACHA20_NONCE_SIZE, data.size)
         val subkey = hChaCha20(key, nonce.copyOfRange(0, 16))
         val polyNonce = ByteArray(12).also { nonce.copyInto(it, 0, 16, 24) }
 
         return try {
             val cipher = ChaCha20Poly1305()
-            cipher.init(false, ParametersWithIV(KeyParameter(subkey), polyNonce))
-            val buf = ByteArray(cipher.getOutputSize(ct.size))
-            val len = cipher.processBytes(ct, 0, ct.size, buf, 0)
-            cipher.doFinal(buf, len)
-            if (len < buf.size) buf.copyOf(len) else buf
+            cipher.init(encrypt, ParametersWithIV(KeyParameter(subkey), polyNonce))
+            val buf = ByteArray(cipher.getOutputSize(data.size))
+            val off1 = cipher.processBytes(data, 0, data.size, buf, 0)
+            val off2 = cipher.doFinal(buf, off1)
+            if (encrypt || off1 + off2 == buf.size) buf else buf.copyOf(off1 + off2)
         } catch (e: InvalidCipherTextException) {
-            throw RuntimeException("XChaCha20-Poly1305 decryption failed: MAC mismatch", e)
+            val msg = if (encrypt) "encryption" else "decryption (MAC mismatch)"
+            throw RuntimeException("XChaCha20-Poly1305 $msg failed", e)
         } finally {
             zeroBytes(subkey)
         }
+    }
+
+    fun encryptXChaCha20Poly1305(plaintext: ByteArray, key: ByteArray, nonce: ByteArray? = null): ByteArray {
+        val n = nonce ?: generateRandomKey(XCHACHA20_NONCE_SIZE)
+        val ct = xChaCha20Poly1305Internal(true, plaintext, key, n)
+        return ByteArray(n.size + ct.size).apply {
+            n.copyInto(this, 0)
+            ct.copyInto(this, n.size)
+        }
+    }
+
+    fun decryptXChaCha20Poly1305(data: ByteArray, key: ByteArray): ByteArray {
+        require(data.size >= XCHACHA20_NONCE_SIZE + 16) { "Ciphertext too short" }
+        val nonce = data.copyOfRange(0, XCHACHA20_NONCE_SIZE)
+        val ct = data.copyOfRange(XCHACHA20_NONCE_SIZE, data.size)
+        return xChaCha20Poly1305Internal(false, ct, key, nonce)
+    }
+
+    fun encryptXChaCha20Poly1305Raw(plaintext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
+        val n = if (nonce.size == XCHACHA20_NONCE_SIZE) nonce
+                else nonce.copyOf(XCHACHA20_NONCE_SIZE)
+        return xChaCha20Poly1305Internal(true, plaintext, key, n)
+    }
+
+    fun decryptXChaCha20Poly1305Raw(ciphertext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
+        val n = if (nonce.size == XCHACHA20_NONCE_SIZE) nonce
+                else nonce.copyOf(XCHACHA20_NONCE_SIZE)
+        return xChaCha20Poly1305Internal(false, ciphertext, key, n)
     }
 
     @Deprecated("Use encryptXChaCha20Poly1305", ReplaceWith("encryptXChaCha20Poly1305(plaintext, key)"))

@@ -16,6 +16,7 @@ sqlcipher = "4.5.4"
 kotlinx-serialization-json = "1.7.3"
 leakcanary = "2.14"
 junit5 = "5.11.4"
+junit-platform = "1.11.4"
 mockk = "1.13.13"
 turbine = "1.2.0"
 robolectric = "4.14.1"
@@ -71,7 +72,7 @@ leakcanary-android-core = { module = "com.squareup.leakcanary:leakcanary-android
 junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5" }
 junit5-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit5" }
 junit5-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit5" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4" }

@@ -6,11 +6,13 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import net.sqlcipher.Cursor
+import kotlinx.coroutines.flow.first
 import net.sqlcipher.database.SQLiteDatabase
 import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.entity.MessageEntity
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 @DisplayName("MessageDao")
@@ -82,5 +84,33 @@ class MessageDaoTest {
     fun `deleteConversation`() = runTest {
         dao.deleteConversation("conv1")
         verify { mockDb.execSQL(match { it.contains("DELETE") && it.contains("conversation_id") }, any()) }
+    }
+
+    @Nested @DisplayName("FTS5 search")
+    inner class Fts5SearchTest {
+        @Test @DisplayName("searchMessages uses FTS5 MATCH")
+        fun `search uses fts5`() = runTest {
+            val mockCursor = mockk<Cursor>(relaxed = true)
+            every { mockDb.rawQuery(any(), any()) } returns mockCursor
+            every { mockCursor.moveToFirst() } returns false
+            dao.searchMessages("hello").first()
+            verify { mockDb.rawQuery(match { it.contains("messages_fts") }, any()) }
+        }
+
+        @Test @DisplayName("searchMessages handles query error gracefully")
+        fun `search handles db error gracefully`() = runTest {
+            every { mockDb.rawQuery(any(), any()) } throws RuntimeException("DB error")
+            val items = dao.searchMessages("test").first()
+            assert(items.isEmpty()) { "Should emit empty list on DB error" }
+        }
+
+        @Test @DisplayName("searchMessages joins messages on messages_fts")
+        fun `search includes inner join`() = runTest {
+            val mockCursor = mockk<Cursor>(relaxed = true)
+            every { mockDb.rawQuery(any(), any()) } returns mockCursor
+            every { mockCursor.moveToFirst() } returns false
+            dao.searchMessages("hello").first()
+            verify { mockDb.rawQuery(match { it.contains("INNER JOIN messages_fts") }, any()) }
+        }
     }
 }

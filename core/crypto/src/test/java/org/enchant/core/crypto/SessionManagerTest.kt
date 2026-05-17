@@ -1,9 +1,14 @@
 package org.enchant.core.crypto
 
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.enchant.protos.EnvelopeProtos
 
@@ -80,5 +85,63 @@ class SessionManagerTest {
         val safetyNum = SessionManager.getSafetyNumber("bob-safety")
         assertNotEquals("UNVERIFIED", safetyNum)
         assertTrue(safetyNum.contains("-"))
+    }
+
+    @Nested @DisplayName("Reentrant Session Lock")
+    inner class SessionLockTest {
+        @Test
+        @DisplayName("concurrent reads are allowed")
+        fun `concurrent reads`() = runTest {
+            SessionManager.setIdentityKey("reader1", CryptoHelper.generateEd25519KeyPair().publicKey)
+            SessionManager.setIdentityKey("reader2", CryptoHelper.generateEd25519KeyPair().publicKey)
+            SessionManager.encryptMessage("reader1", "data".encodeToByteArray())
+            SessionManager.encryptMessage("reader2", "data".encodeToByteArray())
+
+            val reads = (1..10).map {
+                async {
+                    SessionManager.hasSession("reader1") && SessionManager.hasSession("reader2")
+                }
+            }
+            val results = reads.awaitAll()
+            assertTrue(results.all { it })
+        }
+
+        @Test
+        @DisplayName("concurrent writes are serialized")
+        fun `concurrent writes`() = runTest {
+            var writeCount = 0
+            SessionManager.setIdentityKey("writer-test", CryptoHelper.generateEd25519KeyPair().publicKey)
+
+            val writes = (1..5).map { i ->
+                async {
+                    SessionManager.encryptMessage("writer-test", "data-$i".encodeToByteArray())
+                    delay(10)
+                    writeCount++
+                }
+            }
+            writes.awaitAll()
+            assertEquals(5, writeCount)
+            assertTrue(SessionManager.hasSession("writer-test"))
+        }
+
+        @Test
+        @DisplayName("session persists after reentrant operations")
+        fun `session survives multiple operations`() = runTest {
+            SessionManager.setIdentityKey("persist", CryptoHelper.generateEd25519KeyPair().publicKey)
+            SessionManager.encryptMessage("persist", "msg1".encodeToByteArray())
+            SessionManager.encryptMessage("persist", "msg2".encodeToByteArray())
+            SessionManager.encryptMessage("persist", "msg3".encodeToByteArray())
+            assertTrue(SessionManager.hasSession("persist"))
+        }
+
+        @Test
+        @DisplayName("deleted session cannot be read")
+        fun `delete clears read visibility`() = runTest {
+            SessionManager.setIdentityKey("del-test", CryptoHelper.generateEd25519KeyPair().publicKey)
+            SessionManager.encryptMessage("del-test", "msg".encodeToByteArray())
+            assertTrue(SessionManager.hasSession("del-test"))
+            SessionManager.deleteSession("del-test")
+            assertFalse(SessionManager.hasSession("del-test"))
+        }
     }
 }

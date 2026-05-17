@@ -15,6 +15,10 @@ android {
 }
 }
 
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
 dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
@@ -30,4 +34,5 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

@@ -68,7 +68,7 @@ object SenderKeyManager {
             val msgKey = msgKeyData.copyOfRange(0, 32)
             val nonce = msgKeyData.copyOfRange(32, 44)
 
-            val ciphertext = CryptoHelper.encryptXChaCha20Poly1305(plaintext, msgKey)
+            val ciphertext = CryptoHelper.encryptXChaCha20Poly1305Raw(plaintext, msgKey, nonce)
 
             val nextChainKey = msgKeyData.copyOfRange(44, 76)
             CryptoHelper.zeroBytes(msgKeyData)
@@ -98,7 +98,7 @@ object SenderKeyManager {
             val msgKey = msgKeyData.copyOfRange(0, 32)
 
             val plaintext = try {
-                CryptoHelper.decryptXChaCha20Poly1305(ciphertext, msgKey)
+                CryptoHelper.decryptXChaCha20Poly1305Raw(ciphertext, msgKey, nonce)
             } catch (_: Exception) { return@withLock null }
 
             val nextChainKey = msgKeyData.copyOfRange(44, 76)

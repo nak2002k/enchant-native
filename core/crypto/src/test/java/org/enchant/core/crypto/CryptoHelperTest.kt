@@ -73,46 +73,112 @@ class CryptoHelperTest {
         }
     }
 
-    @Nested @DisplayName("AES-256-GCM")
-    inner class AesGcmTest {
+    @Nested @DisplayName("XChaCha20-Poly1305")
+    inner class XChaCha20Poly1305Test {
         @Test @DisplayName("encrypt then decrypt roundtrip")
         fun `roundtrip`() {
             val key = CryptoHelper.generateRandomKey(32)
             val plaintext = "Hello, Enchant!".encodeToByteArray()
-            val ciphertext = CryptoHelper.encryptAesGcm(plaintext, key)
-            val decrypted = CryptoHelper.decryptAesGcm(ciphertext, key)
+            val ciphertext = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key)
+            val decrypted = CryptoHelper.decryptXChaCha20Poly1305(ciphertext, key)
             assertArrayEquals(plaintext, decrypted)
         }
-        @Test @DisplayName("ciphertext is larger than plaintext")
+
+        @Test @DisplayName("ciphertext is larger than plaintext (24-byte nonce + tag)")
         fun `ciphertext overhead`() {
             val plaintext = ByteArray(100)
             val key = CryptoHelper.generateRandomKey(32)
-            val ct = CryptoHelper.encryptAesGcm(plaintext, key)
+            val ct = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key)
             assertTrue(ct.size > plaintext.size)
-            assertEquals(plaintext.size + 12 + 16, ct.size) // iv(12) + tag(16)
+            assertEquals(plaintext.size + 24 + 16, ct.size) // nonce(24) + tag(16)
         }
+
         @Test @DisplayName("wrong key fails to decrypt")
         fun `wrong key`() {
             val plaintext = "secret".encodeToByteArray()
             val key1 = CryptoHelper.generateRandomKey(32)
             val key2 = CryptoHelper.generateRandomKey(32)
-            val ct = CryptoHelper.encryptAesGcm(plaintext, key1)
-            assertThrows(Exception::class.java) { CryptoHelper.decryptAesGcm(ct, key2) }
+            val ct = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key1)
+            assertThrows(Exception::class.java) { CryptoHelper.decryptXChaCha20Poly1305(ct, key2) }
         }
-        @Test @DisplayName("empty plaintext")
+
+        @Test @DisplayName("wrong key throws with MAC mismatch message")
+        fun `wrong key throws mac mismatch`() {
+            val plaintext = "test".encodeToByteArray()
+            val key1 = CryptoHelper.generateRandomKey(32)
+            val key2 = CryptoHelper.generateRandomKey(32)
+            val ct = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key1)
+            val ex = assertThrows(Exception::class.java) { CryptoHelper.decryptXChaCha20Poly1305(ct, key2) }
+            assertTrue(ex.message?.contains("MAC", ignoreCase = true) == true)
+        }
+
+        @Test @DisplayName("empty plaintext encrypts and decrypts")
         fun `empty plaintext`() {
             val key = CryptoHelper.generateRandomKey(32)
-            val ct = CryptoHelper.encryptAesGcm(ByteArray(0), key)
-            val pt = CryptoHelper.decryptAesGcm(ct, key)
+            val ct = CryptoHelper.encryptXChaCha20Poly1305(ByteArray(0), key)
+            val pt = CryptoHelper.decryptXChaCha20Poly1305(ct, key)
             assertArrayEquals(ByteArray(0), pt)
         }
-        @Test @DisplayName("large plaintext (1MB)")
+
+        @Test @DisplayName("large plaintext (1MB) roundtrips")
         fun `large plaintext`() {
             val key = CryptoHelper.generateRandomKey(32)
             val pt = ByteArray(1024 * 1024)
-            val ct = CryptoHelper.encryptAesGcm(pt, key)
-            val decrypted = CryptoHelper.decryptAesGcm(ct, key)
+            val ct = CryptoHelper.encryptXChaCha20Poly1305(pt, key)
+            val decrypted = CryptoHelper.decryptXChaCha20Poly1305(ct, key)
             assertArrayEquals(pt, decrypted)
+        }
+
+        @Test @DisplayName("wrong key size throws")
+        fun `wrong key size`() {
+            val key = CryptoHelper.generateRandomKey(16) // wrong size
+            assertThrows(Exception::class.java) {
+                CryptoHelper.encryptXChaCha20Poly1305("test".encodeToByteArray(), key)
+            }
+        }
+
+        @Test @DisplayName("corrupted ciphertext fails to decrypt")
+        fun `corrupted ciphertext`() {
+            val key = CryptoHelper.generateRandomKey(32)
+            val ct = CryptoHelper.encryptXChaCha20Poly1305("data".encodeToByteArray(), key)
+            ct[ct.size - 1] = (ct.last().toInt() xor 0xFF).toByte() // flip last bit
+            assertThrows(Exception::class.java) { CryptoHelper.decryptXChaCha20Poly1305(ct, key) }
+        }
+
+        @Test @DisplayName("too-short ciphertext fails")
+        fun `truncated ciphertext`() {
+            val key = CryptoHelper.generateRandomKey(32)
+            assertThrows(Exception::class.java) {
+                CryptoHelper.decryptXChaCha20Poly1305(ByteArray(10), key)
+            }
+        }
+
+        @Test @DisplayName("explicit nonce produces deterministic output")
+        fun `deterministic with explicit nonce`() {
+            val key = CryptoHelper.generateRandomKey(32)
+            val nonce = CryptoHelper.generateRandomKey(24)
+            val plaintext = "deterministic".encodeToByteArray()
+            val ct1 = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key, nonce)
+            val ct2 = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key, nonce)
+            assertArrayEquals(ct1, ct2)
+        }
+
+        @Test @DisplayName("default nonce produces unique ciphertexts")
+        fun `random nonce uniqueness`() {
+            val key = CryptoHelper.generateRandomKey(32)
+            val plaintext = "unique".encodeToByteArray()
+            val ct1 = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key)
+            val ct2 = CryptoHelper.encryptXChaCha20Poly1305(plaintext, key)
+            assertFalse(ct1.contentEquals(ct2))
+        }
+
+        @Test @DisplayName("deprecated encryptAesGcm delegates to XChaCha20")
+        fun `deprecated methods still work`() {
+            val key = CryptoHelper.generateRandomKey(32)
+            val plaintext = "legacy test".encodeToByteArray()
+            val ct = CryptoHelper.encryptAesGcm(plaintext, key)
+            val pt = CryptoHelper.decryptAesGcm(ct, key)
+            assertArrayEquals(plaintext, pt)
         }
     }
 

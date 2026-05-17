@@ -122,7 +122,7 @@ object DoubleRatchet {
         val nextChainKey = msgKeyData.copyOfRange(44, 76)
         CryptoHelper.zeroBytes(msgKeyData)
 
-        val ciphertext = CryptoHelper.encryptXChaCha20Poly1305(plaintext, msgKey.key)
+        val ciphertext = CryptoHelper.encryptXChaCha20Poly1305Raw(plaintext, msgKey.key, msgKey.nonce)
         val headerNonce = msgKey.nonce
 
         val dhKey = s.sendingRatchetKeyPublic ?: ByteArray(DH_KEY_SIZE)
@@ -199,7 +199,7 @@ object DoubleRatchet {
         if (existingSkip != null) {
             s.skippedMessageKeys.remove(skipKey)
             val plaintext = try {
-                CryptoHelper.decryptXChaCha20Poly1305(message.ciphertext, existingSkip.key)
+                CryptoHelper.decryptXChaCha20Poly1305Raw(message.ciphertext, existingSkip.key, existingSkip.nonce)
             } catch (_: Exception) {
                 return Pair(s, ByteArray(0))
             }
@@ -237,7 +237,7 @@ object DoubleRatchet {
         val nextChainKey = msgKeyData.copyOfRange(44, 76)
 
         val plaintext = try {
-            CryptoHelper.decryptXChaCha20Poly1305(message.ciphertext, msgKey.key)
+            CryptoHelper.decryptXChaCha20Poly1305Raw(message.ciphertext, msgKey.key, msgKey.nonce)
         } catch (_: Exception) {
             return Pair(s, ByteArray(0))
         }

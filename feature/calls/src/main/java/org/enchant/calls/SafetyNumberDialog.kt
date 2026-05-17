@@ -1,16 +1,23 @@
 package org.enchant.calls
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.security.MessageDigest
 
 object SafetyNumberHelper {
@@ -25,6 +32,12 @@ object SafetyNumberHelper {
             .chunked(4).joinToString("-")
     }
 
+    fun formatSafetyNumberRows(fingerprint: String): List<String> {
+        return fingerprint.replace("-", "")
+            .chunked(12) // 3 groups of 4 = 12 chars per row
+            .map { it.chunked(4).joinToString(" ") }
+    }
+
     fun verify(remote: String, local: String): Boolean {
         return MessageDigest.isEqual(remote.encodeToByteArray(), local.encodeToByteArray())
     }
@@ -34,43 +47,88 @@ object SafetyNumberHelper {
 fun SafetyNumberDialog(
     safetyNumber: String,
     onDismiss: () -> Unit,
-    onVerify: () -> Unit
+    onVerify: () -> Unit,
+    isVerified: Boolean = false
 ) {
+    var showNumbers by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Shield, null) },
-        title = { Text("Safety Number") },
+        icon = {
+            Icon(
+                if (isVerified) Icons.Default.CheckCircle else Icons.Default.Shield,
+                null,
+                tint = if (isVerified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+        },
+        title = {
+            Text(
+                if (isVerified) "Verified" else "Safety Number",
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Lock, null, modifier = Modifier.size(32.dp).padding(bottom = 8.dp),
-                    tint = MaterialTheme.colorScheme.primary)
                 Text(
-                    "Verify this call is end-to-end encrypted by comparing the safety number below with the other participant.",
+                    "Verify this conversation is end-to-end encrypted by comparing the safety number with ${
+                        if (showNumbers) "\n\n$safetyNumber" else " the other participant."
+                    }",
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    safetyNumber.chunked(4).joinToString("  "),
-                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Monospace),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "If the numbers match, your call is secure.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+
+                if (showNumbers) {
+                    Spacer(Modifier.height(16.dp))
+                    val rows = SafetyNumberHelper.formatSafetyNumberRows(safetyNumber)
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            rows.forEach { row ->
+                                Text(
+                                    row,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 2.sp
+                                    ),
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(4.dp))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "If the numbers are identical, you are chatting with the right person and your messages are secure.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { showNumbers = true }) {
+                        Icon(Icons.Default.Visibility, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Show safety number")
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onVerify(); onDismiss() }) {
-                Text("Verified")
+            if (!isVerified && showNumbers) {
+                TextButton(onClick = { onVerify() }) {
+                    Text("Mark as Verified")
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(if (isVerified) "Close" else "Not now") }
         }
     )
 }
