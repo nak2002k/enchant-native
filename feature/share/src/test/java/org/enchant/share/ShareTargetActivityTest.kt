@@ -1,4 +1,4 @@
-package org.enchant.feature.share
+package org.enchant.share
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName

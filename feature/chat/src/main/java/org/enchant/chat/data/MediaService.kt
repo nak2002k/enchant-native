@@ -21,7 +21,7 @@ import java.util.UUID
 data class MediaUploadResult(
     val mediaId: String,
     val mediaKey: ByteArray,
-    val mediaIv: ByteArray
+    val mediaIv: ByteArray = ByteArray(0)
 )
 
 object MediaService {
@@ -161,8 +161,7 @@ object MediaService {
 
                 Result.success(MediaUploadResult(
                     mediaId = mediaId,
-                    mediaKey = mediaKey,
-                    mediaIv = mediaIv
+                    mediaKey = mediaKey
                 ))
             } catch (e: Exception) {
                 Result.failure(e)
@@ -172,8 +171,7 @@ object MediaService {
 
     suspend fun downloadAndDecryptMedia(
         mediaId: String,
-        mediaKey: ByteArray,
-        mediaIv: ByteArray
+        mediaKey: ByteArray
     ): Result<File> {
         checkInit()
         return withContext(Dispatchers.IO) {

@@ -1,4 +1,4 @@
-package org.enchant.feature.share
+package org.enchant.share
 
 import android.app.Activity
 import android.content.ComponentName
