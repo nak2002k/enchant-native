@@ -198,10 +198,19 @@ object AuthManager {
     suspend fun registerKeys(): Result<Unit> {
         return try {
             KeyManager.init()
-            KeyManager.generateAndUploadKeys()
             _currentState.value = RegistrationState.KeyGeneration
-            Result.success(Unit)
+            val result = KeyManager.generateAndUploadKeys()
+            if (result.isSuccess) {
+                _currentState.value = RegistrationState.Complete
+            } else {
+                val error = result.exceptionOrNull()
+                _currentState.value = RegistrationState.Error(
+                    message = error?.message ?: "Key registration failed"
+                )
+            }
+            result
         } catch (e: Exception) {
+            _currentState.value = RegistrationState.Error(message = e.message ?: "Key registration failed")
             Result.failure(e)
         }
     }

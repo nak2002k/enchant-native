@@ -99,7 +99,8 @@ object KeyManager {
                 if (spkKeyPair == null) {
                     generateSpk()
                 }
-                uploadKeyBundle()
+                val uploadResult = uploadKeyBundle()
+                if (uploadResult.isFailure) return@withContext uploadResult
                 topUpOpks()
                 Result.success(Unit)
             } catch (e: Exception) {
@@ -108,11 +109,11 @@ object KeyManager {
         }
     }
 
-    private suspend fun uploadKeyBundle() {
-        val client = apiClient ?: return
-        val ik = identityKeyPair ?: return
-        val spk = spkKeyPair ?: return
-        val sig = spkSignature ?: return
+    private suspend fun uploadKeyBundle(): Result<Unit> {
+        val client = apiClient ?: return Result.failure(Exception("KeyManager has no API client"))
+        val ik = identityKeyPair ?: return Result.failure(Exception("No identity key pair"))
+        val spk = spkKeyPair ?: return Result.failure(Exception("No signed prekey pair"))
+        val sig = spkSignature ?: return Result.failure(Exception("No SPK signature"))
 
         val body = buildJsonObject {
             put("identity_key", JsonPrimitive(CryptoHelper.base64UrlEncode(ik.publicKey)))
@@ -127,7 +128,7 @@ object KeyManager {
                 }
             })
         }
-        client.post("/v1/keys/register", body)
+        return client.post("/v1/keys/register", body).map { }
     }
 
     private suspend fun generateSpk() {
