@@ -16,8 +16,11 @@ class EnchantApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("EnchantApp", "Uncaught crash on ${thread.name}", throwable)
+            CrashReporter.report(throwable, mapOf("thread" to thread.name))
+            defaultHandler?.uncaughtException(thread, throwable)
         }
         appScope.launch {
             initDi()

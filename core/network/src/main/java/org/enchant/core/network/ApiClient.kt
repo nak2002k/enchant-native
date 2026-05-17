@@ -208,7 +208,9 @@ class ApiClient {
     private fun buildUrl(path: String, queryParams: Map<String, String>?): String {
         val base = "${AppConfig.gatewayUrl}$path"
         if (queryParams.isNullOrEmpty()) return base
-        val params = queryParams.entries.joinToString("&") { "${it.key}=${it.value}" }
+        val params = queryParams.entries.joinToString("&") {
+            "${java.net.URLEncoder.encode(it.key, "UTF-8")}=${java.net.URLEncoder.encode(it.value, "UTF-8")}"
+        }
         return "$base?$params"
     }
 }

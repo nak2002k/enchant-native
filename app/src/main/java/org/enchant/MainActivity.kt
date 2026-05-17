@@ -101,6 +101,7 @@ import org.enchant.backup.BackupViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         handleCallIntent(intent)
         setContent {
@@ -117,12 +118,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     override fun onPause() {
         super.onPause()
-        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     override fun onNewIntent(intent: Intent) {

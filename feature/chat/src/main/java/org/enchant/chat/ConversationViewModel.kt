@@ -88,7 +88,9 @@ class ConversationViewModel(
         viewModelScope.launch {
             val lastId = _messages.value.lastOrNull()?.localId
             repo.getMessages(conversationId, beforeId = lastId).collect { list ->
-                _messages.value = _messages.value + list
+                if (list.isNotEmpty()) {
+                    _messages.value = list + _messages.value
+                }
             }
         }
     }

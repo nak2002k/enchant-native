@@ -4,6 +4,38 @@
 > Scope: Every file, function, screen, service, and utility across app/, core/, feature/
 > Methodology: Full code review against BACKEND_API_REFERENCE.md contract, AGENT_QUALITY_RULES.md, and production best practices
 
+## Fix Status Summary
+
+### Batch 1 — Fixed (2026-05-17)
+- **C02, C03, L17**: SPK/OPK encoding consistency — Fixed `KeyManager` to use `base64UrlEncode` consistently
+- **C04, C05**: `RatchetState.zero()` corruption — Added `deepCopy()` and cleared maps after zeroing
+- **C08, C09, C10, C11**: JWT parsing, AuthInterceptor refresh — Replaced regex with JSON parsing, added timeouts, saved new refresh token, concurrent refresh handling
+- **C12**: Sealed sender payload — Encrypted identity inside Double Ratchet ciphertext
+- **D01, D02**: ConversationRepository INSERT OR IGNORE/unread count — Changed to INSERT OR REPLACE, proper unread increment
+- **R02, R03**: WebSocket client reuse, error handling — Reused single OkHttpClient, emit errors to `_connectionErrors`
+- **R05, R06**: Call direction, startCall — Added `direction` to `CallState`, implemented `ConversationViewModel.startCall`
+- **L04**: Cached identity path removed — Always fetch key bundle for new sessions
+- **L06**: Redundant DH in DoubleRatchet — Removed, use X3DH shared secret directly
+- **L07**: REST fallback field names — Changed to snake_case
+- **L11, L12**: pinMessage, cancelScheduledMessage — Proper repo methods, specific job cancellation
+- **L15, L16**: CallManager react/mute — Added opaque data to protobuf messages
+- **L19, L20**: OPK count API fields — Changed to `count` instead of `total_opks`/`remaining`
+- **M01, M02**: Prekey message handling — Implemented `decryptPreKeyMessage` with Bob-side X3DH
+- **L18**: OPK private key loading — Added `getOneTimePreKeyPair` and `consumeOneTimePreKey`
+- **A04, A07**: envelope_id parsing, reportMessage target — Fixed field name, report actual sender
+- **U01**: FLAG_SECURE — Set in onCreate, never cleared
+- **Q13**: Uncaught exception handler — Calls original handler and CrashReporter
+- **A02**: URL encoding — Query parameters now URL-encoded
+- **M03**: loadMoreMessages — Prepends older messages instead of appending
+
+### Remaining (Unfixed)
+- **C01**: Plaintext content in DB (SQLCipher provides at-rest encryption, acceptable risk)
+- **C06, C07**: Key rotation enforcement (scheduled task needed)
+- **R01, R07, R08, R09, R10**: DI initialization, race conditions, splash screen
+- **Q01-Q12, Q14, Q15**: Code quality issues (singleton patterns, nullable context)
+- **U02-U15**: UI/UX no-op callbacks and placeholder screens
+- **A01, A03, A05, A06, A08-A12**: API contract violations and missing endpoints
+
 ---
 
 ## Table of Contents
