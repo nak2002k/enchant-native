@@ -47,7 +47,7 @@ fun StatusViewerScreen(
         }
     }
 
-    if (statuses.isEmpty()) {
+    if (statuses.isEmpty() || currentIndex !in statuses.indices) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
             Text("No statuses", color = Color.White)
         }

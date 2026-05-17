@@ -31,7 +31,11 @@ class CallForegroundService : Service() {
                 callId = intent.getStringExtra("call_id")
                 val isVideo = intent.getBooleanExtra("is_video", false)
                 val remoteUserId = intent.getStringExtra("remote_user_id") ?: ""
-                startForeground(NOTIFICATION_ID, buildCallNotification(remoteUserId, isVideo))
+                try {
+                    startForeground(NOTIFICATION_ID, buildCallNotification(remoteUserId, isVideo))
+                } catch (e: SecurityException) {
+                    android.util.Log.w("CallFGService", "Notification permission not granted: ${e.message}")
+                }
 
                 scope.launch {
                     CallManager.init()
@@ -48,6 +52,7 @@ class CallForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         scope.launch { CallManager.unregisterObserver(callObserver) }
         super.onDestroy()
     }

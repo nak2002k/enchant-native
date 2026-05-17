@@ -11,7 +11,14 @@ class BootReceiver : BroadcastReceiver() {
             val wsIntent = Intent(context, WebSocketService::class.java).apply {
                 action = WebSocketService.ACTION_CONNECT
             }
-            context.startForegroundService(wsIntent)
+            try {
+                context.startForegroundService(wsIntent)
+            } catch (e: IllegalStateException) {
+                android.util.Log.w("BootReceiver", "Foreground service start failed: ${e.message}")
+                try { context.startService(wsIntent) } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("BootReceiver", "Service start failed: ${e.message}")
+            }
         }
     }
 }

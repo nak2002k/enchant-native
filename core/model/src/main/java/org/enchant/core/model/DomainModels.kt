@@ -18,7 +18,7 @@ data class Conversation(
     companion object {
         fun fromEntity(e: ConversationEntity): Conversation = Conversation(
             id = e.conversationId,
-            type = ConversationType.valueOf(e.type.uppercase()),
+            type = ConversationType.safeValueOf(e.type),
             lastMessage = e.lastMessage,
             lastMessageTimestamp = e.lastMessageTimestamp,
             unreadCount = e.unreadCount,
@@ -31,7 +31,12 @@ data class Conversation(
     }
 }
 
-enum class ConversationType { DIRECT, GROUP, CHANNEL }
+enum class ConversationType { DIRECT, GROUP, CHANNEL;
+    companion object {
+        fun safeValueOf(value: String): ConversationType =
+            entries.find { it.name.equals(value, ignoreCase = true) } ?: DIRECT
+    }
+}
 
 data class Message(
     val localId: Long = 0,
@@ -57,7 +62,7 @@ data class Message(
             conversationId = e.conversationId,
             senderId = e.senderId,
             content = e.content,
-            status = MessageStatus.valueOf(e.status.uppercase()),
+            status = MessageStatus.safeValueOf(e.status),
             timestamp = e.timestamp,
             isEdited = e.isEdited,
             isStarred = e.isStarred,
@@ -70,7 +75,12 @@ data class Message(
     }
 }
 
-enum class MessageStatus { SENDING, SENT, DELIVERED, READ, FAILED, PENDING }
+enum class MessageStatus { SENDING, SENT, DELIVERED, READ, FAILED, PENDING;
+    companion object {
+        fun safeValueOf(value: String): MessageStatus =
+            entries.find { it.name.equals(value, ignoreCase = true) } ?: PENDING
+    }
+}
 
 data class Reaction(val messageId: String, val emoji: String, val userId: String)
 data class Mention(val userId: String, val start: Int, val length: Int)

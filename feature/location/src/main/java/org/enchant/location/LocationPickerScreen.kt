@@ -3,6 +3,10 @@ package org.enchant.location
 import android.location.Geocoder
 import android.location.LocationManager
 import android.util.Log
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,17 +34,23 @@ fun LocationPickerScreen(
     var isGettingLocation by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    val scope = rememberCoroutineScope()
+
     fun reverseGeocode(lat: Double, lng: Double) {
-        try {
-            val geocoder = Geocoder(context, Locale.getDefault())
-            val results = geocoder.getFromLocation(lat, lng, 1)
-            if (!results.isNullOrEmpty()) {
-                address = results[0].getAddressLine(0) ?: "$lat, $lng"
-            } else {
-                address = "$lat, $lng"
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val geocoder = Geocoder(context, Locale.getDefault())
+                    val results = geocoder.getFromLocation(lat, lng, 1)
+                    address = if (!results.isNullOrEmpty()) {
+                        results[0].getAddressLine(0) ?: "$lat, $lng"
+                    } else {
+                        "$lat, $lng"
+                    }
+                } catch (e: Exception) {
+                    address = "$lat, $lng"
+                }
             }
-        } catch (e: Exception) {
-            address = "$lat, $lng"
         }
     }
 
@@ -104,15 +114,19 @@ fun LocationPickerScreen(
                 onValueChange = { query ->
                     searchQuery = query
                     if (query.isNotEmpty()) {
-                        try {
-                            val geocoder = Geocoder(context, Locale.getDefault())
-                            val results = geocoder.getFromLocationName(query, 1)
-                            if (!results.isNullOrEmpty()) {
-                                latitude = results[0].latitude
-                                longitude = results[0].longitude
-                                address = results[0].getAddressLine(0) ?: query
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val geocoder = Geocoder(context, Locale.getDefault())
+                                    val results = geocoder.getFromLocationName(query, 1)
+                                    if (!results.isNullOrEmpty()) {
+                                        latitude = results[0].latitude
+                                        longitude = results[0].longitude
+                                        address = results[0].getAddressLine(0) ?: query
+                                    }
+                                } catch (e: Exception) { Log.w("Location", "Fetch failed: ${e.message}") }
                             }
-                        } catch (e: Exception) { Log.w("Location", "Fetch failed: ${e.message}") }
+                        }
                     }
                 },
                 label = { Text("Search address") },

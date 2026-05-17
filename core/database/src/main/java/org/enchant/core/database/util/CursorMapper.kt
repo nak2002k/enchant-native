@@ -15,8 +15,10 @@ object CursorMapper {
 
     inline fun <reified T : Any> mapToList(cursor: Cursor): List<T> {
         val result = mutableListOf<T>()
-        while (cursor.moveToNext()) {
-            result.add(mapCurrentRow<T>(cursor))
+        if (cursor.moveToFirst()) {
+            do {
+                result.add(mapCurrentRow<T>(cursor))
+            } while (cursor.moveToNext())
         }
         return result
     }
@@ -36,15 +38,19 @@ object CursorMapper {
                 args[param] = null
                 continue
             }
-            val value = when (param.type.classifier) {
-                String::class -> cursor.getString(columnIndex)
-                Int::class -> cursor.getInt(columnIndex)
-                Long::class -> cursor.getLong(columnIndex)
-                Boolean::class -> cursor.getInt(columnIndex) != 0
-                ByteArray::class -> cursor.getBlob(columnIndex)
-                Double::class -> cursor.getDouble(columnIndex)
-                Float::class -> cursor.getFloat(columnIndex)
-                else -> cursor.getString(columnIndex)
+            val value = try {
+                when (param.type.classifier) {
+                    String::class -> cursor.getString(columnIndex)
+                    Int::class -> runCatching { cursor.getInt(columnIndex) }.getOrNull()
+                    Long::class -> runCatching { cursor.getLong(columnIndex) }.getOrNull()
+                    Boolean::class -> runCatching { cursor.getInt(columnIndex) != 0 }.getOrNull()
+                    ByteArray::class -> cursor.getBlob(columnIndex)
+                    Double::class -> runCatching { cursor.getDouble(columnIndex) }.getOrNull()
+                    Float::class -> runCatching { cursor.getFloat(columnIndex) }.getOrNull()
+                    else -> cursor.getString(columnIndex)
+                }
+            } catch (_: Exception) {
+                null
             }
             args[param] = if (cursor.isNull(columnIndex)) null else value
         }

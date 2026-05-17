@@ -136,6 +136,7 @@ object KeyStoreManager {
 
     suspend fun decrypt(alias: String, ciphertext: ByteArray): ByteArray? {
         return try {
+            if (ciphertext.size < 13) return null
             val ks = getKeyStore()
             val key = ks.getKey(alias, null) as? SecretKey ?: return null
             val iv = ciphertext.copyOfRange(0, 12)

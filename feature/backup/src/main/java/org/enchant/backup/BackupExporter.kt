@@ -95,7 +95,7 @@ class BackupExporter(
 
             val plaintext = json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), sections)
                 .encodeToByteArray()
-            val nonce = ByteArray(12).apply { SecureRandom().nextBytes(this) }
+            val nonce = ByteArray(org.enchant.backup.archive.BackupArchive.XCHACHA_NONCE_SIZE).apply { SecureRandom().nextBytes(this) }
             val encrypted = BackupArchive.encryptSection(plaintext, backupKey, nonce)
 
             RandomAccessFile(outputPath, "rw").use { raf ->

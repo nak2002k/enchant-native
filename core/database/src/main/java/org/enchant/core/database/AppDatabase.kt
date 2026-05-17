@@ -42,7 +42,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                                     db.execSQL("PRAGMA user_version = 2")
                                 }
                                 3 -> {
-                                    db.execSQL("ALTER TABLE messages ADD COLUMN is_pinned INTEGER DEFAULT 0")
+                                    try { db.execSQL("ALTER TABLE messages ADD COLUMN is_pinned INTEGER DEFAULT 0") } catch (_: Exception) {}
                                     db.execSQL("CREATE TABLE IF NOT EXISTS message_mentions (message_local_id INTEGER NOT NULL, user_id TEXT NOT NULL, start_pos INTEGER NOT NULL, length INTEGER NOT NULL, PRIMARY KEY(message_local_id, user_id))")
                                     db.execSQL("CREATE INDEX IF NOT EXISTS idx_mentions_msg ON message_mentions(message_local_id)")
                                     db.execSQL("PRAGMA user_version = 3")

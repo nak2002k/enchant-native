@@ -19,7 +19,14 @@ class FcmReceiveService : FirebaseMessagingService() {
                 FcmFetchManager.scheduleFetch()
             } else {
                 val intent = android.content.Intent(this@FcmReceiveService, FcmFetchForegroundService::class.java)
-                startForegroundService(intent)
+                try {
+                    startForegroundService(intent)
+                } catch (e: IllegalStateException) {
+                    android.util.Log.w("FcmReceive", "Foreground service start failed: ${e.message}")
+                    try { startService(intent) } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    android.util.Log.w("FcmReceive", "Service start failed: ${e.message}")
+                }
             }
         }
     }

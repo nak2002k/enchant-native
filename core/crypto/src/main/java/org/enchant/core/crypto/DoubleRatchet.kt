@@ -118,8 +118,9 @@ object DoubleRatchet {
         val adBytes = ad ?: ByteArray(0)
 
         if (s.sendingChainKey == null) {
+            val theirPub = s.receivingRatchetKeyPublic ?: return Pair(s, RatchetMessage(ByteArray(44), ByteArray(0)))
             val dhPair = CryptoHelper.generateX25519KeyPair()
-            val dhOut = CryptoHelper.x25519DiffieHellman(dhPair.privateKey, s.receivingRatchetKeyPublic!!)
+            val dhOut = CryptoHelper.x25519DiffieHellman(dhPair.privateKey, theirPub)
             val rootMaterial = CryptoHelper.hkdfSha256(s.rootKey + dhOut, ByteArray(32), "EnchantRatchet".encodeToByteArray(), 64)
             CryptoHelper.zeroBytes(dhOut)
             s = s.copy(
