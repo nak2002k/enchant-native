@@ -16,12 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.enchant.chat.data.ConversationFilter
 import org.enchant.core.model.Conversation
+import org.enchant.core.network.ConnectivityMonitor
+import org.enchant.core.network.OfflineQueue
+import org.enchant.core.network.WebSocketManager
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -38,6 +42,10 @@ fun ConversationListScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val navigationEvent by viewModel.navigationEvent.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val isOnline by ConnectivityMonitor.isOnline.collectAsState()
+    val pendingCount by OfflineQueue.pendingCount.collectAsState()
+
     LaunchedEffect(Unit) { viewModel.init() }
 
     LaunchedEffect(navigationEvent) {
@@ -47,10 +55,19 @@ fun ConversationListScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        WebSocketManager.incomingMessages.collect { envelope ->
+            if (!envelope.ephemeral && envelope.senderUserId != null) {
+                snackbarHostState.showSnackbar("New message from ${envelope.senderUserId.take(8)}...")
+            }
+        }
+    }
+
     var showSearch by remember { mutableStateOf(false) }
     var showFabMenu by remember { mutableStateOf(false) }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -109,6 +126,36 @@ fun ConversationListScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
+            if (!isOnline) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Text(
+                        "No internet connection",
+                        modifier = Modifier.padding(8.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            if (pendingCount > 0) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Text(
+                        "$pendingCount messages pending",
+                        modifier = Modifier.padding(8.dp),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
             FilterChipsRow(
                 currentFilter = filter,
                 onFilterSelected = { viewModel.selectFilter(it) }
