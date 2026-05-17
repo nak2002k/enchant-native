@@ -149,6 +149,7 @@ class ApiClient {
                         }
                     }
                     response.code == 429 -> {
+                        response.body?.close()
                         val retryAfter = headers["Retry-After"]?.toLongOrNull()
                         if (retryAfter != null && depth < max429Retries) {
                             RateLimitTracker.updateFromHeaders(path, headers)
@@ -159,6 +160,7 @@ class ApiClient {
                         }
                     }
                     response.code in 500..599 -> {
+                        response.body?.close()
                         if (depth < max5xxRetries) {
                             kotlinx.coroutines.delay(2000)
                             request(method, path, body, queryParams, rawBody, mimeType, depth + 1)

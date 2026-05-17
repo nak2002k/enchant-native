@@ -41,14 +41,16 @@ object KeyManager {
             val existingIkPublic = SecurePreferences.getString("crypto.identity_public_ks")
             if (existingIkPublic != null) {
                 val publicKey = CryptoHelper.base64UrlDecode(existingIkPublic)
-                val wrappedPrivate = SecurePreferences.getString("crypto.identity_private_ks") ?: ""
-                val privateKeyEncoded = wrappedPrivate.split(",").map { it.toInt().toByte() }.toByteArray()
-                val privateKey = KeyStoreManager.decrypt(
-                    KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION,
-                    privateKeyEncoded
-                )
-                if (privateKey != null) {
-                    identityKeyPair = CryptoHelper.KeyPair(publicKey, privateKey)
+                val wrappedPrivateB64 = SecurePreferences.getString("crypto.identity_private_ks")
+                if (wrappedPrivateB64 != null) {
+                    val privateKeyEncoded = CryptoHelper.base64UrlDecode(wrappedPrivateB64)
+                    val privateKey = KeyStoreManager.decrypt(
+                        KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION,
+                        privateKeyEncoded
+                    )
+                    if (privateKey != null) {
+                        identityKeyPair = CryptoHelper.KeyPair(publicKey, privateKey)
+                    }
                 }
             }
             loadSpk()
@@ -62,12 +64,16 @@ object KeyManager {
         val privWrapped = SecurePreferences.getString("crypto.spk_private")
         val sigB64 = SecurePreferences.getString("crypto.spk_signature")
         if (pubB64 != null && privWrapped != null && sigB64 != null) {
-            val publicKey = CryptoHelper.base64UrlDecode(pubB64)
-            val privEncoded = privWrapped.split(",").map { it.toInt().toByte() }.toByteArray()
-            val privateKey = KeyStoreManager.decrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, privEncoded)
-            if (privateKey != null) {
-                spkKeyPair = CryptoHelper.KeyPair(publicKey, privateKey)
-                spkSignature = CryptoHelper.base64UrlDecode(sigB64)
+            try {
+                val publicKey = CryptoHelper.base64UrlDecode(pubB64)
+                val privEncoded = CryptoHelper.base64UrlDecode(privWrapped)
+                val privateKey = KeyStoreManager.decrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, privEncoded)
+                if (privateKey != null) {
+                    spkKeyPair = CryptoHelper.KeyPair(publicKey, privateKey)
+                    spkSignature = CryptoHelper.base64UrlDecode(sigB64)
+                }
+            } catch (_: Exception) {
+                spkKeyPair = null; spkSignature = null
             }
         }
     }
@@ -76,9 +82,9 @@ object KeyManager {
         val pubB64 = CryptoHelper.base64UrlEncode(keyPair.publicKey)
         val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, keyPair.privateKey)
         if (wrappedPriv != null) {
-            val privStr = wrappedPriv.joinToString(",") { it.toInt().toString() }
+            val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
             SecurePreferences.putString("${alias}_public_ks", pubB64)
-            SecurePreferences.putString("${alias}_private_ks", privStr)
+            SecurePreferences.putString("${alias}_private_ks", privB64)
         }
     }
 

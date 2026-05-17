@@ -77,9 +77,10 @@ class GroupsViewModel(
             when (result) {
                 is GroupResult.Success -> {
                     _uiState.value = _uiState.value.copy(
-                        currentGroup = _uiState.value.groups.find { it.groupId == groupId },
+                        currentGroup = Group(result.groupId, result.name, memberCount = result.memberCount),
                         isLoading = false
                     )
+                    loadMembers(groupId)
                 }
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.error

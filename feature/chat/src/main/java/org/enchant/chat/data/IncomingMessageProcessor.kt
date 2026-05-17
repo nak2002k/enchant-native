@@ -198,7 +198,7 @@ object IncomingMessageProcessor {
                             MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
                         }
                         parsed.timestamps.forEach { ts ->
-                            android.util.Log.v("IncomingMsg", "Receipt timestamp: $ts")
+                            repo.updateMessageStatus(ts.toString(), status)
                         }
                         ProcessResult.Handled
                     }

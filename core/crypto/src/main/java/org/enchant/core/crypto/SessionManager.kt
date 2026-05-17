@@ -1,16 +1,14 @@
 package org.enchant.core.crypto
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.enchant.core.database.dao.IdentityDao
 import org.enchant.core.database.dao.SessionDao
 import org.enchant.protos.EnvelopeProtos
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
-import kotlin.concurrent.write
 
 data class EncryptedPayload(
     val messageType: EnvelopeProtos.Envelope.Type,
@@ -25,7 +23,7 @@ data class DecryptedResult(
 )
 
 object SessionManager {
-    private val sessionLock = ReentrantReadWriteLock()
+    private val sessionLock = Mutex()
     private val SESSION_LOCK_TIMEOUT_MS = 5000L
     private var initialized = false
     private var selfUserId: String = "self"
@@ -56,17 +54,15 @@ object SessionManager {
 
     suspend fun encryptMessage(recipientUserId: String, plaintext: ByteArray): EncryptedPayload? {
         return withContext(Dispatchers.Default) {
-            var result: EncryptedPayload? = null
-            sessionLock.write {
+            sessionLock.withLock {
                 val sessionKey = sessionKey(recipientUserId)
                 var state = sessions[sessionKey]
 
                 if (state == null) {
-                    val ikPair = KeyManager.getIdentityKeyPair() ?: return@write
+                    val ikPair = KeyManager.getIdentityKeyPair() ?: return@withLock null
 
                     val existingKey = identityKeys[recipientUserId]
                     if (existingKey != null && KeyManager.hasKeys()) {
-                        // Local-only session from known identity (used in tests)
                         val ek = CryptoHelper.generateX25519KeyPair()
                         val theirIdentityX = CryptoHelper.ed25519PkToX25519(existingKey)
                         val ourSpkX = CryptoHelper.generateX25519KeyPair()
@@ -84,7 +80,7 @@ object SessionManager {
                         sessions[sessionKey] = state!!
                     } else {
                         val keyBundle = KeyManager.fetchKeyBundle(recipientUserId)
-                        if (keyBundle == null) return@write
+                        if (keyBundle == null) return@withLock null
 
                         val theirIdentityKey = keyBundle.identityKey
                         val theirSpkPublic = keyBundle.signedPrekey.publicKey
@@ -123,27 +119,25 @@ object SessionManager {
                 sessions[sessionKey] = newState
                 persistSession(sessionKey, newState)
 
-                result = EncryptedPayload(
+                EncryptedPayload(
                     messageType = EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
                     payload = combinedPayload,
                     recipientDeviceId = null
                 )
             }
-            result
         }
     }
 
     suspend fun decryptMessage(senderUserId: String, payload: EncryptedPayload): DecryptedResult? {
         return withContext(Dispatchers.Default) {
-            var result: DecryptedResult? = null
-            sessionLock.write {
+            sessionLock.withLock {
                 val sessionKey = sessionKey(senderUserId)
-                val state = sessions[sessionKey] ?: return@write
+                val state = sessions[sessionKey] ?: return@withLock null
 
                 val buf = ByteBuffer.wrap(payload.payload).order(ByteOrder.BIG_ENDIAN)
-                if (buf.remaining() < 4) return@write
+                if (buf.remaining() < 4) return@withLock null
                 val headerSize = buf.getInt()
-                if (headerSize <= 0 || headerSize > 256 || buf.remaining() < headerSize) return@write
+                if (headerSize <= 0 || headerSize > 256 || buf.remaining() < headerSize) return@withLock null
                 val headerBytes = ByteArray(headerSize)
                 buf.get(headerBytes)
                 val ciphertextBytes = ByteArray(buf.remaining())
@@ -155,19 +149,18 @@ object SessionManager {
                 )
 
                 val (newState, plaintext) = DoubleRatchet.decrypt(state, ratchetMessage)
-                if (plaintext.isEmpty()) return@write
+                if (plaintext.isEmpty()) return@withLock null
 
                 state.zero()
                 sessions[sessionKey] = newState
                 persistSession(sessionKey, newState)
 
-                result = DecryptedResult(
+                DecryptedResult(
                     plaintext = plaintext,
                     senderDeviceId = null,
                     isNewSession = payload.messageType == EnvelopeProtos.Envelope.Type.PREKEY_MESSAGE
                 )
             }
-            result
         }
     }
 
@@ -177,18 +170,18 @@ object SessionManager {
         dao.store(key, "0", serialized)
     }
 
-    suspend fun hasSession(userId: String): Boolean = sessionLock.read {
+    suspend fun hasSession(userId: String): Boolean = sessionLock.withLock {
         sessions.containsKey(sessionKey(userId))
     }
 
     suspend fun deleteSession(userId: String) {
-        sessionLock.write {
+        sessionLock.withLock {
             sessions.remove(sessionKey(userId))?.zero()
         }
     }
 
     suspend fun archiveSession(userId: String) {
-        sessionLock.write {
+        sessionLock.withLock {
             sessions.remove(sessionKey(userId))?.zero()
         }
     }

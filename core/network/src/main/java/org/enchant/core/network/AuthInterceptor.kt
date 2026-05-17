@@ -35,12 +35,12 @@ object AuthInterceptor : Interceptor {
         val response = chain.proceed(request)
 
         if (response.code == 401) {
-            response.close()
             val shouldRefresh = synchronized(lock) {
                 if (refreshing) false
                 else { refreshing = true; true }
             }
             if (shouldRefresh) {
+                response.close()
                 try {
                     val newToken = refreshToken()
                     if (newToken != null) {
@@ -54,6 +54,7 @@ object AuthInterceptor : Interceptor {
                     synchronized(lock) { refreshing = false }
                 }
             }
+            return response
         }
 
         return response

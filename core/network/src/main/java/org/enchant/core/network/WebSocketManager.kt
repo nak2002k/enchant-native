@@ -75,7 +75,7 @@ object WebSocketManager {
 
     fun init() {
         if (initialized) return
-        apiClient = ApiClient()
+        apiClient = ApiClient.getInstance()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         initialized = true
     }
@@ -196,11 +196,15 @@ object WebSocketManager {
         pendingRequests[id] = deferred
         webSocket?.send(frame.toByteArray().toByteString())
 
-        return withTimeoutOrNull(10000L) {
-            val response = deferred.await()
-            if (response.status == 200) {
-                response.body?.toStringUtf8()
-            } else null
+        try {
+            return withTimeoutOrNull(10000L) {
+                val response = deferred.await()
+                if (response.status == 200) {
+                    response.body?.toStringUtf8()
+                } else null
+            }
+        } finally {
+            pendingRequests.remove(id)
         }
     }
 
@@ -267,10 +271,14 @@ object WebSocketManager {
         pendingRequests[id] = deferred
         ws.send(frame.toByteArray().toByteString())
 
-        return withTimeoutOrNull(10000L) {
-            val response = deferred.await()
-            response.status == 200
-        } ?: false
+        try {
+            return withTimeoutOrNull(10000L) {
+                val response = deferred.await()
+                response.status == 200
+            } ?: false
+        } finally {
+            pendingRequests.remove(id)
+        }
     }
 
     private fun handleFrame(data: ByteArray) {

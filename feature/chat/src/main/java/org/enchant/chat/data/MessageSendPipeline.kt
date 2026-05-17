@@ -109,20 +109,9 @@ object MessageSendPipeline {
                 response.fold(
                     onSuccess = { json ->
                         val ids = json["envelope_ids"]?.jsonArray
-                        val serverId = ids?.firstOrNull()?.jsonPrimitive?.content
-                        if (serverId != null) {
-                            repo.insertMessage(MessageEntity(
-                                conversationId = conversationId, senderId = selfId,
-                                envelopeId = serverId,
-                                messageType = if (hasSession) "SIGNAL_MESSAGE" else "PREKEY_MESSAGE",
-                                content = plaintext.decodeToString(), status = "sent",
-                                timestamp = now, serverTs = System.currentTimeMillis(),
-                                replyToEnvelopeId = replyTo
-                            ))
-                        } else {
-                            repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
-                        }
-                        SendResult.Success(serverId ?: envelopeId)
+                        val serverId = ids?.firstOrNull()?.jsonPrimitive?.content ?: envelopeId
+                        repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
+                        SendResult.Success(serverId)
                     },
                     onFailure = { e ->
                         val isRateLimit = e.message?.contains("429") == true || e.message?.contains("rate", ignoreCase = true) == true

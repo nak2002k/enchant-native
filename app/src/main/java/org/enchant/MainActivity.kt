@@ -94,8 +94,8 @@ import org.enchant.backup.BackupViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         handleCallIntent(intent)
         setContent {
             NotionTheme {
@@ -153,6 +153,9 @@ fun AppNavigation() {
             CallStatusEnum.RINGING -> navController.navigate("incoming_call/${callUiState.callState.callId}")
             CallStatusEnum.CALLING -> navController.navigate("outgoing_call/${callUiState.callState.remoteUserId}")
             CallStatusEnum.CONNECTED -> {
+                if (navController.currentDestination?.route?.startsWith("incoming_") == true) {
+                    navController.popBackStack()
+                }
                 if (callUiState.callState.isVideoCall) {
                     navController.navigate("active_video_call/${callUiState.callState.callId}")
                 } else {

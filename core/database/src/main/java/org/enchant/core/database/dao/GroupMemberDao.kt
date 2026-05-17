@@ -17,7 +17,7 @@ class GroupMemberDao(private val pool: DatabasePool) {
     suspend fun getMembers(groupId: String): List<GroupMemberEntity> = pool.readWith { db ->
         db.rawQuery("SELECT * FROM group_members WHERE group_id = ?", arrayOf(groupId)).use { c ->
             val r = mutableListOf<GroupMemberEntity>()
-            while (c.moveToNext()) r.add(GroupMemberEntity(c.getString(0), c.getString(1), c.getString(2), c.getLong(3)))
+            while (c.moveToNext()) r.add(GroupMemberEntity(c.getString(0), c.getString(1), c.getString(2), if (c.isNull(3)) null else c.getLong(3)))
             r
         }
     }
