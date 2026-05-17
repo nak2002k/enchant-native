@@ -1,11 +1,18 @@
 package org.enchant.core.performance
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+
 object PerformanceTracker {
-    private val metrics = mutableMapOf<String, MutableList<Long>>()
+    private val metrics = ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>>()
+    private const val MAX_ENTRIES_PER_METRIC = 1000
 
     fun startTrace(name: String): Long {
         val start = System.currentTimeMillis()
-        metrics.getOrPut(name) { mutableListOf() }.add(start)
+        metrics.computeIfAbsent(name) { ConcurrentLinkedQueue() }.apply {
+            add(start)
+            while (size > MAX_ENTRIES_PER_METRIC) poll()
+        }
         return start
     }
 

@@ -1,5 +1,7 @@
 package org.enchant.core.config
 
+import java.util.concurrent.ConcurrentHashMap
+
 object RemoteConfig {
     private val defaults = mapOf(
         "message_retention_days" to "30",
@@ -13,7 +15,7 @@ object RemoteConfig {
         "disappear_timer_max" to "7776000"
     )
 
-    private val overrides = mutableMapOf<String, String>()
+    private val overrides = ConcurrentHashMap<String, String>()
 
     fun getString(key: String, default: String = defaults[key] ?: ""): String =
         overrides[key] ?: defaults[key] ?: default

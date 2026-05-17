@@ -2,6 +2,7 @@ package org.enchant.core.jobmanager
 
 import kotlinx.coroutines.*
 import org.enchant.core.base.SecurePreferences
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
 data class Job(
@@ -17,7 +18,7 @@ object JobManager {
     private var scope: CoroutineScope? = null
     @Volatile
     private var running = false
-    private val handlers = mutableMapOf<String, suspend (Job) -> Unit>()
+    private val handlers = ConcurrentHashMap<String, suspend (Job) -> Unit>()
 
     fun registerHandler(tag: String, handler: suspend (Job) -> Unit) {
         handlers[tag] = handler

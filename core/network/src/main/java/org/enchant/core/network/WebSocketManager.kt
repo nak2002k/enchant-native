@@ -55,7 +55,8 @@ object WebSocketManager {
     private var initialized = false
     private var scope: CoroutineScope? = null
     private var webSocket: WebSocket? = null
-    private var requestIdCounter = 0L
+    private val requestIdCounter = java.util.concurrent.atomic.AtomicLong(0)
+    private fun nextRequestId() = requestIdCounter.incrementAndGet()
     @Volatile
     private var consecutive401s = 0
     @Volatile
@@ -412,8 +413,6 @@ object WebSocketManager {
         webSocket?.send(frame.toByteArray().toByteString())
         return true
     }
-
-    private fun nextRequestId(): Long = ++requestIdCounter
 
     private fun isJwtExpired(jwt: String): Boolean {
         return try {

@@ -9,6 +9,7 @@ object MessageNotifier {
     @Volatile
     private var initialized = false
     private val conversationNotifications = ConcurrentHashMap<String, PendingNotification>()
+    private val notificationLock = Any()
 
     private data class PendingNotification(
         val displayName: String,
@@ -34,17 +35,18 @@ object MessageNotifier {
         avatarBitmap: Bitmap? = null,
         isMuted: Boolean = false
     ) {
-        val existing = conversationNotifications[conversationId]
-        val newCount = (existing?.count ?: 0) + 1
-        val pending = PendingNotification(
-            displayName = displayName,
-            snippet = snippet,
-            senderName = if (newCount == 1) senderName else existing?.senderName,
-            count = newCount,
-            timestamp = System.currentTimeMillis(),
-            avatarBitmap = avatarBitmap ?: existing?.avatarBitmap
-        )
-        conversationNotifications[conversationId] = pending
+        val pending = synchronized(notificationLock) {
+            val existing = conversationNotifications[conversationId]
+            val newCount = (existing?.count ?: 0) + 1
+            PendingNotification(
+                displayName = displayName,
+                snippet = snippet,
+                senderName = if (newCount == 1) senderName else existing?.senderName,
+                count = newCount,
+                timestamp = System.currentTimeMillis(),
+                avatarBitmap = avatarBitmap ?: existing?.avatarBitmap
+            ).also { conversationNotifications[conversationId] = it }
+        }
 
         val channelId = if (isMuted) NotificationChannels.CHANNEL_MESSAGES_SILENT
             else NotificationChannels.CHANNEL_MESSAGES
@@ -52,10 +54,10 @@ object MessageNotifier {
         val notification = NotificationBuilder.buildMessageNotification(
             context = context,
             conversationDisplayName = displayName,
-            messagePreview = snippet,
-            senderName = if (newCount == 1) senderName else null,
+            messagePreview = pending.snippet,
+            senderName = if (pending.count == 1) senderName else null,
             conversationId = conversationId,
-            messageCount = newCount,
+            messageCount = pending.count,
             avatarBitmap = avatarBitmap,
             channelId = channelId
         )

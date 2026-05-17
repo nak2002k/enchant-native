@@ -1,12 +1,13 @@
 package org.enchant.core.jobmanager
 
 import android.util.Log
+import java.util.concurrent.atomic.AtomicLong
 
 object DisappearingMessagesWorker {
     private const val TAG = "DisappearingMsg"
-    @Volatile private var lastRunMs = 0L
+    private val lastRunMs = AtomicLong(0L)
 
-    fun reset() { lastRunMs = 0 }
+    fun reset() { lastRunMs.set(0) }
     private val intervalMs = 60_000L
     private var onTick: (() -> Unit)? = null
 
@@ -16,8 +17,9 @@ object DisappearingMessagesWorker {
 
     fun tick() {
         val now = System.currentTimeMillis()
-        if (now - lastRunMs < intervalMs) return
-        lastRunMs = now
+        val prev = lastRunMs.get()
+        if (now - prev < intervalMs) return
+        if (!lastRunMs.compareAndSet(prev, now)) return
         try {
             onTick?.invoke()
         } catch (e: Exception) {

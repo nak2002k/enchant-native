@@ -10,6 +10,7 @@ object SecurePreferences {
     @Volatile
     private var prefs: SharedPreferences? = null
 
+    @Synchronized
     fun init(context: Context) {
         if (prefs != null) return
         val masterKey = MasterKey.Builder(context)
@@ -24,58 +25,52 @@ object SecurePreferences {
         )
     }
 
+    private fun getPrefs(): SharedPreferences? {
+        val current = prefs
+        return current
+    }
+
     fun putString(key: String, value: String) {
-        if (prefs == null) return
-        prefs!!.edit().putString(key, value).apply()
+        getPrefs()?.edit()?.putString(key, value)?.apply()
     }
 
     fun getString(key: String, default: String? = null): String? {
-        if (prefs == null) return default
-        return prefs!!.getString(key, default)
+        return getPrefs()?.getString(key, default) ?: default
     }
 
     fun putInt(key: String, value: Int) {
-        if (prefs == null) return
-        prefs!!.edit().putInt(key, value).apply()
+        getPrefs()?.edit()?.putInt(key, value)?.apply()
     }
 
     fun getInt(key: String, default: Int = 0): Int {
-        if (prefs == null) return default
-        return prefs!!.getInt(key, default)
+        return getPrefs()?.getInt(key, default) ?: default
     }
 
     fun putLong(key: String, value: Long) {
-        if (prefs == null) return
-        prefs!!.edit().putLong(key, value).apply()
+        getPrefs()?.edit()?.putLong(key, value)?.apply()
     }
 
     fun getLong(key: String, default: Long = 0): Long {
-        if (prefs == null) return default
-        return prefs!!.getLong(key, default)
+        return getPrefs()?.getLong(key, default) ?: default
     }
 
     fun putBoolean(key: String, value: Boolean) {
-        if (prefs == null) return
-        prefs!!.edit().putBoolean(key, value).apply()
+        getPrefs()?.edit()?.putBoolean(key, value)?.apply()
     }
 
     fun getBoolean(key: String, default: Boolean = false): Boolean {
-        if (prefs == null) return default
-        return prefs!!.getBoolean(key, default)
+        return getPrefs()?.getBoolean(key, default) ?: default
     }
 
     fun remove(key: String) {
-        if (prefs == null) return
-        prefs!!.edit().remove(key).apply()
+        getPrefs()?.edit()?.remove(key)?.apply()
     }
 
     fun clearAll() {
-        if (prefs == null) return
-        prefs!!.edit().clear().apply()
+        getPrefs()?.edit()?.clear()?.apply()
     }
 
     fun contains(key: String): Boolean {
-        if (prefs == null) return false
-        return prefs!!.contains(key)
+        return getPrefs()?.contains(key) ?: false
     }
 }

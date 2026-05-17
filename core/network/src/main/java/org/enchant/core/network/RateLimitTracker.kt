@@ -12,7 +12,7 @@ object RateLimitTracker {
 
     fun recordCall(endpoint: String) {
         val now = System.currentTimeMillis()
-        callLogs.getOrPut(endpoint) { mutableListOf() }.add(now)
+        callLogs.computeIfAbsent(endpoint) { mutableListOf() }.synchronized { add(now) }
     }
 
     fun canCall(endpoint: String): Boolean {
@@ -25,7 +25,7 @@ object RateLimitTracker {
         val windowMs = limit.windowSeconds * 1000L
         val now = System.currentTimeMillis()
         val logs = callLogs[endpoint] ?: return limit.maxCalls
-        logs.removeAll { now - it > windowMs }
+        synchronized(logs) { logs.removeAll { now - it > windowMs } }
         return limit.maxCalls - logs.size
     }
 

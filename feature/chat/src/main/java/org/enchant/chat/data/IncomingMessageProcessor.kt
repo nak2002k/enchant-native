@@ -42,14 +42,19 @@ object IncomingMessageProcessor {
     private var messageDao: MessageDao? = null
     @Volatile
     private var initialized = false
-    private val bufferedMessages = mutableListOf<MessageEntity>()
+    private val bufferedMessages = java.util.concurrent.ConcurrentLinkedQueue<MessageEntity>()
     private const val BATCH_FLUSH_THRESHOLD = 20
 
     private suspend fun flushBuffer() {
         if (bufferedMessages.isEmpty()) return
-        val batch = bufferedMessages.toList()
-        bufferedMessages.clear()
-        messageDao?.insertBatch(batch)
+        val batch = mutableListOf<MessageEntity>()
+        while (batch.size < BATCH_FLUSH_THRESHOLD) {
+            val msg = bufferedMessages.poll() ?: break
+            batch.add(msg)
+        }
+        if (batch.isNotEmpty()) {
+            messageDao?.insertBatch(batch)
+        }
     }
 
     private suspend fun bufferMessage(msg: MessageEntity) {

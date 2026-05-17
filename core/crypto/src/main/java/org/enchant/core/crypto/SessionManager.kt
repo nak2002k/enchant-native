@@ -30,11 +30,11 @@ object SessionManager {
     private var selfUserId: String = "self"
     private var sessionDao: SessionDao? = null
     private var identityDao: IdentityDao? = null
-    private val sessions = mutableMapOf<String, RatchetState>()
-    private val identityKeys = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
+    private val sessions = java.util.concurrent.ConcurrentHashMap<String, RatchetState>()
+    private val identityKeys = Collections.synchronizedMap(object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>): Boolean = size > 1000
-    }
-    private val nonBlockingApproval = mutableMapOf<String, Boolean>()
+    })
+    private val nonBlockingApproval = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
     suspend fun init(dao: SessionDao? = null, idDao: IdentityDao? = null) {
         if (initialized) return

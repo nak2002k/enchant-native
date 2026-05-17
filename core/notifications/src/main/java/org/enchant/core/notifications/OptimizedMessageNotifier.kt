@@ -23,7 +23,8 @@ data class QueuedNotification(
 object OptimizedMessageNotifier {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val queue = ConcurrentLinkedQueue<QueuedNotification>()
-    private var flushJob: Job? = null
+    @Volatile
+    private var flushScheduled = false
     private val _queueSize = MutableStateFlow(0)
     val queueSize: StateFlow<Int> = _queueSize.asStateFlow()
 
@@ -34,8 +35,7 @@ object OptimizedMessageNotifier {
     }
 
     suspend fun flush(context: Context) {
-        flushJob?.cancel()
-        flushJob = null
+        flushScheduled = false
         val batch = mutableListOf<QueuedNotification>()
         while (true) {
             val item = queue.poll() ?: break
@@ -56,15 +56,15 @@ object OptimizedMessageNotifier {
     }
 
     fun cancelAll(context: Context) {
-        flushJob?.cancel()
         queue.clear()
         _queueSize.value = 0
         MessageNotifier.cancelAll(context)
     }
 
     private fun scheduleFlush() {
-        if (flushJob?.isActive == true) return
-        flushJob = scope.launch {
+        if (flushScheduled) return
+        flushScheduled = true
+        scope.launch {
             delay(50)
             val ctx = org.enchant.core.base.AppConfig.applicationContext ?: return@launch
             flush(ctx)

@@ -110,8 +110,6 @@ class ApiClient {
     suspend fun uploadFile(path: String, fileBytes: ByteArray, mimeType: String): Result<JsonObject> =
         postRaw(path, fileBytes, mimeType)
 
-    @Volatile
-    private var retryCount = 0
     private val maxRetries = 2
     private val max429Retries = 1
     private val max5xxRetries = 1
@@ -136,7 +134,6 @@ class ApiClient {
 
                 when {
                     response.isSuccessful -> {
-                        retryCount = 0
                         val responseBody = response.body?.string()
                         if (responseBody.isNullOrEmpty()) {
                             Result.success(JsonObject(emptyMap()))
