@@ -37,27 +37,33 @@ fun OtpVerifyScreen(
         val smsReceiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 if (SmsRetriever.SMS_RETRIEVED_ACTION == intent.action) {
-                    val extras = intent.extras
-                    val status = extras?.get(SmsRetriever.EXTRA_STATUS) as? com.google.android.gms.common.api.Status
-                    if (status?.isSuccess == true) {
-                        val message = extras.getString(SmsRetriever.EXTRA_SMS_MESSAGE) ?: return
-                        val matcher = Pattern.compile("\\b(\\d{6})\\b").matcher(message)
-                        if (matcher.find()) {
-                            val otp = matcher.group(1)
-                            if (code.length < 6) {
-                                code = otp
-                                onCodeSubmitted(otp)
+                    try {
+                        val extras = intent.extras
+                        val status = extras?.get(SmsRetriever.EXTRA_STATUS) as? com.google.android.gms.common.api.Status
+                        if (status?.isSuccess == true) {
+                            val message = extras.getString(SmsRetriever.EXTRA_SMS_MESSAGE) ?: return
+                            val matcher = Pattern.compile("\\b(\\d{6})\\b").matcher(message)
+                            if (matcher.find()) {
+                                val otp = matcher.group(1)
+                                if (code.length < 6) {
+                                    code = otp
+                                    onCodeSubmitted(otp)
+                                }
                             }
                         }
-                    }
+                    } catch (_: Exception) { }
                 }
             }
         }
-        val client = SmsRetriever.getClient(context)
-        client.startSmsRetriever()
-        context.registerReceiver(smsReceiver, IntentFilter(SmsRetriever.SMS_RETRIEVED_ACTION))
+        try {
+            val client = SmsRetriever.getClient(context)
+            client.startSmsRetriever()
+            context.registerReceiver(smsReceiver, IntentFilter(SmsRetriever.SMS_RETRIEVED_ACTION))
+        } catch (e: Exception) {
+            android.util.Log.w("OtpVerify", "SMS retriever not available: ${e.message}")
+        }
         onDispose {
-            context.unregisterReceiver(smsReceiver)
+            try { context.unregisterReceiver(smsReceiver) } catch (_: Exception) { }
         }
     }
 
