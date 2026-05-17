@@ -197,7 +197,8 @@ object CallManager {
             status = CallStatusEnum.RINGING,
             remoteUserId = senderUserId,
             callId = callId,
-            isVideoCall = isVideoCall
+            isVideoCall = isVideoCall,
+            direction = CallDirection.INCOMING
         )
         callScope.launch(Dispatchers.Default) {
             AudioRouter.vibrate(AppConfig.applicationContext ?: return@launch)
@@ -464,7 +465,7 @@ object CallManager {
                 """, arrayOf(
                     callId, remoteId,
                     if (state.isVideoCall) "video" else "audio",
-                    "outgoing",
+                    state.direction.name.lowercase(),
                     state.durationSeconds.toString(),
                     if (state.durationSeconds > 0) "answered" else "cancelled",
                     System.currentTimeMillis().toString()

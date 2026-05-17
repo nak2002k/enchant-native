@@ -26,6 +26,7 @@ import org.enchant.chat.data.SendResult
 import org.enchant.core.base.SecurePreferences
 import kotlinx.coroutines.Job as CoroutineJob
 import org.enchant.core.base.AppConfig
+import org.enchant.core.calls.CallManager
 import org.enchant.core.jobmanager.JobManager
 import org.enchant.core.network.ApiClient
 import org.enchant.core.model.Conversation
@@ -400,6 +401,9 @@ class ConversationViewModel(
     }
 
     fun startCall(remoteUserId: String, isVideo: Boolean) {
+        viewModelScope.launch {
+            org.enchant.core.calls.CallManager.startOutgoingCall(remoteUserId, isVideo)
+        }
     }
 
     fun scrollToBottom() {

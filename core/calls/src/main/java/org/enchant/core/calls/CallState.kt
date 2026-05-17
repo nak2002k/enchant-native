@@ -32,7 +32,8 @@ data class CallState(
     val isHandRaised: Boolean = false,
     val durationSeconds: Int = 0,
     val signalStrength: SignalStrength? = null,
-    val error: String? = null
+    val error: String? = null,
+    val direction: CallDirection = CallDirection.OUTGOING
 )
 
 data class CallLogEntry(

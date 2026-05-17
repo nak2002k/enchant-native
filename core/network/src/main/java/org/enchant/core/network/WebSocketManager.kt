@@ -245,11 +245,12 @@ object WebSocketManager {
     suspend fun requestRESTFallback(message: OutgoingMessage): Result<Any> {
         return apiClient?.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(
             mapOf(
-                "recipientUserId" to kotlinx.serialization.json.JsonPrimitive(message.recipientUserId),
-                "messageType" to kotlinx.serialization.json.JsonPrimitive(message.messageType),
+                "recipient_user_id" to kotlinx.serialization.json.JsonPrimitive(message.recipientUserId),
+                "message_type" to kotlinx.serialization.json.JsonPrimitive(message.messageType),
                 "payload" to kotlinx.serialization.json.JsonPrimitive(
                     java.util.Base64.getUrlEncoder().encodeToString(message.payload)
-                )
+                ),
+                "sender_ts" to kotlinx.serialization.json.JsonPrimitive(message.senderTs)
             )
         )) ?: Result.failure(Exception("ApiClient not initialized"))
     }
