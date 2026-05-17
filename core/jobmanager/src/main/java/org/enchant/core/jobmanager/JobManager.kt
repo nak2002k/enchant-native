@@ -17,6 +17,11 @@ object JobManager {
     private var scope: CoroutineScope? = null
     @Volatile
     private var running = false
+    private val handlers = mutableMapOf<String, suspend (Job) -> Unit>()
+
+    fun registerHandler(tag: String, handler: suspend (Job) -> Unit) {
+        handlers[tag] = handler
+    }
 
     fun init() {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -27,15 +32,17 @@ object JobManager {
         val count = SecurePreferences.getInt("jobmanager.count", 0)
         for (i in 0 until count) {
             val serialized = SecurePreferences.getString("jobmanager.$i") ?: continue
-            val parts = serialized.split("|", limit = 3)
-            if (parts.size == 3) {
+            val parts = serialized.split("|", limit = 4)
+            if (parts.size >= 3) {
                 val id = parts[0]
-                val delayMs = parts[1].toLongOrNull() ?: 0L
-                if (delayMs > 0) {
-                    val remaining = delayMs - System.currentTimeMillis()
-                    if (remaining > 0) {
-                        enqueue(Job(id = id, delayMs = remaining, run = {}))
-                    }
+                val fireAt = parts[1].toLongOrNull() ?: 0L
+                val tag = parts.getOrElse(2) { "" }
+                val data = parts.getOrElse(3) { "" }
+                val remaining = fireAt - System.currentTimeMillis()
+                if (remaining > 0 && tag.isNotEmpty()) {
+                    enqueue(Job(id = id, delayMs = remaining, tag = tag, run = {
+                        handlers[tag]?.invoke(Job(id = id, delayMs = remaining, tag = tag, run = {}))
+                    }))
                 }
             }
         }
@@ -48,7 +55,7 @@ object JobManager {
             return
         }
         queue.add(job)
-        if (job.delayMs > 0) {
+        if (job.delayMs > 0 || job.tag != null) {
             persistJob(job)
         }
         processNext()
@@ -56,7 +63,7 @@ object JobManager {
 
     private fun persistJob(job: Job) {
         val count = SecurePreferences.getInt("jobmanager.count", 0)
-        val data = "${job.id}|${System.currentTimeMillis() + job.delayMs}|${job.tag ?: ""}"
+        val data = "${job.id}|${System.currentTimeMillis() + job.delayMs}|${job.tag ?: ""}|"
         SecurePreferences.putString("jobmanager.$count", data)
         SecurePreferences.putInt("jobmanager.count", count + 1)
     }
@@ -72,6 +79,7 @@ object JobManager {
                 while (retries < job.maxRetries) {
                     try {
                         job.run()
+                        removePersistedJob(job.id)
                         break
                     } catch (e: Exception) {
                         retries++
@@ -87,6 +95,18 @@ object JobManager {
         }
     }
 
+    private fun removePersistedJob(jobId: String) {
+        val count = SecurePreferences.getInt("jobmanager.count", 0)
+        val remaining = (0 until count).mapNotNull { i ->
+            SecurePreferences.getString("jobmanager.$i")?.takeIf { !it.startsWith("$jobId|") }
+        }
+        SecurePreferences.putInt("jobmanager.count", 0)
+        remaining.forEachIndexed { i, data ->
+            SecurePreferences.putString("jobmanager.$i", data)
+        }
+        SecurePreferences.putInt("jobmanager.count", remaining.size)
+    }
+
     fun cancelAll() {
         queue.clear()
         SecurePreferences.putInt("jobmanager.count", 0)
@@ -94,6 +114,7 @@ object JobManager {
 
     fun cancelJob(jobId: String) {
         queue.removeAll { it.id == jobId }
+        removePersistedJob(jobId)
     }
 
     val pendingCount: Int get() = queue.size

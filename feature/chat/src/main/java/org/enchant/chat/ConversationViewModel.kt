@@ -97,6 +97,15 @@ class ConversationViewModel(
         _sendingState.value = SendState.SENDING
         viewModelScope.launch {
             val selfId = SecurePreferences.getString("auth.user_id") ?: ""
+            val conv = _conversation.value
+            val role = conv?.let { org.enchant.core.base.SecurePreferences.getString("group_role_${it.id}") }
+            if (conv?.type == org.enchant.core.model.ConversationType.GROUP && role == "member") {
+                val isAnnouncement = org.enchant.core.base.SecurePreferences.getBoolean("group_announcement_${conv.id}", false)
+                if (isAnnouncement) {
+                    _sendingState.value = SendState.FAILED
+                    return@launch
+                }
+            }
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
                 recipientUserId = conversationId,

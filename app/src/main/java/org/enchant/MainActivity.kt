@@ -7,11 +7,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -19,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -26,6 +30,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.enchant.auth.AuthViewModel
 import org.enchant.auth.screens.AppLockScreen
@@ -783,10 +789,32 @@ fun AppNavigation() {
         }
 
         composable("search") {
-            val context = LocalContext.current
-            LaunchedEffect(Unit) {
-                android.widget.Toast.makeText(context, "Search coming soon", android.widget.Toast.LENGTH_SHORT).show()
-                navController.popBackStack()
+            var q by remember { mutableStateOf("") }
+            var results by remember { mutableStateOf<List<org.enchant.core.database.entity.MessageEntity>>(emptyList()) }
+            var loading by remember { mutableStateOf(false) }
+
+            LaunchedEffect(q) {
+                if (q.length >= 2) {
+                    loading = true
+                    val pool = org.enchant.core.database.DatabasePool.instance
+                    if (pool != null) {
+                        kotlinx.coroutines.delay(300)
+                        org.enchant.core.database.dao.MessageDao(pool)
+                            .searchMessages(q).first().let { results = it }
+                    }
+                    loading = false
+                } else { results = emptyList() }
+            }
+
+            Box(Modifier.fillMaxSize().padding(8.dp)) {
+                TextField(value = q, onValueChange = { q = it }, placeholder = { Text("Search") })
+                if (loading) CircularProgressIndicator(Modifier.align(Alignment.Center))
+                else if (q.isNotEmpty() && results.isEmpty()) Text("No results", Modifier.align(Alignment.Center))
+                else LazyColumn(Modifier.padding(top = 56.dp)) {
+                    items(results) { msg ->
+                        Text(msg.content.take(80))
+                    }
+                }
             }
         }
 

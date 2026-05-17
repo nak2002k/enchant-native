@@ -80,7 +80,6 @@ object AuthStateMachine {
                 else -> state
             }
             is RegistrationState.Loading -> when (event) {
-                is RegistrationEvent.PhoneNumberSubmitted -> RegistrationState.PhoneEntry
                 is RegistrationEvent.CountryCodeSelected -> RegistrationState.PhoneEntry
                 else -> state
             }
