@@ -216,6 +216,9 @@ fun AppNavigation() {
                 CircularProgressIndicator()
             }
             LaunchedEffect(authState) {
+                while (!org.enchant.DI.isInitialized) {
+                    kotlinx.coroutines.delay(50)
+                }
                 when (authState) {
                     is AuthState.Authenticated -> {
                         context.startService(
@@ -299,21 +302,72 @@ fun AppNavigation() {
         composable("profile_setup") {
             ProfileSetupScreen(
                 onProfileDataEntered = { displayName, about, _ ->
-                    authViewModel.updateProfile("user_${System.currentTimeMillis()}", displayName, about)
+                    AuthManager.pendingDisplayName = displayName
+                    AuthManager.pendingAbout = about
                     navController.navigate("username_picker")
                 }
             )
         }
 
         composable("username_picker") {
+            val state by authViewModel.registrationState.collectAsState()
+            var isSubmitting by remember { mutableStateOf(false) }
+            var localError by remember { mutableStateOf<String?>(null) }
+
             UsernamePickerScreen(
-                onUsernameEntered = { navController.navigate("key_generation") },
-                onSkip = { navController.navigate("key_generation") },
+                onUsernameEntered = { username ->
+                    val displayName = AuthManager.pendingDisplayName ?: run {
+                        localError = "Display name not set. Go back and try again."
+                        return@UsernamePickerScreen
+                    }
+                    val about = AuthManager.pendingAbout
+                    isSubmitting = true
+                    localError = null
+                    scope.launch {
+                        val result = AuthManager.updateProfile(username, displayName, about)
+                        if (result.isSuccess) {
+                            AuthManager.pendingDisplayName = null
+                            AuthManager.pendingAbout = null
+                            navController.navigate("key_generation")
+                        } else {
+                            localError = result.exceptionOrNull()?.message ?: "Failed to save profile"
+                        }
+                        isSubmitting = false
+                    }
+                },
+                onSkip = {
+                    val displayName = AuthManager.pendingDisplayName ?: run {
+                        localError = "Display name not set. Go back and try again."
+                        return@UsernamePickerScreen
+                    }
+                    val about = AuthManager.pendingAbout
+                    isSubmitting = true
+                    localError = null
+                    scope.launch {
+                        val username = "user_${System.currentTimeMillis()}"
+                        val result = AuthManager.updateProfile(username, displayName, about)
+                        if (result.isSuccess) {
+                            AuthManager.pendingDisplayName = null
+                            AuthManager.pendingAbout = null
+                            navController.navigate("key_generation")
+                        } else {
+                            localError = result.exceptionOrNull()?.message ?: "Failed to save profile"
+                        }
+                        isSubmitting = false
+                    }
+                },
                 onCheckAvailability = { prefix ->
                     try {
-                        AuthManager.searchUsername(prefix).getOrNull()?.let { it.isEmpty() } ?: false
-                    } catch (_: Exception) { false }
-                }
+                        val result = AuthManager.searchUsername(prefix)
+                        if (result.isSuccess) {
+                            result.getOrDefault(emptyList()).isEmpty()
+                        } else {
+                            throw result.exceptionOrNull() ?: Exception("check failed")
+                        }
+                    } catch (_: Exception) { null }
+                },
+                isLoading = isSubmitting,
+                errorMessage = localError
             )
         }
 
@@ -410,7 +464,7 @@ fun AppNavigation() {
             RestorePromptScreen(
                 hasBackup = false,
                 onRestore = {},
-                onStartFresh = { navController.navigate("profile_setup") }
+                onStartFresh = { navController.navigate("phone_entry") }
             )
         }
 

@@ -14,7 +14,9 @@ import kotlinx.coroutines.launch
 fun UsernamePickerScreen(
     onUsernameEntered: (String) -> Unit,
     onSkip: () -> Unit,
-    onCheckAvailability: suspend (String) -> Boolean
+    onCheckAvailability: suspend (String) -> Boolean?,
+    isLoading: Boolean = false,
+    errorMessage: String? = null
 ) {
     var username by remember { mutableStateOf("") }
     var isChecking by remember { mutableStateOf(false) }
@@ -26,6 +28,7 @@ fun UsernamePickerScreen(
         isChecking -> "Checking availability..."
         isAvailable == true -> "Available!"
         isAvailable == false -> "Username taken"
+        isAvailable == null && username.length >= 3 && !isChecking -> "Could not check availability"
         else -> ""
     }
 
@@ -48,6 +51,7 @@ fun UsernamePickerScreen(
 
             OutlinedTextField(
                 value = username,
+                isError = errorMessage != null || isAvailable == false,
                 onValueChange = { newValue ->
                     val cleaned = newValue.lowercase().filter { it in 'a'..'z' || it in '0'..'9' || it == '_' }
                     if (cleaned.length <= 32) {
@@ -73,8 +77,9 @@ fun UsernamePickerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 supportingText = {
-                    if (statusText.isNotEmpty()) {
-                        Text(
+                    when {
+                        errorMessage != null -> Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                        statusText.isNotEmpty() -> Text(
                             statusText,
                             color = when {
                                 isAvailable == true -> MaterialTheme.colorScheme.primary
@@ -88,17 +93,24 @@ fun UsernamePickerScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
-                onClick = { onUsernameEntered(username) },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                enabled = username.length in 3..32 && isAvailable == true
-            ) {
-                Text("Continue")
+            if (isLoading) {
+                CircularProgressIndicator()
+            } else {
+                Button(
+                    onClick = { onUsernameEntered(username) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    enabled = username.length in 3..32 && isAvailable == true
+                ) {
+                    Text("Continue")
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            TextButton(onClick = onSkip) {
+            TextButton(
+                onClick = onSkip,
+                enabled = !isLoading
+            ) {
                 Text("Skip")
             }
         }

@@ -28,6 +28,11 @@ object AuthManager {
     private val _currentState = MutableStateFlow<RegistrationState>(RegistrationState.Welcome)
     private val _authState = MutableStateFlow<AuthState>(AuthState.Unknown)
 
+    @Volatile
+    var pendingDisplayName: String? = null
+    @Volatile
+    var pendingAbout: String? = null
+
     val currentState: StateFlow<RegistrationState> = _currentState.asStateFlow()
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
