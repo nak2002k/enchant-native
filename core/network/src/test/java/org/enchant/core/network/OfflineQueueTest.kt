@@ -74,8 +74,8 @@ class OfflineQueueTest {
     inner class DequeueTest {
         @Test @DisplayName("dequeue returns first message")
         fun `dequeue returns first`() = runTest {
-            val msg1 = QueuedMessage("user1", null, "SIGNAL_MESSAGE", "first".encodeToByteArray(), 1000)
-            val msg2 = QueuedMessage("user2", null, "SIGNAL_MESSAGE", "second".encodeToByteArray(), 2000)
+            val msg1 = QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "first".encodeToByteArray(), senderTs = 1000)
+            val msg2 = QueuedMessage(recipientUserId = "user2", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "second".encodeToByteArray(), senderTs = 2000)
             OfflineQueue.enqueue(msg1)
             OfflineQueue.enqueue(msg2)
             val dequeued = OfflineQueue.pendingCount.value
@@ -97,7 +97,7 @@ class OfflineQueueTest {
             every { SecurePreferences.putInt(any(), any()) } returns Unit
             every { SecurePreferences.putString(any(), any()) } returns Unit
 
-            val msg = QueuedMessage("user1", null, "SIGNAL_MESSAGE", "test".encodeToByteArray(), 1000)
+            val msg = QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
             OfflineQueue.enqueue(msg)
             assertEquals(1, OfflineQueue.pendingCount.value)
 

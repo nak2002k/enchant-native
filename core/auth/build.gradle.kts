@@ -36,5 +36,6 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.okhttp.mock)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }

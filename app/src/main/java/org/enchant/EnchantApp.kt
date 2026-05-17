@@ -19,7 +19,7 @@ class EnchantApp : Application() {
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("EnchantApp", "Uncaught crash on ${thread.name}", throwable)
-            CrashReporter.report(throwable, mapOf("thread" to thread.name))
+            CrashReporter.recordException(throwable)
             defaultHandler?.uncaughtException(thread, throwable)
         }
         appScope.launch {

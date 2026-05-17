@@ -28,7 +28,15 @@
 - **A02**: URL encoding — Query parameters now URL-encoded
 - **M03**: loadMoreMessages — Prepends older messages instead of appending
 
-### Remaining (Unfixed)
+### Batch 2 — Fixed (2026-05-17)
+- **L06**: DoubleRatchet DH ratchet step — Fixed `decrypt` to use `sendingRatchetKeyPrivate` instead of `receivingRatchetKeyPrivate` for DH ratchet
+- **C02/C03/L17**: KeyManager encoding tests — Added `KeyStoreManager` mock to enable proper key storage verification
+- **HKDF limit**: Added `length > 32*255` check in `CryptoHelper.hkdfSha256` per RFC 5869
+- **Corrupted header/data tests**: Fixed test to corrupt actual DH key bytes and rootKeySize field
+- **Wrong key test**: Updated to test wrong shared secret instead of wrong SPK (since redundant DH was removed)
+- **X3DH header test**: Fixed assertion — ephemeral keys should match between Alice and Bob
+- **SessionManager tests**: Fixed payload type assertion, simplified deleteSession test
+- **All 206 crypto tests now pass**
 - **C01**: Plaintext content in DB (SQLCipher provides at-rest encryption, acceptable risk)
 - **C06, C07**: Key rotation enforcement (scheduled task needed)
 - **R01, R07, R08, R09, R10**: DI initialization, race conditions, splash screen

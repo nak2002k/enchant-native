@@ -48,6 +48,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:protos"))
     implementation(project(":core:jobmanager"))
+    implementation(project(":core:calls"))
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.protobuf.javalite)
     implementation("androidx.paging:paging-runtime-ktx:3.3.5")

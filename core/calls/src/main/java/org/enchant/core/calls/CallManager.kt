@@ -396,7 +396,7 @@ object CallManager {
             try {
                 val callMessage = CallMessageProtos.CallMessage.newBuilder()
                     .setOpaque(CallMessageProtos.CallMessage.Opaque.newBuilder()
-                        .setData(emoji.toByteArray())
+                        .setData(com.google.protobuf.ByteString.copyFrom(emoji.toByteArray()))
                         .setUrgency(CallMessageProtos.CallMessage.Opaque.Urgency.DROPPABLE)
                         .build())
                     .build()
@@ -410,14 +410,13 @@ object CallManager {
             try {
                 val callMessage = CallMessageProtos.CallMessage.newBuilder()
                     .setOpaque(CallMessageProtos.CallMessage.Opaque.newBuilder()
-                        .setData("remote_mute:$participantId".toByteArray())
+                        .setData(com.google.protobuf.ByteString.copyFrom("remote_mute:$participantId".toByteArray()))
                         .setUrgency(CallMessageProtos.CallMessage.Opaque.Urgency.HANDLE_IMMEDIATELY)
                         .build())
                     .build()
                 webSocket.sendMessage(recipientUserId = participantId, payload = callMessage.toByteArray(), ephemeral = true)
             } catch (e: Exception) { Log.w("Calls", "Remote mute failed: ${e.message}") }
         }
-    }
     }
 
     fun removeParticipant(participantId: String) {
