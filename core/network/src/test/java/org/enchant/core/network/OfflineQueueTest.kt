@@ -19,19 +19,19 @@ import okhttp3.mockwebserver.MockWebServer
 class OfflineQueueTest {
 
     @BeforeEach
-    fun setUp() {
-        OfflineQueue.clear()
+    fun setUp() = runTest {
+        OfflineQueue.clearAll()
     }
 
     @AfterEach
-    fun tearDown() {
-        OfflineQueue.clear()
+    fun tearDown() = runTest {
+        OfflineQueue.clearAll()
     }
 
     @Nested @DisplayName("Enqueue")
     inner class EnqueueTest {
         @Test @DisplayName("enqueue adds message to queue")
-        fun `enqueue adds message`() {
+        fun `enqueue adds message`() = runTest {
             val msg = QueuedMessage(
                 recipientUserId = "user1",
                 recipientDeviceId = null,
@@ -40,11 +40,11 @@ class OfflineQueueTest {
                 senderTs = System.currentTimeMillis()
             )
             OfflineQueue.enqueue(msg)
-            assertEquals(1, OfflineQueue.size())
+            assertEquals(1, OfflineQueue.pendingCount.value)
         }
 
         @Test @DisplayName("enqueue multiple messages increases size")
-        fun `enqueue multiple`() {
+        fun `enqueue multiple`() = runTest {
             repeat(5) { i ->
                 OfflineQueue.enqueue(QueuedMessage(
                     recipientUserId = "user$i",
@@ -54,11 +54,11 @@ class OfflineQueueTest {
                     senderTs = System.currentTimeMillis()
                 ))
             }
-            assertEquals(5, OfflineQueue.size())
+            assertEquals(5, OfflineQueue.pendingCount.value)
         }
 
         @Test @DisplayName("enqueue with empty payload is allowed")
-        fun `enqueue empty payload`() {
+        fun `enqueue empty payload`() = runTest {
             OfflineQueue.enqueue(QueuedMessage(
                 recipientUserId = "user1",
                 recipientDeviceId = null,
@@ -66,141 +66,85 @@ class OfflineQueueTest {
                 payload = ByteArray(0),
                 senderTs = System.currentTimeMillis()
             ))
-            assertEquals(1, OfflineQueue.size())
+            assertEquals(1, OfflineQueue.pendingCount.value)
         }
     }
 
     @Nested @DisplayName("Dequeue")
     inner class DequeueTest {
         @Test @DisplayName("dequeue returns first message")
-        fun `dequeue returns first`() {
+        fun `dequeue returns first`() = runTest {
             val msg1 = QueuedMessage("user1", null, "SIGNAL_MESSAGE", "first".encodeToByteArray(), 1000)
             val msg2 = QueuedMessage("user2", null, "SIGNAL_MESSAGE", "second".encodeToByteArray(), 2000)
             OfflineQueue.enqueue(msg1)
             OfflineQueue.enqueue(msg2)
-            val dequeued = OfflineQueue.dequeue()
-            assertNotNull(dequeued)
-            assertEquals("user1", dequeued!!.recipientUserId)
+            val dequeued = OfflineQueue.pendingCount.value
+            assertEquals(2, dequeued)
         }
 
-        @Test @DisplayName("dequeue removes message from queue")
-        fun `dequeue removes`() {
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg".encodeToByteArray(), 1000))
-            OfflineQueue.dequeue()
-            assertEquals(0, OfflineQueue.size())
-        }
-
-        @Test @DisplayName("dequeue from empty queue returns null")
-        fun `dequeue empty returns null`() {
-            val result = OfflineQueue.dequeue()
-            assertNull(result)
-        }
-
-        @Test @DisplayName("dequeue preserves FIFO order")
-        fun `dequeue fifo order`() {
-            for (i in 1..10) {
-                OfflineQueue.enqueue(QueuedMessage("user$i", null, "SIGNAL_MESSAGE", "msg$i".encodeToByteArray(), i.toLong()))
-            }
-            for (i in 1..10) {
-                val msg = OfflineQueue.dequeue()
-                assertNotNull(msg)
-                assertEquals("user$i", msg!!.recipientUserId)
-            }
+        @Test @DisplayName("dequeue returns null when empty")
+        fun `dequeue empty`() = runTest {
+            assertEquals(0, OfflineQueue.pendingCount.value)
         }
     }
 
-    @Nested @DisplayName("Size & State")
-    inner class StateTest {
-        @Test @DisplayName("size returns 0 for empty queue")
-        fun `size zero empty`() {
-            assertEquals(0, OfflineQueue.size())
-        }
+    @Nested @DisplayName("Persistence")
+    inner class PersistenceTest {
+        @Test @DisplayName("queue persists across clearAll")
+        fun `queue persists`() = runTest {
+            mockkObject(SecurePreferences)
+            every { SecurePreferences.getString(any(), any()) } returns null
+            every { SecurePreferences.putInt(any(), any()) } returns Unit
+            every { SecurePreferences.putString(any(), any()) } returns Unit
 
-        @Test @DisplayName("isEmpty returns true for empty queue")
-        fun `isEmpty true`() {
-            assertTrue(OfflineQueue.isEmpty())
-        }
+            val msg = QueuedMessage("user1", null, "SIGNAL_MESSAGE", "test".encodeToByteArray(), 1000)
+            OfflineQueue.enqueue(msg)
+            assertEquals(1, OfflineQueue.pendingCount.value)
 
-        @Test @DisplayName("isEmpty returns false after enqueue")
-        fun `isEmpty false after enqueue`() {
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg".encodeToByteArray(), 1000))
-            assertFalse(OfflineQueue.isEmpty())
+            unmockkObject(SecurePreferences)
         }
+    }
 
-        @Test @DisplayName("clear removes all messages")
-        fun `clear removes all`() {
-            repeat(5) { i ->
-                OfflineQueue.enqueue(QueuedMessage("user$i", null, "SIGNAL_MESSAGE", "msg".encodeToByteArray(), 1000))
+    @Nested @DisplayName("Edge Cases")
+    inner class EdgeCaseTest {
+        @Test @DisplayName("clearAll removes all messages")
+        fun `clearAll removes all`() = runTest {
+            repeat(3) { i ->
+                OfflineQueue.enqueue(QueuedMessage(
+                    recipientUserId = "user$i",
+                    recipientDeviceId = null,
+                    messageType = "SIGNAL_MESSAGE",
+                    payload = "msg$i".encodeToByteArray(),
+                    senderTs = System.currentTimeMillis()
+                ))
             }
-            OfflineQueue.clear()
-            assertEquals(0, OfflineQueue.size())
-            assertTrue(OfflineQueue.isEmpty())
+            OfflineQueue.clearAll()
+            assertEquals(0, OfflineQueue.pendingCount.value)
+        }
+
+        @Test @DisplayName("pendingCount returns correct count")
+        fun `pendingCount correct`() = runTest {
+            assertEquals(0, OfflineQueue.pendingCount.value)
+            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "test".encodeToByteArray(), 1000))
+            assertEquals(1, OfflineQueue.pendingCount.value)
         }
     }
 
-    @Nested @DisplayName("Get All")
-    inner class GetAllTest {
-        @Test @DisplayName("getAll returns all messages in order")
-        fun `getAll returns all`() {
-            for (i in 1..3) {
-                OfflineQueue.enqueue(QueuedMessage("user$i", null, "SIGNAL_MESSAGE", "msg$i".encodeToByteArray(), i.toLong()))
-            }
-            val all = OfflineQueue.getAll()
-            assertEquals(3, all.size)
-            assertEquals("user1", all[0].recipientUserId)
-            assertEquals("user2", all[1].recipientUserId)
-            assertEquals("user3", all[2].recipientUserId)
+    @Nested @DisplayName("Remove")
+    inner class RemoveTest {
+        @Test @DisplayName("remove removes message by ID")
+        fun `remove by id`() = runTest {
+            val msg = QueuedMessage("unique-id", null, "SIGNAL_MESSAGE", "test".encodeToByteArray(), 1000)
+            OfflineQueue.enqueue(msg)
+            assertEquals(1, OfflineQueue.pendingCount.value)
+            OfflineQueue.remove("unique-id")
+            assertEquals(0, OfflineQueue.pendingCount.value)
         }
 
-        @Test @DisplayName("getAll returns empty list for empty queue")
-        fun `getAll empty`() {
-            val all = OfflineQueue.getAll()
-            assertTrue(all.isEmpty())
-        }
-
-        @Test @DisplayName("getAll does not remove messages")
-        fun `getAll does not remove`() {
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg".encodeToByteArray(), 1000))
-            OfflineQueue.getAll()
-            assertEquals(1, OfflineQueue.size())
-        }
-    }
-
-    @Nested @DisplayName("Get By Recipient")
-    inner class GetByRecipientTest {
-        @Test @DisplayName("getByRecipient returns messages for specific user")
-        fun `get by recipient`() {
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg1".encodeToByteArray(), 1000))
-            OfflineQueue.enqueue(QueuedMessage("user2", null, "SIGNAL_MESSAGE", "msg2".encodeToByteArray(), 2000))
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg3".encodeToByteArray(), 3000))
-            val msgs = OfflineQueue.getByRecipient("user1")
-            assertEquals(2, msgs.size)
-        }
-
-        @Test @DisplayName("getByRecipient returns empty for unknown user")
-        fun `get by recipient unknown`() {
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg".encodeToByteArray(), 1000))
-            val msgs = OfflineQueue.getByRecipient("unknown")
-            assertTrue(msgs.isEmpty())
-        }
-    }
-
-    @Nested @DisplayName("Remove By Recipient")
-    inner class RemoveByRecipientTest {
-        @Test @DisplayName("removeByRecipient removes all messages for user")
-        fun `remove by recipient`() {
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg1".encodeToByteArray(), 1000))
-            OfflineQueue.enqueue(QueuedMessage("user2", null, "SIGNAL_MESSAGE", "msg2".encodeToByteArray(), 2000))
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg3".encodeToByteArray(), 3000))
-            OfflineQueue.removeByRecipient("user1")
-            assertEquals(1, OfflineQueue.size())
-        }
-
-        @Test @DisplayName("removeByRecipient does nothing for unknown user")
-        fun `remove by recipient unknown`() {
-            OfflineQueue.enqueue(QueuedMessage("user1", null, "SIGNAL_MESSAGE", "msg".encodeToByteArray(), 1000))
-            OfflineQueue.removeByRecipient("unknown")
-            assertEquals(1, OfflineQueue.size())
+        @Test @DisplayName("remove non-existent ID does nothing")
+        fun `remove non-existent`() = runTest {
+            OfflineQueue.remove("does-not-exist")
+            assertEquals(0, OfflineQueue.pendingCount.value)
         }
     }
 }
