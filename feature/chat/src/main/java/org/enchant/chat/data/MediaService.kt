@@ -151,9 +151,7 @@ object MediaService {
                 }
 
                 val mediaKey = CryptoHelper.generateRandomKey(32)
-                val mediaIv = CryptoHelper.generateRandomKey(12)
-                val plaintextWithIv = mediaIv + fileBytes
-                val encryptedData = CryptoHelper.encryptXChaCha20Poly1305(plaintextWithIv, mediaKey)
+                val encryptedData = CryptoHelper.encryptXChaCha20Poly1305(fileBytes, mediaKey)
 
                 val client = apiClient!!
                 val response = client.postRaw("/v1/media/upload", encryptedData, mimeType)
@@ -185,16 +183,7 @@ object MediaService {
                 val encryptedData = response.getOrNull()
                     ?: return@withContext Result.failure(Exception("Download failed"))
 
-                val ciphertext = if (mediaIv.isNotEmpty()) {
-                    val expectedIv = mediaIv
-                    if (encryptedData.size > expectedIv.size) {
-                        val fileEncrypted = encryptedData.copyOfRange(expectedIv.size, encryptedData.size)
-                        val combined = expectedIv + fileEncrypted
-                        combined
-                    } else encryptedData
-                } else encryptedData
-
-                val decrypted = CryptoHelper.decryptXChaCha20Poly1305(ciphertext, mediaKey)
+                val decrypted = CryptoHelper.decryptXChaCha20Poly1305(encryptedData, mediaKey)
 
                 val ctx = AppConfig.applicationContext ?: return@withContext Result.failure(Exception("No context"))
                 val cacheDir = File(ctx.cacheDir, "media_downloads")

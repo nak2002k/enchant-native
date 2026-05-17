@@ -121,8 +121,8 @@ class ConversationRepository(
                 """, arrayOf(
                     entity.conversationId, entity.senderId, entity.envelopeId,
                     entity.messageType, entity.content, entity.status,
-                    entity.timestamp.toString(), entity.serverTs?.toString(),
-                    entity.disappearAt?.toString()
+                    entity.timestamp.toString(), entity.serverTs?.toString() ?: "",
+                    entity.disappearAt?.toString() ?: ""
                 ))
                 db.execSQL("""
                     INSERT OR REPLACE INTO conversations

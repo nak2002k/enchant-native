@@ -166,16 +166,21 @@ private suspend fun shareMedia(context: android.content.Context, file: File, mim
 private suspend fun saveToGallery(context: android.content.Context, file: File, mimeType: String) {
     withContext(Dispatchers.IO) {
         try {
+            val isVideo = mimeType.startsWith("video/")
+            val contentUri = if (isVideo) {
+                android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            } else {
+                android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            }
             val values = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, file.name)
+                put(if (isVideo) android.provider.MediaStore.Video.Media.DISPLAY_NAME
+                    else android.provider.MediaStore.Images.Media.DISPLAY_NAME, file.name)
                 put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
                 }
             }
-            val uri = context.contentResolver.insert(
-                android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
-            ) ?: return@withContext
+            val uri = context.contentResolver.insert(contentUri, values) ?: return@withContext
             context.contentResolver.openOutputStream(uri)?.use { output ->
                 file.inputStream().use { input -> input.copyTo(output) }
             }

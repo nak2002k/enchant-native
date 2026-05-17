@@ -346,6 +346,8 @@ object MessageSendPipeline {
 
                 apiClient!!.put("/v1/messages/$originalEnvelopeId", buildJsonObject {
                     put("new_envelope_id", newEnvelopeId)
+                    put("message_type", "SIGNAL_MESSAGE")
+                    put("payload", org.enchant.core.crypto.CryptoHelper.base64UrlEncode(encrypted.payload))
                 })
 
                 repo.updateMessageContent(originalEnvelopeId, newPlaintext.decodeToString())

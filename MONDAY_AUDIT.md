@@ -5,18 +5,19 @@
 
 ## Fix Status
 
-### Fixed (2026-05-18)
+### Fixed (2026-05-18) — 42 bugs
 - **C01-C12**: All 12 critical crash bugs fixed
 - **M01-M14**: All 14 memory leaks fixed
 - **R01-R13**: All 13 race conditions fixed
-- **Test fixes**: AuthManager.resetForTesting() added, URL encoding test updated
+- **L01, L02, L04, L05, L06, L20**: 6 broken logic bugs fixed
+- **Test fixes**: AuthManager.resetForTesting() added, URL encoding test corrected
 - **Compilation fixes**: ConnectivityMonitor, RateLimitTracker, DAO launch, SessionManager Collections, NotificationReplyReceiver PendingResult
 
-### Remaining (To Be Fixed)
-- **L01-L20**: Broken logic / wrong behavior
-- **E01-E13**: Missing error handling
-- **S01-S15**: Stub / incomplete functions
-- **Q01-Q65**: Code quality / minor issues
+### Remaining (115 bugs)
+- **L03, L07-L20**: 14 broken logic bugs remaining
+- **E01-E13**: 13 missing error handling
+- **S01-S15**: 15 stub / incomplete functions
+- **Q01-Q65**: 65 code quality / minor issues
 
 ---
 

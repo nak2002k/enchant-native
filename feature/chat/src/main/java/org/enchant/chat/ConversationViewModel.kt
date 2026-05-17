@@ -64,6 +64,7 @@ class ConversationViewModel(
     val searchResults: StateFlow<List<Message>> = _searchResults.asStateFlow()
 
     private var conversationId: String = ""
+    private var recipientUserId: String = ""
     private var pagingSource: ChatPagingSource? = null
     private var messageJob: CoroutineJob? = null
     private var searchJob: CoroutineJob? = null
@@ -71,6 +72,7 @@ class ConversationViewModel(
     fun init(convId: String) {
         if (conversationId == convId) return
         conversationId = convId
+        recipientUserId = convId
         pagingSource = ChatPagingSource(repo, convId)
         messageJob?.cancel()
         messageJob = viewModelScope.launch {
@@ -81,6 +83,11 @@ class ConversationViewModel(
         viewModelScope.launch {
             val conv = repo.getConversation(convId)
             _conversation.value = conv
+            if (conv?.type == org.enchant.core.model.ConversationType.DIRECT) {
+                val members = conv.id.split(":")
+                val selfId = SecurePreferences.getString("auth.user_id") ?: ""
+                recipientUserId = members.find { it != selfId } ?: conv.id
+            }
         }
     }
 
@@ -111,7 +118,7 @@ class ConversationViewModel(
             }
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
-                recipientUserId = conversationId,
+                recipientUserId = recipientUserId,
                 plaintext = text.encodeToByteArray(),
                 replyTo = replyTo
             )
@@ -133,7 +140,7 @@ class ConversationViewModel(
         viewModelScope.launch {
             val result = pipeline.sendMediaMessage(
                 conversationId = conversationId,
-                recipientUserId = conversationId,
+                recipientUserId = recipientUserId,
                 fileUri = uri,
                 mimeType = mimeType
             )
@@ -141,8 +148,10 @@ class ConversationViewModel(
                 is SendResult.Success -> SendState.SENT
                 else -> SendState.FAILED
             }
-            delay(1000)
-            _sendingState.value = SendState.IDLE
+            if (_sendingState.value != SendState.IDLE) {
+                delay(1000)
+                _sendingState.value = SendState.IDLE
+            }
         }
         return true
     }
@@ -153,7 +162,7 @@ class ConversationViewModel(
             val uri = Uri.fromFile(audioFile)
             val result = pipeline.sendMediaMessage(
                 conversationId = conversationId,
-                recipientUserId = conversationId,
+                recipientUserId = recipientUserId,
                 fileUri = uri,
                 mimeType = "audio/mp4"
             )
@@ -161,8 +170,10 @@ class ConversationViewModel(
                 is SendResult.Success -> SendState.SENT
                 else -> SendState.FAILED
             }
-            delay(1000)
-            _sendingState.value = SendState.IDLE
+            if (_sendingState.value != SendState.IDLE) {
+                delay(1000)
+                _sendingState.value = SendState.IDLE
+            }
         }
         return true
     }
@@ -173,7 +184,7 @@ class ConversationViewModel(
             val text = "📍 ${label ?: "$lat, $lng"}"
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
-                recipientUserId = conversationId,
+                recipientUserId = recipientUserId,
                 plaintext = text.encodeToByteArray()
             )
             if (result is SendResult.Success || result is SendResult.Queued) {
@@ -184,8 +195,10 @@ class ConversationViewModel(
                 } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
             }
             _sendingState.value = if (result is SendResult.Success || result is SendResult.Queued) SendState.SENT else SendState.FAILED
-            delay(1000)
-            _sendingState.value = SendState.IDLE
+            if (_sendingState.value != SendState.IDLE) {
+                delay(1000)
+                _sendingState.value = SendState.IDLE
+            }
         }
         return true
     }
@@ -196,12 +209,14 @@ class ConversationViewModel(
             val text = "🔄 Sticker:$packId:$stickerId"
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
-                recipientUserId = conversationId,
+                recipientUserId = recipientUserId,
                 plaintext = text.encodeToByteArray()
             )
             _sendingState.value = if (result is SendResult.Success || result is SendResult.Queued) SendState.SENT else SendState.FAILED
-            delay(1000)
-            _sendingState.value = SendState.IDLE
+            if (_sendingState.value != SendState.IDLE) {
+                delay(1000)
+                _sendingState.value = SendState.IDLE
+            }
         }
         return true
     }
@@ -212,11 +227,11 @@ class ConversationViewModel(
             val selfId = SecurePreferences.getString("auth.user_id") ?: return@launch
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
-                recipientUserId = conversationId,
+                recipientUserId = recipientUserId,
                 plaintext = msg.content.encodeToByteArray()
             )
             if (result is SendResult.Success) {
-                repo.markMessageDeleted(envelopeId)
+                repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
             }
         }
     }
@@ -333,13 +348,21 @@ class ConversationViewModel(
     fun jumpToMessage(envelopeId: String) {
         viewModelScope.launch {
             val msg = repo.getMessage(envelopeId) ?: return@launch
-            _scrollToEvent.emit(ScrollEvent.ToPosition(msg.localId.toInt()))
+            val index = _messages.value.indexOfFirst { it.envelopeId == envelopeId }
+            if (index >= 0) {
+                _scrollToEvent.emit(ScrollEvent.ToPosition(index))
+            }
         }
     }
 
     fun jumpToDate(timestamp: Long) {
         viewModelScope.launch {
-            _scrollToEvent.emit(ScrollEvent.ToPosition(0))
+            val index = _messages.value.indexOfFirst { it.timestamp <= timestamp }
+            if (index >= 0) {
+                _scrollToEvent.emit(ScrollEvent.ToPosition(index))
+            } else {
+                _scrollToEvent.emit(ScrollEvent.ToPosition(0))
+            }
         }
     }
 
