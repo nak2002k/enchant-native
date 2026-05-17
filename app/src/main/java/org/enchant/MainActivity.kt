@@ -216,8 +216,10 @@ fun AppNavigation() {
                 CircularProgressIndicator()
             }
             LaunchedEffect(authState) {
-                while (!org.enchant.DI.isInitialized) {
+                var waited = 0
+                while (!org.enchant.DI.isInitialized && waited < 100) {
                     kotlinx.coroutines.delay(50)
+                    waited++
                 }
                 when (authState) {
                     is AuthState.Authenticated -> {

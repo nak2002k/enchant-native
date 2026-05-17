@@ -97,6 +97,9 @@ object DI {
                 ApiClient.setInstance(client)
                 _apiClient = client
 
+                AuthManager.setApiClient(client)
+                AuthManager.init()
+
                 ConnectivityMonitor.init(context)
                 _connectivityMonitor = ConnectivityMonitor
                 _offlineQueue = OfflineQueue
@@ -110,9 +113,6 @@ object DI {
 
                 KeyManager.init(client)
                 SessionManager.init()
-
-                AuthManager.setApiClient(client)
-                AuthManager.init()
 
                 WebSocketManager.init()
                 _webSocketManager = WebSocketManager

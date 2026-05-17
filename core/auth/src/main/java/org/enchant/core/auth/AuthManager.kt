@@ -63,10 +63,21 @@ object AuthManager {
     }
 
     suspend fun requestOtp(identifier: String): Result<Unit> {
-        val repo = repository ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
+        val repo = repository
+        if (repo == null) {
+            _currentState.value = RegistrationState.Error(
+                message = "App not initialized. Try restarting.",
+                retryAfter = null
+            )
+            return Result.failure(IllegalStateException("AuthManager not initialized"))
+        }
         val now = System.currentTimeMillis()
         if (now - lastOtpRequestMs < otpCooldownMs) {
             val remaining = (otpCooldownMs - (now - lastOtpRequestMs)) / 1000
+            _currentState.value = RegistrationState.Error(
+                message = "Please wait ${remaining}s before requesting",
+                retryAfter = remaining
+            )
             return Result.failure(IllegalStateException("Please wait ${remaining}s before requesting"))
         }
         lastOtpRequestMs = now
