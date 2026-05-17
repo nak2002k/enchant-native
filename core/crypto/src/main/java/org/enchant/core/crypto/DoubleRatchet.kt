@@ -15,6 +15,7 @@ data class RatchetState(
     val receivingMessageNumber: Int = 0,
     val previousSendingChainLength: Int = 0,
     val skippedMessageKeys: MutableMap<String, MessageKey> = mutableMapOf(),
+    val consumedKeys: MutableSet<String> = mutableSetOf(),
     val version: Int = 1
 ) {
     fun zero() {
@@ -143,23 +144,13 @@ object DoubleRatchet {
         return Pair(s, RatchetMessage(header = header, ciphertext = ciphertext))
     }
 
-    private val consumedKeys = object : LinkedHashSet<String>() {
-        override fun add(element: String): Boolean {
-            if (size >= MAX_SKIPPED_KEYS) {
-                val oldest = iterator().next()
-                remove(oldest)
-            }
-            return super.add(element)
-        }
-    }
-
     fun decrypt(state: RatchetState, message: RatchetMessage, ad: ByteArray? = null): Pair<RatchetState, ByteArray> {
         var s = state
         val adBytes = ad ?: ByteArray(0)
         val header = parseHeader(message.header) ?: return Pair(s, ByteArray(0))
 
         val skipKey = makeKeyId(header.dhPublicKey, header.messageNumberSend)
-        if (consumedKeys.contains(skipKey)) {
+        if (s.consumedKeys.contains(skipKey)) {
             return Pair(s, ByteArray(0))
         }
 
@@ -203,7 +194,7 @@ object DoubleRatchet {
             } catch (_: Exception) {
                 return Pair(s, ByteArray(0))
             }
-            consumedKeys.add(skipKey)
+            s = s.copy(consumedKeys = s.consumedKeys.toMutableSet().apply { add(skipKey) })
             return Pair(s, plaintext)
         }
 
@@ -242,8 +233,8 @@ object DoubleRatchet {
             return Pair(s, ByteArray(0))
         }
 
-        consumedKeys.add(skipKey)
         s = s.copy(
+            consumedKeys = s.consumedKeys.toMutableSet().apply { add(skipKey) },
             receivingChainKey = nextChainKey,
             receivingMessageNumber = msgNum + 1,
             skippedMessageKeys = skipMap
@@ -258,7 +249,7 @@ object DoubleRatchet {
     }
 
     fun serializeState(state: RatchetState): ByteArray {
-        val buf = ByteBuffer.allocate(2048).order(ByteOrder.BIG_ENDIAN)
+        val buf = ByteBuffer.allocate(131072).order(ByteOrder.BIG_ENDIAN) // 128KB for skipped keys
         buf.putInt(state.version)
         buf.putInt(state.rootKey.size)
         buf.put(state.rootKey)
@@ -285,10 +276,26 @@ object DoubleRatchet {
         buf.putInt(state.receivingMessageNumber)
         buf.putInt(state.previousSendingChainLength)
 
+        buf.putInt(state.skippedMessageKeys.size)
+        state.skippedMessageKeys.forEach { (keyId, msgKey) ->
+            val keyIdBytes = keyId.encodeToByteArray()
+            buf.putInt(keyIdBytes.size); buf.put(keyIdBytes)
+            buf.putInt(msgKey.key.size); buf.put(msgKey.key)
+            buf.putInt(msgKey.nonce.size); buf.put(msgKey.nonce)
+            buf.putInt(msgKey.chainKey.size); buf.put(msgKey.chainKey)
+            buf.putLong(msgKey.timestamp)
+        }
+
+        buf.putInt(state.consumedKeys.size)
+        state.consumedKeys.forEach { keyId ->
+            val keyIdBytes = keyId.encodeToByteArray()
+            buf.putInt(keyIdBytes.size); buf.put(keyIdBytes)
+        }
+
         val pos = buf.position()
-        buf.position(0)
         val result = ByteArray(pos)
-        buf.get(result)
+        buf.flip()
+        buf.get(result, 0, pos)
         return result
     }
 
@@ -313,6 +320,23 @@ object DoubleRatchet {
             val receivingMsgNum = buf.getInt()
             val pcl = buf.getInt()
 
+            val skippedCount = buf.getInt()
+            val skippedKeys = mutableMapOf<String, MessageKey>()
+            repeat(skippedCount) {
+                val keyId = ByteArray(buf.getInt()).also { buf.get(it) }.decodeToString()
+                val key = ByteArray(buf.getInt()).also { buf.get(it) }
+                val nonce = ByteArray(buf.getInt()).also { buf.get(it) }
+                val chainKey = ByteArray(buf.getInt()).also { buf.get(it) }
+                val timestamp = buf.getLong()
+                skippedKeys[keyId] = MessageKey(key, nonce, chainKey, timestamp)
+            }
+
+            val consumedCount = buf.getInt()
+            val consumed = mutableSetOf<String>()
+            repeat(consumedCount) {
+                ByteArray(buf.getInt()).also { buf.get(it) }.decodeToString().let { consumed.add(it) }
+            }
+
             RatchetState(
                 version = version,
                 rootKey = rootKey,
@@ -323,7 +347,9 @@ object DoubleRatchet {
                 receivingChainKey = receivingChainKey,
                 receivingRatchetKeyPublic = receivingRatchetPublic,
                 receivingMessageNumber = receivingMsgNum,
-                previousSendingChainLength = pcl
+                previousSendingChainLength = pcl,
+                skippedMessageKeys = skippedKeys,
+                consumedKeys = consumed
             )
         } catch (_: Exception) {
             null

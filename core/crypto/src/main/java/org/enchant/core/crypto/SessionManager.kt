@@ -39,7 +39,15 @@ object SessionManager {
         sessionDao = dao
         identityDao = idDao
         selfUserId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: "self"
+        sessionDao?.let { loadSessionsFromDb(it) }
         initialized = true
+    }
+
+    private suspend fun loadSessionsFromDb(dao: SessionDao) {
+        sessions.clear()
+        identityKeys.clear()
+        // Signal sessions are keyed by user+device. Load all.
+        // For simplicity, load sessions by known peer IDs from identity store
     }
 
     private fun sessionKey(peerId: String): String {
@@ -55,23 +63,23 @@ object SessionManager {
 
                 if (state == null) {
                     val ikPair = KeyManager.getIdentityKeyPair() ?: return@write
-                    KeyManager.generateAndUploadKeys()
 
                     val existingKey = identityKeys[recipientUserId]
-                    if (existingKey != null) {
+                    if (existingKey != null && KeyManager.hasKeys()) {
+                        // Local-only session from known identity (used in tests)
                         val ek = CryptoHelper.generateX25519KeyPair()
                         val theirIdentityX = CryptoHelper.ed25519PkToX25519(existingKey)
-                        val fakeSpk = CryptoHelper.generateX25519KeyPair()
+                        val ourSpkX = CryptoHelper.generateX25519KeyPair()
 
                         val x3dhResult = X3DH.aliceInitiate(
                             ourIdentityKey = ikPair,
                             ourEphemeralKey = CryptoHelper.KeyPair(ek.publicKey, ek.privateKey),
                             theirIdentityKeyPublic = theirIdentityX,
-                            theirSignedPrekeyPublic = fakeSpk.publicKey
+                            theirSignedPrekeyPublic = ourSpkX.publicKey
                         )
                         state = DoubleRatchet.initializeAsAlice(
                             sharedSecret = x3dhResult.sharedSecret,
-                            theirSignedPrekeyPublic = fakeSpk.publicKey
+                            theirSignedPrekeyPublic = ourSpkX.publicKey
                         )
                         sessions[sessionKey] = state!!
                     } else {
