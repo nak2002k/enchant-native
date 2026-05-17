@@ -1,15 +1,22 @@
 package org.enchant.auth.screens
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.auth.api.phone.SmsRetriever
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.regex.Pattern
 
 @Composable
 fun OtpVerifyScreen(
@@ -21,9 +28,38 @@ fun OtpVerifyScreen(
     errorMessage: String? = null,
     remainingAttempts: Int? = null
 ) {
+    val context = LocalContext.current
     var code by remember { mutableStateOf("") }
     var countdown by remember { mutableStateOf(30) }
     val scope = rememberCoroutineScope()
+
+    DisposableEffect(Unit) {
+        val smsReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                if (SmsRetriever.SMS_RETRIEVED_ACTION == intent.action) {
+                    val extras = intent.extras
+                    val status = extras?.get(SmsRetriever.EXTRA_STATUS) as? com.google.android.gms.common.api.Status
+                    if (status?.isSuccess == true) {
+                        val message = extras.getString(SmsRetriever.EXTRA_SMS_MESSAGE) ?: return
+                        val matcher = Pattern.compile("\\b(\\d{6})\\b").matcher(message)
+                        if (matcher.find()) {
+                            val otp = matcher.group(1)
+                            if (code.length < 6) {
+                                code = otp
+                                onCodeSubmitted(otp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val client = SmsRetriever.getClient(context)
+        client.startSmsRetriever()
+        context.registerReceiver(smsReceiver, IntentFilter(SmsRetriever.SMS_RETRIEVED_ACTION))
+        onDispose {
+            context.unregisterReceiver(smsReceiver)
+        }
+    }
 
     LaunchedEffect(Unit) {
         while (countdown > 0) {

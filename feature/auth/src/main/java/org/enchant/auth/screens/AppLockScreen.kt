@@ -1,17 +1,20 @@
 package org.enchant.auth.screens
 
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
 import java.security.MessageDigest
 
-private const val TAG = "AppLockScreen"
 private const val PIN_LENGTH = 6
 
 private enum class AppLockStep { Create, Confirm, Verify }
@@ -21,22 +24,19 @@ fun AppLockScreen(
     onVerified: () -> Unit = {},
     onDismiss: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val alreadyEnabled = SecurePreferences.getBoolean("applock.enabled", false)
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
     var step by remember { mutableStateOf(if (alreadyEnabled) AppLockStep.Verify else AppLockStep.Create) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    val isBiometricAvailable = remember {
-        val ctx = AppConfig.applicationContext
-        if (ctx != null) {
-            try {
-                val km = ctx.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
-                km?.isDeviceSecure == true
-            } catch (e: Exception) {
-                false
-            }
-        } else false
+    val biometricManager = remember {
+        BiometricManager.from(context)
+    }
+
+    val canAuthenticateWithBiometric = remember {
+        biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     fun sha256(input: String): String =
@@ -45,6 +45,31 @@ fun AppLockScreen(
     fun verifyPin(pin: String): Boolean {
         val hash = SecurePreferences.getString("applock.pin_hash") ?: return false
         return hash == sha256(pin)
+    }
+
+    fun authenticateWithBiometric() {
+        if (context !is FragmentActivity) return
+        val executor = ContextCompat.getMainExecutor(context)
+        val callback = object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                SecurePreferences.putBoolean("applock.biometric", true)
+                SecurePreferences.putBoolean("applock.enabled", true)
+                onVerified()
+            }
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                error = errString.toString()
+            }
+            override fun onAuthenticationFailed() {
+                error = "Biometric not recognized"
+            }
+        }
+        val prompt = BiometricPrompt(context as FragmentActivity, executor, callback)
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Unlock Enchant")
+            .setSubtitle("Verify your identity")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .build()
+        prompt.authenticate(promptInfo)
     }
 
     fun handleDigit(digit: String) {
@@ -106,7 +131,10 @@ fun AppLockScreen(
             Text("App Lock", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                if (step == AppLockStep.Verify) "Enter your PIN" else "Secure your chats with a PIN",
+                when (step) {
+                    AppLockStep.Verify -> "Enter your PIN or use biometric"
+                    else -> "Secure your chats with a PIN"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -159,21 +187,20 @@ fun AppLockScreen(
                 }
             }
 
-            if (isBiometricAvailable) {
+            if (canAuthenticateWithBiometric && step == AppLockStep.Verify) {
                 Spacer(modifier = Modifier.height(24.dp))
-                OutlinedButton(onClick = {
-                    try {
-                        val ctx = AppConfig.applicationContext
-                        if (ctx != null) {
-                            val km = ctx.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
-                            if (km?.isDeviceSecure == true) {
-                                SecurePreferences.putBoolean("applock.biometric", true)
-                            }
-                        }
-                    } catch (e: Exception) {
-                    }
-                }) {
+                OutlinedButton(onClick = { authenticateWithBiometric() }) {
                     Text("Use biometric")
+                }
+            }
+
+            if (step == AppLockStep.Verify && alreadyEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = {
+                    pin = ""
+                    step = AppLockStep.Create
+                }) {
+                    Text("Change PIN")
                 }
             }
         }

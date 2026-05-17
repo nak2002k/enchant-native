@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.play.services.auth.api.phone)
+    implementation(libs.biometric)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:crypto"))

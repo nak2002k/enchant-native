@@ -24,6 +24,7 @@ security-crypto = "1.1.0-alpha06"
 play-services-auth = "18.1.0"
 bouncycastle = "1.78.1"
 core-ktx = "1.15.0"
+biometric = "1.1.0"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -83,6 +84,7 @@ robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectr
 # Google Play Services
 play-services-auth-api-phone = { module = "com.google.android.gms:play-services-auth-api-phone", version.ref = "play-services-auth" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

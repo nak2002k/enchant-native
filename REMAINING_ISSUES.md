@@ -227,5 +227,11 @@ The audit flagged `restoreBackup()` as missing. Verify and implement if so.
 | P0-6 | FLAG_SECURE lifecycle | ✅ Fixed 2026-05-17 | |
 | P0-7 | handleCallIntent empty | ✅ Fixed 2026-05-17 | |
 | P1-3 | Wire screens to ViewModels (10 screens) | ✅ Fixed 2026-05-17 | |
-| P1-8 | Add FTS5 migration for message search | PENDING | |
-| P1-7 | Fix database search Flows to be reactive | PENDING | | |
+| P1-8 | Add FTS5 migration for message search | ✅ Fixed 2026-05-17 | |
+| P1-7 | Fix database search Flows to be reactive | ✅ Fixed 2026-05-17 | |
+| P1-1/2 | NavHost sealed route class with `route` property | ✅ Fixed 2026-05-17 | |
+| P2-6 | Biometric integration in AppLockScreen | ✅ Fixed 2026-05-17 | |
+| P2-5 | SMS auto-fill for OTP | ✅ Fixed 2026-05-17 | |
+| P1-5 | GroupEditor all 17 functions | ✅ Verified 2026-05-17 | |
+| P1-9 | BackupViewModel.restoreBackup() | ✅ Verified existing 2026-05-17 | |
+| P1-4 | Certificate pinning config | ✅ Verified clean 2026-05-17 | | |
