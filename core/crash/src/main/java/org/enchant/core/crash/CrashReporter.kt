@@ -13,7 +13,7 @@ object CrashReporter {
     }
 
     fun log(message: String) {
-        val scrubbed = scrubSensitive(message)
+        val scrubbed = scrub(message)
         Log.d(TAG, scrubbed)
         try {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().log(scrubbed)
@@ -21,19 +21,19 @@ object CrashReporter {
     }
 
     fun logEvent(name: String, data: Map<String, String>? = null) {
-        val scrubbedName = scrubSensitive(name)
+        val scrubbedName = scrub(name)
         Log.d(TAG, "event: $scrubbedName")
         try {
             val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
             data?.forEach { (key, value) ->
-                instance.setCustomKey(scrubSensitive(key), scrubSensitive(value))
+                instance.setCustomKey(scrub(key), scrub(value))
             }
             instance.log("event: $scrubbedName")
         } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
     fun logError(message: String, throwable: Throwable? = null) {
-        val scrubbed = scrubSensitive(message)
+        val scrubbed = scrub(message)
         Log.e(TAG, scrubbed, throwable)
         try {
             val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
@@ -67,16 +67,16 @@ object CrashReporter {
     }
 
     fun setCustomKey(key: String, value: String) {
-        val scrubbed = scrubSensitive(value)
+        val scrubbed = scrub(value)
         Log.d(TAG, "meta: $key=$scrubbed")
         try {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCustomKey(
-                scrubSensitive(key), scrubbed
+                scrub(key), scrubbed
             )
         } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
-    private fun scrubSensitive(input: String): String {
+    fun scrub(input: String): String {
         return input
             .replace(Regex("[A-Za-z0-9+/]{40,}={0,3}"), "[REDACTED_KEY]")
             .replace(Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"), "[REDACTED_UUID]")
