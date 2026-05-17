@@ -81,17 +81,6 @@ object DI {
                 SecurePreferences.init(context)
                 _securePreferences = SecurePreferences
 
-                val dbPassphrase = KeyStoreManager.getOrCreateDatabaseKey()
-                val pool = DatabasePool(context, dbPassphrase, emptyList())
-                _databasePool = pool
-                DatabasePool.instance = pool
-
-                _messageDao = MessageDao(pool)
-                _conversationDao = ConversationDao(pool)
-                _sessionDao = SessionDao(pool)
-                _identityDao = IdentityDao(pool)
-                _recipientDao = RecipientDao(pool)
-
                 val client = ApiClient()
                 client.init()
                 ApiClient.setInstance(client)
@@ -100,16 +89,39 @@ object DI {
                 AuthManager.setApiClient(client)
                 AuthManager.init()
 
+                val dbPassphrase = try {
+                    KeyStoreManager.getOrCreateDatabaseKey()
+                } catch (e: Exception) {
+                    android.util.Log.w("DI", "DB key init failed: ${e.message}")
+                    ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+                }
+                val pool = try {
+                    DatabasePool(context, dbPassphrase, emptyList()).also {
+                        _databasePool = it
+                        DatabasePool.instance = it
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("DI", "DatabasePool init failed: ${e.message}")
+                    null
+                }
+                if (pool != null) {
+                    _messageDao = MessageDao(pool)
+                    _conversationDao = ConversationDao(pool)
+                    _sessionDao = SessionDao(pool)
+                    _identityDao = IdentityDao(pool)
+                    _recipientDao = RecipientDao(pool)
+
+                    _conversationRepository = ConversationRepository(
+                        messageDao = _messageDao!!,
+                        conversationDao = _conversationDao!!,
+                        recipientDao = _recipientDao!!,
+                        pool = pool
+                    )
+                }
+
                 ConnectivityMonitor.init(context)
                 _connectivityMonitor = ConnectivityMonitor
                 _offlineQueue = OfflineQueue
-
-                _conversationRepository = ConversationRepository(
-                    messageDao = _messageDao!!,
-                    conversationDao = _conversationDao!!,
-                    recipientDao = _recipientDao!!,
-                    pool = pool
-                )
 
                 KeyManager.init(client)
                 SessionManager.init()
@@ -120,16 +132,18 @@ object DI {
                 CallManager.init()
                 CallManager.setApiClient(client)
 
-                MessageSendPipeline.init(_apiClient!!, _conversationRepository!!)
-                IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client, _conversationDao!!, _messageDao!!)
-                MediaService.init(_apiClient!!)
-                ContentPreProcessor.init(_apiClient!!)
+                if (_conversationRepository != null) {
+                    MessageSendPipeline.init(_apiClient!!, _conversationRepository!!)
+                    IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client, _conversationDao!!, _messageDao!!)
+                    MediaService.init(_apiClient!!)
+                    ContentPreProcessor.init(_apiClient!!)
 
-                val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-                workerScope.launch {
-                    while (true) {
-                        delay(60_000L)
-                        DisappearingMessagesWorker.tick()
+                    val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+                    workerScope.launch {
+                        while (true) {
+                            delay(60_000L)
+                            DisappearingMessagesWorker.tick()
+                        }
                     }
                 }
 
