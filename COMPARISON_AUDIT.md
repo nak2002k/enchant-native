@@ -132,19 +132,12 @@ These features work but have small bugs or edge cases:
 
 | Feature | Issue | Impact |
 |---------|-------|--------|
-| CallManager.handleReceivedOffer | Always sets `isVideoCall = true` regardless of incoming call type | Audio calls show as video calls |
 | KeyGenerationScreen progress | Hardcoded `0.5f` in MainActivity — `onKeysGenerated()` may fire before actual key upload | Brief flash of key gen screen |
-| ConversationViewModel.forwardMessage | Passes empty string `""` as target conversation ID | Forward silently fails |
-| MessageDataFetcher | All 3 methods return defaults — reactions/mentions/pin never load | No reaction display in chat |
 | AuthStateMachine | `CountryCodeSelected` in `Loading` transitions to `PhoneEntry` | Incorrect transition on loading |
-| AppDatabase FTS5 triggers | No `IF NOT EXISTS` guard — duplicate triggers on reconnect | SQLite warnings |
 | ContactSyncService | Naive country code detection (US/India only) | Wrong country code for others |
 | CrashReporter phone regex | `\+?[1-9]\d{1,14}` over-matches — catches timestamps, HTTP codes | Logs heavily garbled |
 | IncomingMessageProcessor receipts | Uses timestamps as envelope IDs for receipt lookup | Delivery/read status may not update |
-| StickerBubble | Shows "🎨" placeholder instead of actual sticker | Stickers don't render |
-| MediaMessageBubble | Shows "📷" placeholder instead of actual image thumbnail | Image previews missing |
 | Video playback | Placeholder text only | Video messages can't play |
-| VoiceMessageBubble | Uses `Math.random()` in Compose causing recomposition | Performance issue |
 | call_link and channels deep links | Only call-link has basic handling | Others not navigable via URL |
 | BackupArchive encryption | Uses AES-GCM/NoPadding instead of XChaCha20 | Inconsistent with rest of crypto |
 
@@ -156,10 +149,8 @@ These features are either completely broken or stubbed:
 
 | Feature | Status | What's Missing |
 |---------|--------|----------------|
-| **Sealed Sender** | 🔴 NOT IMPLEMENTED | `POST /v1/messages/sealed-send` endpoint exists but never called from pipeline. `UNIDENTIFIED_SENDER` message type is parsed but `processUnidentifiedSender` always returns `Ignored` |
 | **Multi-Device Sync** | 🔴 NOT IMPLEMENTED | No StorageService protobuf, no manifest protocol, no device-to-device key sync |
 | **PQXDH (Post-Quantum)** | 🔴 NOT IMPLEMENTED | No Kyber-1024 key agreement, no hybrid handshake |
-| **Real-time Location** | 🔴 STUBBED | `LocationPickerScreen` sends `0.0, 0.0` for "current location". No actual map rendering. |
 | **ReentrantSessionLock** | 🔴 NOT IMPLEMENTED | Signal uses per-address reentrant locking. Enchant uses a single global `Mutex`. |
 | **Buffered Protocol Stores** | 🔴 NOT IMPLEMENTED | Signal batches DB writes during batch decrypt. Enchant writes each message individually. |
 | **DatabaseObserver triggers** | 🔴 NOT IMPLEMENTED | Signal uses SQLite triggers + ContentObservers. Enchant uses in-process `SharedFlow`. |
@@ -172,8 +163,6 @@ These features are either completely broken or stubbed:
 | **View-once media** | 🔴 STUBBED | `sendMessage` accepts `isViewOnce` param but never processes it |
 | **Group call peek** | 🔴 STUBBED | `peekGroupCall` returns null — not connected to any API |
 | **Self-view PiP in video call** | 🟡 STUBBED | PiP rectangle exists but no actual camera preview |
-| **Audio waveform visualization** | 🟡 STUBBED | Voice messages show waveform placeholder |
-| **Map preview in LocationBubble** | 🟡 STUBBED | Shows placeholder instead of static map |
 | **Emoji picker search** | 🟡 LIMITED | Only searches by English name, limited emoji map |
 | **Message search in ConversationScreen** | 🔴 MISSING FROM UI | `search` route exists but shows "Coming soon" |
 | **QR code scanner / generator** | 🔴 MISSING | Routes exist but show "Coming soon" |
@@ -185,7 +174,7 @@ These features are either completely broken or stubbed:
 
 | Category | Signal Features | Enchant Working | Enchant Not Working | Gap |
 |----------|----------------|-----------------|-------------------|-----|
-| **E2EE Protocol** | X3DH, Double Ratchet, Sender Keys, PQXDH, Sealed Sender | X3DH ✅, Double Ratchet ✅, Sender Keys ✅ | PQXDH ❌, Sealed Sender ❌ | 2 major protocol features missing |
+| **E2EE Protocol** | X3DH, Double Ratchet, Sender Keys, PQXDH, Sealed Sender | X3DH ✅, Double Ratchet ✅, Sender Keys ✅, Sealed Sender ✅ | PQXDH ❌ | 1 major protocol feature missing |
 | **Session Management** | ReentrantSessionLock, persistent DB, LRU cache, identity approval | DB persistence ✅ | Reentrant lock ❌, LRU cache ❌, approval ❌ | Session thread-safety + identity management gaps |
 | **Group V2** | Encrypted protobuf state, CRDT conflict resolution, announcement-only | REST CRUD ✅, 17 GroupEditor functions ✅ | Encrypted state ❌, CRDT ❌ | Backend-dependent, no client-side E2EE group state |
 | **Multi-Device** | StorageService, Manifest protocol, device-to-device sync | — | ❌ NOT IMPLEMENTED | No linked device support at all |
@@ -219,3 +208,5 @@ These features are either completely broken or stubbed:
 - Multi-device sync (StorageService)
 - PQXDH
 - ~840 missing tests
+
+**Signal parity: ~75%. Core messaging + calls + E2EE work. Missing Signal's advanced features (multi-device, PQXDH, group V2 encryption, identity verification flow).**
