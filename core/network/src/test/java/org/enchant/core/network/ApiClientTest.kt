@@ -196,13 +196,13 @@ class ApiClientTest {
 
     @Nested @DisplayName("URL Building")
     inner class UrlBuildingTest {
-        @Test @DisplayName("query params with special characters are NOT URL-encoded (BUG)")
-        fun `query params not encoded`() = runTest {
+        @Test @DisplayName("query params with special characters are URL-encoded")
+        fun `query params encoded`() = runTest {
             server.enqueue(MockResponse().setBody("""{"ok": true}"""))
             val result = client.get("/search", mapOf("q" to "hello world"))
             assertTrue(result.isSuccess)
             val request = server.takeRequest()
-            assertTrue(request.path?.contains("hello world") == true)
+            assertTrue(request.path?.contains("hello+world") == true || request.path?.contains("hello%20world") == true)
         }
 
         @Test @DisplayName("path is appended to gateway URL")

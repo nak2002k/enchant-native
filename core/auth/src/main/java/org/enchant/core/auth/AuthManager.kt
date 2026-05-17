@@ -62,6 +62,14 @@ object AuthManager {
         initialized = true
     }
 
+    fun resetForTesting() {
+        initialized = false
+        repository = null
+        apiClient = null
+        _currentState.value = RegistrationState.Welcome
+        _authState.value = AuthState.Unknown
+    }
+
     suspend fun requestOtp(identifier: String): Result<Unit> {
         val repo = repository
         if (repo == null) {

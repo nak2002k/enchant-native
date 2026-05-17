@@ -29,6 +29,7 @@ class AuthManagerTest {
     @BeforeEach
     fun setUp() {
         mockkObject(SecurePreferences)
+        AuthManager.resetForTesting()
         every { SecurePreferences.getString(any(), any()) } returns null
         every { SecurePreferences.getString(any()) } returns null
         every { SecurePreferences.putString(any(), any()) } returns Unit

@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -322,7 +323,7 @@ object MessageSendPipeline {
 
         if (isTyping) {
             typingJob?.cancel()
-            typingJob = scope.launch {
+            typingJob = scope?.launch {
                 delay(5000)
                 sendTypingIndicator(recipientUserId, false)
             }
