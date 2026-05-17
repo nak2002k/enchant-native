@@ -10,18 +10,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.enchant.core.base.SecurePreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecuritySettingsScreen(
-    appLockEnabled: Boolean,
-    biometricAvailable: Boolean,
-    safetyNumber: String,
-    twoStepEnabled: Boolean,
-    onToggleAppLock: (Boolean) -> Unit,
     onSetupTwoStep: () -> Unit,
     onBack: () -> Unit
 ) {
+    var appLockEnabled by remember { mutableStateOf(SecurePreferences.getBoolean("applock.enabled", false)) }
+    val biometricAvailable = SecurePreferences.getBoolean("applock.biometric", false)
+    val safetyNumber = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED"
+    val twoStepEnabled = SecurePreferences.getBoolean("twostep.enabled", false)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -61,7 +62,14 @@ fun SecuritySettingsScreen(
                         }
                         Switch(
                             checked = appLockEnabled,
-                            onCheckedChange = onToggleAppLock
+                            onCheckedChange = { enabled ->
+                                appLockEnabled = enabled
+                                SecurePreferences.putBoolean("applock.enabled", enabled)
+                                if (!enabled) {
+                                    SecurePreferences.remove("applock.pin_hash")
+                                    SecurePreferences.remove("applock.biometric")
+                                }
+                            }
                         )
                     }
                 }

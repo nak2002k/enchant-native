@@ -24,6 +24,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.enchant.auth.AuthViewModel
 import org.enchant.auth.screens.AppLockScreen
 import org.enchant.auth.screens.KeyGenerationScreen
@@ -36,18 +39,47 @@ import org.enchant.auth.screens.TwoStepPinScreen
 import org.enchant.auth.screens.UsernamePickerScreen
 import org.enchant.auth.screens.WelcomeScreen
 import org.enchant.calls.CallViewModel
+import org.enchant.core.calls.CallLogFilter
+import org.enchant.calls.SafetyNumberDialog
 import org.enchant.calls.screens.ActiveVideoCallScreen
 import org.enchant.calls.screens.ActiveVoiceCallScreen
+import org.enchant.calls.screens.GroupCallScreen
 import org.enchant.calls.screens.IncomingCallScreen
 import org.enchant.calls.screens.OutgoingCallScreen
+
 import org.enchant.chat.ConversationScreen
 import org.enchant.chatlist.ConversationListScreen
 import org.enchant.chatlist.ConversationListViewModel
+import org.enchant.contacts.screens.ContactListScreen
 import org.enchant.core.calls.CallManager
 import org.enchant.core.calls.CallStatusEnum
 import org.enchant.core.auth.AuthManager
 import org.enchant.core.auth.AuthState
 import org.enchant.core.auth.RegistrationState
+import org.enchant.core.crypto.SessionManager
+import org.enchant.groups.screens.CreateGroupScreen
+import org.enchant.groups.screens.GroupListScreen
+import org.enchant.settings.screens.SettingsHomeScreen
+import org.enchant.settings.screens.AccountSettingsScreen
+import org.enchant.settings.screens.AppearanceSettingsScreen
+import org.enchant.settings.screens.BackupSettingsScreen
+import org.enchant.settings.screens.BlockedUsersScreen
+import org.enchant.settings.screens.ChatsSettingsScreen
+import org.enchant.settings.screens.NotificationsSettingsScreen
+import org.enchant.settings.screens.PrivacySettingsScreen
+import org.enchant.settings.screens.SecuritySettingsScreen
+import org.enchant.settings.screens.StorageSettingsScreen
+import org.enchant.settings.screens.AboutScreen
+import org.enchant.settings.SettingsViewModel
+import org.enchant.calls.screens.CallLogScreen
+import org.enchant.channels.screens.ChannelFeedScreen
+import org.enchant.location.LocationPickerScreen
+import org.enchant.polls.screens.PollCreateSheet
+import org.enchant.groups.screens.GroupInfoScreen
+import org.enchant.status.screens.StatusCreateScreen
+import org.enchant.status.screens.StatusFeedScreen
+import org.enchant.status.screens.StatusViewerScreen
+import org.enchant.stickers.screens.StickerStoreScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -120,6 +152,20 @@ fun AppNavigation() {
         }
     }
 
+    LaunchedEffect(Unit) {
+        val activity = context as? android.app.Activity ?: return@LaunchedEffect
+        val data = activity.intent?.data ?: return@LaunchedEffect
+        when (data.host) {
+            "chat" -> data.pathSegments.firstOrNull()?.let {
+                navController.navigate("conversation/$it")
+            }
+            "group" -> data.pathSegments.firstOrNull()?.let {
+                navController.navigate("group_info/$it")
+            }
+            "call-link" -> { /* call-link deep links handled separately */ }
+        }
+    }
+
     val startDest = when (authState) {
         is AuthState.Authenticated -> "chat_list"
         else -> "splash"
@@ -133,6 +179,11 @@ fun AppNavigation() {
             LaunchedEffect(authState) {
                 when (authState) {
                     is AuthState.Authenticated -> {
+                        context.startService(
+                            Intent(context, org.enchant.core.network.WebSocketService::class.java).apply {
+                                action = org.enchant.core.network.WebSocketService.ACTION_CONNECT
+                            }
+                        )
                         navController.navigate("chat_list") {
                             popUpTo("splash") { inclusive = true }
                         }
@@ -209,9 +260,7 @@ fun AppNavigation() {
         composable("profile_setup") {
             ProfileSetupScreen(
                 onProfileDataEntered = { displayName, about, _ ->
-                    kotlinx.coroutines.MainScope().launch {
-                        AuthManager.updateProfile("user_${System.currentTimeMillis()}", displayName, about)
-                    }
+                    authViewModel.updateProfile("user_${System.currentTimeMillis()}", displayName, about)
                     navController.navigate("username_picker")
                 }
             )
@@ -233,6 +282,11 @@ fun AppNavigation() {
             val state by authViewModel.registrationState.collectAsState()
             KeyGenerationScreen(
                 onKeysGenerated = {
+                    context.startService(
+                        Intent(context, org.enchant.core.network.WebSocketService::class.java).apply {
+                            action = org.enchant.core.network.WebSocketService.ACTION_CONNECT
+                        }
+                    )
                     navController.navigate("chat_list") {
                         popUpTo("welcome") { inclusive = true }
                     }
@@ -248,12 +302,47 @@ fun AppNavigation() {
         }
 
         composable("pin_creation") {
-            TwoStepPinScreen(
+            TwoStepPinScreen.Screen(
                 onPinCreated = {
                     navController.navigate("chat_list") {
                         popUpTo("welcome") { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable("contacts") {
+            ContactListScreen(
+                contacts = emptyList(),
+                searchResults = emptyList(),
+                searchQuery = "",
+                isLoading = false,
+                error = null,
+                onContactClick = { userId -> navController.navigate("conversation/$userId") },
+                onSearchQueryChange = {},
+                onAddContact = {},
+                onRefresh = {}
+            )
+        }
+
+        composable("create_group") {
+            CreateGroupScreen(
+                onGroupCreated = { groupId -> navController.popBackStack() },
+                onNavigateBack = { navController.popBackStack() },
+                onCreateGroup = { _, _, _ -> },
+                isLoading = false
+            )
+        }
+
+        composable("groups") {
+            GroupListScreen(
+                groups = emptyList(),
+                isLoading = false,
+                error = null,
+                onGroupClick = { groupId -> navController.navigate("group_info/$groupId") },
+                onCreateGroup = { navController.navigate("create_group") },
+                onJoinGroup = {},
+                onRefresh = {}
             )
         }
 
@@ -267,9 +356,208 @@ fun AppNavigation() {
 
         composable("app_lock") {
             AppLockScreen(
-                onPinSet = {},
-                onBiometricAuthenticate = {},
-                isBiometricAvailable = false
+                onVerified = { navController.popBackStack() }
+            )
+        }
+
+        composable("settings") {
+            SettingsHomeScreen(
+                onNavigateToAccount = { navController.navigate("account_settings") },
+                onNavigateToSecurity = { navController.navigate("security_settings") },
+                onNavigateToPrivacy = { navController.navigate("privacy_settings") },
+                onNavigateToNotifications = { navController.navigate("notification_settings") },
+                onNavigateToAppearance = { navController.navigate("appearance_settings") },
+                onNavigateToChats = { navController.navigate("chats_settings") },
+                onNavigateToStorage = { navController.navigate("storage_settings") },
+                onNavigateToAbout = { navController.navigate("about") }
+            )
+        }
+
+        composable("account_settings") {
+            val vm: SettingsViewModel = viewModel()
+            val state by vm.uiState.collectAsState()
+            LaunchedEffect(Unit) { vm.loadSettings() }
+            AccountSettingsScreen(
+                displayName = state.displayName,
+                username = state.username,
+                about = state.about,
+                devices = state.devices,
+                isLoading = state.isProcessing,
+                onRevokeDevice = { vm.revokeDevice(it) },
+                onDeleteAccount = { vm.deleteAccount() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("security_settings") {
+            SecuritySettingsScreen(
+                onSetupTwoStep = { navController.navigate("pin_creation") },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("privacy_settings") {
+            val vm: SettingsViewModel = viewModel()
+            val state by vm.uiState.collectAsState()
+            LaunchedEffect(Unit) { vm.loadSettings() }
+            PrivacySettingsScreen(
+                lastSeenVisibility = state.lastSeenVisibility,
+                onlineVisibility = state.onlineVisibility,
+                avatarVisibility = state.avatarVisibility,
+                aboutVisibility = state.aboutVisibility,
+                blockedUsers = state.blockedUsers,
+                readReceipts = state.readReceipts,
+                onLastSeenChange = { vm.updatePrivacy(it, state.onlineVisibility, state.avatarVisibility, state.aboutVisibility, state.readReceipts) },
+                onOnlineVisibilityChange = { vm.updatePrivacy(state.lastSeenVisibility, it, state.avatarVisibility, state.aboutVisibility, state.readReceipts) },
+                onAvatarVisibilityChange = { vm.updatePrivacy(state.lastSeenVisibility, state.onlineVisibility, it, state.aboutVisibility, state.readReceipts) },
+                onAboutVisibilityChange = { vm.updatePrivacy(state.lastSeenVisibility, state.onlineVisibility, state.avatarVisibility, it, state.readReceipts) },
+                onReadReceiptsChange = { vm.updatePrivacy(state.lastSeenVisibility, state.onlineVisibility, state.avatarVisibility, state.aboutVisibility, it) },
+                onViewBlockedUsers = { navController.navigate("blocked_users") },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("notification_settings") {
+            val vm: SettingsViewModel = viewModel()
+            val state by vm.uiState.collectAsState()
+            LaunchedEffect(Unit) { vm.loadSettings() }
+            NotificationsSettingsScreen(
+                masterEnabled = state.notificationEnabled,
+                messageNotifications = state.messageNotifications,
+                showPreview = state.showPreview,
+                dndStartTime = "",
+                dndEndTime = "",
+                dndDaysOfWeek = emptyList(),
+                onMasterToggle = { vm.updateNotificationPrefs(it, state.messageNotifications, state.showPreview) },
+                onMessageNotificationsChange = { vm.updateNotificationPrefs(state.notificationEnabled, it, state.showPreview) },
+                onShowPreviewChange = { vm.updateNotificationPrefs(state.notificationEnabled, state.messageNotifications, it) },
+                onDndStartTimeChange = {},
+                onDndEndTimeChange = {},
+                onDndDaysChange = {},
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("appearance_settings") {
+            val vm: SettingsViewModel = viewModel()
+            val state by vm.uiState.collectAsState()
+            LaunchedEffect(Unit) { vm.loadSettings() }
+            AppearanceSettingsScreen(
+                currentTheme = state.theme,
+                fontSize = state.fontSize,
+                onThemeChange = { vm.updateTheme(it) },
+                onFontSizeChange = { vm.updateFontSize(it) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("chats_settings") {
+            ChatsSettingsScreen(
+                defaultDisappearingTimer = 0,
+                autoDownloadWifi = true,
+                autoDownloadCellular = false,
+                onDisappearingTimerChange = {},
+                onAutoDownloadWifiChange = {},
+                onAutoDownloadCellularChange = {},
+                onBackupSettings = { navController.navigate("backup_settings") },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("storage_settings") {
+            StorageSettingsScreen(
+                storageInfo = null,
+                isProcessing = false,
+                onClearCache = {},
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("about") {
+            AboutScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable("backup_settings") {
+            BackupSettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable("blocked_users") {
+            BlockedUsersScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable("status_feed") {
+            StatusFeedScreen(
+                myStatus = null,
+                feed = emptyMap(),
+                onStatusTap = { },
+                onCreateStatus = { navController.navigate("status_create") }
+            )
+        }
+
+        composable("status_create") {
+            StatusCreateScreen(
+                onCreateText = { _, _, _ -> navController.popBackStack() },
+                onCreateMedia = { _, _ -> navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("status_viewer/{statusId}") { backStackEntry ->
+            val statusId = backStackEntry.arguments?.getString("statusId") ?: ""
+            StatusViewerScreen(
+                statuses = emptyList(),
+                initialIndex = 0,
+                onReply = { },
+                onClose = { navController.popBackStack() },
+                onViewInfo = { }
+            )
+        }
+
+        composable("channels_feed") {
+            ChannelFeedScreen(
+                channelId = "",
+                channelName = "Channels",
+                isSubscribed = false,
+                posts = emptyList(),
+                pinnedPost = null,
+                onSubscribe = { },
+                onShare = { },
+                onLoadMore = { }
+            )
+        }
+
+        composable("group_info/{groupId}") { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            GroupInfoScreen(
+                group = null,
+                members = emptyList(),
+                joinRequests = 0,
+                isLoading = false,
+                error = null,
+                inviteLink = null,
+                onNavigateBack = { navController.popBackStack() },
+                onAddMembers = { },
+                onRemoveMember = { },
+                onUpdateRole = { _, _ -> },
+                onCreateInviteLink = { },
+                onCopyInviteLink = { },
+                onViewJoinRequests = { },
+                onLeaveGroup = { },
+                onDeleteGroup = { },
+                onRefresh = { }
+            )
+        }
+
+        composable("stickers") {
+            StickerStoreScreen(
+                featured = emptyList(),
+                searchResults = emptyList(),
+                isLoading = false,
+                error = null,
+                onInstall = { },
+                onSearch = { },
+                onPackClick = { },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -280,8 +568,8 @@ fun AppNavigation() {
                 onConversationClick = { convId ->
                     navController.navigate("conversation/$convId")
                 },
-                onNewChat = { },
-                onNewGroup = { }
+                onNewChat = { navController.navigate("contacts") },
+                onNewGroup = { navController.navigate("create_group") }
             )
         }
 
@@ -318,6 +606,21 @@ fun AppNavigation() {
 
         composable("active_voice_call/{callId}") {
             val state = callUiState.callState
+            var showSafetyNumber by remember { mutableStateOf(false) }
+            val remoteUserId = state.remoteUserId ?: ""
+            var safetyNumber by remember { mutableStateOf("UNVERIFIED") }
+            LaunchedEffect(remoteUserId) {
+                withContext(Dispatchers.Default) {
+                    safetyNumber = SessionManager.getSafetyNumber(remoteUserId)
+                }
+            }
+            if (showSafetyNumber) {
+                SafetyNumberDialog(
+                    safetyNumber = safetyNumber,
+                    onDismiss = { showSafetyNumber = false },
+                    onVerify = { showSafetyNumber = false }
+                )
+            }
             ActiveVoiceCallScreen(
                 remoteName = state.remoteUserId ?: "Unknown",
                 durationSeconds = state.durationSeconds,
@@ -329,7 +632,7 @@ fun AppNavigation() {
                 onEndCall = { callViewModel.endCall() },
                 onShowKeypad = {},
                 onSwitchToVideo = { callViewModel.toggleVideo() },
-                onShowSafetyNumber = {}
+                onShowSafetyNumber = { showSafetyNumber = true }
             )
         }
 
@@ -346,5 +649,84 @@ fun AppNavigation() {
                 onFlipCamera = { callViewModel.flipCamera() }
             )
         }
+
+        composable("call_log") {
+            CallLogScreen(
+                entries = emptyList(),
+                filter = CallLogFilter.ALL,
+                isLoading = false,
+                isSelectionMode = false,
+                selectedIds = emptySet(),
+                onFilterChange = { },
+                onEntryClick = { },
+                onStartSelection = { },
+                onEndSelection = { },
+                onToggleSelected = { },
+                onSelectAll = { },
+                onDelete = { }
+            )
+        }
+
+        composable("location_picker") {
+            LocationPickerScreen(
+                onLocationSelected = { _, _, _ -> navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("poll_create/{conversationId}") { backStackEntry ->
+            val convId = backStackEntry.arguments?.getString("conversationId") ?: ""
+            PollCreateSheet(
+                onCreate = { _, _, _, _ -> navController.popBackStack() },
+                onDismiss = { navController.popBackStack() },
+                isCreating = false
+            )
+        }
+
+        composable("search") {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text("Search coming soon", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+
+        composable("qr_code") {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text("QR Code coming soon", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+
+        composable("qr_scanner") {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text("QR Scanner coming soon", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+
+        composable("group_call/{callId}") {
+            GroupCallScreen(
+                participants = emptyList(),
+                isAdmin = true,
+                durationSeconds = callUiState.callState.durationSeconds,
+                isMuted = callUiState.callState.isMuted,
+                onToggleMute = { callViewModel.toggleMute() },
+                onRaiseHand = { callViewModel.raiseHand(!callUiState.callState.isHandRaised) },
+                onSendReaction = { callViewModel.react(it) },
+                onMuteParticipant = { },
+                onRemoveParticipant = { },
+                onEndCall = { callViewModel.endCall() }
+            )
+        }
+
+        composable("share_target") {
+            // ShareTarget is handled by ShareTargetActivity via Android Intent filters
+            navController.popBackStack()
+        }
+
+        composable("media_viewer/{conversationId}") { backStackEntry ->
+            val convId = backStackEntry.arguments?.getString("conversationId") ?: ""
+            // MediaViewerScreen requires mediaPath + mimeType from a specific message
+            // Route exists for future integration from ConversationScreen
+            navController.popBackStack()
+        }
+
     }
 }
