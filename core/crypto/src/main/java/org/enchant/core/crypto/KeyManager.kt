@@ -96,7 +96,7 @@ object KeyManager {
                     identityKeyPair = pair
                     saveKeyPair("crypto.identity", pair)
                 }
-                if (spkKeyPair == null) {
+                if (spkKeyPair == null || spkSignature == null) {
                     generateSpk()
                 }
                 val uploadResult = uploadKeyBundle()
@@ -133,9 +133,11 @@ object KeyManager {
 
     private suspend fun generateSpk() {
         val ik = identityKeyPair ?: return
-        spkKeyPair = CryptoHelper.generateX25519KeyPair()
-        val spkPubX = spkKeyPair!!.publicKey
-        spkSignature = CryptoHelper.signEd25519(spkPubX, ik.privateKey)
+        val newSpk = CryptoHelper.generateX25519KeyPair()
+        val spkPubX = newSpk.publicKey
+        val newSig = CryptoHelper.signEd25519(spkPubX, ik.privateKey)
+        spkKeyPair = newSpk
+        spkSignature = newSig
         val pubB64 = CryptoHelper.base64UrlEncode(spkKeyPair!!.publicKey)
         val sigB64 = CryptoHelper.base64UrlEncode(spkSignature!!)
         val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, spkKeyPair!!.privateKey)

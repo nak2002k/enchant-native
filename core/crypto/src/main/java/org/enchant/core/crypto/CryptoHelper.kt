@@ -178,22 +178,18 @@ object CryptoHelper {
     }
 
     fun signEd25519(message: ByteArray, privateKey: ByteArray): ByteArray {
-        val sig = Signature.getInstance("Ed25519")
-        val factory = KeyFactory.getInstance("Ed25519")
-        val keySpec = PKCS8EncodedKeySpec(wrapEd25519Private(privateKey))
-        sig.initSign(factory.generatePrivate(keySpec))
-        sig.update(message)
-        return sig.sign()
+        val signer = Ed25519Signer()
+        signer.init(true, Ed25519PrivateKeyParameters(privateKey, 0))
+        signer.update(message, 0, message.size)
+        return signer.generateSignature()
     }
 
     fun verifyEd25519(message: ByteArray, signature: ByteArray, publicKey: ByteArray): Boolean {
         return try {
-            val sig = Signature.getInstance("Ed25519")
-            val factory = KeyFactory.getInstance("Ed25519")
-            val keySpec = X509EncodedKeySpec(wrapEd25519Public(publicKey))
-            sig.initVerify(factory.generatePublic(keySpec))
-            sig.update(message)
-            sig.verify(signature)
+            val verifier = Ed25519Signer()
+            verifier.init(false, Ed25519PublicKeyParameters(publicKey, 0))
+            verifier.update(message, 0, message.size)
+            verifier.verifySignature(signature)
         } catch (_: Exception) {
             false
         }
