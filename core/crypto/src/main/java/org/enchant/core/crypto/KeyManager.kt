@@ -99,6 +99,10 @@ object KeyManager {
                 if (spkKeyPair == null || spkSignature == null) {
                     generateSpk()
                 }
+                if (loadLocalOpks().size < 20) {
+                    val opks = generateOpks(100)
+                    storeOpksLocally(opks)
+                }
                 val uploadResult = uploadKeyBundle()
                 if (uploadResult.isFailure) return@withContext uploadResult
                 topUpOpks()
