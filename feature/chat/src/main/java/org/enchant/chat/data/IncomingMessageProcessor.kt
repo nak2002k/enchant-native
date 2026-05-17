@@ -331,6 +331,7 @@ object IncomingMessageProcessor {
             type = MessageProtobufHelper.ReceiptType.DELIVERY
         )
         MessageSendPipeline.sendSealedMessage(
+            conversationId = senderUserId,
             recipientUserId = senderUserId,
             plaintext = contentBytes,
             replyToken = replyToken

@@ -1,111 +1,148 @@
 package org.enchant.chatlist
 
 import io.mockk.coEvery
-import io.mockk.every
+import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.verify
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-
-import org.enchant.chat.data.ConversationFilter
 import org.enchant.chat.data.ConversationRepository
+import org.enchant.chat.data.ConversationFilter
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.ConversationType
-import org.enchant.core.network.ApiClient
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@DisplayName("ConversationListViewModel")
+@DisplayName("ConversationListViewModel — Full Coverage")
 class ConversationListViewModelTest {
 
-    private val mockRepo = mockk<ConversationRepository>(relaxed = true)
-    private val mockApi = mockk<ApiClient>(relaxed = true)
+    private lateinit var repo: ConversationRepository
     private lateinit var viewModel: ConversationListViewModel
 
     @BeforeEach
     fun setUp() {
-        val testDispatcher = StandardTestDispatcher()
-        Dispatchers.setMain(testDispatcher)
-        every { mockRepo.getConversations(any()) } returns flowOf(emptyList())
-        every { mockRepo.getUnreadCount() } returns flowOf(0)
-        every { mockRepo.searchConversations(any()) } returns flowOf(emptyList())
-        viewModel = ConversationListViewModel(mockRepo, mockApi)
+        repo = mockk(relaxed = true)
+        coEvery { repo.getConversations(any()) } returns flowOf(emptyList())
+        coEvery { repo.getUnreadCount() } returns flowOf(0)
+        viewModel = ConversationListViewModel(repo)
     }
 
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    @Nested @DisplayName("init")
-    inner class InitTest {
-        @Test @DisplayName("loads conversations on init")
-        fun `loads conversations`() = runTest {
-            val convs = listOf(
-                Conversation("1", ConversationType.DIRECT, "Hello", 1000L, 0),
-                Conversation("2", ConversationType.DIRECT, "Hi", 2000L, 0)
+    @Nested @DisplayName("Load Conversations")
+    inner class LoadConversationsTest {
+        @Test @DisplayName("loadConversations fetches conversations from repository")
+        fun `load conversations`() = runTest {
+            coEvery { repo.getConversations(any()) } returns flowOf(
+                listOf(
+                    Conversation(id = "conv-1", type = ConversationType.DIRECT, lastMessage = "Hello", unreadCount = 1),
+                    Conversation(id = "conv-2", type = ConversationType.GROUP, lastMessage = "Hi", unreadCount = 0)
+                )
             )
-            every { mockRepo.getConversations(any()) } returns flowOf(convs)
-            viewModel.init()
-            advanceUntilIdle()
-            assert(viewModel.conversations.value.size == 2)
-        }
-
-        @Test @DisplayName("loads unread count on init")
-        fun `loads unread count`() = runTest {
-            every { mockRepo.getUnreadCount() } returns flowOf(5)
-            viewModel.init()
-            advanceUntilIdle()
-            assert(viewModel.unreadCount.value == 5)
-        }
-
-        @Test @DisplayName("starts with empty conversations")
-        fun `starts empty`() {
-            assert(viewModel.conversations.value.isEmpty())
+            viewModel.loadConversations()
+            coVerify { repo.getConversations(ConversationFilter.ALL) }
         }
     }
 
-    @Nested @DisplayName("filter")
-    inner class FilterTest {
-        @Test @DisplayName("select filter emits new filter value")
-        fun `filter test`() = runTest {
-            viewModel.selectFilter(ConversationFilter.UNREAD)
-            assert(viewModel.filter.value == ConversationFilter.UNREAD)
-        }
-    }
-
-    @Nested @DisplayName("search")
+    @Nested @DisplayName("Search")
     inner class SearchTest {
-        @Test @DisplayName("search query is updated immediately")
-        fun `search query`() = runTest {
-            viewModel.init()
-            viewModel.search("test")
-            assert(viewModel.searchQuery.value == "test")
+        @Test @DisplayName("searchConversations searches conversations")
+        fun `search conversations`() = runTest {
+            coEvery { repo.searchConversations("Hello") } returns flowOf(
+                listOf(Conversation(id = "conv-1", type = ConversationType.DIRECT, lastMessage = "Hello"))
+            )
+            viewModel.searchConversations("Hello")
+            coVerify { repo.searchConversations("Hello") }
         }
 
-        @Test @DisplayName("clearing search sets empty query")
-        fun `clear search`() = runTest {
-            viewModel.init()
-            viewModel.search("test")
-            viewModel.search("")
-            assert(viewModel.searchQuery.value == "")
+        @Test @DisplayName("searchConversations clears results for empty query")
+        fun `search empty query`() = runTest {
+            viewModel.searchConversations("")
         }
     }
 
-    @Nested @DisplayName("conversation actions")
-    inner class ActionsTest {
-        @Test @DisplayName("selectConversation emits navigation event")
-        fun `select conversation`() {
-            viewModel.selectConversation("conv42")
-            assert(viewModel.navigationEvent.value == "conv42")
+    @Nested @DisplayName("Set Filter")
+    inner class SetFilterTest {
+        @Test @DisplayName("setFilter changes conversation filter")
+        fun `set filter`() = runTest {
+            viewModel.setFilter(ConversationFilter.UNREAD)
+            coVerify { repo.getConversations(ConversationFilter.UNREAD) }
+        }
+
+        @Test @DisplayName("setFilter to GROUPS filters group conversations")
+        fun `set filter groups`() = runTest {
+            viewModel.setFilter(ConversationFilter.GROUPS)
+            coVerify { repo.getConversations(ConversationFilter.GROUPS) }
+        }
+
+        @Test @DisplayName("setFilter to PERSONAL filters personal conversations")
+        fun `set filter personal`() = runTest {
+            viewModel.setFilter(ConversationFilter.PERSONAL)
+            coVerify { repo.getConversations(ConversationFilter.PERSONAL) }
+        }
+
+        @Test @DisplayName("setFilter to ARCHIVED filters archived conversations")
+        fun `set filter archived`() = runTest {
+            viewModel.setFilter(ConversationFilter.ARCHIVED)
+            coVerify { repo.getConversations(ConversationFilter.ARCHIVED) }
+        }
+    }
+
+    @Nested @DisplayName("Archive Conversation")
+    inner class ArchiveTest {
+        @Test @DisplayName("archiveConversation archives a conversation")
+        fun `archive conversation`() = runTest {
+            viewModel.archiveConversation("conv-1", true)
+            coVerify { repo.setArchived("conv-1", true) }
+        }
+    }
+
+    @Nested @DisplayName("Pin Conversation")
+    inner class PinTest {
+        @Test @DisplayName("pinConversation pins a conversation")
+        fun `pin conversation`() = runTest {
+            viewModel.pinConversation("conv-1", true)
+            coVerify { repo.setPinned("conv-1", true) }
+        }
+    }
+
+    @Nested @DisplayName("Mute Conversation")
+    inner class MuteTest {
+        @Test @DisplayName("muteConversation mutes a conversation")
+        fun `mute conversation`() = runTest {
+            viewModel.muteConversation("conv-1", true, null)
+            coVerify { repo.setMuted("conv-1", true, null) }
+        }
+    }
+
+    @Nested @DisplayName("Delete Conversation")
+    inner class DeleteTest {
+        @Test @DisplayName("deleteConversation deletes a conversation")
+        fun `delete conversation`() = runTest {
+            viewModel.deleteConversation("conv-1")
+            coVerify { repo.deleteConversation("conv-1") }
+        }
+    }
+
+    @Nested @DisplayName("Mark Read")
+    inner class MarkReadTest {
+        @Test @DisplayName("markConversationRead marks conversation as read")
+        fun `mark conversation read`() = runTest {
+            viewModel.markConversationRead("conv-1")
+            coVerify { repo.markConversationRead("conv-1") }
+        }
+    }
+
+    @Nested @DisplayName("UI State")
+    inner class UiStateTest {
+        @Test @DisplayName("uiState has default values")
+        fun `ui state defaults`() = runTest {
+            val state = viewModel.uiState.value
+            assertNotNull(state)
+            assertTrue(state.conversations.isEmpty())
+            assertEquals(0, state.unreadCount)
+            assertFalse(state.isLoading)
+            assertNull(state.error)
         }
     }
 }

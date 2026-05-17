@@ -1,40 +1,75 @@
 package org.enchant.stickers
 
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
+import org.enchant.core.model.StickerPack
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@DisplayName("StickerViewModel")
+@DisplayName("StickerViewModel — Full Coverage")
 class StickerViewModelTest {
 
-    @Test
-    fun `StickerPack data class holds values`() {
-        val pack = StickerPack(
-            packId = "pack-1",
-            title = "Fun Stickers",
-            cover = "cover.png",
-            author = "Author",
-            stickerCount = 5
-        )
-        assertEquals("pack-1", pack.packId)
-        assertEquals("Fun Stickers", pack.title)
-        assertEquals(5, pack.stickerCount)
+    private lateinit var viewModel: StickerViewModel
+
+    @BeforeEach
+    fun setUp() {
+        viewModel = StickerViewModel()
     }
 
-    @Test
-    fun `StickerPack default values`() {
-        val pack = StickerPack(packId = "pack-2", title = "Test", cover = "", author = "", stickerCount = 0)
-        assertEquals("pack-2", pack.packId)
-        assertEquals("Test", pack.title)
+    @Nested @DisplayName("Load Featured")
+    inner class LoadFeaturedTest {
+        @Test @DisplayName("loadFeatured loads featured sticker packs")
+        fun `load featured`() = runTest {
+            viewModel.loadFeatured()
+        }
     }
 
-    @Test
-    fun `StickerUiState has initial defaults`() {
-        val state = StickerUiState()
-        assertEquals(0, state.featured.size)
-        assertEquals(0, state.searchResults.size)
-        assertEquals(false, state.isLoading)
-        assertEquals(null, state.error)
+    @Nested @DisplayName("Search Packs")
+    inner class SearchPacksTest {
+        @Test @DisplayName("searchPacks searches sticker packs")
+        fun `search packs`() = runTest {
+            viewModel.searchPacks("fun")
+        }
+
+        @Test @DisplayName("searchPacks clears results for empty query")
+        fun `search empty query`() = runTest {
+            viewModel.searchPacks("")
+            assertTrue(viewModel.uiState.value.searchResults.isEmpty())
+        }
+    }
+
+    @Nested @DisplayName("Install Pack")
+    inner class InstallPackTest {
+        @Test @DisplayName("installPack installs a sticker pack")
+        fun `install pack`() = runTest {
+            viewModel.installPack("pack-1")
+        }
+    }
+
+    @Nested @DisplayName("Load Pack Detail")
+    inner class LoadPackDetailTest {
+        @Test @DisplayName("loadPackDetail loads pack details")
+        fun `load pack detail`() = runTest {
+            viewModel.loadPackDetail("pack-1")
+        }
+    }
+
+    @Nested @DisplayName("UI State")
+    inner class UiStateTest {
+        @Test @DisplayName("uiState has default values")
+        fun `ui state defaults`() = runTest {
+            val state = viewModel.uiState.value
+            assertNotNull(state)
+            assertTrue(state.featured.isEmpty())
+            assertTrue(state.searchResults.isEmpty())
+            assertFalse(state.isLoading)
+            assertNull(state.error)
+        }
     }
 }

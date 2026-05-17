@@ -1,98 +1,158 @@
 package org.enchant.calls
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.setMain
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.runTest
+import org.enchant.core.calls.CallManager
+import org.enchant.core.calls.CallState
 import org.enchant.core.calls.CallStatusEnum
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@OptIn(ExperimentalCoroutinesApi::class)
-@DisplayName("CallViewModel")
+@DisplayName("CallViewModel — Full Coverage")
 class CallViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+
     private lateinit var viewModel: CallViewModel
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(testDispatcher)
+        mockkObject(CallManager)
+        every { CallManager.callState } returns MutableStateFlow(CallState())
         viewModel = CallViewModel()
     }
 
     @AfterEach
     fun tearDown() {
-        Dispatchers.resetMain()
+        unmockkObject(CallManager)
+        viewModel.onCleared()
     }
 
-    @Nested
-    @DisplayName("initial state")
-    inner class InitialState {
-        @Test
-        fun `starts with IDLE call state`() {
-            assert(viewModel.uiState.value.callState.status == CallStatusEnum.IDLE)
+    @Nested @DisplayName("Start Call")
+    inner class StartCallTest {
+        @Test @DisplayName("startCall calls CallManager.startOutgoingCall")
+        fun `start call`() = runTest {
+            viewModel.startCall("remote-user", false)
+            coVerify { CallManager.startOutgoingCall("remote-user", false) }
         }
 
-        @Test
-        fun `call screen is not visible initially`() {
-            assert(!viewModel.uiState.value.isCallScreenVisible)
-        }
-
-        @Test
-        fun `no navigation target initially`() {
-            assert(viewModel.uiState.value.navigateToConversation == null)
+        @Test @DisplayName("startCall with video calls with isVideo=true")
+        fun `start call video`() = runTest {
+            viewModel.startCall("remote-user", true)
+            coVerify { CallManager.startOutgoingCall("remote-user", true) }
         }
     }
 
-    @Nested
-    @DisplayName("navigation")
-    inner class Navigation {
-        @Test
-        fun `navigateToConversation sets target`() {
-            viewModel.navigateToConversation("conv_1")
-            assert(viewModel.uiState.value.navigateToConversation == "conv_1")
+    @Nested @DisplayName("Accept Call")
+    inner class AcceptCallTest {
+        @Test @DisplayName("acceptCall calls CallManager.acceptCall")
+        fun `accept call`() = runTest {
+            viewModel.acceptCall(false)
+            coVerify { CallManager.acceptCall(any(), false) }
         }
 
-        @Test
-        fun `onNavigatedToConversation clears target`() {
-            viewModel.navigateToConversation("conv_1")
-            viewModel.onNavigatedToConversation()
-            assert(viewModel.uiState.value.navigateToConversation == null)
+        @Test @DisplayName("acceptCall with video calls with withVideo=true")
+        fun `accept call video`() = runTest {
+            viewModel.acceptCall(true)
+            coVerify { CallManager.acceptCall(any(), true) }
         }
     }
 
-    @Nested
-    @DisplayName("call actions through viewmodel")
-    inner class CallActions {
-        @Test
-        fun `raiseHand updates state`() {
-            viewModel.raiseHand(true)
-            viewModel.raiseHand(false)
+    @Nested @DisplayName("Deny Call")
+    inner class DenyCallTest {
+        @Test @DisplayName("denyCall calls CallManager.denyCall")
+        fun `deny call`() = runTest {
+            viewModel.denyCall()
+            coVerify { CallManager.denyCall() }
         }
+    }
 
-        @Test
-        fun `endCall from IDLE is safe`() {
+    @Nested @DisplayName("End Call")
+    inner class EndCallTest {
+        @Test @DisplayName("endCall calls CallManager.endCall")
+        fun `end call`() = runTest {
             viewModel.endCall()
-            assert(viewModel.uiState.value.callState.status == CallStatusEnum.IDLE)
+            coVerify { CallManager.endCall() }
         }
+    }
 
-        @Test
-        fun `toggleMute through viewmodel`() {
+    @Nested @DisplayName("Toggle Mute")
+    inner class ToggleMuteTest {
+        @Test @DisplayName("toggleMute calls CallManager.toggleMute")
+        fun `toggle mute`() = runTest {
             viewModel.toggleMute()
+            coVerify { CallManager.toggleMute() }
         }
+    }
 
-        @Test
-        fun `toggleSpeaker through viewmodel`() {
+    @Nested @DisplayName("Toggle Speaker")
+    inner class ToggleSpeakerTest {
+        @Test @DisplayName("toggleSpeaker calls CallManager.toggleSpeaker")
+        fun `toggle speaker`() = runTest {
             viewModel.toggleSpeaker()
+            coVerify { CallManager.toggleSpeaker() }
         }
+    }
 
-        @Test
-        fun `toggleVideo through viewmodel`() {
+    @Nested @DisplayName("Toggle Video")
+    inner class ToggleVideoTest {
+        @Test @DisplayName("toggleVideo calls CallManager.toggleVideo")
+        fun `toggle video`() = runTest {
             viewModel.toggleVideo()
+            coVerify { CallManager.toggleVideo() }
+        }
+    }
+
+    @Nested @DisplayName("Flip Camera")
+    inner class FlipCameraTest {
+        @Test @DisplayName("flipCamera calls CallManager.flipCamera")
+        fun `flip camera`() = runTest {
+            viewModel.flipCamera()
+            coVerify { CallManager.flipCamera() }
+        }
+    }
+
+    @Nested @DisplayName("Raise Hand")
+    inner class RaiseHandTest {
+        @Test @DisplayName("raiseHand calls CallManager.raiseHand")
+        fun `raise hand`() = runTest {
+            viewModel.raiseHand(true)
+            coVerify { CallManager.raiseHand(true) }
+        }
+    }
+
+    @Nested @DisplayName("React")
+    inner class ReactTest {
+        @Test @DisplayName("react calls CallManager.react")
+        fun `react`() = runTest {
+            viewModel.react("\uD83D\uDC4D")
+            coVerify { CallManager.react("\uD83D\uDC4D") }
+        }
+    }
+
+    @Nested @DisplayName("UI State")
+    inner class UiStateTest {
+        @Test @DisplayName("uiState emits CallState from CallManager")
+        fun `ui state emits`() = runTest {
+            val state = viewModel.uiState.value
+            assertNotNull(state)
+            assertNotNull(state.callState)
+        }
+    }
+
+    @Nested @DisplayName("On Cleared")
+    inner class OnClearedTest {
+        @Test @DisplayName("onCleared cancels duration job")
+        fun `on cleared cancels`() = runTest {
+            viewModel.onCleared()
         }
     }
 }

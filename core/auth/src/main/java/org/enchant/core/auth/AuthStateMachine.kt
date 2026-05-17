@@ -154,12 +154,10 @@ object AuthStateMachine {
                 if (parts.size == 3) {
                     val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
                     val payloadStr = payload.decodeToString()
-                    val expMatch = Regex("\"exp\":(\\d+)").find(payloadStr)
-                    if (expMatch != null) {
-                        val exp = expMatch.groupValues[1].toLongOrNull() ?: 0L
-                        if (System.currentTimeMillis() / 1000 < exp) {
-                            return RegistrationState.Complete
-                        }
+                    val json = kotlinx.serialization.json.Json.parseToJsonElement(payloadStr).jsonObject
+                    val exp = json["exp"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
+                    if (System.currentTimeMillis() / 1000 < exp) {
+                        return RegistrationState.Complete
                     }
                 }
             } catch (e: Exception) { Log.w("AuthSM", "JWT validation failed: ${e.message}") }

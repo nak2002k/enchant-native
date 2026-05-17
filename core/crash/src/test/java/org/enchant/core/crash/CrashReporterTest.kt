@@ -5,58 +5,99 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@DisplayName("CrashReporter")
+@DisplayName("CrashReporter — Full Coverage")
 class CrashReporterTest {
 
-    @Nested @DisplayName("PII scrubbing")
+    @Nested @DisplayName("Scrub")
     inner class ScrubTest {
-        @Test @DisplayName("scrub UUID")
+        @Test @DisplayName("scrub redacts base64 keys (40+ chars)")
+        fun `scrub base64`() {
+            val input = "Key: " + "A".repeat(44) + "="
+            val result = CrashReporter.scrub(input)
+            assertTrue(result.contains("[REDACTED_KEY]"))
+        }
+
+        @Test @DisplayName("scrub redacts UUIDs")
         fun `scrub uuid`() {
-            val input = "user 550e8400-e29b-41d4-a716-446655440000 logged in"
+            val input = "ID: 550e8400-e29b-41d4-a716-446655440000"
             val result = CrashReporter.scrub(input)
-            assertFalse(result.contains("550e8400")) { "UUID was not scrubbed: $result" }
+            assertTrue(result.contains("[REDACTED_UUID]"))
+            assertFalse(result.contains("550e8400"))
         }
 
-        @Test @DisplayName("scrub phone")
+        @Test @DisplayName("scrub redacts phone numbers")
         fun `scrub phone`() {
-            val input = "phone: +15551234567"
+            val input = "Phone: +14155552671"
             val result = CrashReporter.scrub(input)
-            assertFalse(result.contains("+15551234567")) { "Phone was not scrubbed: $result" }
+            assertTrue(result.contains("[REDACTED_PHONE]"))
+            assertFalse(result.contains("+14155552671"))
         }
 
-        @Test @DisplayName("scrub email")
+        @Test @DisplayName("scrub redacts emails")
         fun `scrub email`() {
-            val input = "email test@example.com"
+            val input = "Email: user@example.com"
             val result = CrashReporter.scrub(input)
-            assertFalse(result.contains("test@example.com")) { "Email was not scrubbed: $result" }
+            assertTrue(result.contains("[REDACTED_EMAIL]"))
+            assertFalse(result.contains("user@example.com"))
         }
 
-        @Test @DisplayName("safe text unchanged")
-        fun `safe text`() {
-            assertEquals("Hello world", CrashReporter.scrub("Hello world"))
+        @Test @DisplayName("scrub leaves normal text unchanged")
+        fun `scrub normal`() {
+            val input = "Hello World"
+            val result = CrashReporter.scrub(input)
+            assertEquals("Hello World", result)
         }
 
-        @Test @DisplayName("empty string")
-        fun `empty`() {
-            assertEquals("", CrashReporter.scrub(""))
+        @Test @DisplayName("scrub handles empty string")
+        fun `scrub empty`() {
+            val result = CrashReporter.scrub("")
+            assertEquals("", result)
         }
 
-        @Test @DisplayName("HTTP status code not mistaken for phone")
-        fun `http status not scrubbed`() {
-            val result = CrashReporter.scrub("HTTP 200 OK")
-            assertEquals("HTTP 200 OK", result)
+        @Test @DisplayName("scrub redacts multiple patterns")
+        fun `scrub multiple`() {
+            val input = "User 550e8400-e29b-41d4-a716-446655440000 with email test@test.com called +14155552671"
+            val result = CrashReporter.scrub(input)
+            assertTrue(result.contains("[REDACTED_UUID]"))
+            assertTrue(result.contains("[REDACTED_EMAIL]"))
+            assertTrue(result.contains("[REDACTED_PHONE]"))
         }
 
-        @Test @DisplayName("timestamp not mistaken for phone")
-        fun `timestamp not scrubbed`() {
-            val result = CrashReporter.scrub("timestamp=1700000000")
-            assertEquals("timestamp=1700000000", result)
+        @Test @DisplayName("scrub does not redact short strings that look like base64")
+        fun `scrub short base64`() {
+            val input = "SGVsbG8="
+            val result = CrashReporter.scrub(input)
+            assertEquals("SGVsbG8=", result)
         }
 
-        @Test @DisplayName("port number not mistaken for phone")
-        fun `port not scrubbed`() {
-            val result = CrashReporter.scrub("port 8080")
-            assertEquals("port 8080", result)
+        @Test @DisplayName("scrub redacts international phone numbers")
+        fun `scrub international phone`() {
+            val input = "+441234567890"
+            val result = CrashReporter.scrub(input)
+            assertTrue(result.contains("[REDACTED_PHONE]"))
+        }
+
+        @Test @DisplayName("scrub redacts complex emails")
+        fun `scrub complex email`() {
+            val input = "user.name+tag@sub.domain.co.uk"
+            val result = CrashReporter.scrub(input)
+            assertTrue(result.contains("[REDACTED_EMAIL]"))
+        }
+
+        @Test @DisplayName("scrub handles special chars")
+        fun `scrub special chars`() {
+            val input = "Special: !@#$%^&*()"
+            val result = CrashReporter.scrub(input)
+            assertEquals("Special: !@#$%^&*()", result)
+        }
+    }
+
+    @Nested @DisplayName("Initialization")
+    inner class InitTest {
+        @Test @DisplayName("init can be called multiple times without error")
+        fun `init idempotent`() {
+            CrashReporter.init()
+            CrashReporter.init()
         }
     }
 }

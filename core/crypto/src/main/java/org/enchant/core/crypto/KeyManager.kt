@@ -1,6 +1,7 @@
 package org.enchant.core.crypto
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -32,6 +33,32 @@ object KeyManager {
     private var apiClient: ApiClient? = null
     private var lastSpkRotationMs = 0L
     private val spkRotationIntervalMs = 25L * 24 * 60 * 60 * 1000 // 25 days
+    private val testKeyBundles = mutableMapOf<String, KeyBundle>()
+
+    @VisibleForTesting
+    fun setTestIdentityKeyPair(pair: CryptoHelper.KeyPair) {
+        identityKeyPair = pair
+    }
+
+    @VisibleForTesting
+    fun setTestKeyBundle(userId: String, bundle: KeyBundle) {
+        testKeyBundles[userId] = bundle
+    }
+
+    @VisibleForTesting
+    fun clearTestKeyBundles() {
+        testKeyBundles.clear()
+    }
+
+    @VisibleForTesting
+    fun reset() {
+        identityKeyPair = null
+        spkKeyPair = null
+        spkSignature = null
+        lastSpkRotationMs = 0L
+        initialized = false
+        testKeyBundles.clear()
+    }
 
     suspend fun init(client: ApiClient? = null) {
         if (initialized) return
@@ -127,8 +154,8 @@ object KeyManager {
             })
             put("one_time_prekeys", buildJsonArray {
                 val opks = loadLocalOpks()
-                opks.forEach { opkPub ->
-                    add(buildJsonObject { put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(opkPub))) })
+                opks.forEach { opk ->
+                    add(buildJsonObject { put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(opk.publicKey))) })
                 }
             })
         }
@@ -146,9 +173,9 @@ object KeyManager {
         val sigB64 = CryptoHelper.base64UrlEncode(spkSignature!!)
         val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, spkKeyPair!!.privateKey)
         if (wrappedPriv != null) {
-            val privStr = wrappedPriv.joinToString(",") { it.toInt().toString() }
+            val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
             SecurePreferences.putString("crypto.spk_public", pubB64)
-            SecurePreferences.putString("crypto.spk_private", privStr)
+            SecurePreferences.putString("crypto.spk_private", privB64)
             SecurePreferences.putString("crypto.spk_signature", sigB64)
         }
     }
@@ -167,6 +194,7 @@ object KeyManager {
     }
 
     suspend fun fetchKeyBundle(userId: String): KeyBundle? {
+        testKeyBundles[userId]?.let { return it }
         val client = apiClient ?: return null
         return withContext(Dispatchers.Default) {
             try {
@@ -199,7 +227,7 @@ object KeyManager {
         try {
             val countResponse = client.get("/v1/keys/opk-count")
             val remaining = countResponse.getOrNull()?.let { json ->
-                json["remaining"]?.jsonPrimitive?.int ?: 100
+                json["count"]?.jsonPrimitive?.int ?: 100
             } ?: return
 
             if (remaining < 10) {
@@ -231,18 +259,26 @@ object KeyManager {
             val pubB64 = CryptoHelper.base64UrlEncode(opk.publicKey)
             val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, opk.privateKey)
             if (wrappedPriv != null) {
-                val privStr = wrappedPriv.joinToString(",") { it.toInt().toString() }
+                val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
                 SecurePreferences.putString("crypto.opk_${i}_public", pubB64)
-                SecurePreferences.putString("crypto.opk_${i}_private", privStr)
+                SecurePreferences.putString("crypto.opk_${i}_private", privB64)
             }
         }
     }
 
-    private suspend fun loadLocalOpks(): List<ByteArray> {
+    private suspend fun loadLocalOpks(): List<CryptoHelper.KeyPair> {
         val count = SecurePreferences.getInt("crypto.opk_count", 0)
         return (0 until count).mapNotNull { i ->
             val pub = SecurePreferences.getString("crypto.opk_${i}_public") ?: return@mapNotNull null
-            try { CryptoHelper.base64UrlDecode(pub) } catch (_: Exception) { null }
+            val privWrapped = SecurePreferences.getString("crypto.opk_${i}_private")
+            try {
+                val publicKey = CryptoHelper.base64UrlDecode(pub)
+                val privateKey = if (privWrapped != null) {
+                    val encoded = CryptoHelper.base64UrlDecode(privWrapped)
+                    KeyStoreManager.decrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, encoded)
+                } else null
+                if (privateKey != null) CryptoHelper.KeyPair(publicKey, privateKey) else null
+            } catch (_: Exception) { null }
         }
     }
 
@@ -267,9 +303,9 @@ object KeyManager {
                     val sigB64 = CryptoHelper.base64UrlEncode(newSig)
                     val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, newSpk.privateKey)
                     if (wrappedPriv != null) {
-                        val privStr = wrappedPriv.joinToString(",") { it.toInt().toString() }
+                        val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
                         SecurePreferences.putString("crypto.spk_public", pubB64)
-                        SecurePreferences.putString("crypto.spk_private", privStr)
+                        SecurePreferences.putString("crypto.spk_private", privB64)
                         SecurePreferences.putString("crypto.spk_signature", sigB64)
                     }
                     lastSpkRotationMs = System.currentTimeMillis()
@@ -295,6 +331,7 @@ object KeyManager {
     }
 
     fun needsKeyRotation(): Boolean {
+        if (lastSpkRotationMs == 0L) return false
         return (System.currentTimeMillis() - lastSpkRotationMs) > spkRotationIntervalMs
     }
 }

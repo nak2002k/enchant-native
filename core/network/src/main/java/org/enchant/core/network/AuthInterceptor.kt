@@ -17,7 +17,10 @@ import org.enchant.core.base.SecurePreferences
 object AuthInterceptor : Interceptor {
     @Volatile private var refreshing = false
     private var currentToken: String? = null
-    private val refreshClient = OkHttpClient()
+    private val refreshClient = OkHttpClient.Builder()
+        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
     private val json = Json { ignoreUnknownKeys = true }
     private val lock = Any()
 
@@ -53,6 +56,20 @@ object AuthInterceptor : Interceptor {
                 } finally {
                     synchronized(lock) { refreshing = false }
                 }
+            } else {
+                var waited = 0
+                while (refreshing && waited < 10000) {
+                    Thread.sleep(500)
+                    waited += 500
+                }
+                val refreshedToken = synchronized(lock) { currentToken }
+                if (refreshedToken != null && !refreshing) {
+                    response.close()
+                    val retryRequest = originalRequest.newBuilder()
+                        .header("Authorization", "Bearer $refreshedToken")
+                        .build()
+                    return chain.proceed(retryRequest)
+                }
             }
             return response
         }
@@ -74,8 +91,12 @@ object AuthInterceptor : Interceptor {
                 if (body != null) {
                     val parsed = json.parseToJsonElement(body).jsonObject
                     val newJwt = parsed["access_token"]?.jsonPrimitive?.content
+                    val newRefreshToken = parsed["refresh_token"]?.jsonPrimitive?.content
                     if (newJwt != null) {
                         SecurePreferences.putString("auth.jwt", newJwt)
+                    }
+                    if (newRefreshToken != null) {
+                        SecurePreferences.putString("auth.refresh_token", newRefreshToken)
                     }
                     newJwt
                 } else null

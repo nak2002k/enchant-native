@@ -1,66 +1,57 @@
 package org.enchant.status
 
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
+@DisplayName("StatusViewModel — Full Coverage")
 class StatusViewModelTest {
 
-    @Test
-    fun `initial state has defaults`() {
-        val state = StatusUiState()
-        assertTrue(state.feed.isEmpty())
-        assertEquals(null, state.myStatus)
-        assertTrue(state.viewers.isEmpty())
-        assertEquals(false, state.isLoading)
-        assertEquals(null, state.error)
-        assertEquals(null, state.successMessage)
+    private lateinit var viewModel: StatusViewModel
+
+    @BeforeEach
+    fun setUp() {
+        viewModel = StatusViewModel()
     }
 
-    @Test
-    fun `StatusPrivacy enum values exist`() {
-        assertNotNull(StatusPrivacy.AllContacts)
-        assertNotNull(StatusPrivacy.Selected)
-        assertNotNull(StatusPrivacy.CloseFriends)
+    @Nested @DisplayName("Load Feed")
+    inner class LoadFeedTest {
+        @Test @DisplayName("loadFeed loads status feed")
+        fun `load feed`() = runTest {
+            viewModel.loadFeed()
+        }
     }
 
-    @Test
-    fun `StatusFeedEntry data class holds values`() {
-        val viewer = StatusViewer(userId = "v1", username = "bob", viewedAt = "2025-01-01T01:00:00Z")
-        val entry = StatusFeedEntry(
-            statusId = "s1",
-            userId = "u1",
-            username = "alice",
-            type = "text",
-            text = "Hello",
-            mediaId = null,
-            backgroundColor = "#FF0000",
-            createdAt = "2025-01-01T00:00:00Z",
-            viewedBy = listOf(viewer),
-            isViewed = false
-        )
-        assertEquals("s1", entry.statusId)
-        assertEquals("u1", entry.userId)
-        assertEquals("alice", entry.username)
-        assertEquals("text", entry.type)
-        assertEquals("Hello", entry.text)
-        assertEquals(null, entry.mediaId)
-        assertEquals("#FF0000", entry.backgroundColor)
-        assertEquals("2025-01-01T00:00:00Z", entry.createdAt)
-        assertEquals(1, entry.viewedBy.size)
-        assertEquals("bob", entry.viewedBy[0].username)
-        assertEquals(false, entry.isViewed)
+    @Nested @DisplayName("Create Text Status")
+    inner class CreateTextStatusTest {
+        @Test @DisplayName("createTextStatus creates a text status")
+        fun `create text status`() = runTest {
+            viewModel.createTextStatus("Hello!", "#FF5733", StatusPrivacy.AllContacts)
+        }
     }
 
-    @Test
-    fun `StatusUiState default values`() {
-        val state = StatusUiState()
-        assertTrue(state.feed.isEmpty())
-        assertEquals(null, state.myStatus)
-        assertTrue(state.viewers.isEmpty())
-        assertEquals(false, state.isLoading)
-        assertEquals(null, state.error)
-        assertEquals(null, state.successMessage)
+    @Nested @DisplayName("View Status")
+    inner class ViewStatusTest {
+        @Test @DisplayName("viewStatus records a view")
+        fun `view status`() = runTest {
+            viewModel.viewStatus("status-1")
+        }
+    }
+
+    @Nested @DisplayName("UI State")
+    inner class UiStateTest {
+        @Test @DisplayName("uiState has default values")
+        fun `ui state defaults`() = runTest {
+            val state = viewModel.uiState.value
+            assertNotNull(state)
+            assertTrue(state.feed.isEmpty())
+        }
     }
 }

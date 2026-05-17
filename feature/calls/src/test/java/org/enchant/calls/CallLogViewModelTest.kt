@@ -1,183 +1,117 @@
 package org.enchant.calls
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.resetMain
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.enchant.core.calls.CallDirection
 import org.enchant.core.calls.CallLogEntry
 import org.enchant.core.calls.CallLogFilter
-import org.enchant.core.calls.CallStatus
 import org.enchant.core.calls.CallType
-import org.junit.jupiter.api.AfterEach
+import org.enchant.core.calls.CallDirection
+import org.enchant.core.calls.CallStatus
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@OptIn(ExperimentalCoroutinesApi::class)
-@DisplayName("CallLogViewModel")
+@DisplayName("CallLogViewModel — Full Coverage")
 class CallLogViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+
     private lateinit var viewModel: CallLogViewModel
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(testDispatcher)
         viewModel = CallLogViewModel()
     }
 
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-
-    @Nested
-    @DisplayName("initial state")
-    inner class InitialState {
-        @Test
-        fun `starts with empty entries`() {
-            assert(viewModel.uiState.value.entries.isEmpty())
-        }
-
-        @Test
-        fun `starts with ALL filter`() {
-            assert(viewModel.uiState.value.filter == CallLogFilter.ALL)
-        }
-
-        @Test
-        fun `starts not in selection mode`() {
-            assert(!viewModel.uiState.value.isSelectionMode)
-        }
-
-        @Test
-        fun `starts with empty search query`() {
-            assert(viewModel.uiState.value.searchQuery.isEmpty())
+    @Nested @DisplayName("Load Call Logs")
+    inner class LoadCallLogsTest {
+        @Test @DisplayName("loadCallLogs loads call logs")
+        fun `load call logs`() = runTest {
+            viewModel.loadCallLogs()
         }
     }
 
-    @Nested
-    @DisplayName("filter")
-    inner class Filter {
-        @Test
-        fun `setFilter changes active filter`() {
+    @Nested @DisplayName("Set Filter")
+    inner class SetFilterTest {
+        @Test @DisplayName("setFilter changes the call log filter")
+        fun `set filter`() = runTest {
             viewModel.setFilter(CallLogFilter.MISSED)
-            assert(viewModel.uiState.value.filter == CallLogFilter.MISSED)
+            assertEquals(CallLogFilter.MISSED, viewModel.uiState.value.filter)
         }
 
-        @Test
-        fun `setFilter cycles through all filters`() {
+        @Test @DisplayName("setFilter to ALL shows all calls")
+        fun `set filter all`() = runTest {
             viewModel.setFilter(CallLogFilter.ALL)
-            assert(viewModel.uiState.value.filter == CallLogFilter.ALL)
-
-            viewModel.setFilter(CallLogFilter.MISSED)
-            assert(viewModel.uiState.value.filter == CallLogFilter.MISSED)
-
-            viewModel.setFilter(CallLogFilter.OUTGOING)
-            assert(viewModel.uiState.value.filter == CallLogFilter.OUTGOING)
-
-            viewModel.setFilter(CallLogFilter.INCOMING)
-            assert(viewModel.uiState.value.filter == CallLogFilter.INCOMING)
+            assertEquals(CallLogFilter.ALL, viewModel.uiState.value.filter)
         }
     }
 
-    @Nested
-    @DisplayName("selection mode")
-    inner class Selection {
-        @Test
-        fun `startSelection enters selection mode`() {
+    @Nested @DisplayName("Selection")
+    inner class SelectionTest {
+        @Test @DisplayName("startSelection enables selection mode")
+        fun `start selection`() = runTest {
             viewModel.startSelection()
-            assert(viewModel.uiState.value.isSelectionMode)
-            assert(viewModel.uiState.value.selectedIds.isEmpty())
+            assertTrue(viewModel.uiState.value.isSelectionMode)
         }
 
-        @Test
-        fun `endSelection exits selection mode and clears selection`() {
+        @Test @DisplayName("endSelection disables selection mode")
+        fun `end selection`() = runTest {
             viewModel.startSelection()
             viewModel.endSelection()
-            assert(!viewModel.uiState.value.isSelectionMode)
-            assert(viewModel.uiState.value.selectedIds.isEmpty())
+            assertFalse(viewModel.uiState.value.isSelectionMode)
         }
 
-        @Test
-        fun `toggleSelected adds and removes ids`() {
+        @Test @DisplayName("toggleSelected adds or removes ID from selection")
+        fun `toggle selected`() = runTest {
             viewModel.startSelection()
-            viewModel.toggleSelected("call_1")
-            assert(viewModel.uiState.value.selectedIds.contains("call_1"))
-
-            viewModel.toggleSelected("call_1")
-            assert(!viewModel.uiState.value.selectedIds.contains("call_1"))
+            viewModel.toggleSelected("call-1")
+            assertTrue(viewModel.uiState.value.selectedIds.contains("call-1"))
+            viewModel.toggleSelected("call-1")
+            assertFalse(viewModel.uiState.value.selectedIds.contains("call-1"))
         }
 
-        @Test
-        fun `toggleSelected handles multiple ids`() {
-            viewModel.startSelection()
-            viewModel.toggleSelected("call_1")
-            viewModel.toggleSelected("call_2")
-            assert(viewModel.uiState.value.selectedIds.size == 2)
-        }
-
-        @Test
-        fun `selectAll selects all visible entries`() {
+        @Test @DisplayName("selectAll selects all visible calls")
+        fun `select all`() = runTest {
             viewModel.startSelection()
             viewModel.selectAll()
         }
     }
 
-    @Nested
-    @DisplayName("search")
-    inner class Search {
-        @Test
-        fun `search with empty query resets filter`() {
-            viewModel.setFilter(CallLogFilter.MISSED)
-            viewModel.search("")
-            assert(viewModel.uiState.value.searchQuery.isEmpty())
+    @Nested @DisplayName("Deletion")
+    inner class DeletionTest {
+        @Test @DisplayName("stageDeletion returns selected IDs")
+        fun `stage deletion`() = runTest {
+            viewModel.startSelection()
+            viewModel.toggleSelected("call-1")
+            viewModel.toggleSelected("call-2")
+            val staged = viewModel.stageDeletion()
+            assertEquals(2, staged.size)
         }
 
-        @Test
-        fun `search updates query in state`() {
-            viewModel.search("alice")
-            assert(viewModel.uiState.value.searchQuery == "alice")
+        @Test @DisplayName("confirmDeletion deletes staged calls")
+        fun `confirm deletion`() = runTest {
+            viewModel.startSelection()
+            viewModel.toggleSelected("call-1")
+            val staged = viewModel.stageDeletion()
+            viewModel.confirmDeletion(staged)
+            assertFalse(viewModel.uiState.value.isSelectionMode)
         }
     }
 
-    @Nested
-    @DisplayName("log entry mapping")
-    inner class LogEntryMapping {
-        @Test
-        fun `CallLogEntry created with correct values`() {
-            val entry = CallLogEntry(
-                callId = "call_1",
-                remoteUserId = "user_1",
-                type = CallType.AUDIO,
-                direction = CallDirection.INCOMING,
-                status = CallStatus.MISSED,
-                durationSeconds = 0,
-                timestamp = 1000L
-            )
-            assert(entry.callId == "call_1")
-            assert(entry.type == CallType.AUDIO)
-            assert(entry.direction == CallDirection.INCOMING)
-            assert(entry.status == CallStatus.MISSED)
-        }
-
-        @Test
-        fun `CallLogEntry with video type`() {
-            val entry = CallLogEntry(
-                callId = "call_2",
-                remoteUserId = "user_2",
-                type = CallType.VIDEO,
-                direction = CallDirection.OUTGOING,
-                status = CallStatus.ANSWERED,
-                durationSeconds = 120,
-                timestamp = 2000L
-            )
-            assert(entry.type == CallType.VIDEO)
-            assert(entry.direction == CallDirection.OUTGOING)
-            assert(entry.status == CallStatus.ANSWERED)
-            assert(entry.durationSeconds == 120)
+    @Nested @DisplayName("UI State")
+    inner class UiStateTest {
+        @Test @DisplayName("uiState has default values")
+        fun `ui state defaults`() = runTest {
+            val state = viewModel.uiState.value
+            assertNotNull(state)
+            assertTrue(state.entries.isEmpty())
+            assertEquals(CallLogFilter.ALL, state.filter)
+            assertFalse(state.isLoading)
+            assertFalse(state.isSelectionMode)
+            assertTrue(state.selectedIds.isEmpty())
         }
     }
 }

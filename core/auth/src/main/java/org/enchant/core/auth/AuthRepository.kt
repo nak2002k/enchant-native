@@ -57,8 +57,8 @@ class AuthRepository(private val apiClient: ApiClient) {
             if (parts.size == 3) {
                 val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
                 val payloadStr = payload.decodeToString()
-                val didMatch = Regex("\"did\":\"([^\"]+)\"").find(payloadStr)
-                didMatch?.groupValues?.getOrNull(1) ?: ""
+                val json = kotlinx.serialization.json.Json.parseToJsonElement(payloadStr).jsonObject
+                json["did"]?.jsonPrimitive?.content ?: ""
             } else ""
         } catch (_: Exception) { "" }
     }

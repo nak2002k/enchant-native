@@ -18,6 +18,26 @@ data class RatchetState(
     val consumedKeys: MutableSet<String> = mutableSetOf(),
     val version: Int = 1
 ) {
+    fun deepCopy(): RatchetState {
+        return RatchetState(
+            rootKey = rootKey.copyOf(),
+            sendingChainKey = sendingChainKey?.copyOf(),
+            sendingRatchetKeyPublic = sendingRatchetKeyPublic?.copyOf(),
+            sendingRatchetKeyPrivate = sendingRatchetKeyPrivate?.copyOf(),
+            sendingMessageNumber = sendingMessageNumber,
+            receivingChainKey = receivingChainKey?.copyOf(),
+            receivingRatchetKeyPublic = receivingRatchetKeyPublic?.copyOf(),
+            receivingRatchetKeyPrivate = receivingRatchetKeyPrivate?.copyOf(),
+            receivingMessageNumber = receivingMessageNumber,
+            previousSendingChainLength = previousSendingChainLength,
+            skippedMessageKeys = skippedMessageKeys.mapValues { (_, v) ->
+                MessageKey(v.key.copyOf(), v.nonce.copyOf(), v.chainKey.copyOf(), v.timestamp)
+            }.toMutableMap(),
+            consumedKeys = consumedKeys.toMutableSet(),
+            version = version
+        )
+    }
+
     fun zero() {
         CryptoHelper.zeroBytes(rootKey)
         sendingChainKey?.let { CryptoHelper.zeroBytes(it) }
@@ -27,6 +47,8 @@ data class RatchetState(
         receivingRatchetKeyPublic?.let { CryptoHelper.zeroBytes(it) }
         receivingRatchetKeyPrivate?.let { CryptoHelper.zeroBytes(it) }
         skippedMessageKeys.values.forEach { CryptoHelper.zeroBytes(it.key) }
+        skippedMessageKeys.clear()
+        consumedKeys.clear()
     }
 }
 

@@ -105,8 +105,16 @@ class ConversationRepository(
         pool.write { db ->
             db.beginTransaction()
             try {
+                val cursor = db.rawQuery(
+                    "SELECT unread_count FROM conversations WHERE conversation_id = ?",
+                    arrayOf(entity.conversationId)
+                )
+                val currentUnread = if (cursor.moveToFirst()) cursor.getInt(0) else 0
+                val newUnread = if (entity.senderId == "self") currentUnread else currentUnread + 1
+                cursor.close()
+
                 db.execSQL("""
-                    INSERT OR IGNORE INTO messages
+                    INSERT OR REPLACE INTO messages
                         (conversation_id, sender_id, envelope_id, message_type,
                          content, status, timestamp, server_ts, disappear_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -120,11 +128,11 @@ class ConversationRepository(
                     INSERT OR REPLACE INTO conversations
                         (conversation_id, type, last_message, last_message_envelope_id,
                          last_message_timestamp, unread_count)
-                    VALUES (?, ?, ?, ?, ?, 0)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """, arrayOf(
                     message.conversationId, conversationType,
                     message.content.take(100), message.envelopeId,
-                    message.timestamp.toString()
+                    message.timestamp.toString(), newUnread
                 ))
                 db.setTransactionSuccessful()
             } finally {

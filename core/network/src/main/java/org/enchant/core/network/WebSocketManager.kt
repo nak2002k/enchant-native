@@ -66,8 +66,13 @@ object WebSocketManager {
     private val _connectionErrors = MutableSharedFlow<ConnectionError>(extraBufferCapacity = 10)
     @Volatile
     private var keepAliveJob: Job? = null
-    @Volatile
+
     private var apiClient: ApiClient? = null
+
+    private val wsClient = OkHttpClient.Builder()
+        .readTimeout(0, TimeUnit.SECONDS)
+        .pingInterval(30, TimeUnit.SECONDS)
+        .build()
 
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
     val incomingMessages: SharedFlow<IncomingEnvelope> = _incomingMessages.asSharedFlow()
@@ -99,13 +104,8 @@ object WebSocketManager {
             return
         }
 
-        val client = OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.SECONDS)
-            .pingInterval(30, TimeUnit.SECONDS)
-            .build()
-
         val request = Request.Builder().url(AppConfig.wsUrl).build()
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
+        webSocket = wsClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
                 scope?.launch {
                     val authResult = authenticate(ws, jwt)
@@ -319,7 +319,10 @@ object WebSocketManager {
                 }
                 else -> {}
             }
-        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+        } catch (e: Exception) {
+            Log.e("Enchant", "handleFrame error: ${e.message}", e)
+            _connectionErrors.tryEmit(ConnectionError(5000, "Frame processing failed: ${e.message}"))
+        }
     }
 
     private fun startKeepAlive(ws: WebSocket) {
@@ -412,11 +415,9 @@ object WebSocketManager {
             if (parts.size == 3) {
                 val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
                 val payloadStr = payload.decodeToString()
-                val expMatch = Regex("\"exp\":(\\d+)").find(payloadStr)
-                if (expMatch != null) {
-                    val exp = expMatch.groupValues[1].toLongOrNull() ?: 0L
-                    System.currentTimeMillis() / 1000 >= exp
-                } else false
+                val json = kotlinx.serialization.json.Json.parseToJsonElement(payloadStr).jsonObject
+                val exp = json["exp"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
+                System.currentTimeMillis() / 1000 >= exp
             } else false
         } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); false }
     }

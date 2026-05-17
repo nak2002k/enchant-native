@@ -67,7 +67,7 @@ object MessageSendPipeline {
                 if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
 
                 if (useSealedSender) {
-                    return@withContext sendSealedMessage(recipientUserId, plaintext, null)
+                    return@withContext sendSealedMessage(conversationId, recipientUserId, plaintext, null)
                 }
 
                 val contentBytes = MessageProtobufHelper.buildDataMessageContent(
@@ -142,6 +142,7 @@ object MessageSendPipeline {
     }
 
     suspend fun sendSealedMessage(
+        conversationId: String,
         recipientUserId: String,
         plaintext: ByteArray,
         replyToken: String? = null
@@ -164,18 +165,20 @@ object MessageSendPipeline {
 
                 val ciphertextB64 = CryptoHelper.base64UrlEncode(encrypted.payload)
                 val sealedPayload = buildJsonObject {
-                    put("senderIdentity", senderIdentityB64)
+                    put("sender_identity", senderIdentityB64)
                     put("ciphertext", ciphertextB64)
                 }
-                val sealedPayloadStr = kotlinx.serialization.json.Json.encodeToString(
-                    kotlinx.serialization.json.JsonObject.serializer(), sealedPayload
+                val sealedPayloadB64 = CryptoHelper.base64UrlEncode(
+                    kotlinx.serialization.json.Json.encodeToString(
+                        kotlinx.serialization.json.JsonObject.serializer(), sealedPayload
+                    ).encodeToByteArray()
                 )
 
                 val client = apiClient!!
                 val response = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {
                     put("recipient_user_id", recipientUserId)
                     put("message_type", "UNIDENTIFIED_SENDER")
-                    put("payload", sealedPayloadStr)
+                    put("payload", sealedPayloadB64)
                     if (replyToken != null) put("reply_token", replyToken)
                 })
 
