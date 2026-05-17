@@ -47,7 +47,19 @@ class MessageDataFetcher(private val pool: DatabasePool) {
         }
     }
 
-    private fun loadMentions(messageId: Long): List<Mention> = emptyList()
+    private fun loadMentions(messageId: Long): List<Mention> = pool.readWith { db ->
+        val c = db.rawQuery(
+            "SELECT user_id, start_pos, length FROM message_mentions WHERE message_local_id = ?",
+            arrayOf(messageId.toString())
+        )
+        c.use {
+            val r = mutableListOf<Mention>()
+            while (it.moveToNext()) {
+                r.add(Mention(it.getString(0), it.getInt(1), it.getInt(2)))
+            }
+            r
+        }
+    }
 
     private fun loadPinned(messageId: Long): Boolean = false
 }

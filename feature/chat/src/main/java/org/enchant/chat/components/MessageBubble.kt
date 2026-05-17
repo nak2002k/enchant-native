@@ -75,6 +75,9 @@ fun MediaMessageBubble(imageUrl: String, isOutgoing: Boolean, clusterPosition: C
 
 @Composable
 fun VoiceMessageBubble(duration: Int, isOutgoing: Boolean, isPlaying: Boolean = false, onPlay: () -> Unit = {}) {
+    val barHeights = remember {
+        List(20) { (4 + (it * 7 % 17)).dp }
+    }
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp),
         horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start
@@ -86,7 +89,9 @@ fun VoiceMessageBubble(duration: Int, isOutgoing: Boolean, isPlaying: Boolean = 
                 Spacer(Modifier.width(8.dp))
                 Box(modifier = Modifier.height(24.dp).weight(1f).background(Color.Transparent)) {
                     Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                        repeat(20) { Box(modifier = Modifier.width(2.dp).height((4 + Math.random() * 16).toInt().dp).padding(end = 1.dp).background(MaterialTheme.colorScheme.onSurfaceVariant)) }
+                        barHeights.forEach { h ->
+                            Box(modifier = Modifier.width(2.dp).height(h).padding(end = 1.dp).background(MaterialTheme.colorScheme.onSurfaceVariant))
+                        }
                     }
                 }
                 Spacer(Modifier.width(8.dp))
@@ -114,10 +119,20 @@ fun DocumentBubble(filename: String, fileSize: String, mimeType: String, onDownl
 
 @Composable
 fun LocationBubble(latitude: Double, longitude: Double, address: String? = null, onTap: () -> Unit = {}) {
+    val mapUrl = remember(latitude, longitude) {
+        "https://staticmap.openstreetmap.de/staticmap.php?center=$latitude,$longitude&zoom=14&size=400x200&markers=$latitude,$longitude"
+    }
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp), horizontalAlignment = Alignment.Start) {
         Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.widthIn(max = 280.dp).clickable { onTap() }) {
             Column(modifier = Modifier.padding(0.dp)) {
-                Box(modifier = Modifier.size(200.dp, 120.dp).background(Color(0xFFE8F5E9)), contentAlignment = Alignment.Center) { Text("📍", fontSize = 36.sp) }
+                Box(modifier = Modifier.size(280.dp, 140.dp).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.BottomStart) {
+                    coil.compose.AsyncImage(
+                        model = mapUrl,
+                        contentDescription = address ?: "Location",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                }
                 address?.let { Text(it, modifier = Modifier.padding(8.dp), style = MaterialTheme.typography.bodySmall) }
             }
         }
@@ -127,7 +142,14 @@ fun LocationBubble(latitude: Double, longitude: Double, address: String? = null,
 @Composable
 fun StickerBubble(stickerImageUrl: String, packName: String? = null) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp), horizontalAlignment = Alignment.Start) {
-        Box(modifier = Modifier.size(128.dp).clip(RoundedCornerShape(8.dp)).background(Color.Transparent), contentAlignment = Alignment.Center) { Text("🎨", fontSize = 48.sp) }
+        Box(modifier = Modifier.size(128.dp).clip(RoundedCornerShape(8.dp)).background(Color.Transparent), contentAlignment = Alignment.Center) {
+            coil.compose.AsyncImage(
+                model = stickerImageUrl,
+                contentDescription = packName ?: "Sticker",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit
+            )
+        }
     }
 }
 

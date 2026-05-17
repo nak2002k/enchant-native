@@ -41,6 +41,12 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                                     db.execSQL("INSERT INTO messages_fts(rowid, content, conversation_id) SELECT local_id, content, conversation_id FROM messages")
                                     db.execSQL("PRAGMA user_version = 2")
                                 }
+                                3 -> {
+                                    db.execSQL("ALTER TABLE messages ADD COLUMN is_pinned INTEGER DEFAULT 0")
+                                    db.execSQL("CREATE TABLE IF NOT EXISTS message_mentions (message_local_id INTEGER NOT NULL, user_id TEXT NOT NULL, start_pos INTEGER NOT NULL, length INTEGER NOT NULL, PRIMARY KEY(message_local_id, user_id))")
+                                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_mentions_msg ON message_mentions(message_local_id)")
+                                    db.execSQL("PRAGMA user_version = 3")
+                                }
                                 else -> android.util.Log.w("AppDatabase", "No migration defined for v$version")
                             }
                     }
@@ -66,7 +72,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     companion object {
         @Volatile
         var instance: DatabasePool? = null
-        const val DB_VERSION = 2
+        const val DB_VERSION = 3
 
         fun createTables(db: SQLiteDatabase) {
             db.execSQL("""
@@ -84,6 +90,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                     timestamp INTEGER NOT NULL, server_ts INTEGER,
                     is_edited INTEGER DEFAULT 0, edit_envelope_id TEXT,
                     is_starred INTEGER DEFAULT 0, is_deleted INTEGER DEFAULT 0,
+                    is_pinned INTEGER DEFAULT 0,
                     disappear_at INTEGER, gif_url TEXT
                 )
             """)
@@ -230,6 +237,17 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 )
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_reactions_msg ON reactions(message_local_id)")
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS message_mentions (
+                    message_local_id INTEGER NOT NULL,
+                    user_id TEXT NOT NULL,
+                    start_pos INTEGER NOT NULL,
+                    length INTEGER NOT NULL,
+                    PRIMARY KEY(message_local_id, user_id)
+                )
+            """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_mentions_msg ON message_mentions(message_local_id)")
         }
     }
 }
