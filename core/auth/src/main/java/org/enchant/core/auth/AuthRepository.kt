@@ -186,7 +186,7 @@ class AuthRepository(private val apiClient: ApiClient) {
             }
             val response = apiClient.post("/v1/keys/one-time-prekeys", body)
             response.map { json ->
-                json["total_opks"]?.jsonPrimitive?.int ?: 0
+                json["count"]?.jsonPrimitive?.int ?: 0
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -197,7 +197,7 @@ class AuthRepository(private val apiClient: ApiClient) {
         return try {
             val response = apiClient.get("/v1/keys/opk-count")
             response.map { json ->
-                json["remaining"]?.jsonPrimitive?.int ?: 0
+                json["count"]?.jsonPrimitive?.int ?: 0
             }
         } catch (e: Exception) {
             Result.failure(e)

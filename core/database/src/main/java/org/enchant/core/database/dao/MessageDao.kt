@@ -138,6 +138,11 @@ class MessageDao(private val pool: DatabasePool) {
         DatabaseNotifier.notify("messages")
     }
 
+    suspend fun pinMessage(envelopeId: String, pinned: Boolean) = pool.write { db ->
+        db.execSQL("UPDATE messages SET is_pinned = ? WHERE envelope_id = ?", arrayOf(if (pinned) 1 else 0, envelopeId))
+        DatabaseNotifier.notify("messages")
+    }
+
     suspend fun getUnreadCount(conversationId: String): Int = pool.readWith { db ->
         db.rawQuery("SELECT COUNT(*) FROM messages WHERE conversation_id = ? AND status = 'delivered'", arrayOf(conversationId))
             .use { if (it.moveToFirst()) it.getInt(0) else 0 }

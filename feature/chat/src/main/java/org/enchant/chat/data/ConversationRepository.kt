@@ -177,6 +177,10 @@ class ConversationRepository(
         messageDao.starMessage(envelopeId, starred)
     }
 
+    suspend fun pinMessage(envelopeId: String, pinned: Boolean) {
+        messageDao.pinMessage(envelopeId, pinned)
+    }
+
     suspend fun addReaction(conversationId: String, messageId: Long, emoji: String, userId: String) = pool.write { db ->
         db.execSQL("""
             INSERT OR REPLACE INTO reactions (message_local_id, emoji, user_id, conversation_id)

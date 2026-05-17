@@ -283,14 +283,14 @@ class ConversationViewModel(
     fun pinMessage(messageId: Long) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            repo.starMessage(msg.envelopeId ?: msg.localId.toString(), true)
+            repo.pinMessage(msg.envelopeId ?: msg.localId.toString(), true)
         }
     }
 
     fun unpinMessage(messageId: Long) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            repo.starMessage(msg.envelopeId ?: msg.localId.toString(), false)
+            repo.pinMessage(msg.envelopeId ?: msg.localId.toString(), false)
         }
     }
 
@@ -356,7 +356,7 @@ class ConversationViewModel(
     }
 
     fun cancelScheduledMessage(messageId: Long) {
-        JobManager.cancelAll()
+        JobManager.cancelJob("scheduled_msg_$messageId")
     }
 
     fun markViewOnceViewed(envelopeId: String) {
