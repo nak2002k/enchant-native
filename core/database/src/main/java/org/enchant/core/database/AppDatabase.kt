@@ -35,10 +35,14 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 android.util.Log.w("AppDatabase", "DB upgrade from v$oldVersion to v$newVersion - applying migrations")
                 if (newVersion > oldVersion) {
                     for (version in (oldVersion + 1)..newVersion) {
-                        when (version) {
-                            2 -> db.execSQL("PRAGMA user_version = 2")
-                            else -> android.util.Log.w("AppDatabase", "No migration defined for v$version")
-                        }
+                            when (version) {
+                                2 -> {
+                                    db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, conversation_id UNINDEXED, tokenize='unicode61')")
+                                    db.execSQL("INSERT INTO messages_fts(rowid, content, conversation_id) SELECT local_id, content, conversation_id FROM messages")
+                                    db.execSQL("PRAGMA user_version = 2")
+                                }
+                                else -> android.util.Log.w("AppDatabase", "No migration defined for v$version")
+                            }
                     }
                 }
             }
@@ -62,7 +66,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     companion object {
         @Volatile
         var instance: DatabasePool? = null
-        const val DB_VERSION = 1
+        const val DB_VERSION = 2
 
         fun createTables(db: SQLiteDatabase) {
             db.execSQL("""
@@ -85,6 +89,27 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_messages_conversation_ts ON messages(conversation_id, timestamp DESC)")
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_envelope ON messages(envelope_id)")
+            db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, conversation_id UNINDEXED, tokenize='unicode61')")
+            db.execSQL("""
+                CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+                    INSERT INTO messages_fts(rowid, content, conversation_id)
+                    VALUES (new.local_id, new.content, new.conversation_id);
+                END
+            """)
+            db.execSQL("""
+                CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, conversation_id)
+                    VALUES ('delete', old.local_id, old.content, old.conversation_id);
+                END
+            """)
+            db.execSQL("""
+                CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE OF content ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, conversation_id)
+                    VALUES ('delete', old.local_id, old.content, old.conversation_id);
+                    INSERT INTO messages_fts(rowid, content, conversation_id)
+                    VALUES (new.local_id, new.content, new.conversation_id);
+                END
+            """)
 
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS conversations (

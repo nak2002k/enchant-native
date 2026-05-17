@@ -80,10 +80,25 @@ class ConversationDao(private val pool: DatabasePool) {
     }
 
     fun search(query: String): Flow<List<ConversationEntity>> = callbackFlow {
-        val cursor = pool.readWith { db ->
-            db.rawQuery("SELECT * FROM conversations WHERE last_message LIKE ? ORDER BY last_message_timestamp DESC", arrayOf("%$query%"))
+        fun queryDb(): List<ConversationEntity> = pool.readWith { db ->
+            db.rawQuery("""
+                SELECT c.* FROM conversations c
+                LEFT JOIN messages m ON c.last_message_envelope_id = m.envelope_id
+                WHERE m.content LIKE ? OR c.conversation_id IN (
+                    SELECT conversation_id FROM messages WHERE content LIKE ?
+                )
+                ORDER BY c.last_message_timestamp DESC
+            """, arrayOf("%$query%", "%$query%"))
+                .use { CursorMapper.mapToList<ConversationEntity>(it) }
         }
-        val items = cursor.use { CursorMapper.mapToList<ConversationEntity>(it) }
-        trySend(items)
+        try { trySend(queryDb()) } catch (_: Exception) { trySend(emptyList()) }
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            DatabaseNotifier.tableChanges.collect { table ->
+                if (table == "conversations" || table == "messages") {
+                    try { trySend(queryDb()) } catch (_: Exception) {}
+                }
+            }
+        }
+        awaitClose { job.cancel() }
     }
 }

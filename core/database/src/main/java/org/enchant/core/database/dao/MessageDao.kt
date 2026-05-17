@@ -144,11 +144,22 @@ class MessageDao(private val pool: DatabasePool) {
     }
 
     fun searchMessages(query: String): Flow<List<MessageEntity>> = callbackFlow {
-        val cursor = pool.readWith { db ->
-            db.rawQuery("SELECT * FROM messages WHERE content LIKE ? AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 100", arrayOf("%$query%"))
+        fun query(): List<MessageEntity> = pool.readWith { db ->
+            val cursor = db.rawQuery("""
+                SELECT m.* FROM messages m
+                INNER JOIN messages_fts fts ON m.local_id = fts.rowid
+                WHERE messages_fts MATCH ? AND m.is_deleted = 0
+                ORDER BY m.timestamp DESC LIMIT 100
+            """, arrayOf(query.trim()))
+            cursor.use { CursorMapper.mapToList<MessageEntity>(it) }
         }
-        val messages = cursor.use { CursorMapper.mapToList<MessageEntity>(it) }
-        trySend(messages)
+        try { trySend(query()) } catch (_: Exception) { trySend(emptyList()) }
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            DatabaseNotifier.tableChanges.collect { table ->
+                if (table == "messages") try { trySend(query()) } catch (_: Exception) {}
+            }
+        }
+        awaitClose { job.cancel() }
     }
 
     suspend fun deleteExpired(now: Long) = pool.write { db ->
