@@ -303,8 +303,10 @@ class ConversationViewModel(
     fun reportMessage(envelopeId: String) {
         viewModelScope.launch {
             try {
+                val msg = repo.getMessage(envelopeId)
+                val targetUserId = msg?.senderId ?: conversationId
                 apiClient.post("/v1/report", buildJsonObject {
-                    put("target_user_id", JsonPrimitive(conversationId))
+                    put("target_user_id", JsonPrimitive(targetUserId))
                     put("reason", JsonPrimitive("message_report"))
                     put("envelope_id", JsonPrimitive(envelopeId))
                 })

@@ -394,7 +394,12 @@ object CallManager {
         val remoteId = _callState.value.remoteUserId ?: return
         callScope.launch(Dispatchers.IO) {
             try {
-                val callMessage = CallMessageProtos.CallMessage.newBuilder().build()
+                val callMessage = CallMessageProtos.CallMessage.newBuilder()
+                    .setOpaque(CallMessageProtos.CallMessage.Opaque.newBuilder()
+                        .setData(emoji.toByteArray())
+                        .setUrgency(CallMessageProtos.CallMessage.Opaque.Urgency.DROPPABLE)
+                        .build())
+                    .build()
                 sendCallMessage(remoteId, callMessage)
             } catch (e: Exception) { Log.w("Calls", "React failed: ${e.message}") }
         }
@@ -403,10 +408,16 @@ object CallManager {
     fun requestRemoteMute(participantId: String) {
         callScope.launch(Dispatchers.IO) {
             try {
-                val callMessage = CallMessageProtos.CallMessage.newBuilder().build()
+                val callMessage = CallMessageProtos.CallMessage.newBuilder()
+                    .setOpaque(CallMessageProtos.CallMessage.Opaque.newBuilder()
+                        .setData("remote_mute:$participantId".toByteArray())
+                        .setUrgency(CallMessageProtos.CallMessage.Opaque.Urgency.HANDLE_IMMEDIATELY)
+                        .build())
+                    .build()
                 webSocket.sendMessage(recipientUserId = participantId, payload = callMessage.toByteArray(), ephemeral = true)
             } catch (e: Exception) { Log.w("Calls", "Remote mute failed: ${e.message}") }
         }
+    }
     }
 
     fun removeParticipant(participantId: String) {
