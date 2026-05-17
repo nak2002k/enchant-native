@@ -61,6 +61,7 @@ object SessionManager {
             sessionLock.withLock {
                 val sessionKey = sessionKey(recipientUserId)
                 var state = sessions[sessionKey]
+                var isNewSession = false
 
                 if (state == null) {
                     val ikPair = KeyManager.getIdentityKeyPair() ?: return@withLock null
@@ -87,17 +88,41 @@ object SessionManager {
                         theirSignedPrekeyPublic = theirSpkPublic
                     )
                     sessions[sessionKey] = state!!
+                    isNewSession = true
                 }
 
                 val (newState, message) = DoubleRatchet.encrypt(state, plaintext)
                 val header = message.header
                 val ciphertext = message.ciphertext
-                val combinedPayload = ByteBuffer.allocate(4 + header.size + ciphertext.size)
-                    .order(ByteOrder.BIG_ENDIAN)
-                    .putInt(header.size)
-                    .put(header)
-                    .put(ciphertext)
-                    .array()
+
+                val combinedPayload = if (isNewSession) {
+                    val ourIk = KeyManager.getIdentityKeyPair()?.publicKey ?: return@withLock null
+                    val ourEk = state!!.sendingRatchetKeyPublic ?: return@withLock null
+                    val ourSpkId = 0
+                    val ourOpkId = -1
+
+                    val prekeyBuf = ByteBuffer.allocate(
+                        4 + ourIk.size + 4 + ourEk.size + 4 + 4 +
+                        4 + header.size + ciphertext.size
+                    ).order(ByteOrder.BIG_ENDIAN)
+                    prekeyBuf.putInt(ourIk.size)
+                    prekeyBuf.put(ourIk)
+                    prekeyBuf.putInt(ourEk.size)
+                    prekeyBuf.put(ourEk)
+                    prekeyBuf.putInt(ourSpkId)
+                    prekeyBuf.putInt(ourOpkId)
+                    prekeyBuf.putInt(header.size)
+                    prekeyBuf.put(header)
+                    prekeyBuf.put(ciphertext)
+                    prekeyBuf.array()
+                } else {
+                    ByteBuffer.allocate(4 + header.size + ciphertext.size)
+                        .order(ByteOrder.BIG_ENDIAN)
+                        .putInt(header.size)
+                        .put(header)
+                        .put(ciphertext)
+                        .array()
+                }
 
                 val independentState = newState.deepCopy()
                 state.zero()
@@ -105,7 +130,7 @@ object SessionManager {
                 persistSession(sessionKey, independentState)
 
                 EncryptedPayload(
-                    messageType = EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
+                    messageType = if (isNewSession) EnvelopeProtos.Envelope.Type.PREKEY_MESSAGE else EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
                     payload = combinedPayload,
                     recipientDeviceId = null
                 )
@@ -144,7 +169,87 @@ object SessionManager {
                 DecryptedResult(
                     plaintext = plaintext,
                     senderDeviceId = null,
-                    isNewSession = payload.messageType == EnvelopeProtos.Envelope.Type.PREKEY_MESSAGE
+                    isNewSession = false
+                )
+            }
+        }
+    }
+
+    suspend fun decryptPreKeyMessage(senderUserId: String, payload: ByteArray): DecryptedResult? {
+        return withContext(Dispatchers.Default) {
+            sessionLock.withLock {
+                val sessionKey = sessionKey(senderUserId)
+                if (sessions.containsKey(sessionKey)) {
+                    return@withLock decryptMessage(senderUserId, EncryptedPayload(
+                        messageType = EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
+                        payload = payload
+                    ))
+                }
+
+                val buf = ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN)
+                if (buf.remaining() < 4) return@withLock null
+
+                val theirIkSize = buf.getInt()
+                if (theirIkSize <= 0 || theirIkSize > 128 || buf.remaining() < theirIkSize) return@withLock null
+                val theirIk = ByteArray(theirIkSize).also { buf.get(it) }
+
+                val theirEkSize = buf.getInt()
+                if (theirEkSize <= 0 || theirEkSize > 128 || buf.remaining() < theirEkSize) return@withLock null
+                val theirEk = ByteArray(theirEkSize).also { buf.get(it) }
+
+                val ourSpkId = buf.getInt()
+                val ourOpkId = buf.getInt()
+
+                val ourIkPair = KeyManager.getIdentityKeyPair() ?: return@withLock null
+                val ourSpk = KeyManager.getSignedPreKeyPair() ?: return@withLock null
+                val ourOpk = if (ourOpkId >= 0) KeyManager.getOneTimePreKeyPair(ourOpkId) else null
+
+                val theirIdentityX = CryptoHelper.ed25519PkToX25519(theirIk)
+
+                val x3dhResult = X3DH.bobRespond(
+                    ourIdentityKey = ourIkPair,
+                    ourSignedPrekeyKeyPair = ourSpk,
+                    ourOneTimePrekeyKeyPair = ourOpk,
+                    theirIdentityKeyPublic = theirIdentityX,
+                    theirEphemeralKeyPublic = theirEk
+                )
+
+                val state = DoubleRatchet.initializeAsBob(
+                    sharedSecret = x3dhResult.sharedSecret,
+                    theirRatchetKeyPublic = theirEk,
+                    ourSignedPrekeyPrivate = ourSpk.privateKey
+                )
+
+                if (buf.remaining() < 4) return@withLock null
+                val headerSize = buf.getInt()
+                if (headerSize <= 0 || headerSize > 256 || buf.remaining() < headerSize) return@withLock null
+                val headerBytes = ByteArray(headerSize)
+                buf.get(headerBytes)
+                val ciphertextBytes = ByteArray(buf.remaining())
+                buf.get(ciphertextBytes)
+
+                val ratchetMessage = RatchetMessage(
+                    header = headerBytes,
+                    ciphertext = ciphertextBytes
+                )
+
+                val (newState, plaintext) = DoubleRatchet.decrypt(state, ratchetMessage)
+                if (plaintext.isEmpty()) return@withLock null
+
+                identityKeys[senderUserId] = theirIk
+                val independentState = newState.deepCopy()
+                state.zero()
+                sessions[sessionKey] = independentState
+                persistSession(sessionKey, independentState)
+
+                if (ourOpk != null) {
+                    KeyManager.consumeOneTimePreKey(ourOpkId)
+                }
+
+                DecryptedResult(
+                    plaintext = plaintext,
+                    senderDeviceId = null,
+                    isNewSession = true
                 )
             }
         }

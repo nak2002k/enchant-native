@@ -79,14 +79,15 @@ class DoubleRatchetTest {
             assertFalse(a1.rootKey.contentEquals(a2.rootKey))
         }
 
-        @Test @DisplayName("different SPK produces different states")
+        @Test @DisplayName("different SPK produces different receiving ratchet key")
         fun `different spk different states`() {
             val sharedSecret = CryptoHelper.generateRandomKey(32)
             val bobSpk1 = CryptoHelper.generateX25519KeyPair()
             val bobSpk2 = CryptoHelper.generateX25519KeyPair()
             val a1 = DoubleRatchet.initializeAsAlice(sharedSecret, bobSpk1.publicKey)
             val a2 = DoubleRatchet.initializeAsAlice(sharedSecret, bobSpk2.publicKey)
-            assertFalse(a1.rootKey.contentEquals(a2.rootKey))
+            assertTrue(a1.rootKey.contentEquals(a2.rootKey))
+            assertFalse(a1.receivingRatchetKeyPublic!!.contentEquals(a2.receivingRatchetKeyPublic!!))
         }
     }
 

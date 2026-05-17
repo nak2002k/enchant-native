@@ -123,18 +123,7 @@ object IncomingMessageProcessor {
                     if (bundleResult == null) return@withContext ProcessResult.Error("No key bundle for $senderUserId")
                 }
 
-                val encryptedPayload = org.enchant.core.network.models.SendMessageRequest(
-                    recipientUserId = senderUserId,
-                    messageType = "PREKEY_MESSAGE",
-                    payload = CryptoHelper.base64UrlEncode(envelope.payload)
-                )
-
-                val decrypted = SessionManager.decryptMessage(senderUserId,
-                    org.enchant.core.crypto.EncryptedPayload(
-                        messageType = org.enchant.protos.EnvelopeProtos.Envelope.Type.PREKEY_MESSAGE,
-                        payload = envelope.payload
-                    )
-                )
+                val decrypted = SessionManager.decryptPreKeyMessage(senderUserId, envelope.payload)
 
                 if (decrypted == null) return@withContext ProcessResult.Error("Failed to establish session")
 

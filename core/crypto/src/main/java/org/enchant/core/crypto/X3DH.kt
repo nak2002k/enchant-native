@@ -94,6 +94,10 @@ object X3DH {
         CryptoHelper.zeroBytes(ikPrivX)
         CryptoHelper.zeroBytes(dh1)
         CryptoHelper.zeroBytes(dh2)
+        CryptoHelper.zeroBytes(dh3)
+        if (dhInput.size > 96) {
+            CryptoHelper.zeroBytes(dhInput.copyOfRange(96, dhInput.size))
+        }
 
         return X3dhResult(
             sharedSecret = sk,

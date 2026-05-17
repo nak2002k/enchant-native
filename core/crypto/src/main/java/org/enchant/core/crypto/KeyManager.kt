@@ -182,6 +182,26 @@ object KeyManager {
 
     suspend fun getIdentityKeyPair(): CryptoHelper.KeyPair? = identityKeyPair
 
+    suspend fun getSignedPreKeyPair(): CryptoHelper.KeyPair? = spkKeyPair
+
+    suspend fun getOneTimePreKeyPair(id: Int): CryptoHelper.KeyPair? {
+        val pub = SecurePreferences.getString("crypto.opk_${id}_public") ?: return null
+        val privWrapped = SecurePreferences.getString("crypto.opk_${id}_private") ?: return null
+        return try {
+            val publicKey = CryptoHelper.base64UrlDecode(pub)
+            val encoded = CryptoHelper.base64UrlDecode(privWrapped)
+            val privateKey = KeyStoreManager.decrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, encoded)
+            if (privateKey != null) CryptoHelper.KeyPair(publicKey, privateKey) else null
+        } catch (_: Exception) { null }
+    }
+
+    suspend fun consumeOneTimePreKey(id: Int) {
+        SecurePreferences.remove("crypto.opk_${id}_public")
+        SecurePreferences.remove("crypto.opk_${id}_private")
+        val count = SecurePreferences.getInt("crypto.opk_count", 0)
+        if (count > 0) SecurePreferences.putInt("crypto.opk_count", count - 1)
+    }
+
     suspend fun getIdentityPublicKeyBase64(): String? {
         return identityKeyPair?.let { CryptoHelper.base64UrlEncode(it.publicKey) }
     }

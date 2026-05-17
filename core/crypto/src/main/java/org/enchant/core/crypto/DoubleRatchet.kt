@@ -82,9 +82,7 @@ object DoubleRatchet {
         val salt = ByteArray(32)
         val sendingKeyPair = CryptoHelper.generateX25519KeyPair()
 
-        val dhOut = CryptoHelper.x25519DiffieHellman(sendingKeyPair.privateKey, theirSignedPrekeyPublic)
-        val rootMaterial = CryptoHelper.hkdfSha256(sharedSecret + dhOut, salt, "EnchantRatchet".encodeToByteArray(), 64)
-        CryptoHelper.zeroBytes(dhOut)
+        val rootMaterial = CryptoHelper.hkdfSha256(sharedSecret, salt, "EnchantRatchet".encodeToByteArray(), 64)
 
         return RatchetState(
             rootKey = rootMaterial.copyOfRange(0, 32),
@@ -105,14 +103,13 @@ object DoubleRatchet {
     ): RatchetState {
         val salt = ByteArray(32)
 
-        val dhOut = CryptoHelper.x25519DiffieHellman(ourSignedPrekeyPrivate, theirRatchetKeyPublic)
-        val rootMaterial = CryptoHelper.hkdfSha256(sharedSecret + dhOut, salt, "EnchantRatchet".encodeToByteArray(), 64)
-        CryptoHelper.zeroBytes(dhOut)
+        val rootMaterial = CryptoHelper.hkdfSha256(sharedSecret, salt, "EnchantRatchet".encodeToByteArray(), 64)
 
         return RatchetState(
             rootKey = rootMaterial.copyOfRange(0, 32),
             receivingChainKey = rootMaterial.copyOfRange(32, 64),
             receivingRatchetKeyPublic = theirRatchetKeyPublic,
+            receivingRatchetKeyPrivate = ourSignedPrekeyPrivate,
             receivingMessageNumber = 0
         )
     }
