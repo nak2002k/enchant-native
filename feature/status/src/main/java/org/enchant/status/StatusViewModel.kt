@@ -51,6 +51,7 @@ data class StatusUiState(
 class StatusViewModel(
     private val apiClient: ApiClient
 ) : ViewModel() {
+    constructor() : this(org.enchant.core.network.ApiClient.getInstance())
     private val _uiState = MutableStateFlow(StatusUiState())
     val uiState: StateFlow<StatusUiState> = _uiState.asStateFlow()
 

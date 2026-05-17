@@ -50,6 +50,7 @@ data class ChannelUiState(
 class ChannelViewModel(
     private val apiClient: ApiClient
 ) : ViewModel() {
+    constructor() : this(org.enchant.core.network.ApiClient.getInstance())
     private val _uiState = MutableStateFlow(ChannelUiState())
     val uiState: StateFlow<ChannelUiState> = _uiState.asStateFlow()
 

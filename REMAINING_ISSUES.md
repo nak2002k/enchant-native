@@ -219,10 +219,13 @@ The audit flagged `restoreBackup()` as missing. Verify and implement if so.
 
 | # | Issue | Status | Date |
 |---|-------|--------|------|
-| P0-3 | RtlSupport return type | PENDING | |
-| P0-1 | AES-GCM → XChaCha20-Poly1305 | PENDING | |
-| P0-2 | SodiumProvider libsodium loading | PENDING | |
-| P0-4 | Search/QR placeholder routes | PENDING | |
-| P0-5 | media_viewer/share_target stub routes | PENDING | |
-| P0-6 | FLAG_SECURE lifecycle | PENDING | |
-| P0-7 | handleCallIntent empty | PENDING | |
+| P0-3 | RtlSupport return type | ✅ Fixed 2026-05-17 | |
+| P0-1 | AES-GCM → XChaCha20-Poly1305 | ✅ Fixed 2026-05-17 | |
+| P0-2 | SodiumProvider libsodium loading | ✅ Fixed 2026-05-17 | |
+| P0-4 | Search/QR placeholder routes | ✅ Fixed 2026-05-17 | |
+| P0-5 | media_viewer/share_target stub routes | ✅ Fixed 2026-05-17 | |
+| P0-6 | FLAG_SECURE lifecycle | ✅ Fixed 2026-05-17 | |
+| P0-7 | handleCallIntent empty | ✅ Fixed 2026-05-17 | |
+| P1-3 | Wire screens to ViewModels (10 screens) | ✅ Fixed 2026-05-17 | |
+| P1-8 | Add FTS5 migration for message search | PENDING | |
+| P1-7 | Fix database search Flows to be reactive | PENDING | | |

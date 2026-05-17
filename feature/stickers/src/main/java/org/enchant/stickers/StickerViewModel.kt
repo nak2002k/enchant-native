@@ -38,6 +38,7 @@ data class StickerUiState(
 class StickerViewModel(
     private val apiClient: ApiClient
 ) : ViewModel() {
+    constructor() : this(org.enchant.core.network.ApiClient.getInstance())
     private val _uiState = MutableStateFlow(StickerUiState())
     val uiState: StateFlow<StickerUiState> = _uiState.asStateFlow()
 

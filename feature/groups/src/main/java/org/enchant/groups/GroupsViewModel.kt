@@ -28,6 +28,7 @@ data class GroupsUiState(
 class GroupsViewModel(
     private val repository: GroupsRepository
 ) : ViewModel() {
+    constructor() : this(GroupsRepository(org.enchant.core.network.ApiClient.getInstance(), org.enchant.core.database.DatabasePool.instance!!))
     private val _uiState = MutableStateFlow(GroupsUiState())
     val uiState: StateFlow<GroupsUiState> = _uiState.asStateFlow()
 

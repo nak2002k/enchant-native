@@ -39,6 +39,7 @@ data class ProfileUiState(
 class ProfileViewModel(
     private val apiClient: ApiClient
 ) : ViewModel() {
+    constructor() : this(org.enchant.core.network.ApiClient.getInstance())
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 

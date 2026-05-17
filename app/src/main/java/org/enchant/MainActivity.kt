@@ -83,6 +83,14 @@ import org.enchant.status.screens.StatusCreateScreen
 import org.enchant.status.screens.StatusFeedScreen
 import org.enchant.status.screens.StatusViewerScreen
 import org.enchant.stickers.screens.StickerStoreScreen
+import org.enchant.contacts.ContactsViewModel
+import org.enchant.groups.GroupsViewModel
+import org.enchant.status.StatusViewModel
+import org.enchant.channels.ChannelViewModel
+import org.enchant.stickers.StickerViewModel
+import org.enchant.calls.CallLogViewModel
+import org.enchant.profile.ProfileViewModel
+import org.enchant.backup.BackupViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -334,37 +342,45 @@ fun AppNavigation() {
         }
 
         composable("contacts") {
+            val contactsViewModel: ContactsViewModel = viewModel()
+            val state by contactsViewModel.uiState.collectAsState()
+            LaunchedEffect(Unit) { contactsViewModel.loadContacts() }
             ContactListScreen(
-                contacts = emptyList(),
-                searchResults = emptyList(),
-                searchQuery = "",
-                isLoading = false,
-                error = null,
+                contacts = state.contacts,
+                searchResults = state.searchResults,
+                searchQuery = state.searchQuery,
+                isLoading = state.isLoading,
+                error = state.error,
                 onContactClick = { userId -> navController.navigate("conversation/$userId") },
-                onSearchQueryChange = {},
-                onAddContact = {},
-                onRefresh = {}
+                onSearchQueryChange = { contactsViewModel.searchContacts(it) },
+                onAddContact = { },
+                onRefresh = { contactsViewModel.loadContacts() }
             )
         }
 
         composable("create_group") {
+            val groupsViewModel: GroupsViewModel = viewModel()
+            val state by groupsViewModel.uiState.collectAsState()
             CreateGroupScreen(
                 onGroupCreated = { groupId -> navController.popBackStack() },
                 onNavigateBack = { navController.popBackStack() },
-                onCreateGroup = { _, _, _ -> },
-                isLoading = false
+                onCreateGroup = { name, desc, members -> groupsViewModel.createGroup(name, desc, members) },
+                isLoading = state.isLoading
             )
         }
 
         composable("groups") {
+            val groupsViewModel: GroupsViewModel = viewModel()
+            val state by groupsViewModel.uiState.collectAsState()
+            LaunchedEffect(Unit) { groupsViewModel.loadGroups() }
             GroupListScreen(
-                groups = emptyList(),
-                isLoading = false,
-                error = null,
+                groups = state.groups,
+                isLoading = state.isLoading,
+                error = state.error,
                 onGroupClick = { groupId -> navController.navigate("group_info/$groupId") },
                 onCreateGroup = { navController.navigate("create_group") },
-                onJoinGroup = {},
-                onRefresh = {}
+                onJoinGroup = { groupsViewModel.joinViaLink("") },
+                onRefresh = { groupsViewModel.loadGroups() }
             )
         }
 
@@ -509,17 +525,24 @@ fun AppNavigation() {
         }
 
         composable("status_feed") {
+            val statusViewModel: StatusViewModel = viewModel()
+            val state by statusViewModel.uiState.collectAsState()
+            LaunchedEffect(Unit) { statusViewModel.loadFeed() }
             StatusFeedScreen(
-                myStatus = null,
-                feed = emptyMap(),
-                onStatusTap = { },
+                myStatus = state.myStatus,
+                feed = state.feed.groupBy { it.userId },
+                onStatusTap = { statusId -> navController.navigate("status_viewer/$statusId") },
                 onCreateStatus = { navController.navigate("status_create") }
             )
         }
 
         composable("status_create") {
+            val statusViewModel: StatusViewModel = viewModel()
             StatusCreateScreen(
-                onCreateText = { _, _, _ -> navController.popBackStack() },
+                onCreateText = { text, bg, _ ->
+                    statusViewModel.createTextStatus(text, bg, org.enchant.status.StatusPrivacy.AllContacts)
+                    navController.popBackStack()
+                },
                 onCreateMedia = { _, _ -> navController.popBackStack() },
                 onBack = { navController.popBackStack() }
             )
@@ -527,61 +550,73 @@ fun AppNavigation() {
 
         composable("status_viewer/{statusId}") { backStackEntry ->
             val statusId = backStackEntry.arguments?.getString("statusId") ?: ""
+            val statusViewModel: StatusViewModel = viewModel()
+            val state by statusViewModel.uiState.collectAsState()
+            LaunchedEffect(Unit) { statusViewModel.loadFeed() }
             StatusViewerScreen(
-                statuses = emptyList(),
-                initialIndex = 0,
+                statuses = state.feed,
+                initialIndex = state.feed.indexOfFirst { it.statusId == statusId }.coerceAtLeast(0),
                 onReply = { },
                 onClose = { navController.popBackStack() },
-                onViewInfo = { statusId ->
-                    android.util.Log.v("Status", "View info for $statusId")
+                onViewInfo = { id ->
+                    statusViewModel.viewStatus(id)
                 }
             )
         }
 
         composable("channels_feed") {
+            val channelViewModel: ChannelViewModel = viewModel()
+            val state by channelViewModel.uiState.collectAsState()
+            LaunchedEffect(Unit) { channelViewModel.loadMyChannels() }
             ChannelFeedScreen(
-                channelId = "",
-                channelName = "Channels",
-                isSubscribed = false,
-                posts = emptyList(),
-                pinnedPost = null,
-                onSubscribe = { },
+                channelId = state.channels.firstOrNull()?.channelId ?: "",
+                channelName = state.channels.firstOrNull()?.name ?: "Channels",
+                isSubscribed = state.channels.firstOrNull()?.isSubscribed ?: false,
+                posts = state.feed,
+                pinnedPost = state.pinnedPost,
+                onSubscribe = { channelViewModel.subscribe(state.channels.firstOrNull()?.channelId ?: "") },
                 onShare = { },
-                onLoadMore = { android.util.Log.v("Channels", "Load more requested") }
+                onLoadMore = { channelViewModel.loadMore(state.channels.firstOrNull()?.channelId ?: "") }
             )
         }
 
         composable("group_info/{groupId}") { backStackEntry ->
             val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            val groupsViewModel: GroupsViewModel = viewModel()
+            val state by groupsViewModel.uiState.collectAsState()
+            LaunchedEffect(groupId) { groupsViewModel.loadGroupInfo(groupId) }
             GroupInfoScreen(
-                group = null,
-                members = emptyList(),
-                joinRequests = 0,
-                isLoading = false,
-                error = null,
-                inviteLink = null,
+                group = state.currentGroup,
+                members = state.members,
+                joinRequests = state.joinRequests.size,
+                isLoading = state.isLoading,
+                error = state.error,
+                inviteLink = state.inviteLink,
                 onNavigateBack = { navController.popBackStack() },
-                onAddMembers = { },
-                onRemoveMember = { },
-                onUpdateRole = { _, _ -> },
-                onCreateInviteLink = { },
-                onCopyInviteLink = { },
+                onAddMembers = { groupsViewModel.loadMembers(groupId) },
+                onRemoveMember = { userId -> groupsViewModel.removeMember(groupId, userId) },
+                onUpdateRole = { userId, role -> groupsViewModel.updateMemberRole(groupId, userId, role) },
+                onCreateInviteLink = { groupsViewModel.createInviteLink(groupId) },
+                onCopyInviteLink = { _ -> },
                 onViewJoinRequests = { navController.navigate("join_requests") },
                 onLeaveGroup = { },
-                onDeleteGroup = { },
-                onRefresh = { android.util.Log.v("Groups", "Refresh requested for $groupId") }
+                onDeleteGroup = { groupsViewModel.deleteGroup(groupId) },
+                onRefresh = { groupsViewModel.loadGroupInfo(groupId) }
             )
         }
 
         composable("stickers") {
+            val stickerViewModel: StickerViewModel = viewModel()
+            val state by stickerViewModel.uiState.collectAsState()
+            LaunchedEffect(Unit) { stickerViewModel.loadFeatured() }
             StickerStoreScreen(
-                featured = emptyList(),
-                searchResults = emptyList(),
-                isLoading = false,
-                error = null,
-                onInstall = { },
-                onSearch = { },
-                onPackClick = { },
+                featured = state.featured,
+                searchResults = state.searchResults,
+                isLoading = state.isLoading,
+                error = state.error,
+                onInstall = { packId -> stickerViewModel.installPack(packId) },
+                onSearch = { query -> stickerViewModel.searchPacks(query) },
+                onPackClick = { packId -> stickerViewModel.loadPackDetail(packId) },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -694,19 +729,24 @@ fun AppNavigation() {
         }
 
         composable("call_log") {
+            val callLogViewModel: CallLogViewModel = viewModel()
+            val state by callLogViewModel.uiState.collectAsState()
             CallLogScreen(
-                entries = emptyList(),
-                filter = CallLogFilter.ALL,
-                isLoading = false,
-                isSelectionMode = false,
-                selectedIds = emptySet(),
-                onFilterChange = { },
+                entries = state.entries,
+                filter = state.filter,
+                isLoading = state.isLoading,
+                isSelectionMode = state.isSelectionMode,
+                selectedIds = state.selectedIds,
+                onFilterChange = { callLogViewModel.setFilter(it) },
                 onEntryClick = { },
-                onStartSelection = { },
-                onEndSelection = { },
-                onToggleSelected = { },
-                onSelectAll = { },
-                onDelete = { android.util.Log.v("CallLog", "Delete call logs") }
+                onStartSelection = { callLogViewModel.startSelection() },
+                onEndSelection = { callLogViewModel.endSelection() },
+                onToggleSelected = { id -> callLogViewModel.toggleSelected(id) },
+                onSelectAll = { callLogViewModel.selectAll() },
+                onDelete = {
+                    val staged = callLogViewModel.stageDeletion()
+                    callLogViewModel.confirmDeletion(staged)
+                }
             )
         }
 
@@ -752,15 +792,18 @@ fun AppNavigation() {
 
         composable("profile/{userId}") { backStackEntry ->
             val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            val profileViewModel: ProfileViewModel = viewModel()
+            val state by profileViewModel.uiState.collectAsState()
+            LaunchedEffect(userId) { profileViewModel.loadProfile(userId) }
             ProfileScreen(
                 userId = userId,
                 isOwnProfile = userId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
-                profile = null,
+                profile = state.profile,
                 onEdit = { },
                 onMessage = { navController.navigate("conversation/$userId") },
                 onCall = { },
-                onBlock = { },
-                isBlocked = false
+                onBlock = { profileViewModel.blockUser(userId) },
+                isBlocked = state.blockedUsers.any { it.userId == userId }
             )
         }
 

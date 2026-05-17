@@ -25,6 +25,7 @@ data class ContactsUiState(
 class ContactsViewModel(
     private val repository: ContactsRepository
 ) : ViewModel() {
+    constructor() : this(ContactsRepository(org.enchant.core.network.ApiClient.getInstance(), org.enchant.core.database.DatabasePool.instance!!))
     private val _uiState = MutableStateFlow(ContactsUiState())
     val uiState: StateFlow<ContactsUiState> = _uiState.asStateFlow()
 
