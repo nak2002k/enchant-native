@@ -40,5 +40,23 @@ class CrashReporterTest {
         fun `empty`() {
             assertEquals("", CrashReporter.scrub(""))
         }
+
+        @Test @DisplayName("HTTP status code not mistaken for phone")
+        fun `http status not scrubbed`() {
+            val result = CrashReporter.scrub("HTTP 200 OK")
+            assertEquals("HTTP 200 OK", result)
+        }
+
+        @Test @DisplayName("timestamp not mistaken for phone")
+        fun `timestamp not scrubbed`() {
+            val result = CrashReporter.scrub("timestamp=1700000000")
+            assertEquals("timestamp=1700000000", result)
+        }
+
+        @Test @DisplayName("port number not mistaken for phone")
+        fun `port not scrubbed`() {
+            val result = CrashReporter.scrub("port 8080")
+            assertEquals("port 8080", result)
+        }
     }
 }

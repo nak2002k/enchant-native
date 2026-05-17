@@ -313,6 +313,22 @@ fun AppNavigation() {
 
         composable("key_generation") {
             val state by authViewModel.registrationState.collectAsState()
+            var progress by remember { mutableStateOf(0f) }
+
+            LaunchedEffect(Unit) {
+                progress = 0.2f
+                authViewModel.registerKeys()
+            }
+
+            LaunchedEffect(state) {
+                when (state) {
+                    is RegistrationState.KeyGeneration -> progress = 0.6f
+                    is RegistrationState.Complete -> progress = 1f
+                    is RegistrationState.Error -> progress = 0f
+                    else -> {}
+                }
+            }
+
             KeyGenerationScreen(
                 onKeysGenerated = {
                     context.startService(
@@ -325,13 +341,10 @@ fun AppNavigation() {
                     }
                 },
                 onRetry = { authViewModel.registerKeys() },
-                progress = if (state is RegistrationState.KeyGeneration) 1f else 0.5f,
+                progress = progress,
                 isError = state is RegistrationState.Error,
                 errorMessage = (state as? RegistrationState.Error)?.message
             )
-            LaunchedEffect(Unit) {
-                authViewModel.registerKeys()
-            }
         }
 
         composable("pin_creation") {

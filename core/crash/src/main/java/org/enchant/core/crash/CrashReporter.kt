@@ -80,7 +80,7 @@ object CrashReporter {
         return input
             .replace(Regex("[A-Za-z0-9+/]{40,}={0,3}"), "[REDACTED_KEY]")
             .replace(Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"), "[REDACTED_UUID]")
-            .replace(Regex("\\+?[1-9]\\d{1,14}"), "[REDACTED_PHONE]")
+            .replace(Regex("\\+[1-9]\\d{6,14}"), "[REDACTED_PHONE]")
             .replace(Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"), "[REDACTED_EMAIL]")
     }
 }

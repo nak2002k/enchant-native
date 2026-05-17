@@ -36,6 +36,8 @@ dependencies {
     implementation(libs.compose.navigation)
     implementation(libs.coil.core)
     implementation(libs.coil.compose)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
