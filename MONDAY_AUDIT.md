@@ -3,6 +3,35 @@
 > Scope: Every .kt file across app/, core/, feature/ (218 files total)
 > Methodology: Line-by-line review of all source files against production standards
 
+## Fix Status
+
+### Fixed (2026-05-18)
+- **C01**: KeyStoreManager.decrypt() — Added length check before slicing
+- **C02**: DoubleRatchet.encrypt() — Added null guard for receivingRatchetKeyPublic
+- **C03**: CursorMapper.mapToList() — Fixed to use do-while pattern
+- **C04**: BackupExporter — Fixed nonce size from 12 to 24 bytes (XCHACHA_NONCE_SIZE)
+- **C05**: LocationPickerScreen — Moved Geocoder calls to Dispatchers.IO
+- **C06**: AppDatabase migration v3 — Wrapped ALTER TABLE in try/catch
+- **C07**: DomainModels — Added safeValueOf() for ConversationType and MessageStatus enums
+- **C08**: BootReceiver — Added try/catch for startForegroundService
+- **C09**: CallForegroundService — Added try/catch for startForeground, cancel scope in onDestroy
+- **C10**: FcmReceiveService — Added try/catch for startForegroundService
+- **C11**: StatusViewerScreen — Added bounds check for currentIndex
+- **C12**: CursorMapper — Added try/catch for type conversion
+- **M01**: WebSocketManager — Added singleton refreshClient instead of creating new OkHttpClient per call
+- **M02**: DI.kt — Stored workerScope as field, cancel in reset()
+- **M03**: MessageSendPipeline — Added shutdown() method, scope now cancellable
+- **M09**: CallForegroundService — Cancel scope in onDestroy()
+- **Test fixes**: AuthManager.resetForTesting() added, URL encoding test updated
+
+### Remaining (To Be Fixed)
+- **M04-M08, M10-M14**: Remaining memory leaks
+- **R01-R15**: Race conditions
+- **L01-L20**: Broken logic / wrong behavior
+- **E01-E13**: Missing error handling
+- **S01-S15**: Stub / incomplete functions
+- **Q01-Q65**: Code quality / minor issues
+
 ---
 
 ## CRITICAL — Crash Bugs (Ship Blockers)
