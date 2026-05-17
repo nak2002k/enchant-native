@@ -29,6 +29,7 @@ object ContentPreProcessor {
     private val spoilerPattern = Regex("\\|\\|(.+?)\\|\\|")
 
     private var apiClient: ApiClient? = null
+    @Volatile
     private var initialized = false
 
     fun init(client: ApiClient) {
@@ -37,7 +38,13 @@ object ContentPreProcessor {
     }
 
     fun detectUrls(text: String): List<UrlSpan> {
+        if (!initialized) return emptyList()
         val urls = mutableListOf<UrlSpan>()
+        val localhostPattern = Pattern.compile("https?://localhost:\\d+(/\\S*)?")
+        val localhostMatcher = localhostPattern.matcher(text)
+        while (localhostMatcher.find()) {
+            urls.add(UrlSpan(localhostMatcher.group(), localhostMatcher.start(), localhostMatcher.end()))
+        }
         val matcher = Patterns.WEB_URL.matcher(text)
         while (matcher.find()) {
             var url = matcher.group()
@@ -50,6 +57,7 @@ object ContentPreProcessor {
     }
 
     fun parseFormatting(text: String): List<FormattingSpan> {
+        if (!initialized) return emptyList()
         val spans = mutableListOf<FormattingSpan>()
         spans.addAll(boldPattern.findAll(text).map {
             FormattingSpan(it.range.first, it.range.last + 1, SpanType.BOLD)

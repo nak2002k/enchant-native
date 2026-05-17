@@ -1,5 +1,6 @@
 package org.enchant.core.network
 
+import android.util.Log
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -14,14 +15,15 @@ import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
 
 object AuthInterceptor : Interceptor {
-    private var refreshing = false
+    @Volatile private var refreshing = false
     private var currentToken: String? = null
     private val refreshClient = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
+    private val lock = Any()
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
-        val token = currentToken ?: SecurePreferences.getString("auth.jwt")
+        val token = synchronized(lock) { currentToken ?: SecurePreferences.getString("auth.jwt") }
         val request = if (token != null) {
             originalRequest.newBuilder()
                 .addHeader("Authorization", "Bearer $token")
@@ -32,20 +34,25 @@ object AuthInterceptor : Interceptor {
 
         val response = chain.proceed(request)
 
-        if (response.code == 401 && !refreshing) {
+        if (response.code == 401) {
             response.close()
-            refreshing = true
-            try {
-                val newToken = refreshToken()
-                if (newToken != null) {
-                    currentToken = newToken
-                    val retryRequest = originalRequest.newBuilder()
-                        .header("Authorization", "Bearer $newToken")
-                        .build()
-                    return chain.proceed(retryRequest)
+            val shouldRefresh = synchronized(lock) {
+                if (refreshing) false
+                else { refreshing = true; true }
+            }
+            if (shouldRefresh) {
+                try {
+                    val newToken = refreshToken()
+                    if (newToken != null) {
+                        synchronized(lock) { currentToken = newToken }
+                        val retryRequest = originalRequest.newBuilder()
+                            .header("Authorization", "Bearer $newToken")
+                            .build()
+                        return chain.proceed(retryRequest)
+                    }
+                } finally {
+                    synchronized(lock) { refreshing = false }
                 }
-            } finally {
-                refreshing = false
             }
         }
 
@@ -76,7 +83,8 @@ object AuthInterceptor : Interceptor {
                 SecurePreferences.remove("auth.refresh_token")
                 null
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("AuthInterceptor", "Refresh failed: ${e.message}")
             null
         }
     }

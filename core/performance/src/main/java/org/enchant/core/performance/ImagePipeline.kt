@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object ImagePipeline {
+    @Volatile
     private var initialized = false
 
     fun init(context: Context) {

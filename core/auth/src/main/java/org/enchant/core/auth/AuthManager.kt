@@ -1,6 +1,5 @@
 package org.enchant.core.auth
 
-import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,21 +20,30 @@ sealed class AuthState {
 }
 
 object AuthManager {
+    @Volatile
     private var initialized = false
-    private lateinit var repository: AuthRepository
-    private lateinit var apiClient: ApiClient
+    private var repository: AuthRepository? = null
+    private var apiClient: ApiClient? = null
     private val _currentState = MutableStateFlow<RegistrationState>(RegistrationState.Welcome)
     private val _authState = MutableStateFlow<AuthState>(AuthState.Unknown)
 
     val currentState: StateFlow<RegistrationState> = _currentState.asStateFlow()
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
+    fun setApiClient(client: ApiClient) {
+        apiClient = client
+        repository = AuthRepository(client)
+    }
+
     suspend fun init() {
         if (initialized) return
-        apiClient = ApiClient()
-        apiClient.init()
-        repository = AuthRepository(apiClient)
-        val storedState = AuthStateMachine.validateRestoredState()
+        if (apiClient == null) {
+            val client = ApiClient()
+            client.init()
+            apiClient = client
+            repository = AuthRepository(client)
+        }
+        val storedState = AuthStateMachine.validateRestoredState(apiClient)
         _currentState.value = storedState
         _authState.value = when (storedState) {
             is RegistrationState.Complete -> {
@@ -49,6 +57,7 @@ object AuthManager {
     }
 
     suspend fun requestOtp(identifier: String): Result<Unit> {
+        val repo = repository ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
         val now = System.currentTimeMillis()
         if (now - lastOtpRequestMs < otpCooldownMs) {
             val remaining = (otpCooldownMs - (now - lastOtpRequestMs)) / 1000
@@ -56,7 +65,7 @@ object AuthManager {
         }
         lastOtpRequestMs = now
         _currentState.value = RegistrationState.Loading
-        val result = repository.requestOtp(identifier)
+        val result = repo.requestOtp(identifier)
         return result.fold(
             onSuccess = { otpResponse ->
                 _currentState.value = RegistrationState.OtpVerification(
@@ -77,18 +86,20 @@ object AuthManager {
     }
 
     suspend fun verifyOtp(code: String): Result<Unit> {
+        val repo = repository ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
         val state = _currentState.value
         if (state !is RegistrationState.OtpVerification) {
             return Result.failure(IllegalStateException("Not in OTP state"))
         }
         _currentState.value = RegistrationState.Loading
-        val result = repository.verifyOtp(state.challengeId, code)
+        val result = repo.verifyOtp(state.challengeId, code)
         return result.fold(
             onSuccess = { authResponse ->
                 SecurePreferences.putString("auth.jwt", authResponse.accessToken)
                 SecurePreferences.putString("auth.refresh_token", authResponse.refreshToken)
                 SecurePreferences.putString("auth.user_id", authResponse.userId)
-                _authState.value = AuthState.Authenticated(authResponse.userId, "")
+                SecurePreferences.putString("auth.device_id", authResponse.deviceId)
+                _authState.value = AuthState.Authenticated(authResponse.userId, authResponse.deviceId)
                 _currentState.value = RegistrationState.Permissions
                 Result.success(Unit)
             },
@@ -117,9 +128,10 @@ object AuthManager {
     }
 
     suspend fun refreshToken(): Boolean {
+        val repo = repository ?: return false
         val refreshToken = SecurePreferences.getString("auth.refresh_token") ?: return false
         return try {
-            val result = repository.refreshToken(refreshToken)
+            val result = repo.refreshToken(refreshToken)
             result.fold(
                 onSuccess = { response ->
                     SecurePreferences.putString("auth.jwt", response.accessToken)
@@ -141,7 +153,7 @@ object AuthManager {
 
     suspend fun logout() {
         try {
-            repository.logout()
+            repository?.logout()
         } catch (e: Exception) {
         }
         SecurePreferences.remove("auth.jwt")
@@ -155,8 +167,9 @@ object AuthManager {
     }
 
     suspend fun deleteAccount(): Result<Unit> {
+        val repo = repository ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
         return try {
-            val result = repository.deleteAccount()
+            val result = repo.deleteAccount()
             logout()
             result
         } catch (e: Exception) {
@@ -177,6 +190,7 @@ object AuthManager {
     }
 
     suspend fun updateProfile(username: String, displayName: String, about: String?): Result<Unit> {
+        val client = apiClient ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
         if (username.length !in 3..32 || !username.matches(Regex("^[a-z0-9_]+$"))) {
             return Result.failure(IllegalArgumentException("Invalid username format"))
         }
@@ -192,7 +206,7 @@ object AuthManager {
                 put("display_name", displayName)
                 if (about != null) put("about", about)
             }
-            apiClient.put("/v1/profile", body)
+            client.put("/v1/profile", body)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -200,9 +214,10 @@ object AuthManager {
     }
 
     suspend fun searchUsername(prefix: String): Result<List<String>> {
+        val client = apiClient ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
         if (prefix.isEmpty()) return Result.success(emptyList())
         return try {
-            val result = apiClient.get("/v1/profile/search", mapOf("username" to prefix))
+            val result = client.get("/v1/profile/search", mapOf("username" to prefix))
             result.map { json ->
                 json["results"]?.jsonArray?.map { item ->
                     item.jsonObject["username"]?.jsonPrimitive?.content ?: ""

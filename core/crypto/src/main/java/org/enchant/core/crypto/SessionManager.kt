@@ -50,31 +50,51 @@ object SessionManager {
                 var state = sessions[sessionKey]
 
                 if (state == null) {
-                    KeyManager.generateAndUploadKeys()
                     val ikPair = KeyManager.getIdentityKeyPair() ?: return@withLock null
-                    val ek = CryptoHelper.generateX25519KeyPair()
+                    KeyManager.generateAndUploadKeys()
 
-                    val theirIkPublic = identityKeys[recipientUserId]
-                    val fakeSpk = CryptoHelper.generateX25519KeyPair()
-                    val theirIdentityX = if (theirIkPublic != null) {
-                        CryptoHelper.ed25519PkToX25519(theirIkPublic)
+                    val existingKey = identityKeys[recipientUserId]
+                    if (existingKey != null) {
+                        val ek = CryptoHelper.generateX25519KeyPair()
+                        val theirIdentityX = CryptoHelper.ed25519PkToX25519(existingKey)
+                        val fakeSpk = CryptoHelper.generateX25519KeyPair()
+
+                        val x3dhResult = X3DH.aliceInitiate(
+                            ourIdentityKey = ikPair,
+                            ourEphemeralKey = CryptoHelper.KeyPair(ek.publicKey, ek.privateKey),
+                            theirIdentityKeyPublic = theirIdentityX,
+                            theirSignedPrekeyPublic = fakeSpk.publicKey
+                        )
+                        state = DoubleRatchet.initializeAsAlice(
+                            sharedSecret = x3dhResult.sharedSecret,
+                            theirSignedPrekeyPublic = fakeSpk.publicKey
+                        )
+                        sessions[sessionKey] = state!!
                     } else {
-                        val genIk = CryptoHelper.generateEd25519KeyPair()
-                        identityKeys[recipientUserId] = genIk.publicKey
-                        CryptoHelper.ed25519PkToX25519(genIk.publicKey)
-                    }
+                        val keyBundle = KeyManager.fetchKeyBundle(recipientUserId)
+                        if (keyBundle == null) return@withLock null
 
-                    val x3dhResult = X3DH.aliceInitiate(
-                        ourIdentityKey = ikPair,
-                        ourEphemeralKey = CryptoHelper.KeyPair(ek.publicKey, ek.privateKey),
-                        theirIdentityKeyPublic = theirIdentityX,
-                        theirSignedPrekeyPublic = fakeSpk.publicKey
-                    )
-                    state = DoubleRatchet.initializeAsAlice(
-                        sharedSecret = x3dhResult.sharedSecret,
-                        theirSignedPrekeyPublic = fakeSpk.publicKey
-                    )
-                    sessions[sessionKey] = state!!
+                        val theirIdentityKey = keyBundle.identityKey
+                        val theirSpkPublic = keyBundle.signedPrekey.publicKey
+                        val theirOpkPublic = keyBundle.oneTimePrekey
+                        identityKeys[recipientUserId] = theirIdentityKey
+
+                        val ek = CryptoHelper.generateX25519KeyPair()
+                        val theirIdentityX = CryptoHelper.ed25519PkToX25519(theirIdentityKey)
+
+                        val x3dhResult = X3DH.aliceInitiate(
+                            ourIdentityKey = ikPair,
+                            ourEphemeralKey = CryptoHelper.KeyPair(ek.publicKey, ek.privateKey),
+                            theirIdentityKeyPublic = theirIdentityX,
+                            theirSignedPrekeyPublic = theirSpkPublic,
+                            theirOneTimePrekeyPublic = theirOpkPublic
+                        )
+                        state = DoubleRatchet.initializeAsAlice(
+                            sharedSecret = x3dhResult.sharedSecret,
+                            theirSignedPrekeyPublic = theirSpkPublic
+                        )
+                        sessions[sessionKey] = state!!
+                    }
                 }
 
                 val (newState, message) = DoubleRatchet.encrypt(state, plaintext)
@@ -173,6 +193,10 @@ object SessionManager {
     }
 
     fun getIdentityKey(userId: String): ByteArray? = identityKeys[userId]
+
+    fun findUserIdByIdentityKey(identityKey: ByteArray): String? {
+        return identityKeys.entries.firstOrNull { it.value.contentEquals(identityKey) }?.key
+    }
 
     fun setIdentityKey(userId: String, publicKey: ByteArray) {
         identityKeys[userId] = publicKey

@@ -4,8 +4,10 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import org.enchant.core.base.AppConfig
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
+import org.enchant.core.database.dao.MediaCacheDao
 import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.entity.ConversationEntity
@@ -22,13 +24,14 @@ data class MessagePage(
     val hasMore: Boolean
 )
 
-enum class ConversationFilter { ALL, UNREAD, GROUPS, PERSONAL }
+enum class ConversationFilter { ALL, UNREAD, GROUPS, PERSONAL, ARCHIVED }
 
 class ConversationRepository(
     private val messageDao: MessageDao,
     private val conversationDao: ConversationDao,
     private val recipientDao: RecipientDao,
-    private val pool: DatabasePool
+    private val pool: DatabasePool,
+    private val mediaCacheDao: MediaCacheDao = MediaCacheDao(pool)
 ) {
     fun getConversations(filter: ConversationFilter = ConversationFilter.ALL): Flow<List<Conversation>> = callbackFlow {
         val allConversations = conversationDao.getAll()
@@ -41,6 +44,7 @@ class ConversationRepository(
                     ConversationFilter.UNREAD -> list.filter { it.unreadCount > 0 }
                     ConversationFilter.GROUPS -> list.filter { it.type == "group" }
                     ConversationFilter.PERSONAL -> list.filter { it.type == "direct" }
+                    ConversationFilter.ARCHIVED -> list.filter { it.isArchived }
                     ConversationFilter.ALL -> list
                 }
                 trySend(filtered.map { Conversation.fromEntity(it) })
@@ -53,7 +57,8 @@ class ConversationRepository(
         val flow = messageDao.getConversationMessages(conversationId, limit, beforeId)
         val collectJob = launch {
             flow.collect { entities ->
-                trySend(entities.map { Message.fromEntity(it) })
+                val messages = entities.map { Message.fromEntity(it) }
+                trySend(attachReactions(messages))
             }
         }
         awaitClose { collectJob.cancel() }
@@ -82,22 +87,34 @@ class ConversationRepository(
     }
 
     suspend fun insertMessage(message: MessageEntity): Long {
-        return messageDao.insert(message)
+        val entity = resolveDisappearAt(message)
+        return messageDao.insert(entity)
+    }
+
+    private suspend fun resolveDisappearAt(message: MessageEntity): MessageEntity {
+        if (message.disappearAt != null) return message
+        val conv = conversationDao.getById(message.conversationId) ?: return message
+        val timer = conv.disappearTimerSeconds
+        if (timer <= 0) return message
+        val baseTs = message.serverTs ?: message.timestamp
+        return message.copy(disappearAt = baseTs + timer * 1000L)
     }
 
     suspend fun insertMessageAndUpdateConversation(message: MessageEntity, conversationType: String = "direct") {
+        val entity = resolveDisappearAt(message)
         pool.write { db ->
             db.beginTransaction()
             try {
                 db.execSQL("""
                     INSERT OR IGNORE INTO messages
                         (conversation_id, sender_id, envelope_id, message_type,
-                         content, status, timestamp, server_ts)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                         content, status, timestamp, server_ts, disappear_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, arrayOf(
-                    message.conversationId, message.senderId, message.envelopeId,
-                    message.messageType, message.content, message.status,
-                    message.timestamp.toString(), message.serverTs?.toString()
+                    entity.conversationId, entity.senderId, entity.envelopeId,
+                    entity.messageType, entity.content, entity.status,
+                    entity.timestamp.toString(), entity.serverTs?.toString(),
+                    entity.disappearAt?.toString()
                 ))
                 db.execSQL("""
                     INSERT OR REPLACE INTO conversations
@@ -134,6 +151,18 @@ class ConversationRepository(
 
     suspend fun markMessageDeleted(envelopeId: String) {
         messageDao.markDeleted(envelopeId)
+    }
+
+    suspend fun deleteLocalMedia(envelopeId: String) {
+        val cached = mediaCacheDao.get(envelopeId)
+        if (cached != null) {
+            cached.localPath?.let { path ->
+                val file = java.io.File(path)
+                if (file.exists()) file.delete()
+            }
+            mediaCacheDao.delete(envelopeId)
+        }
+        markMessageDeleted(envelopeId)
     }
 
     suspend fun starMessage(envelopeId: String, starred: Boolean) {
@@ -214,7 +243,32 @@ class ConversationRepository(
     }
 
     suspend fun deleteExpiredMessages() {
-        messageDao.deleteExpired(System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        val expired = pool.readWith { db ->
+            db.rawQuery("SELECT local_id, envelope_id, media_thumbnail_path FROM messages WHERE disappear_at IS NOT NULL AND disappear_at < ? AND is_deleted = 0", arrayOf(now.toString()))
+                .use { org.enchant.core.database.util.CursorMapper.mapToList<MessageEntity>(it) }
+        }
+        if (expired.isEmpty()) {
+            messageDao.deleteExpired(now)
+            return
+        }
+        for (msg in expired) {
+            msg.envelopeId?.let { eid ->
+                val cached = mediaCacheDao.get(eid)
+                if (cached != null) {
+                    cached.localPath?.let { path ->
+                        val file = java.io.File(path)
+                        if (file.exists()) file.delete()
+                    }
+                    mediaCacheDao.delete(eid)
+                }
+            }
+            msg.mediaThumbnailPath?.let { path ->
+                val thumb = java.io.File(path)
+                if (thumb.exists()) thumb.delete()
+            }
+        }
+        messageDao.deleteExpired(now)
     }
 
     suspend fun deleteConversation(conversationId: String) {
@@ -229,5 +283,33 @@ class ConversationRepository(
         db.query("SELECT * FROM messages WHERE conversation_id = ? AND is_starred = 1 AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 10", arrayOf(conversationId))
             .use { org.enchant.core.database.util.CursorMapper.mapToList<MessageEntity>(it) }
             .map { Message.fromEntity(it) }
+    }
+
+    private suspend fun attachReactions(messages: List<Message>): List<Message> {
+        if (messages.isEmpty()) return messages
+        val ids = messages.map { it.localId }
+        val reactionsMap = loadReactionsForMessages(ids)
+        return messages.map { msg ->
+            msg.copy(reactions = reactionsMap[msg.localId] ?: emptyList())
+        }
+    }
+
+    private suspend fun loadReactionsForMessages(messageIds: List<Long>): Map<Long, List<org.enchant.core.model.Reaction>> {
+        if (messageIds.isEmpty()) return emptyMap()
+        return pool.readWith { db ->
+            val placeholders = messageIds.joinToString(",") { "?" }
+            val args = messageIds.map { it.toString() }.toTypedArray()
+            val cursor = db.rawQuery("SELECT message_local_id, emoji, user_id FROM reactions WHERE message_local_id IN ($placeholders)", args)
+            cursor.use {
+                val map = mutableMapOf<Long, MutableList<org.enchant.core.model.Reaction>>()
+                while (it.moveToNext()) {
+                    val msgId = it.getLong(0)
+                    val emoji = it.getString(1)
+                    val userId = it.getString(2)
+                    map.getOrPut(msgId) { mutableListOf() }.add(org.enchant.core.model.Reaction(msgId.toString(), emoji, userId))
+                }
+                map
+            }
+        }
     }
 }

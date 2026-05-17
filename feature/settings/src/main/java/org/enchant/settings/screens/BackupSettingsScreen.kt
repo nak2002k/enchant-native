@@ -100,23 +100,41 @@ fun BackupSettingsScreen(onNavigateBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            var showDeleteDialog by remember { mutableStateOf(false) }
+
             OutlinedButton(
-                onClick = {
-                    scope.launch {
-                        client.del("/v1/backup")
-                        lastBackup = null
-                    }
-                },
+                onClick = { showDeleteDialog = true },
                 modifier = Modifier.fillMaxWidth(),
+                enabled = lastBackup != null,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Text("Delete Backup")
+            }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Backup") },
+                    text = { Text("Are you sure you want to delete your backup? This action cannot be undone.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showDeleteDialog = false
+                            scope.launch {
+                                client.del("/v1/backup")
+                                lastBackup = null
+                            }
+                        }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+                    }
+                )
             }
         }
     }
 }
 
-private data class BackupInfo(
+internal data class BackupInfo(
     val backupId: String,
     val version: Int,
     val totalSize: Long,

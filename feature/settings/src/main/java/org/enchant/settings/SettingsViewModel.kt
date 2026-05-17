@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.enchant.core.base.AppThemeManager
 import org.enchant.core.network.ApiClient
 
 data class DeviceInfo(
@@ -45,16 +46,24 @@ data class SettingsUiState(
     val storageInfo: StorageInfo? = null,
     val isProcessing: Boolean = false,
     val error: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val displayName: String = "",
+    val username: String? = null,
+    val about: String? = null
 )
 
 class SettingsViewModel(
     private val apiClient: ApiClient
 ) : ViewModel() {
+    constructor() : this(
+        ApiClient().also { it.init() }
+    )
+
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     fun loadSettings() {
+        AppThemeManager.loadTheme()
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
                 apiClient.get("/v1/settings")
@@ -81,26 +90,21 @@ class SettingsViewModel(
     }
 
     fun updateTheme(theme: String) {
+        AppThemeManager.setTheme(theme)
+        _uiState.value = _uiState.value.copy(theme = theme)
         viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) {
+            withContext(Dispatchers.Default) {
                 apiClient.put("/v1/settings/theme", buildJsonObject { put("theme", theme) })
             }
-            result.fold(
-                onSuccess = { _uiState.value = _uiState.value.copy(theme = theme) },
-                onFailure = {}
-            )
         }
     }
 
     fun updateFontSize(size: Float) {
+        _uiState.value = _uiState.value.copy(fontSize = size)
         viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) {
+            withContext(Dispatchers.Default) {
                 apiClient.put("/v1/settings/font-size", buildJsonObject { put("font_size", size) })
             }
-            result.fold(
-                onSuccess = { _uiState.value = _uiState.value.copy(fontSize = size) },
-                onFailure = {}
-            )
         }
     }
 

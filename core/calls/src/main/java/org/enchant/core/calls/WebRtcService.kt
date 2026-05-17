@@ -2,6 +2,7 @@ package org.enchant.core.calls
 
 import android.Manifest
 import android.content.Context
+import android.util.Log
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import androidx.core.content.ContextCompat
@@ -14,6 +15,7 @@ import java.util.UUID
 import kotlin.coroutines.resume
 
 object WebRtcService {
+    @Volatile
     private var initialized = false
     private var rootEglBase: EglBase? = null
     private var peerConnectionFactory: PeerConnectionFactory? = null
@@ -80,7 +82,7 @@ object WebRtcService {
             }
             override fun onSetFailure(error: String?) { cont.resume(null) }
             override fun onCreateFailure(error: String?) { cont.resume(null) }
-            override fun onSetSuccess() {}
+            override fun onSetSuccess() { android.util.Log.v("WebRTC", "onSetSuccess called") }
         }, MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
             optional.add(MediaConstraints.KeyValuePair("internalSctpDataChannels", "true"))
@@ -97,7 +99,7 @@ object WebRtcService {
             }
             override fun onSetFailure(error: String?) { cont.resume(null) }
             override fun onCreateFailure(error: String?) { cont.resume(null) }
-            override fun onSetSuccess() {}
+            override fun onSetSuccess() { android.util.Log.v("WebRTC", "onSetSuccess called") }
         }, MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
@@ -173,13 +175,13 @@ object WebRtcService {
     fun getLocalFingerprint(pc: PeerConnection?): String? {
         return try {
             pc?.localDescription?.description ?: return null
-        } catch (_: Exception) { null }
+        } catch (e: Exception) { Log.w("WebRTC", "Local fingerprint failed: ${e.message}"); null }
     }
 
     fun getRemoteFingerprint(pc: PeerConnection?): String? {
         return try {
             pc?.remoteDescription?.description ?: return null
-        } catch (_: Exception) { null }
+        } catch (e: Exception) { Log.w("WebRTC", "Remote fingerprint failed: ${e.message}"); null }
     }
 
     fun dispose(pc: PeerConnection) {
@@ -193,19 +195,15 @@ object WebRtcService {
         try {
             currentCapturer?.stopCapture()
             currentCapturer?.dispose()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w("WebRTC", "Cleanup failed: ${e.message}") }
         currentCapturer = null
         currentVideoSource = null
     }
 
-    fun getFactory(): PeerConnectionFactory? = peerConnectionFactory
-    fun getEglBase(): EglBase? = rootEglBase
-    fun isInitialized(): Boolean = initialized
-
     private class SdpObserverWrapper : SdpObserver {
-        override fun onCreateSuccess(p0: SessionDescription?) {}
-        override fun onSetFailure(p0: String?) {}
-        override fun onCreateFailure(p0: String?) {}
-        override fun onSetSuccess() {}
+        override fun onCreateSuccess(p0: SessionDescription?) { android.util.Log.v("WebRTC", "onCreateSuccess called") }
+        override fun onSetFailure(p0: String?) { android.util.Log.v("WebRTC", "onSetFailure called") }
+        override fun onCreateFailure(p0: String?) { android.util.Log.v("WebRTC", "onCreateFailure called") }
+        override fun onSetSuccess() { android.util.Log.v("WebRTC", "onSetSuccess called") }
     }
 }

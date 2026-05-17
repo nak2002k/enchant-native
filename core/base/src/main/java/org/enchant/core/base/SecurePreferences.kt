@@ -7,6 +7,7 @@ import androidx.security.crypto.MasterKey
 import java.nio.ByteBuffer
 
 object SecurePreferences {
+    @Volatile
     private var prefs: SharedPreferences? = null
 
     fun init(context: Context) {
@@ -24,46 +25,57 @@ object SecurePreferences {
     }
 
     fun putString(key: String, value: String) {
-        prefs?.edit()?.putString(key, value)?.apply()
+        if (prefs == null) return
+        prefs!!.edit().putString(key, value).apply()
     }
 
     fun getString(key: String, default: String? = null): String? {
-        return prefs?.getString(key, default)
+        if (prefs == null) return default
+        return prefs!!.getString(key, default)
     }
 
     fun putInt(key: String, value: Int) {
-        prefs?.edit()?.putInt(key, value)?.apply()
+        if (prefs == null) return
+        prefs!!.edit().putInt(key, value).apply()
     }
 
     fun getInt(key: String, default: Int = 0): Int {
-        return prefs?.getInt(key, default) ?: default
+        if (prefs == null) return default
+        return prefs!!.getInt(key, default)
     }
 
     fun putLong(key: String, value: Long) {
-        prefs?.edit()?.putLong(key, value)?.apply()
+        if (prefs == null) return
+        prefs!!.edit().putLong(key, value).apply()
     }
 
     fun getLong(key: String, default: Long = 0): Long {
-        return prefs?.getLong(key, default) ?: default
+        if (prefs == null) return default
+        return prefs!!.getLong(key, default)
     }
 
     fun putBoolean(key: String, value: Boolean) {
-        prefs?.edit()?.putBoolean(key, value)?.apply()
+        if (prefs == null) return
+        prefs!!.edit().putBoolean(key, value).apply()
     }
 
     fun getBoolean(key: String, default: Boolean = false): Boolean {
-        return prefs?.getBoolean(key, default) ?: default
+        if (prefs == null) return default
+        return prefs!!.getBoolean(key, default)
     }
 
     fun remove(key: String) {
-        prefs?.edit()?.remove(key)?.apply()
+        if (prefs == null) return
+        prefs!!.edit().remove(key).apply()
     }
 
     fun clearAll() {
-        prefs?.edit()?.clear()?.apply()
+        if (prefs == null) return
+        prefs!!.edit().clear().apply()
     }
 
     fun contains(key: String): Boolean {
-        return prefs?.contains(key) ?: false
+        if (prefs == null) return false
+        return prefs!!.contains(key)
     }
 }

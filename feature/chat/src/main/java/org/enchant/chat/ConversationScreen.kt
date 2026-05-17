@@ -3,10 +3,18 @@ package org.enchant.chat
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -50,10 +58,21 @@ fun ConversationScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val conversations by viewModel.conversations.collectAsState()
     var messageText by remember { mutableStateOf("") }
     var replyToId by remember { mutableStateOf<String?>(null) }
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val searchResults by viewModel.searchResults.collectAsState()
+    var showDisappearDialog by remember { mutableStateOf(false) }
+    var viewOnceMode by remember { mutableStateOf(false) }
+    var forwardDialogMessageId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(searchQuery) {
+        if (showSearch) viewModel.searchInConversation(searchQuery)
+    }
 
     LaunchedEffect(conversationId) { viewModel.init(conversationId) }
 
@@ -70,6 +89,8 @@ fun ConversationScreen(
             listState.animateScrollToItem(0)
         }
     }
+
+    LaunchedEffect(Unit) { viewModel.loadConversations() }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -92,7 +113,7 @@ fun ConversationScreen(
     ) { granted ->
         if (granted) {
             scope.launch {
-                val _unused = org.enchant.chat.data.MediaService.startRecording()
+                org.enchant.chat.data.MediaService.startRecording()
             }
         }
     }
@@ -122,10 +143,10 @@ fun ConversationScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = { onStartCall(conversationId, false) }) {
                         Icon(Icons.Default.Call, "Call")
                     }
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = { onStartCall(conversationId, true) }) {
                         Icon(Icons.Default.Videocam, "Video Call")
                     }
                     var showMenu by remember { mutableStateOf(false) }
@@ -134,92 +155,161 @@ fun ConversationScreen(
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(text = { Text("View contact") }, onClick = { showMenu = false })
-                        DropdownMenuItem(text = { Text("Search") }, onClick = { showMenu = false })
-                        DropdownMenuItem(text = { Text("Disappearing messages") }, onClick = { showMenu = false })
+                        DropdownMenuItem(text = { Text("Search") }, onClick = { showSearch = true; showMenu = false })
+                        DropdownMenuItem(text = { Text("Disappearing messages") }, onClick = { showDisappearDialog = true; showMenu = false })
                     }
                 }
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            if (messages.isEmpty()) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text(
-                        "Messages are end-to-end encrypted. Tap for more info.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+        AnimatedContent(
+            targetState = conversationId,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+            }
+        ) { convId ->
+            Column(modifier = Modifier.padding(padding)) {
+                if (showSearch) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search messages") },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = ""; showSearch = false }) {
+                                    Icon(Icons.Default.Close, "Clear")
+                                }
+                            }
+                        }
                     )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    state = listState,
-                    reverseLayout = true
-                ) {
-                    items(messages, key = { it.localId }) { message ->
-                        MessageBubble(
-                            message = message,
-                            isOutgoing = message.senderId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
-                            onReply = { replyToId = it },
-                            onDelete = { viewModel.deleteMessage(it, false) },
-                            onDeleteEveryone = { viewModel.deleteMessage(it, true) },
-                            onEdit = { },
-                            onForward = { viewModel.forwardMessage(it, "") },
-                            onCopy = { viewModel.copyToClipboard(message.content) },
-                            onReact = { viewModel.setReaction(message.localId, it) }
+                    if (searchResults.isNotEmpty()) {
+                        Text(
+                            "${searchResults.size} results",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                        LazyColumn(modifier = Modifier.height(200.dp)) {
+                            items(searchResults, key = { it.envelopeId ?: it.localId.toString() }) { result ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.jumpToMessage(result.envelopeId ?: ""); showSearch = false },
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(result.content, maxLines = 2, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            formatTime(result.timestamp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else if (searchQuery.isNotEmpty()) {
+                        Text(
+                            "No results",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp)
                         )
                     }
                 }
-            }
-
-            sendingState?.let { state ->
-                when (state) {
-                    SendState.SENDING -> Text("Sending...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
-                    SendState.UPLOADING -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    SendState.FAILED -> Text("Failed to send", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
-                    else -> {}
+                if (messages.isEmpty()) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Messages are end-to-end encrypted. Tap for more info.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
+                        state = listState,
+                        reverseLayout = true
+                    ) {
+                        items(messages, key = { it.localId }) { message ->
+                            MessageBubble(
+                                message = message,
+                                isOutgoing = message.senderId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
+                                onReply = { replyToId = it },
+                                onDelete = { viewModel.deleteMessage(it, false) },
+                                onDeleteEveryone = { viewModel.deleteMessage(it, true) },
+                                onEdit = { envelopeId ->
+                                    val newText = messageText.ifBlank { null }
+                                    if (newText != null) {
+                                        viewModel.editMessage(envelopeId, newText)
+                                        messageText = ""
+                                    }
+                                },
+                                onForward = { viewModel.forwardMessage(it, "") },
+                                onCopy = { viewModel.copyToClipboard(message.content) },
+                                onReact = { viewModel.setReaction(message.localId, it) },
+                                onReport = { viewModel.reportMessage(it) }
+                            )
+                        }
+                    }
                 }
-            }
-
-            AnimatedVisibility(visible = replyToId != null) {
-                ReplyPreview(
-                    message = messages.find { it.replyToEnvelopeId == replyToId }?.content ?: "",
-                    onDismiss = { replyToId = null }
+    
+                sendingState?.let { state ->
+                    when (state) {
+                        SendState.SENDING -> Text("Sending...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
+                        SendState.UPLOADING -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        SendState.FAILED -> Text("Failed to send", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
+                        else -> {}
+                    }
+                }
+    
+                AnimatedVisibility(visible = replyToId != null) {
+                    ReplyPreview(
+                        message = messages.find { it.replyToEnvelopeId == replyToId }?.content ?: "",
+                        onDismiss = { replyToId = null }
+                    )
+                }
+    
+                ComposerBar(
+                    text = messageText,
+                    onTextChange = { messageText = it },
+                    onSend = {
+                        if (messageText.isNotBlank()) {
+                            viewModel.sendTextMessage(messageText, replyToId)
+                            messageText = ""
+                            replyToId = null
+                        }
+                    },
+                    onAttach = { showAttachments = true },
+                    onEmoji = { showEmojiPicker = true },
+                    viewOnceMode = viewOnceMode,
+                    onViewOnceToggle = { viewOnceMode = !viewOnceMode },
+                    onVoiceStart = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                scope.launch {
+                                    org.enchant.chat.data.MediaService.startRecording()
+                                }
+                            } else {
+                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        }
+                    },
+                    onVoiceStop = {
+                        scope.launch {
+                            val file = org.enchant.chat.data.MediaService.stopRecording()
+                            if (file != null) {
+                                viewModel.sendVoiceMessage(file, 0)
+                            }
+                        }
+                    }
                 )
             }
-
-            ComposerBar(
-                text = messageText,
-                onTextChange = { messageText = it },
-                onSend = {
-                    if (messageText.isNotBlank()) {
-                        viewModel.sendTextMessage(messageText, replyToId)
-                        messageText = ""
-                        replyToId = null
-                    }
-                },
-                onAttach = { showAttachments = true },
-                onEmoji = { showEmojiPicker = true },
-                onVoiceStart = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                            scope.launch {
-                                org.enchant.chat.data.MediaService.startRecording()
-                            }
-                        } else {
-                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }
-                },
-                onVoiceStop = {
-                    scope.launch {
-                        val file = org.enchant.chat.data.MediaService.stopRecording()
-                        if (file != null) {
-                            viewModel.sendVoiceMessage(file, 0)
-                        }
-                    }
-                }
-            )
         }
     }
 
@@ -254,6 +344,59 @@ fun ConversationScreen(
                 showEmojiPicker = false
             },
             onDismiss = { showEmojiPicker = false }
+        )
+    }
+
+    if (showDisappearDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisappearDialog = false },
+            title = { Text("Disappearing messages") },
+            text = {
+                Column {
+                    val options = listOf(
+                        0 to "Off",
+                        5 to "5 seconds",
+                        30 to "30 seconds",
+                        60 to "1 minute",
+                        3600 to "1 hour",
+                        86400 to "1 day",
+                        604800 to "1 week"
+                    )
+                    options.forEach { (seconds, label) ->
+                        TextButton(onClick = {
+                            viewModel.setDisappearTimer(conversationId, seconds)
+                            showDisappearDialog = false
+                        }) { Text(label) }
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    if (forwardDialogMessageId != null) {
+        AlertDialog(
+            onDismissRequest = { forwardDialogMessageId = null },
+            title = { Text("Forward to...") },
+            text = {
+                Column {
+                    if (conversations.isEmpty()) {
+                        Text("No conversations")
+                    } else {
+                        conversations.forEach { conv ->
+                            TextButton(onClick = {
+                                forwardDialogMessageId?.let { id ->
+                                    viewModel.forwardMessage(id, conv.id)
+                                }
+                                forwardDialogMessageId = null
+                            }) { Text(conv.id.take(16)) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { forwardDialogMessageId = null }) { Text("Cancel") }
+            }
         )
     }
 
@@ -304,6 +447,8 @@ private fun ComposerBar(
     onSend: () -> Unit,
     onAttach: () -> Unit,
     onEmoji: () -> Unit,
+    viewOnceMode: Boolean = false,
+    onViewOnceToggle: () -> Unit = {},
     onVoiceStart: () -> Unit,
     onVoiceStop: () -> Unit
 ) {
@@ -321,6 +466,14 @@ private fun ComposerBar(
         ) {
             IconButton(onClick = onAttach) {
                 Icon(Icons.Default.Add, "Attach")
+            }
+
+            IconButton(onClick = onViewOnceToggle) {
+                Icon(
+                    if (viewOnceMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    "View once",
+                    tint = if (viewOnceMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                )
             }
 
             OutlinedTextField(
@@ -378,7 +531,8 @@ fun MessageBubble(
     onEdit: (String) -> Unit,
     onForward: (String) -> Unit,
     onCopy: (String) -> Unit,
-    onReact: (String) -> Unit
+    onReact: (String) -> Unit,
+    onReport: (String) -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val bubbleColor = if (isOutgoing) MaterialTheme.colorScheme.primaryContainer
@@ -452,6 +606,34 @@ fun MessageBubble(
                         )
                     }
                 }
+
+                if (message.reactions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        message.reactions.groupBy { it.emoji }.entries.forEach { (emoji, reactors) ->
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                modifier = Modifier.height(24.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(emoji, style = MaterialTheme.typography.labelSmall)
+                                    if (reactors.size > 1) {
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text(
+                                            reactors.size.toString(),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -465,6 +647,7 @@ fun MessageBubble(
             if (isOutgoing) {
                 DropdownMenuItem(text = { Text("Delete for everyone") }, onClick = { onDeleteEveryone(message.envelopeId ?: ""); showMenu = false })
             }
+            DropdownMenuItem(text = { Text("Report") }, onClick = { onReport(message.envelopeId ?: ""); showMenu = false })
             DropdownMenuItem(text = { Text("Delete") }, onClick = { onDelete(message.envelopeId ?: ""); showMenu = false })
         }
     }

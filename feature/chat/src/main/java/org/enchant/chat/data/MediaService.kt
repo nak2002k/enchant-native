@@ -31,6 +31,7 @@ object MediaService {
     private const val JPEG_QUALITY = 85
 
     private var apiClient: ApiClient? = null
+    @Volatile
     private var initialized = false
 
     fun init(client: ApiClient) {
@@ -152,7 +153,7 @@ object MediaService {
                 val mediaKey = CryptoHelper.generateRandomKey(32)
                 val mediaIv = CryptoHelper.generateRandomKey(12)
                 val plaintextWithIv = mediaIv + fileBytes
-                val encryptedData = CryptoHelper.encryptAesGcm(plaintextWithIv, mediaKey)
+                val encryptedData = CryptoHelper.encryptXChaCha20Poly1305(plaintextWithIv, mediaKey)
 
                 val client = apiClient!!
                 val response = client.postRaw("/v1/media/upload", encryptedData, mimeType)
@@ -193,7 +194,7 @@ object MediaService {
                     } else encryptedData
                 } else encryptedData
 
-                val decrypted = CryptoHelper.decryptAesGcm(ciphertext, mediaKey)
+                val decrypted = CryptoHelper.decryptXChaCha20Poly1305(ciphertext, mediaKey)
 
                 val ctx = AppConfig.applicationContext ?: return@withContext Result.failure(Exception("No context"))
                 val cacheDir = File(ctx.cacheDir, "media_downloads")

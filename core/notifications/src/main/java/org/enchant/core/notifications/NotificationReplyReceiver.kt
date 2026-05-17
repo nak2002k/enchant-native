@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import org.enchant.core.crypto.SessionManager
 
 class NotificationReplyReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -28,12 +29,14 @@ class NotificationReplyReceiver : BroadcastReceiver() {
             try {
                 val apiClient = org.enchant.core.network.ApiClient.getInstance()
                 val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: return@launch
+                val encrypted = SessionManager.encryptMessage(conversationId, replyText.encodeToByteArray())
+                val payload = encrypted?.payload ?: return@launch
                 apiClient.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(
                     mapOf(
                         "recipient_user_id" to kotlinx.serialization.json.JsonPrimitive(conversationId),
                         "message_type" to kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"),
                         "payload" to kotlinx.serialization.json.JsonPrimitive(
-                            java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(replyText.encodeToByteArray())
+                            java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(payload)
                         )
                     )
                 ))

@@ -95,7 +95,6 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.process)
     implementation(libs.activity.compose)
-    implementation(libs.compose.navigation)
     implementation(libs.coil.core)
     implementation(libs.coil.compose)
     implementation(libs.webrtc)

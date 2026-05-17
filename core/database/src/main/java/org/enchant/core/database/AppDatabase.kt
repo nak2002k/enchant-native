@@ -31,7 +31,17 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 db.execSQL("PRAGMA foreign_keys = ON")
                 createTables(db)
             }
-            override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+                android.util.Log.w("AppDatabase", "DB upgrade from v$oldVersion to v$newVersion - applying migrations")
+                if (newVersion > oldVersion) {
+                    for (version in (oldVersion + 1)..newVersion) {
+                        when (version) {
+                            2 -> db.execSQL("PRAGMA user_version = 2")
+                            else -> android.util.Log.w("AppDatabase", "No migration defined for v$version")
+                        }
+                    }
+                }
+            }
             override fun onConfigure(db: SQLiteDatabase) {
                 db.enableWriteAheadLogging()
             }
@@ -50,6 +60,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     }
 
     companion object {
+        @Volatile
         var instance: DatabasePool? = null
         const val DB_VERSION = 1
 

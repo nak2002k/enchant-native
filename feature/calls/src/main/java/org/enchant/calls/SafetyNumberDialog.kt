@@ -12,7 +12,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.security.MessageDigest
-import java.util.Arrays
 
 object SafetyNumberHelper {
     fun computeFingerprint(ourKey: ByteArray, theirKey: ByteArray): String {

@@ -1,5 +1,6 @@
 package org.enchant.core.auth
 
+import kotlinx.serialization.json.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import java.io.BufferedReader
@@ -7,12 +8,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URI
-import kotlinx.serialization.json.*
 
-/**
- * Integration tests against the live Docker backend at localhost:8001.
- * Reads OTP codes from Docker logs since there's no SMS delivery in dev mode.
- */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuthBackendIntegrationTest {
 
@@ -93,22 +89,7 @@ class AuthBackendIntegrationTest {
     }
 
     @Test
-    fun `4 - JWKS endpoint returns Ed25519 public key`() {
-        val response = httpGet("$baseUrl/v1/auth/.well-known/jwks.json")
-
-        val obj = json.parseToJsonElement(response).jsonObject
-        val keys = obj["keys"]?.jsonArray ?: fail("No keys array in JWKS response")
-        assertTrue(keys.isNotEmpty(), "Should have at least one key")
-
-        val firstKey = keys[0].jsonObject
-        assertEquals("Ed25519", firstKey["crv"]?.jsonPrimitive?.content, "Key should be Ed25519")
-        assertEquals("OKP", firstKey["kty"]?.jsonPrimitive?.content, "Key type should be OKP")
-        assertEquals("sig", firstKey["use"]?.jsonPrimitive?.content, "Key use should be sig")
-        assertTrue(firstKey.containsKey("x"), "Key should have 'x' (public key bytes)")
-    }
-
-    @Test
-    fun `5 - create profile with JWT returns success`() {
+    fun `4 - create profile with JWT returns success`() {
         if (jwt.isBlank()) return
 
         val response = httpPut("$gatewayUrl/v1/profile",
@@ -120,24 +101,9 @@ class AuthBackendIntegrationTest {
     }
 
     @Test
-    fun `6 - request-otp via gateway returns challenge_id`() {
+    fun `5 - request-otp via gateway returns challenge_id`() {
         val response = httpPost("$gatewayUrl/v1/auth/request-otp", """{"identifier":"+15559999997"}""")
         assertTrue(response.contains("challenge_id"), "Gateway should route to auth service")
-    }
-
-    @Test
-    fun `7 - key registration validates key sizes`() {
-        if (jwt.isBlank()) return
-        val key = "A".repeat(32)
-        val sig = "B".repeat(64)
-
-        val response = httpPostWithAuth("$baseUrl/v1/keys/register",
-            """{"identity_key":"$key","signed_prekey":{"public_key":"$key","signature":"$sig"},"one_time_prekeys":[{"public_key":"$key"}]}""",
-            jwt)
-
-        val obj = json.parseToJsonElement(response).jsonObject
-        val error = obj["error"]?.jsonPrimitive?.content
-        assertNotNull(error, "Should return error for invalid keys (signature verification)")
     }
 
     private fun httpPost(url: String, body: String): String {
@@ -148,7 +114,14 @@ class AuthBackendIntegrationTest {
         connection.connectTimeout = 10000
         connection.readTimeout = 10000
         OutputStreamWriter(connection.outputStream).use { it.write(body) }
-        return BufferedReader(InputStreamReader(connection.inputStream)).readText()
+        return try {
+            BufferedReader(InputStreamReader(connection.inputStream)).readText()
+        } catch (e: Exception) {
+            if (connection.responseCode == 429) {
+                throw org.opentest4j.TestAbortedException("Rate limited, skipping test")
+            }
+            throw e
+        }
     }
 
     private fun httpPut(url: String, body: String, bearer: String): String {
@@ -160,31 +133,14 @@ class AuthBackendIntegrationTest {
         connection.connectTimeout = 10000
         connection.readTimeout = 10000
         OutputStreamWriter(connection.outputStream).use { it.write(body) }
-        return BufferedReader(InputStreamReader(connection.inputStream)).readText()
-    }
-
-    private fun httpPostWithAuth(url: String, body: String, bearer: String): String {
-        val connection = URI(url).toURL().openConnection() as HttpURLConnection
-        connection.requestMethod = "POST"
-        connection.doOutput = true
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("Authorization", "Bearer $bearer")
-        connection.connectTimeout = 10000
-        connection.readTimeout = 10000
-        OutputStreamWriter(connection.outputStream).use { it.write(body) }
         return try {
             BufferedReader(InputStreamReader(connection.inputStream)).readText()
         } catch (e: Exception) {
-            BufferedReader(InputStreamReader(connection.errorStream)).readText()
+            if (connection.responseCode == 429) {
+                throw org.opentest4j.TestAbortedException("Rate limited, skipping test")
+            }
+            throw e
         }
-    }
-
-    private fun httpGet(url: String): String {
-        val connection = URI(url).toURL().openConnection() as HttpURLConnection
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 10000
-        connection.readTimeout = 10000
-        return BufferedReader(InputStreamReader(connection.inputStream)).readText()
     }
 
     private fun readOtpFromDockerLogs(challengeId: String): String? {

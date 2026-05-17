@@ -17,10 +17,10 @@ import kotlinx.coroutines.withContext
 import org.enchant.core.base.AppConfig
 
 object AudioRouter {
-    private var audioManager: AudioManager? = null
-    private var mediaPlayer: MediaPlayer? = null
-    private var audioFocusRequest: Any? = null
-    private var initialized = false
+    @Volatile private var audioManager: AudioManager? = null
+    @Volatile private var mediaPlayer: MediaPlayer? = null
+    @Volatile private var audioFocusRequest: Any? = null
+    @Volatile private var initialized = false
 
     fun init(context: Context) {
         if (initialized) return

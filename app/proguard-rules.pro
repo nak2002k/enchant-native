@@ -14,14 +14,11 @@
 -keep class org.webrtc.** { *; }
 -dontwarn org.webrtc.**
 
--keep class coil3.** { *; }
--dontwarn coil3.**
+-keep class coil.** { *; }
+-dontwarn coil.**
 
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
-
--keep class org.enchant.core.crypto.** { *; }
--keepclassmembers class org.enchant.core.crypto.** { native <methods>; }
 
 -keepattributes SourceFile,LineNumberTable
 -keep class com.google.firebase.crashlytics.** { *; }

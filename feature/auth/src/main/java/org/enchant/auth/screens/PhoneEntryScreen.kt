@@ -21,7 +21,7 @@ fun PhoneEntryScreen(
     isLoading: Boolean = false,
     errorMessage: String? = null
 ) {
-    var phoneNumber by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("+1") }
     var selectedCountry by remember { mutableStateOf(Country(1, "US", "United States", "\uD83C\uDDFA\uD83C\uDDF8")) }
     var showCountryPicker by remember { mutableStateOf(false) }
 
@@ -61,7 +61,7 @@ fun PhoneEntryScreen(
                     }
                 },
                 label = { Text("Phone number") },
-                placeholder = { Text("+1 555 123 4567") },
+                placeholder = { Text("555 123 4567") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -75,9 +75,13 @@ fun PhoneEntryScreen(
                 CircularProgressIndicator()
             } else {
                 Button(
-                    onClick = { onPhoneNumberSubmitted(phoneNumber) },
+                    onClick = {
+                        val fullNumber = if (phoneNumber.startsWith("+")) phoneNumber
+                            else "+${selectedCountry.code}$phoneNumber"
+                        onPhoneNumberSubmitted(fullNumber)
+                    },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    enabled = phoneNumber.matches(Regex("""^\+[1-9]\d{1,14}$"""))
+                    enabled = phoneNumber.length > 1
                 ) {
                     Text("Continue")
                 }
@@ -96,6 +100,8 @@ fun PhoneEntryScreen(
             onCountrySelected = { country ->
                 selectedCountry = country
                 onCountrySelected(country)
+                phoneNumber = "+${country.code}"
+                onPhoneNumberChanged("+${country.code}")
                 showCountryPicker = false
             },
             onDismiss = { showCountryPicker = false }

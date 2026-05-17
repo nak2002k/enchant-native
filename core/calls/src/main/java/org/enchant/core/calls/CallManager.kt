@@ -1,5 +1,6 @@
 package org.enchant.core.calls
 
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ object CallManager {
     private var turnServers: List<IceServer> = emptyList()
     private var turnServersFetchedAt: Long = 0
     private var durationJob: Job? = null
+    @Volatile
     private var initialized = false
     private var mutedBeforeReconnect = false
     private var videoBeforeReconnect = false
@@ -78,7 +80,8 @@ object CallManager {
         localStream?.audioTracks?.firstOrNull()?.let { peerConnection?.addTrack(it, listOf("stream")) }
         localStream?.videoTracks?.firstOrNull()?.let { peerConnection?.addTrack(it, listOf("stream")) }
 
-        val sdp = WebRtcService.createOffer(peerConnection!!)
+        val pc = peerConnection ?: return
+        val sdp = WebRtcService.createOffer(pc)
         if (sdp != null) {
             sendCallSignaling(remoteUserId, CallMessage.Offer(sdp))
             observerRegistry.notifyOfferSent(remoteUserId, sdp)
@@ -98,14 +101,15 @@ object CallManager {
         localStream?.audioTracks?.firstOrNull()?.let { peerConnection?.addTrack(it, listOf("stream")) }
         localStream?.videoTracks?.firstOrNull()?.let { peerConnection?.addTrack(it, listOf("stream")) }
 
-        val sdp = WebRtcService.createAnswer(peerConnection!!)
+        val pc = peerConnection ?: return
+        val sdp = WebRtcService.createAnswer(pc)
         if (sdp != null) {
             val remoteId = _callState.value.remoteUserId ?: return
             sendCallSignaling(remoteId, CallMessage.Answer(sdp))
             observerRegistry.notifyAnswerSent(remoteId, sdp)
         }
 
-        incomingIceCandidates.forEach { WebRtcService.addIceCandidate(peerConnection!!, it) }
+        incomingIceCandidates.forEach { WebRtcService.addIceCandidate(pc, it) }
         incomingIceCandidates.clear()
         startDurationTimer()
     }
@@ -277,7 +281,7 @@ object CallManager {
                 put("isCallFull", isCallFull.toString())
             }
             apiClient.post("/v1/groups/$groupId/messages", content)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w("Calls", "Group call update failed: ${e.message}") }
     }
 
     suspend fun retrieveTurnServers() {
@@ -292,7 +296,8 @@ object CallManager {
                 ))
                 turnServersFetchedAt = System.currentTimeMillis()
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w("Calls", "TURN fetch failed: ${e.message}")
             turnServers = listOf(IceServer(urls = listOf("stun:stun.l.google.com:19302")))
         }
     }
@@ -362,7 +367,7 @@ object CallManager {
                     isActive = json["is_active"]?.jsonPrimitive?.content?.toBoolean() ?: false
                 )
             }
-        } catch (_: Exception) { null }
+        } catch (e: Exception) { Log.w("Calls", "Peek group failed: ${e.message}"); null }
     }
 
     suspend fun peekCallLink(roomId: String): PeekInfo? {
@@ -375,7 +380,7 @@ object CallManager {
                     isActive = json["is_active"]?.jsonPrimitive?.content?.toBoolean() ?: false
                 )
             }
-        } catch (_: Exception) { null }
+        } catch (e: Exception) { Log.w("Calls", "Peek link failed: ${e.message}"); null }
     }
 
     fun raiseHand(raised: Boolean) {
@@ -388,7 +393,7 @@ object CallManager {
             try {
                 val callMessage = CallMessageProtos.CallMessage.newBuilder().build()
                 sendCallMessage(remoteId, callMessage)
-            } catch (_: Exception) {}
+            } catch (e: Exception) { Log.w("Calls", "React failed: ${e.message}") }
         }
     }
 
@@ -397,7 +402,7 @@ object CallManager {
             try {
                 val callMessage = CallMessageProtos.CallMessage.newBuilder().build()
                 webSocket.sendMessage(recipientUserId = participantId, payload = callMessage.toByteArray(), ephemeral = true)
-            } catch (_: Exception) {}
+            } catch (e: Exception) { Log.w("Calls", "Remote mute failed: ${e.message}") }
         }
     }
 
@@ -406,7 +411,7 @@ object CallManager {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 apiClient.del("/v1/groups/$groupId/members/$participantId")
-            } catch (_: Exception) {}
+            } catch (e: Exception) { Log.w("Calls", "Remove participant failed: ${e.message}") }
         }
     }
 
@@ -414,19 +419,19 @@ object CallManager {
         override fun onIceCandidate(candidate: IceCandidate) {
             incomingIceCandidates.add("${candidate.sdpMid}|${candidate.sdpMLineIndex}|${candidate.sdp}")
         }
-        override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) {}
-        override fun onSignalingChange(state: PeerConnection.SignalingState) {}
+        override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) { android.util.Log.v("Calls", "onIceCandidatesRemoved called") }
+        override fun onSignalingChange(state: PeerConnection.SignalingState) { android.util.Log.v("Calls", "onSignalingChange called") }
         override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
             if (state == PeerConnection.IceConnectionState.CONNECTED) {
                 _callState.value = _callState.value.copy(status = CallStatusEnum.CONNECTED)
             }
         }
-        override fun onIceConnectionReceivingChange(p0: Boolean) {}
-        override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) {}
+        override fun onIceConnectionReceivingChange(p0: Boolean) { android.util.Log.v("Calls", "onIceConnectionReceivingChange called") }
+        override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) { android.util.Log.v("Calls", "onIceGatheringChange called") }
         override fun onAddStream(stream: MediaStream) { remoteStream = stream }
         override fun onRemoveStream(stream: MediaStream) { remoteStream = null }
-        override fun onDataChannel(channel: DataChannel) {}
-        override fun onRenegotiationNeeded() {}
+        override fun onDataChannel(channel: DataChannel) { android.util.Log.v("Calls", "onDataChannel called") }
+        override fun onRenegotiationNeeded() { android.util.Log.v("Calls", "onRenegotiationNeeded called") }
         override fun onAddTrack(receiver: RtpReceiver, tracks: Array<MediaStream>) {
             tracks.firstOrNull()?.let { remoteStream = it }
         }

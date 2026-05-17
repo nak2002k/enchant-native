@@ -1,6 +1,6 @@
 package org.enchant.core.crypto
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -12,7 +12,7 @@ class SessionManagerTest {
 
     @BeforeEach
     fun setUp() {
-        runBlocking {
+        runTest {
             SessionManager.init()
             KeyManager.init()
             KeyManager.generateAndUploadKeys()
@@ -21,7 +21,7 @@ class SessionManagerTest {
 
     @Test
     @DisplayName("encryptMessage returns non-null payload for known recipient")
-    fun `encryptMessage returns payload`() = runBlocking {
+    fun `encryptMessage returns payload`() = runTest {
         SessionManager.setIdentityKey("user1", CryptoHelper.generateEd25519KeyPair().publicKey)
 
         val result = SessionManager.encryptMessage("user1", "Hello".encodeToByteArray())
@@ -31,7 +31,7 @@ class SessionManagerTest {
 
     @Test
     @DisplayName("hasSession returns true after encrypting to recipient")
-    fun `hasSession after encrypt`() = runBlocking {
+    fun `hasSession after encrypt`() = runTest {
         SessionManager.setIdentityKey("alice", CryptoHelper.generateEd25519KeyPair().publicKey)
         SessionManager.encryptMessage("alice", "Hi".encodeToByteArray())
         assertTrue(SessionManager.hasSession("alice"))
@@ -39,7 +39,7 @@ class SessionManagerTest {
 
     @Test
     @DisplayName("deleteSession removes session")
-    fun `deleteSession`() = runBlocking {
+    fun `deleteSession`() = runTest {
         SessionManager.setIdentityKey("temp", CryptoHelper.generateEd25519KeyPair().publicKey)
         SessionManager.encryptMessage("temp", "Hi".encodeToByteArray())
         assertTrue(SessionManager.hasSession("temp"))
@@ -50,7 +50,7 @@ class SessionManagerTest {
 
     @Test
     @DisplayName("EncryptedPayload contains properly formatted header+ciphertext")
-    fun `encrypted payload has header format`() = runBlocking {
+    fun `encrypted payload has header format`() = runTest {
         SessionManager.setIdentityKey("format-test", CryptoHelper.generateEd25519KeyPair().publicKey)
 
         SessionManager.encryptMessage("format-test", "first".encodeToByteArray())
@@ -63,7 +63,7 @@ class SessionManagerTest {
 
     @Test
     @DisplayName("archiveSession removes session without cleanup")
-    fun `archiveSession`() = runBlocking {
+    fun `archiveSession`() = runTest {
         SessionManager.setIdentityKey("arch-test", CryptoHelper.generateEd25519KeyPair().publicKey)
         SessionManager.encryptMessage("arch-test", "Hello".encodeToByteArray())
         assertTrue(SessionManager.hasSession("arch-test"))
@@ -74,7 +74,7 @@ class SessionManagerTest {
 
     @Test
     @DisplayName("getSafetyNumber returns formatted string for known identity")
-    fun `getSafetyNumber`() = runBlocking {
+    fun `getSafetyNumber`() = runTest {
         val bobIk = CryptoHelper.generateEd25519KeyPair()
         SessionManager.setIdentityKey("bob-safety", bobIk.publicKey)
         val safetyNum = SessionManager.getSafetyNumber("bob-safety")

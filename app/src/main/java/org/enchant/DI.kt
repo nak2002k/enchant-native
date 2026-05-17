@@ -1,6 +1,11 @@
 package org.enchant
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.enchant.chat.data.ContentPreProcessor
@@ -21,6 +26,7 @@ import org.enchant.core.database.dao.IdentityDao
 import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.dao.SessionDao
+import org.enchant.core.jobmanager.DisappearingMessagesWorker
 import org.enchant.core.network.ApiClient
 import org.enchant.core.network.ConnectivityMonitor
 import org.enchant.core.network.OfflineQueue
@@ -105,6 +111,7 @@ object DI {
                 KeyManager.init(client)
                 SessionManager.init()
 
+                AuthManager.setApiClient(client)
                 AuthManager.init()
 
                 WebSocketManager.init()
@@ -114,9 +121,17 @@ object DI {
                 CallManager.setApiClient(client)
 
                 MessageSendPipeline.init(_apiClient!!, _conversationRepository!!)
-                IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client)
+                IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client, _conversationDao!!, _messageDao!!)
                 MediaService.init(_apiClient!!)
                 ContentPreProcessor.init(_apiClient!!)
+
+                val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+                workerScope.launch {
+                    while (true) {
+                        delay(60_000L)
+                        DisappearingMessagesWorker.tick()
+                    }
+                }
 
                 _initialized = true
             } catch (e: Exception) {

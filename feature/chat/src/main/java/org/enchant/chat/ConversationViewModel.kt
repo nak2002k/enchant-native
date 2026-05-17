@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.enchant.chat.data.ChatPagingSource
@@ -237,6 +239,23 @@ class ConversationViewModel(
         return true
     }
 
+    fun setDisappearTimer(conversationId: String, seconds: Int) {
+        viewModelScope.launch {
+            repo.setDisappearTimer(conversationId, seconds)
+        }
+    }
+
+    private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
+    val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
+
+    fun loadConversations() {
+        viewModelScope.launch {
+            repo.getConversations().collect { list ->
+                _conversations.value = list
+            }
+        }
+    }
+
     fun setReaction(messageId: Long, emoji: String) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
@@ -318,7 +337,7 @@ class ConversationViewModel(
                 id = jobId,
                 delayMs = (scheduledDate - System.currentTimeMillis()).coerceAtLeast(0),
                 run = {
-                    kotlinx.coroutines.runBlocking {
+                    viewModelScope.launch {
                         sendTextMessage(body, replyTo)
                     }
                 }
@@ -334,15 +353,19 @@ class ConversationViewModel(
         viewModelScope.launch {
             try {
                 apiClient.post("/v1/disappear/viewed", buildJsonObject {
-                    put("envelope_ids", JsonPrimitive("[$envelopeId]"))
+                    put("envelope_ids", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(envelopeId)) })
                 })
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+                deleteViewOnceMedia(envelopeId)
+                repo.markMessageDeleted(envelopeId)
+            } catch (e: Exception) {
+                Log.w("ConversationVM", "ViewOnce failed: ${e.message}")
+            }
         }
     }
 
     fun deleteViewOnceMedia(envelopeId: String) {
         viewModelScope.launch {
-            val msg = repo.getMessage(envelopeId) ?: return@launch
+            repo.deleteLocalMedia(envelopeId)
             val ctx = AppConfig.applicationContext ?: return@launch
             val file = java.io.File(ctx.cacheDir, "media_downloads/$envelopeId")
             if (file.exists()) file.delete()

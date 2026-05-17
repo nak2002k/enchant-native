@@ -36,16 +36,31 @@ class AuthRepository(private val apiClient: ApiClient) {
             }
             val response = apiClient.post("/v1/auth/verify-otp", body)
             response.map { json ->
+                val accessToken = json["access_token"]?.jsonPrimitive?.content ?: ""
+                val deviceIdFromJwt = extractDeviceIdFromJwt(accessToken)
                 AuthResponse(
                     userId = json["user_id"]?.jsonPrimitive?.content ?: "",
-                    accessToken = json["access_token"]?.jsonPrimitive?.content ?: "",
+                    accessToken = accessToken,
                     refreshToken = json["refresh_token"]?.jsonPrimitive?.content ?: "",
-                    expiresIn = json["expires_in"]?.jsonPrimitive?.int ?: 900
+                    expiresIn = json["expires_in"]?.jsonPrimitive?.int ?: 900,
+                    deviceId = deviceIdFromJwt
                 )
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun extractDeviceIdFromJwt(jwt: String): String {
+        return try {
+            val parts = jwt.split(".")
+            if (parts.size == 3) {
+                val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
+                val payloadStr = payload.decodeToString()
+                val didMatch = Regex("\"did\":\"([^\"]+)\"").find(payloadStr)
+                didMatch?.groupValues?.getOrNull(1) ?: ""
+            } else ""
+        } catch (_: Exception) { "" }
     }
 
     suspend fun refreshToken(refreshToken: String): Result<RefreshResponse> {

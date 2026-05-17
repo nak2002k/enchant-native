@@ -11,6 +11,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.*
+import org.enchant.core.network.ApiClient
 
 data class JoinRequest(
     val requestId: String,
@@ -22,17 +25,55 @@ data class JoinRequest(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JoinRequestsScreen(
-    requests: List<JoinRequest>,
-    onApprove: (String) -> Unit,
-    onReject: (String) -> Unit
+    onBack: () -> Unit = {}
 ) {
+    val scope = rememberCoroutineScope()
+    val client = remember {
+        val c = ApiClient()
+        c.init()
+        c
+    }
+    var requests by remember { mutableStateOf<List<JoinRequest>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val response = client.get("/v1/groups/join-requests")
+        response.fold(
+            onSuccess = { json ->
+                val arr = json["requests"]?.jsonArray ?: return@fold
+                requests = arr.mapNotNull { entry ->
+                    val obj = entry.jsonObject
+                    JoinRequest(
+                        requestId = obj["request_id"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                        userId = obj["requester_user_id"]?.jsonPrimitive?.content ?: "",
+                        username = obj["username"]?.jsonPrimitive?.content ?: "Unknown",
+                        requestedAt = obj["requested_ts"]?.jsonPrimitive?.content ?: ""
+                    )
+                }
+            },
+            onFailure = { }
+        )
+        isLoading = false
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Join Requests") }
+                title = { Text("Join Requests") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                }
             )
         }
     ) { padding ->
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
         if (requests.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -95,7 +136,13 @@ fun JoinRequestsScreen(
 
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             IconButton(
-                                onClick = { onApprove(request.requestId) },
+                                onClick = {
+                                    scope.launch {
+                                        client.put("/v1/groups/join-requests/${request.requestId}",
+                                            buildJsonObject { put("approve", JsonPrimitive(true)) })
+                                        requests = requests.filter { it.requestId != request.requestId }
+                                    }
+                                },
                                 colors = IconButtonDefaults.iconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer
                                 )
@@ -108,7 +155,13 @@ fun JoinRequestsScreen(
                                 )
                             }
                             IconButton(
-                                onClick = { onReject(request.requestId) },
+                                onClick = {
+                                    scope.launch {
+                                        client.put("/v1/groups/join-requests/${request.requestId}",
+                                            buildJsonObject { put("approve", JsonPrimitive(false)) })
+                                        requests = requests.filter { it.requestId != request.requestId }
+                                    }
+                                },
                                 colors = IconButtonDefaults.iconButtonColors(
                                     containerColor = MaterialTheme.colorScheme.errorContainer
                                 )

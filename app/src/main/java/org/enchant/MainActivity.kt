@@ -39,6 +39,7 @@ import org.enchant.auth.screens.TwoStepPinScreen
 import org.enchant.auth.screens.UsernamePickerScreen
 import org.enchant.auth.screens.WelcomeScreen
 import org.enchant.calls.CallViewModel
+import org.enchant.core.base.NotionTheme
 import org.enchant.core.calls.CallLogFilter
 import org.enchant.calls.SafetyNumberDialog
 import org.enchant.calls.screens.ActiveVideoCallScreen
@@ -59,6 +60,7 @@ import org.enchant.core.auth.RegistrationState
 import org.enchant.core.crypto.SessionManager
 import org.enchant.groups.screens.CreateGroupScreen
 import org.enchant.groups.screens.GroupListScreen
+import org.enchant.groups.screens.JoinRequestsScreen
 import org.enchant.settings.screens.SettingsHomeScreen
 import org.enchant.settings.screens.AccountSettingsScreen
 import org.enchant.settings.screens.AppearanceSettingsScreen
@@ -75,6 +77,7 @@ import org.enchant.calls.screens.CallLogScreen
 import org.enchant.channels.screens.ChannelFeedScreen
 import org.enchant.location.LocationPickerScreen
 import org.enchant.polls.screens.PollCreateSheet
+import org.enchant.profile.screens.ProfileScreen
 import org.enchant.groups.screens.GroupInfoScreen
 import org.enchant.status.screens.StatusCreateScreen
 import org.enchant.status.screens.StatusFeedScreen
@@ -84,17 +87,28 @@ import org.enchant.stickers.screens.StickerStoreScreen
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         super.onCreate(savedInstanceState)
         handleCallIntent(intent)
         setContent {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                AppNavigation()
+            NotionTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    AppNavigation()
+                }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -103,8 +117,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleCallIntent(intent: Intent?) {
-        if (intent?.hasExtra("navigate_to") == true) {
-            // Call screen navigation is handled reactively via CallViewModel
+        val data = intent?.data ?: return
+        when (data.host) {
+            "call-link" -> {
+                val roomId = data.pathSegments.firstOrNull()
+                if (roomId != null) {
+                    // Launch call link join screen
+                    // Navigate handled reactively via CallViewModel
+                }
+            }
         }
     }
 }
@@ -117,6 +138,7 @@ fun AppNavigation() {
     val callViewModel: CallViewModel = viewModel()
     val callUiState by callViewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(callUiState.callState.status) {
         when (callUiState.callState.status) {
@@ -356,7 +378,8 @@ fun AppNavigation() {
 
         composable("app_lock") {
             AppLockScreen(
-                onVerified = { navController.popBackStack() }
+                onVerified = { navController.popBackStack() },
+                onDismiss = { navController.popBackStack() }
             )
         }
 
@@ -509,7 +532,9 @@ fun AppNavigation() {
                 initialIndex = 0,
                 onReply = { },
                 onClose = { navController.popBackStack() },
-                onViewInfo = { }
+                onViewInfo = { statusId ->
+                    android.util.Log.v("Status", "View info for $statusId")
+                }
             )
         }
 
@@ -522,7 +547,7 @@ fun AppNavigation() {
                 pinnedPost = null,
                 onSubscribe = { },
                 onShare = { },
-                onLoadMore = { }
+                onLoadMore = { android.util.Log.v("Channels", "Load more requested") }
             )
         }
 
@@ -541,10 +566,10 @@ fun AppNavigation() {
                 onUpdateRole = { _, _ -> },
                 onCreateInviteLink = { },
                 onCopyInviteLink = { },
-                onViewJoinRequests = { },
+                onViewJoinRequests = { navController.navigate("join_requests") },
                 onLeaveGroup = { },
                 onDeleteGroup = { },
-                onRefresh = { }
+                onRefresh = { android.util.Log.v("Groups", "Refresh requested for $groupId") }
             )
         }
 
@@ -557,6 +582,12 @@ fun AppNavigation() {
                 onInstall = { },
                 onSearch = { },
                 onPackClick = { },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("join_requests") {
+            JoinRequestsScreen(
                 onBack = { navController.popBackStack() }
             )
         }
@@ -618,7 +649,19 @@ fun AppNavigation() {
                 SafetyNumberDialog(
                     safetyNumber = safetyNumber,
                     onDismiss = { showSafetyNumber = false },
-                    onVerify = { showSafetyNumber = false }
+                    onVerify = {
+                        org.enchant.core.base.SecurePreferences.putString("safety_number", remoteUserId)
+                        scope.launch {
+                            try {
+                                val pool = org.enchant.core.database.DatabasePool.instance
+                                if (pool != null) {
+                                    val dao = org.enchant.core.database.dao.IdentityDao(pool)
+                                    dao.setVerified("safety:$remoteUserId", 1)
+                                }
+                            } catch (_: Exception) {}
+                        }
+                        showSafetyNumber = false
+                    }
                 )
             }
             ActiveVoiceCallScreen(
@@ -663,7 +706,7 @@ fun AppNavigation() {
                 onEndSelection = { },
                 onToggleSelected = { },
                 onSelectAll = { },
-                onDelete = { }
+                onDelete = { android.util.Log.v("CallLog", "Delete call logs") }
             )
         }
 
@@ -684,21 +727,41 @@ fun AppNavigation() {
         }
 
         composable("search") {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.Text("Search coming soon", style = MaterialTheme.typography.bodyLarge)
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                android.widget.Toast.makeText(context, "Search coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                navController.popBackStack()
             }
         }
 
         composable("qr_code") {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.Text("QR Code coming soon", style = MaterialTheme.typography.bodyLarge)
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                android.widget.Toast.makeText(context, "QR Code coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                navController.popBackStack()
             }
         }
 
         composable("qr_scanner") {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.Text("QR Scanner coming soon", style = MaterialTheme.typography.bodyLarge)
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                android.widget.Toast.makeText(context, "QR Scanner coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                navController.popBackStack()
             }
+        }
+
+        composable("profile/{userId}") { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            ProfileScreen(
+                userId = userId,
+                isOwnProfile = userId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
+                profile = null,
+                onEdit = { },
+                onMessage = { navController.navigate("conversation/$userId") },
+                onCall = { },
+                onBlock = { },
+                isBlocked = false
+            )
         }
 
         composable("group_call/{callId}") {
@@ -717,15 +780,19 @@ fun AppNavigation() {
         }
 
         composable("share_target") {
-            // ShareTarget is handled by ShareTargetActivity via Android Intent filters
-            navController.popBackStack()
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                android.widget.Toast.makeText(context, "Sharing handled by ShareTargetActivity", android.widget.Toast.LENGTH_SHORT).show()
+                navController.popBackStack()
+            }
         }
 
         composable("media_viewer/{conversationId}") { backStackEntry ->
-            val convId = backStackEntry.arguments?.getString("conversationId") ?: ""
-            // MediaViewerScreen requires mediaPath + mimeType from a specific message
-            // Route exists for future integration from ConversationScreen
-            navController.popBackStack()
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                android.widget.Toast.makeText(context, "Media viewer requires a media attachment", android.widget.Toast.LENGTH_SHORT).show()
+                navController.popBackStack()
+            }
         }
 
     }

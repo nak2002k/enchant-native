@@ -4,6 +4,7 @@ import android.util.Log
 
 object CrashReporter {
     private const val TAG = "EnchantCrash"
+    @Volatile
     private var initialized = false
 
     fun init() {
@@ -16,7 +17,7 @@ object CrashReporter {
         Log.d(TAG, scrubbed)
         try {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().log(scrubbed)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
     fun logEvent(name: String, data: Map<String, String>? = null) {
@@ -28,7 +29,7 @@ object CrashReporter {
                 instance.setCustomKey(scrubSensitive(key), scrubSensitive(value))
             }
             instance.log("event: $scrubbedName")
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
     fun logError(message: String, throwable: Throwable? = null) {
@@ -38,14 +39,14 @@ object CrashReporter {
             val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
             instance.log("error: $scrubbed")
             if (throwable != null) instance.recordException(throwable)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
     fun logDecryptionFailure() {
         Log.w(TAG, "Decryption failure")
         try {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().log("decryption_failure")
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
     fun setUserId(userId: String?) {
@@ -55,14 +56,14 @@ object CrashReporter {
             val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
             if (userId != null) instance.setUserId(userId)
             else instance.setUserId("")
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
     fun recordException(t: Throwable) {
         Log.e(TAG, "Exception", t)
         try {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(t)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
 
     fun setCustomKey(key: String, value: String) {
@@ -72,10 +73,8 @@ object CrashReporter {
             com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCustomKey(
                 scrubSensitive(key), scrubbed
             )
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
     }
-
-    fun sanitize(input: String): String = scrubSensitive(input)
 
     private fun scrubSensitive(input: String): String {
         return input

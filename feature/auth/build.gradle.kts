@@ -10,7 +10,11 @@ android {
     defaultConfig { minSdk = 26 }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-    kotlin {
+    tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
+kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
@@ -45,4 +49,5 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }

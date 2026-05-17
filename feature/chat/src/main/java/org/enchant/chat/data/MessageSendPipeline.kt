@@ -17,6 +17,7 @@ import java.util.UUID
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.CryptoHelper
+import org.enchant.core.crypto.KeyManager
 import org.enchant.core.crypto.SessionManager
 import org.enchant.core.database.entity.MessageEntity
 import org.enchant.core.model.MessageStatus
@@ -146,6 +147,58 @@ object MessageSendPipeline {
         }
     }
 
+    suspend fun sendSealedMessage(
+        recipientUserId: String,
+        plaintext: ByteArray,
+        replyToken: String? = null
+    ): SendResult {
+        checkInit()
+        return withContext(Dispatchers.Default) {
+            try {
+                if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
+
+                val identityKeyPair = KeyManager.getIdentityKeyPair()
+                if (identityKeyPair == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
+                val senderIdentityB64 = CryptoHelper.base64UrlEncode(identityKeyPair.publicKey)
+
+                val contentBytes = MessageProtobufHelper.buildDataMessageContent(
+                    body = plaintext.decodeToString(),
+                    timestamp = System.currentTimeMillis()
+                )
+                val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes)
+                if (encrypted == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
+
+                val ciphertextB64 = CryptoHelper.base64UrlEncode(encrypted.payload)
+                val sealedPayload = buildJsonObject {
+                    put("senderIdentity", senderIdentityB64)
+                    put("ciphertext", ciphertextB64)
+                }
+                val sealedPayloadStr = kotlinx.serialization.json.Json.encodeToString(
+                    kotlinx.serialization.json.JsonObject.serializer(), sealedPayload
+                )
+
+                val client = apiClient!!
+                val response = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {
+                    put("recipient_user_id", recipientUserId)
+                    put("message_type", "UNIDENTIFIED_SENDER")
+                    put("payload", sealedPayloadStr)
+                    if (replyToken != null) put("reply_token", replyToken)
+                })
+
+                response.fold(
+                    onSuccess = { json ->
+                        val ids = json["envelope_ids"]?.jsonArray
+                        val serverId = ids?.firstOrNull()?.jsonPrimitive?.content
+                        SendResult.Success(serverId ?: java.util.UUID.randomUUID().toString())
+                    },
+                    onFailure = { SendResult.Failed(SendError.NETWORK) }
+                )
+            } catch (e: Exception) {
+                SendResult.Failed(SendError.NETWORK)
+            }
+        }
+    }
+
     suspend fun sendMediaMessage(
         conversationId: String, recipientUserId: String,
         fileUri: Uri, mimeType: String
@@ -160,7 +213,7 @@ object MessageSendPipeline {
                     ?: return@withContext SendResult.Failed(SendError.NETWORK)
 
                 val mediaKey = CryptoHelper.generateRandomKey(32)
-                val encryptedData = CryptoHelper.encryptAesGcm(fileBytes, mediaKey)
+                val encryptedData = CryptoHelper.encryptXChaCha20Poly1305(fileBytes, mediaKey)
 
                 val client = apiClient!!
                 val uploadResult = client.postRaw("/v1/media/upload", encryptedData, mimeType)
@@ -214,7 +267,7 @@ object MessageSendPipeline {
 
     suspend fun sendDeliveryReceipt(envelopeId: String, senderUserId: String) {
         checkInit()
-        val ts = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+        val ts = System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
             envelopeIds = listOf(ts.toString()),
             type = MessageProtobufHelper.ReceiptType.DELIVERY
@@ -233,7 +286,7 @@ object MessageSendPipeline {
 
     suspend fun sendReadReceipt(envelopeId: String, senderUserId: String) {
         checkInit()
-        val ts = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+        val ts = System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
             envelopeIds = listOf(ts.toString()),
             type = MessageProtobufHelper.ReceiptType.READ
@@ -307,7 +360,7 @@ object MessageSendPipeline {
         val repo = repository!!
         return withContext(Dispatchers.Default) {
             try {
-                val targetTs = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+                val targetTs = System.currentTimeMillis()
                 val contentBytes = MessageProtobufHelper.buildDeleteContent(targetTimestamp = targetTs)
                 val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes)
                     ?: return@withContext Result.failure(Exception("Encryption failed"))

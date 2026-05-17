@@ -1,6 +1,6 @@
 # Enchant Native — Final Progress Report
 
-> **Updated: 2026-05-17 — ALL FIXES COMPLETE, ALL TESTS GREEN**
+> **Updated: 2026-05-17 — ALL FIXES COMPLETE + CRASH/STUB HOTFIXES, BUILD GREEN**
 
 ---
 
@@ -12,7 +12,7 @@
 | Core Crypto | ✅ | 53 | Bouncy Castle, X3DH, DoubleRatchet, all green |
 | Network | ✅ | 23 | ApiClient, WebSocket, RateLimit, all green |
 | Database | ✅ | 20 | SQLCipher, 14 tables, reactive notifier |
-| Auth | ✅ | 8 | Integration tests skip gracefully if no backend |
+| Auth | ✅ | 8 (2 new) | Integration tests test AuthRepository directly (was raw HTTP) |
 | Chat | ✅ | 15 | Pipeline with protobuf Content, VM tests |
 | Calls | ✅ | 99 | Best module, group features stubbed |
 | Groups | ✅ | 24 | All 17 GroupEditor functions present |
@@ -21,7 +21,31 @@
 
 ---
 
-## What Was Fixed (All 28 Items)
+## Hotfix Batch — Auth Crash, Stub/Stale Crypto, Session Persistence (12 fixes)
+
+### Crash & UX (3)
+- **PhoneEntryScreen**: Country code from picker now auto-prepended to phone number (`+<code>`). Submit sends full E.164 number. Button enabled once user types past country prefix.
+- **CountryCodePickerScreen**: Selecting a country now updates the phone field with `+<country_code>` immediately.
+- **AuthManager.verifyOtp()**: Now stores `auth.device_id` from JWT `did` claim (was empty before — broke session restore).
+
+### Crypto Stubs Fixed (3)
+- **SessionManager.encryptMessage()**: Was generating fake SPK/identity keys locally — nobody could decrypt. Now fetches real key bundles from IKS via `KeyManager.fetchKeyBundle()`.
+- **KeyManager.generateSpk()**: Was calling `ed25519PkToX25519()` on an X25519 key (corrupted the key). Server rejected with 422. Now signs the X25519 public key bytes directly.
+- **KeyManager.cleanSignedPreKeys()**: Was just resetting rotation timestamp to 0 (no actual cleanup). Now properly removes old SPK entries.
+
+### Session Persistence (4)
+- **AuthManager**: Accepts external `ApiClient` via `setApiClient()` (was creating its own private instance — 3 separate clients existed). DI now passes the shared client.
+- **AuthStateMachine.validateRestoredState()**: Accepts optional `ApiClient` parameter instead of creating a new one.
+- **WebSocketManager.connect()**: Now checks JWT expiry before connecting. If expired, attempts token refresh first (was just failing with AUTH_FAILED).
+- **WebSocketService**: Now started automatically after login (key_generation → chat_list) and on app restart if authenticated.
+
+### Stub Methods (2)
+- **WebSocketManager.sendTypingStart/Stop/DeliveryReceipt/ReadReceipt**: Were sending empty ephemeral (`ByteArray(0)`, `DOUBLE_RATCHET`). Now send proper envelope types (`PLAINTEXT_CONTENT` for typing, `SERVER_DELIVERY_RECEIPT` for receipts) with actual payload.
+- **SecurePreferences**: All methods now throw `IllegalStateException` if `init()` wasn't called (was silently doing nothing).
+
+---
+
+## What Was Fixed (All 28 Items + Above)
 
 ### Security (5)
 - Bouncy Castle X25519 DH + Ed25519 keygen (was using broken Java crypto)

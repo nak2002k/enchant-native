@@ -2,8 +2,12 @@ package org.enchant.chat.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.crypto.CryptoHelper
 import org.enchant.core.crypto.SessionManager
+import org.enchant.core.database.dao.ConversationDao
+import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.entity.MessageEntity
 import org.enchant.core.database.entity.RecipientEntity
 import org.enchant.core.model.MessageStatus
@@ -34,16 +38,23 @@ object IncomingMessageProcessor {
     private var repository: ConversationRepository? = null
     private var recipientDao: org.enchant.core.database.dao.RecipientDao? = null
     private var apiClient: org.enchant.core.network.ApiClient? = null
+    private var conversationDao: ConversationDao? = null
+    private var messageDao: MessageDao? = null
+    @Volatile
     private var initialized = false
 
     fun init(
         repo: ConversationRepository,
         recipients: org.enchant.core.database.dao.RecipientDao,
-        client: org.enchant.core.network.ApiClient
+        client: org.enchant.core.network.ApiClient,
+        convDao: ConversationDao,
+        msgDao: MessageDao
     ) {
         repository = repo
         recipientDao = recipients
         apiClient = client
+        conversationDao = convDao
+        messageDao = msgDao
         initialized = true
     }
 
@@ -57,6 +68,10 @@ object IncomingMessageProcessor {
 
         return withContext(Dispatchers.Default) {
             try {
+                if (envelope.messageType == "UNIDENTIFIED_SENDER") {
+                    return@withContext processUnidentifiedSender(envelope, repo)
+                }
+
                 val senderId = envelope.senderUserId ?: return@withContext ProcessResult.Ignored
 
                 val blocked = recipientDao!!.getBlocked()
@@ -116,10 +131,13 @@ object IncomingMessageProcessor {
                         content = plaintext,
                         status = "delivered",
                         timestamp = envelope.serverTimestamp ?: now,
-                        serverTs = now
+                        serverTs = now,
+                        envelopeId = envelope.envelopeId
                     ),
                     conversationType = "direct"
                 )
+
+                applyDisappearTimer(senderUserId, envelope.envelopeId, envelope.serverTimestamp)
 
                 MessageSendPipeline.sendDeliveryReceipt(
                     envelopeId = envelope.envelopeId ?: "",
@@ -162,10 +180,12 @@ object IncomingMessageProcessor {
                                 content = parsed.body,
                                 status = "delivered",
                                 timestamp = envelope.serverTimestamp ?: now,
-                                serverTs = now
+                                serverTs = now,
+                                envelopeId = envelope.envelopeId
                             ),
                             conversationType = "direct"
                         )
+                        applyDisappearTimer(senderUserId, envelope.envelopeId, envelope.serverTimestamp)
                         MessageSendPipeline.sendDeliveryReceipt(
                             envelopeId = envelope.envelopeId ?: "",
                             senderUserId = senderUserId
@@ -178,6 +198,7 @@ object IncomingMessageProcessor {
                             MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
                         }
                         parsed.timestamps.forEach { ts ->
+                            android.util.Log.v("IncomingMsg", "Receipt timestamp: $ts")
                         }
                         ProcessResult.Handled
                     }
@@ -198,6 +219,103 @@ object IncomingMessageProcessor {
                 ProcessResult.Error("Signal message processing failed: ${e.message}")
             }
         }
+    }
+
+    private suspend fun applyDisappearTimer(conversationId: String, envelopeId: String?, serverTs: Long?) {
+        val convDao = conversationDao ?: return
+        val msgDao = messageDao ?: return
+        if (envelopeId == null) return
+        val conv = convDao.getById(conversationId) ?: return
+        val timer = conv.disappearTimerSeconds
+        if (timer > 0) {
+            val baseTs = serverTs ?: System.currentTimeMillis()
+            msgDao.updateDisappearAt(envelopeId, baseTs + timer * 1000L)
+        }
+    }
+
+    private suspend fun processUnidentifiedSender(
+        envelope: IncomingEnvelope, repo: ConversationRepository
+    ): ProcessResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val payloadStr = envelope.payload.decodeToString()
+                val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                val parsed = json.parseToJsonElement(payloadStr).jsonObject
+                val senderIdentityB64 = parsed["senderIdentity"]?.jsonPrimitive?.content
+                    ?: return@withContext ProcessResult.Error("Missing senderIdentity in sealed payload")
+                val ciphertextB64 = parsed["ciphertext"]?.jsonPrimitive?.content
+                    ?: return@withContext ProcessResult.Error("Missing ciphertext in sealed payload")
+
+                val senderIdentityKey = CryptoHelper.base64UrlDecode(senderIdentityB64)
+                val senderUserId = SessionManager.findUserIdByIdentityKey(senderIdentityKey)
+                    ?: return@withContext ProcessResult.Error("Unknown sender identity key")
+
+                val ciphertext = CryptoHelper.base64UrlDecode(ciphertextB64)
+
+                val decrypted = SessionManager.decryptMessage(senderUserId,
+                    org.enchant.core.crypto.EncryptedPayload(
+                        messageType = org.enchant.protos.EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
+                        payload = ciphertext
+                    )
+                )
+                if (decrypted == null) {
+                    return@withContext ProcessResult.Error("Decryption failed for sealed sender message")
+                }
+
+                val now = System.currentTimeMillis()
+                val parsedContent = MessageProtobufHelper.parseContent(decrypted.plaintext)
+
+                return@withContext when (parsedContent) {
+                    is MessageProtobufHelper.ParsedContent.DataMessage -> {
+                        repo.insertMessageAndUpdateConversation(
+                            MessageEntity(
+                                conversationId = senderUserId,
+                                senderId = senderUserId,
+                                messageType = "SIGNAL_MESSAGE",
+                                content = parsedContent.body,
+                                status = "delivered",
+                                timestamp = envelope.serverTimestamp ?: now,
+                                serverTs = now
+                            ),
+                            conversationType = "direct"
+                        )
+                        sendSealedDeliveryReceipt(envelope, senderUserId)
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Receipt -> {
+                        val status = when (parsedContent.type) {
+                            MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
+                            MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
+                        }
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Typing -> { ProcessResult.Handled }
+                    is MessageProtobufHelper.ParsedContent.Delete -> { ProcessResult.Handled }
+                    is MessageProtobufHelper.ParsedContent.Null -> { ProcessResult.Handled }
+                    is MessageProtobufHelper.ParsedContent.Unknown -> {
+                        ProcessResult.Error("Unknown content type in sealed sender message")
+                    }
+                }
+            } catch (e: Exception) {
+                ProcessResult.Error("Unidentified sender processing failed: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun sendSealedDeliveryReceipt(
+        envelope: IncomingEnvelope, senderUserId: String
+    ) {
+        val replyToken = envelope.replyToken ?: return
+        val ts = envelope.envelopeId?.toLongOrNull() ?: System.currentTimeMillis()
+        val contentBytes = MessageProtobufHelper.buildReceiptContent(
+            envelopeIds = listOf(ts.toString()),
+            type = MessageProtobufHelper.ReceiptType.DELIVERY
+        )
+        MessageSendPipeline.sendSealedMessage(
+            recipientUserId = senderUserId,
+            plaintext = contentBytes,
+            replyToken = replyToken
+        )
     }
 
     private suspend fun fetchKeyBundle(userId: String): Boolean {

@@ -7,7 +7,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.enchant.core.base.SecurePreferences
+import org.enchant.core.network.ApiClient
 import java.security.MessageDigest
 
 private const val TAG = "TwoStepPinScreen"
@@ -19,6 +23,7 @@ object TwoStepPinScreen {
         onPinCreated: (String) -> Unit = {},
         isLoading: Boolean = false
     ) {
+        val scope = rememberCoroutineScope()
         var pin by remember { mutableStateOf("") }
         var confirmPin by remember { mutableStateOf("") }
         var step by remember { mutableStateOf(0) }
@@ -38,6 +43,17 @@ object TwoStepPinScreen {
                         try {
                             SecurePreferences.putString("twostep.pin_hash", sha256(pin))
                             SecurePreferences.putBoolean("twostep.enabled", true)
+                            scope.launch {
+                                try {
+                                    val client = ApiClient()
+                                    client.init()
+                                    client.put("/v1/auth/pin", buildJsonObject {
+                                        put("pin", sha256(pin))
+                                    })
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Failed to register PIN with server: ${e.message}")
+                                }
+                            }
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to store two-step PIN", e)
                         }
@@ -144,7 +160,7 @@ object TwoStepPinScreen {
         }
     }
 
-    companion object {
+    object Helpers {
         fun isPinSet(): Boolean = SecurePreferences.getBoolean("twostep.enabled", false)
         fun verifyPin(pin: String): Boolean {
             val hash = SecurePreferences.getString("twostep.pin_hash") ?: return false

@@ -18,7 +18,9 @@ object KeyStoreManager {
     const val KEY_ALIAS_IDENTITY = "enchant_identity_key"
     const val KEY_ALIAS_DB_ENCRYPTION = "enchant_db_key"
 
+    @Volatile
     private var initialized = false
+    @Volatile
     private var _isHardwareBacked = false
 
     suspend fun init(context: Context) {
@@ -141,16 +143,6 @@ object KeyStoreManager {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
             cipher.doFinal(ct)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    suspend fun getWrappedKeyBytes(alias: String): ByteArray? {
-        return try {
-            val ks = getKeyStore()
-            val entry = ks.getEntry(alias, null)
-            null
         } catch (_: Exception) {
             null
         }

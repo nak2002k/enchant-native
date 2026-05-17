@@ -1,5 +1,6 @@
 package org.enchant.status
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -156,7 +157,7 @@ class StatusViewModel(
         viewModelScope.launch {
             try {
                 apiClient.post("/v1/status/$statusId/view")
-            } catch (_: Exception) {}
+            } catch (e: Exception) { Log.w("Status", "Load failed: ${e.message}") }
         }
     }
 

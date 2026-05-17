@@ -84,7 +84,7 @@ object ActiveCallManager {
             if (intent != null) context.startActivity(intent)
             cancelCallNotification(context)
             AudioRouter.stopAudio(playDisconnect = false)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("ActiveCallMgr", "clear failed: ${e.message}") }
     }
 
     private fun createChannel(context: Context) {

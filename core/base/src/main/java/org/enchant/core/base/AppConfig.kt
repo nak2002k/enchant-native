@@ -3,6 +3,7 @@ package org.enchant.core.base
 import android.content.Context
 
 object AppConfig {
+    @Volatile
     private var initialized = false
     var applicationContext: Context? = null
         private set
@@ -32,13 +33,22 @@ object AppConfig {
     val userAgent: String
         get() = checkInitialized().let { _userAgent }
 
-    fun init(context: Context) {
+    fun init(context: Context, overrideUrl: String? = null) {
         if (initialized) return
         applicationContext = context
         val prefs = context.getSharedPreferences("enchant_config", Context.MODE_PRIVATE)
 
-        _gatewayUrl = prefs.getString("gateway_url", "https://instrumentation-paragraph-classification-century.trycloudflare.com")
-            ?.trimEnd('/') ?: "https://instrumentation-paragraph-classification-century.trycloudflare.com"
+        val defaultUrl = overrideUrl ?: prefs.getString("gateway_url", null)
+        if (defaultUrl != null) {
+            _gatewayUrl = defaultUrl.trimEnd('/')
+        } else {
+            val resId = context.resources.getIdentifier("gateway_url", "string", context.packageName)
+            _gatewayUrl = if (resId != 0) {
+                try { context.getString(resId).trimEnd('/') } catch (_: Exception) { "http://localhost:8080" }
+            } else {
+                "http://localhost:8080"
+            }
+        }
         _wsUrl = deriveWsUrl(_gatewayUrl)
         _turnUrl = prefs.getString("turn_url", null)
         _turnUsername = prefs.getString("turn_username", null)

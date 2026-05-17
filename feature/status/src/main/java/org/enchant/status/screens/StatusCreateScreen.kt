@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.enchant.status.StatusPrivacy
+import java.util.UUID
 
 private val presetColors = listOf(
     "#FF6B6B", "#FFA94D", "#FFD43B", "#69DB7C",
@@ -131,7 +132,7 @@ fun StatusCreateScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
-                    onClick = { onCreateMedia("gif_placeholder", selectedPrivacy) },
+                    onClick = { onCreateMedia(UUID.randomUUID().toString(), selectedPrivacy) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.Gif, null, modifier = Modifier.size(18.dp))
@@ -139,7 +140,7 @@ fun StatusCreateScreen(
                     Text("Add GIF")
                 }
                 OutlinedButton(
-                    onClick = { onCreateMedia("image_placeholder", selectedPrivacy) },
+                    onClick = { onCreateMedia(UUID.randomUUID().toString(), selectedPrivacy) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.Image, null, modifier = Modifier.size(18.dp))

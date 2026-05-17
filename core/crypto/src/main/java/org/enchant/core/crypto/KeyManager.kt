@@ -1,5 +1,6 @@
 package org.enchant.core.crypto
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -23,6 +24,7 @@ data class SignedPrekeyData(
 
 object KeyManager {
     private val mutex = Mutex()
+    @Volatile
     private var initialized = false
     private var identityKeyPair: CryptoHelper.KeyPair? = null
     private var spkKeyPair: CryptoHelper.KeyPair? = null
@@ -125,7 +127,7 @@ object KeyManager {
     private suspend fun generateSpk() {
         val ik = identityKeyPair ?: return
         spkKeyPair = CryptoHelper.generateX25519KeyPair()
-        val spkPubX = CryptoHelper.ed25519PkToX25519(spkKeyPair!!.publicKey)
+        val spkPubX = spkKeyPair!!.publicKey
         spkSignature = CryptoHelper.signEd25519(spkPubX, ik.privateKey)
         val pubB64 = CryptoHelper.base64UrlEncode(spkKeyPair!!.publicKey)
         val sigB64 = CryptoHelper.base64UrlEncode(spkSignature!!)
@@ -192,7 +194,7 @@ object KeyManager {
                 uploadOpks(client, opks)
                 storeOpksLocally(opks)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w("KeyManager", "OPK top-up failed: ${e.message}") }
     }
 
     private fun generateOpks(count: Int): List<CryptoHelper.KeyPair> {
@@ -237,7 +239,7 @@ object KeyManager {
             try {
                 val ik = identityKeyPair ?: return@withContext Result.failure(Exception("No identity key"))
                 val newSpk = CryptoHelper.generateX25519KeyPair()
-                val spkPubX = CryptoHelper.ed25519PkToX25519(newSpk.publicKey)
+                val spkPubX = newSpk.publicKey
                 val newSig = CryptoHelper.signEd25519(spkPubX, ik.privateKey)
 
                 val body = buildJsonObject {
@@ -269,7 +271,14 @@ object KeyManager {
 
     suspend fun cleanSignedPreKeys() {
         val threshold = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-        SecurePreferences.putLong("crypto.spk_last_rotation", 0L)
+        if (lastSpkRotationMs > 0 && lastSpkRotationMs < threshold) {
+            SecurePreferences.remove("crypto.spk_public")
+            SecurePreferences.remove("crypto.spk_private")
+            SecurePreferences.remove("crypto.spk_signature")
+            SecurePreferences.putLong("crypto.spk_last_rotation", 0L)
+            spkKeyPair = null
+            spkSignature = null
+        }
     }
 
     fun needsKeyRotation(): Boolean {

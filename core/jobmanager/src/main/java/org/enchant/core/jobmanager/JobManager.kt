@@ -15,6 +15,7 @@ data class Job(
 object JobManager {
     private val queue = ConcurrentLinkedQueue<Job>()
     private var scope: CoroutineScope? = null
+    @Volatile
     private var running = false
 
     fun init() {
@@ -42,6 +43,10 @@ object JobManager {
     }
 
     fun enqueue(job: Job) {
+        if (queue.size >= 50) {
+            android.util.Log.w("JobManager", "Max pending jobs (50) reached, rejecting job: ${job.id}")
+            return
+        }
         queue.add(job)
         if (job.delayMs > 0) {
             persistJob(job)

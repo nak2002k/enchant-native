@@ -122,7 +122,7 @@ object DoubleRatchet {
         val nextChainKey = msgKeyData.copyOfRange(44, 76)
         CryptoHelper.zeroBytes(msgKeyData)
 
-        val ciphertext = CryptoHelper.encryptAesGcm(plaintext, msgKey.key)
+        val ciphertext = CryptoHelper.encryptXChaCha20Poly1305(plaintext, msgKey.key)
         val headerNonce = msgKey.nonce
 
         val dhKey = s.sendingRatchetKeyPublic ?: ByteArray(DH_KEY_SIZE)
@@ -143,7 +143,15 @@ object DoubleRatchet {
         return Pair(s, RatchetMessage(header = header, ciphertext = ciphertext))
     }
 
-    private val consumedKeys = mutableSetOf<String>()
+    private val consumedKeys = object : LinkedHashSet<String>() {
+        override fun add(element: String): Boolean {
+            if (size >= MAX_SKIPPED_KEYS) {
+                val oldest = iterator().next()
+                remove(oldest)
+            }
+            return super.add(element)
+        }
+    }
 
     fun decrypt(state: RatchetState, message: RatchetMessage, ad: ByteArray? = null): Pair<RatchetState, ByteArray> {
         var s = state
@@ -191,7 +199,7 @@ object DoubleRatchet {
         if (existingSkip != null) {
             s.skippedMessageKeys.remove(skipKey)
             val plaintext = try {
-                CryptoHelper.decryptAesGcm(message.ciphertext, existingSkip.key)
+                CryptoHelper.decryptXChaCha20Poly1305(message.ciphertext, existingSkip.key)
             } catch (_: Exception) {
                 return Pair(s, ByteArray(0))
             }
@@ -229,7 +237,7 @@ object DoubleRatchet {
         val nextChainKey = msgKeyData.copyOfRange(44, 76)
 
         val plaintext = try {
-            CryptoHelper.decryptAesGcm(message.ciphertext, msgKey.key)
+            CryptoHelper.decryptXChaCha20Poly1305(message.ciphertext, msgKey.key)
         } catch (_: Exception) {
             return Pair(s, ByteArray(0))
         }

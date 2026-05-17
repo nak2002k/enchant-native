@@ -6,6 +6,7 @@ import androidx.core.app.NotificationManagerCompat
 import java.util.concurrent.ConcurrentHashMap
 
 object MessageNotifier {
+    @Volatile
     private var initialized = false
     private val conversationNotifications = ConcurrentHashMap<String, PendingNotification>()
 

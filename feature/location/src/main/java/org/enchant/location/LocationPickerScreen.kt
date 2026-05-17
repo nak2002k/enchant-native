@@ -1,6 +1,7 @@
 package org.enchant.location
 
 import android.location.Geocoder
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,7 +56,7 @@ fun LocationPickerScreen(
                                 longitude = results[0].longitude
                                 address = results[0].getAddressLine(0) ?: query
                             }
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) { Log.w("Location", "Fetch failed: ${e.message}") }
                     }
                 },
                 label = { Text("Search address") },

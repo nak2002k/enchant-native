@@ -18,6 +18,7 @@ import org.enchant.core.base.AppConfig
 
 class WebSocketService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    @Volatile
     private var isConnected = false
 
     override fun onBind(intent: Intent?): IBinder? = null

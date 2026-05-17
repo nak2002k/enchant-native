@@ -1,6 +1,10 @@
 package org.enchant.chatlist
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -58,7 +62,8 @@ fun ConversationListScreen(
     LaunchedEffect(Unit) {
         WebSocketManager.incomingMessages.collect { envelope ->
             if (!envelope.ephemeral && envelope.senderUserId != null) {
-                snackbarHostState.showSnackbar("New message from ${envelope.senderUserId.take(8)}...")
+                val senderId = envelope.senderUserId ?: "unknown"
+                snackbarHostState.showSnackbar("New message from ${senderId.take(8)}...")
             }
         }
     }
@@ -126,7 +131,7 @@ fun ConversationListScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            if (!isOnline) {
+            AnimatedVisibility(visible = !isOnline) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.errorContainer
@@ -141,7 +146,7 @@ fun ConversationListScreen(
                 }
             }
 
-            if (pendingCount > 0) {
+            AnimatedVisibility(visible = pendingCount > 0) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.tertiaryContainer
@@ -170,14 +175,22 @@ fun ConversationListScreen(
             } else {
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(conversations, key = { it.id }) { conversation ->
-                        ConversationTile(
-                            conversation = conversation,
-                            onClick = { viewModel.selectConversation(conversation.id) },
-                            onArchive = { viewModel.archiveConversation(conversation.id) },
-                            onPin = { viewModel.pinConversation(conversation.id) },
-                            onMarkRead = { viewModel.markRead(conversation.id) },
-                            onDelete = { viewModel.deleteConversation(conversation.id) }
-                        )
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
+                                animationSpec = tween(300),
+                                initialOffsetY = { it / 4 }
+                            )
+                        ) {
+                            ConversationTile(
+                                conversation = conversation,
+                                onClick = { viewModel.selectConversation(conversation.id) },
+                                onArchive = { viewModel.archiveConversation(conversation.id) },
+                                onPin = { viewModel.pinConversation(conversation.id) },
+                                onMarkRead = { viewModel.markRead(conversation.id) },
+                                onDelete = { viewModel.deleteConversation(conversation.id) }
+                            )
+                        }
                     }
                 }
             }
@@ -215,6 +228,11 @@ private fun FilterChipsRow(
             selected = currentFilter == ConversationFilter.PERSONAL,
             onClick = { onFilterSelected(ConversationFilter.PERSONAL) },
             label = { Text("Personal") }
+        )
+        FilterChip(
+            selected = currentFilter == ConversationFilter.ARCHIVED,
+            onClick = { onFilterSelected(ConversationFilter.ARCHIVED) },
+            label = { Text("Archived") }
         )
     }
 }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 enum class NetworkType { WIFI, CELLULAR, ETHERNET, NONE }
 
 object ConnectivityMonitor {
+    @Volatile
     private var initialized = false
     private val _isOnline = MutableStateFlow(true)
     private val _networkType = MutableStateFlow(NetworkType.NONE)

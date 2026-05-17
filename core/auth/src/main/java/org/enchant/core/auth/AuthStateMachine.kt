@@ -2,10 +2,12 @@ package org.enchant.core.auth
 
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.enchant.core.base.SecurePreferences
+import org.enchant.core.network.ApiClient
 
 sealed class RegistrationEvent {
     data object ResetState : RegistrationEvent()
@@ -141,7 +143,7 @@ object AuthStateMachine {
         return permissions
     }
 
-    suspend fun validateRestoredState(): RegistrationState {
+    suspend fun validateRestoredState(apiClient: ApiClient? = null): RegistrationState {
         val jwt = SecurePreferences.getString("auth.jwt")
         val refreshToken = SecurePreferences.getString("auth.refresh_token")
 
@@ -161,14 +163,17 @@ object AuthStateMachine {
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { Log.w("AuthSM", "JWT validation failed: ${e.message}") }
         }
 
         return if (refreshToken != null) {
             try {
-                val apiClient = org.enchant.core.network.ApiClient()
-                apiClient.init()
-                val repo = AuthRepository(apiClient)
+                val client = apiClient ?: run {
+                    val c = ApiClient()
+                    c.init()
+                    c
+                }
+                val repo = AuthRepository(client)
                 val result = repo.refreshToken(refreshToken)
                 if (result.isSuccess) {
                     val response = result.getOrThrow()

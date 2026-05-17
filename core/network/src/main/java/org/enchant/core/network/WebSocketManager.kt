@@ -1,9 +1,18 @@
 package org.enchant.core.network
 
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -27,7 +36,8 @@ data class IncomingEnvelope(
     val messageType: String,
     val payload: ByteArray,
     val serverTimestamp: Long?,
-    val ephemeral: Boolean
+    val ephemeral: Boolean,
+    val replyToken: String? = null
 )
 
 data class ConnectionError(val code: Int, val message: String)
@@ -41,17 +51,22 @@ data class OutgoingMessage(
 )
 
 object WebSocketManager {
+    @Volatile
     private var initialized = false
     private var scope: CoroutineScope? = null
     private var webSocket: WebSocket? = null
     private var requestIdCounter = 0L
+    @Volatile
     private var consecutive401s = 0
+    @Volatile
     private var retryCount = 0
     private val pendingRequests = ConcurrentHashMap<Long, CompletableDeferred<WebSocketResources.WebSocketResponseMessage>>()
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     private val _incomingMessages = MutableSharedFlow<IncomingEnvelope>(extraBufferCapacity = 100)
     private val _connectionErrors = MutableSharedFlow<ConnectionError>(extraBufferCapacity = 10)
+    @Volatile
     private var keepAliveJob: Job? = null
+    @Volatile
     private var apiClient: ApiClient? = null
 
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -69,7 +84,16 @@ object WebSocketManager {
         if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) return
         _connectionState.value = ConnectionState.CONNECTING
 
-        val jwt = SecurePreferences.getString("auth.jwt")
+        var jwt = SecurePreferences.getString("auth.jwt")
+        if (jwt != null && isJwtExpired(jwt)) {
+            val newJwt = tryRefreshJwt()
+            if (newJwt != null) {
+                jwt = newJwt
+            } else {
+                _connectionState.value = ConnectionState.AUTH_FAILED
+                return
+            }
+        }
         if (jwt == null) {
             _connectionState.value = ConnectionState.AUTH_FAILED
             return
@@ -181,19 +205,21 @@ object WebSocketManager {
     }
 
     suspend fun sendTypingStart(recipientUserId: String) {
-        sendEphemeral(recipientUserId)
+        sendSignalMessage(recipientUserId, ByteArray(0), "TYPING_START")
     }
 
     suspend fun sendTypingStop(recipientUserId: String) {
-        sendEphemeral(recipientUserId)
+        sendSignalMessage(recipientUserId, ByteArray(0), "TYPING_STOP")
     }
 
     suspend fun sendDeliveryReceipt(envelopeId: String, senderUserId: String) {
-        sendEphemeral(senderUserId)
+        val receiptPayload = envelopeId.toByteArray()
+        sendSignalMessage(senderUserId, receiptPayload, "DELIVERY_RECEIPT")
     }
 
     suspend fun sendReadReceipt(envelopeId: String, senderUserId: String) {
-        sendEphemeral(senderUserId)
+        val receiptPayload = envelopeId.toByteArray()
+        sendSignalMessage(senderUserId, receiptPayload, "READ_RECEIPT")
     }
 
     suspend fun sendCallOffer(recipientUserId: String, sdp: String): Boolean {
@@ -259,14 +285,18 @@ object WebSocketManager {
                     val request = message.request
                     if (request.verb == "PUT" && request.path == "/api/v1/message") {
                         val envelope = EnvelopeProtos.Envelope.parseFrom(request.body)
+                        val replyToken = request.headersList.firstOrNull { it.startsWith("X-Reply-Token:") }
+                            ?.substringAfter("X-Reply-Token:")?.trim()?.ifEmpty { null }
+                        val isUnidentified = envelope.type == EnvelopeProtos.Envelope.Type.UNIDENTIFIED_SENDER
                         _incomingMessages.tryEmit(IncomingEnvelope(
                             envelopeId = envelope.serverGuid,
-                            senderUserId = envelope.sourceServiceId.ifEmpty { null },
+                            senderUserId = if (isUnidentified) null else envelope.sourceServiceId.ifEmpty { null },
                             senderDeviceId = if (envelope.hasSourceDeviceId()) envelope.sourceDeviceId.toString() else null,
                             messageType = envelope.type.name,
                             payload = envelope.content.toByteArray(),
                             serverTimestamp = if (envelope.hasServerTimestamp()) envelope.serverTimestamp else null,
-                            ephemeral = envelope.ephemeral
+                            ephemeral = if (isUnidentified) true else envelope.ephemeral,
+                            replyToken = replyToken
                         ))
                         val ack = WebSocketResources.WebSocketMessage.newBuilder()
                             .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
@@ -313,14 +343,19 @@ object WebSocketManager {
         connect()
     }
 
-    private suspend fun sendEphemeral(recipientUserId: String) {
+    private suspend fun sendSignalMessage(recipientUserId: String, payload: ByteArray, messageType: String) {
         if (_connectionState.value != ConnectionState.CONNECTED) return
-        val content = com.google.protobuf.ByteString.copyFrom(ByteArray(0))
+        val content = com.google.protobuf.ByteString.copyFrom(payload)
+        val type = when (messageType) {
+            "TYPING_START", "TYPING_STOP" -> EnvelopeProtos.Envelope.Type.PLAINTEXT_CONTENT
+            "DELIVERY_RECEIPT", "READ_RECEIPT" -> EnvelopeProtos.Envelope.Type.SERVER_DELIVERY_RECEIPT
+            else -> EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET
+        }
         val envelope = EnvelopeProtos.Envelope.newBuilder()
-            .setType(EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET)
+            .setType(type)
             .setDestinationServiceId(recipientUserId)
             .setContent(content)
-            .setEphemeral(true)
+            .setEphemeral(messageType.startsWith("TYPING_"))
             .setClientTimestamp(System.currentTimeMillis())
             .build()
 
@@ -362,4 +397,56 @@ object WebSocketManager {
     }
 
     private fun nextRequestId(): Long = ++requestIdCounter
+
+    private fun isJwtExpired(jwt: String): Boolean {
+        return try {
+            val parts = jwt.split(".")
+            if (parts.size == 3) {
+                val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
+                val payloadStr = payload.decodeToString()
+                val expMatch = Regex("\"exp\":(\\d+)").find(payloadStr)
+                if (expMatch != null) {
+                    val exp = expMatch.groupValues[1].toLongOrNull() ?: 0L
+                    System.currentTimeMillis() / 1000 >= exp
+                } else false
+            } else false
+        } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); false }
+    }
+
+    private suspend fun tryRefreshJwt(): String? {
+        val refreshToken = SecurePreferences.getString("auth.refresh_token") ?: return null
+        return try {
+            val body = kotlinx.serialization.json.buildJsonObject {
+                put("refresh_token", kotlinx.serialization.json.JsonPrimitive(refreshToken))
+            }
+            val client = OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .build()
+            val jsonBody = kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.json.JsonObject.serializer(), body
+            )
+            val request = Request.Builder()
+                .url("${AppConfig.gatewayUrl}/v1/auth/refresh")
+                .post(jsonBody.toRequestBody("application/json".toMediaType()))
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                if (responseBody != null) {
+                    val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                    val parsed = json.parseToJsonElement(responseBody).jsonObject
+                    val newJwt = parsed["access_token"]?.jsonPrimitive?.content
+                    val newRefresh = parsed["refresh_token"]?.jsonPrimitive?.content
+                    if (newJwt != null) {
+                        SecurePreferences.putString("auth.jwt", newJwt)
+                        if (newRefresh != null) {
+                            SecurePreferences.putString("auth.refresh_token", newRefresh)
+                        }
+                        newJwt
+                    } else null
+                } else null
+            } else null
+        } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); null }
+    }
 }

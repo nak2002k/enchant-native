@@ -156,6 +156,11 @@ class MessageDao(private val pool: DatabasePool) {
         DatabaseNotifier.notify("messages")
     }
 
+    suspend fun updateDisappearAt(envelopeId: String, disappearAt: Long) = pool.write { db ->
+        db.execSQL("UPDATE messages SET disappear_at = ? WHERE envelope_id = ?", arrayOf(disappearAt.toString(), envelopeId))
+        DatabaseNotifier.notify("messages")
+    }
+
     suspend fun deleteConversation(conversationId: String) = pool.write { db ->
         db.execSQL("DELETE FROM messages WHERE conversation_id = ?", arrayOf(conversationId))
         DatabaseNotifier.notify("messages")

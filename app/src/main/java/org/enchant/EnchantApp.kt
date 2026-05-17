@@ -2,6 +2,7 @@ package org.enchant
 
 import android.app.Application
 import android.os.StrictMode
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,7 +49,7 @@ class EnchantApp : Application() {
             leakcanary.LeakCanary.config = leakcanary.LeakCanary.config.copy(
                 retainedVisibleThreshold = 3
             )
-        } catch (_: Exception) {}
+        } catch (e: Exception) { Log.w("EnchantApp", "LeakCanary: ${e.message}") }
     }
 
     private fun initStrictMode() {

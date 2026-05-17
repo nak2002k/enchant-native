@@ -1,6 +1,6 @@
 package org.enchant.core.crypto
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -10,7 +10,7 @@ class X3DHTest {
 
     @Test
     @DisplayName("Alice and Bob derive identical shared secret with OPK")
-    fun `alice and bob derive identical SK with OPK`() = runBlocking {
+    fun `alice and bob derive identical SK with OPK`() = runTest {
         val aliceIk = CryptoHelper.generateEd25519KeyPair()
         val aliceEk = CryptoHelper.generateX25519KeyPair()
         val bobIk = CryptoHelper.generateEd25519KeyPair()
@@ -40,7 +40,7 @@ class X3DHTest {
 
     @Test
     @DisplayName("Alice and Bob derive identical shared secret without OPK")
-    fun `alice and bob derive identical SK without OPK`() = runBlocking {
+    fun `alice and bob derive identical SK without OPK`() = runTest {
         val aliceIk = CryptoHelper.generateEd25519KeyPair()
         val aliceEk = CryptoHelper.generateX25519KeyPair()
         val bobIk = CryptoHelper.generateEd25519KeyPair()
@@ -67,7 +67,7 @@ class X3DHTest {
 
     @Test
     @DisplayName("BobRespond returns non-empty header identity and ephemeral keys")
-    fun `bobRespond returns valid header`() = runBlocking {
+    fun `bobRespond returns valid header`() = runTest {
         val aliceIk = CryptoHelper.generateEd25519KeyPair()
         val aliceEk = CryptoHelper.generateX25519KeyPair()
         val bobIk = CryptoHelper.generateEd25519KeyPair()

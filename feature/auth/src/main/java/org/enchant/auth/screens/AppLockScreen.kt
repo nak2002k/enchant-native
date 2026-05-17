@@ -1,7 +1,6 @@
 package org.enchant.auth.screens
 
 import android.util.Log
-import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,10 +31,9 @@ fun AppLockScreen(
         val ctx = AppConfig.applicationContext
         if (ctx != null) {
             try {
-                val bm = BiometricManager.from(ctx)
-                bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+                val km = ctx.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
+                km?.isDeviceSecure == true
             } catch (e: Exception) {
-                Log.e(TAG, "Biometric check failed", e)
                 false
             }
         } else false
@@ -167,14 +165,12 @@ fun AppLockScreen(
                     try {
                         val ctx = AppConfig.applicationContext
                         if (ctx != null) {
-                            val bm = BiometricManager.from(ctx)
-                            if (bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS) {
+                            val km = ctx.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager
+                            if (km?.isDeviceSecure == true) {
                                 SecurePreferences.putBoolean("applock.biometric", true)
-                                Log.d(TAG, "Biometric enabled")
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to enable biometric", e)
                     }
                 }) {
                     Text("Use biometric")

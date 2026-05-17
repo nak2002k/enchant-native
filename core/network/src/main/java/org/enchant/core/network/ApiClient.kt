@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 
 class ApiClient {
     companion object {
+        @Volatile
         private var _instance: ApiClient? = null
         fun getInstance(): ApiClient = _instance ?: error("ApiClient not initialized")
         fun setInstance(client: ApiClient) { _instance = client }
@@ -38,6 +39,44 @@ class ApiClient {
 
     suspend fun post(path: String, body: JsonObject? = null): Result<JsonObject> =
         request("POST", path, body)
+
+    private val anonymousClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    suspend fun postAnonymous(path: String, body: JsonObject): Result<JsonObject> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val jsonBody = json.encodeToString(JsonObject.serializer(), body)
+                    .toRequestBody("application/json".toMediaType())
+                val request = Request.Builder()
+                    .url("${AppConfig.gatewayUrl}$path")
+                    .post(jsonBody)
+                    .build()
+                val response = anonymousClient.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+                    if (responseBody.isNullOrEmpty()) {
+                        Result.success(JsonObject(emptyMap()))
+                    } else {
+                        try {
+                            Result.success(json.parseToJsonElement(responseBody).jsonObject)
+                        } catch (e: Exception) {
+                            Result.failure(Exception("Non-JSON response: $responseBody"))
+                        }
+                    }
+                } else {
+                    Result.failure(Exception("HTTP ${response.code}: ${response.message}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
 
     suspend fun put(path: String, body: JsonObject? = null): Result<JsonObject> =
         request("PUT", path, body)
@@ -71,6 +110,7 @@ class ApiClient {
     suspend fun uploadFile(path: String, fileBytes: ByteArray, mimeType: String): Result<JsonObject> =
         postRaw(path, fileBytes, mimeType)
 
+    @Volatile
     private var retryCount = 0
     private val maxRetries = 2
     private val max429Retries = 1

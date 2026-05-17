@@ -1,5 +1,6 @@
 package org.enchant.core.network
 
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,7 @@ data class QueuedMessage(
 
 object OfflineQueue {
     private val queue = ConcurrentLinkedQueue<QueuedMessage>()
+    @Volatile
     private var maxEntries = 1000
     private val _pendingCount = MutableStateFlow(0)
 
@@ -47,7 +49,7 @@ object OfflineQueue {
                     )
                     queue.offer(msg)
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { Log.w("OfflineQueue", "Drain failed: ${e.message}") }
         }
         _pendingCount.value = queue.size
     }
@@ -70,8 +72,9 @@ object OfflineQueue {
     }
 
     suspend fun enqueue(message: QueuedMessage) {
-        if (queue.size >= maxEntries) {
-            queue.poll()
+        if (queue.size >= 100) {
+            val evicted = queue.poll()
+            Log.w("OfflineQueue", "Evicting oldest message: ${evicted?.id}")
         }
         queue.offer(message)
         _pendingCount.value = queue.size
