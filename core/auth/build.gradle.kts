@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:crypto"))
+    implementation(project(":core:model"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)

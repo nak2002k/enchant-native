@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.KeyManager
+import org.enchant.core.model.User
 import org.enchant.core.network.ApiClient
 
 sealed class AuthState {
@@ -213,14 +214,20 @@ object AuthManager {
         }
     }
 
-    suspend fun searchUsername(prefix: String): Result<List<String>> {
+    suspend fun searchUsername(prefix: String): Result<List<User>> {
         val client = apiClient ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
         if (prefix.isEmpty()) return Result.success(emptyList())
         return try {
             val result = client.get("/v1/profile/search", mapOf("username" to prefix))
             result.map { json ->
                 json["results"]?.jsonArray?.map { item ->
-                    item.jsonObject["username"]?.jsonPrimitive?.content ?: ""
+                    val obj = item.jsonObject
+                    User(
+                        userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
+                        username = obj["username"]?.jsonPrimitive?.content ?: "",
+                        displayName = obj["display_name"]?.jsonPrimitive?.content,
+                        avatarMediaId = obj["avatar_media_id"]?.jsonPrimitive?.content
+                    )
                 } ?: emptyList()
             }
         } catch (e: Exception) {
