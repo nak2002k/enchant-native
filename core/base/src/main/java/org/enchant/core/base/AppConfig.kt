@@ -37,8 +37,8 @@ object AppConfig {
         applicationContext = context
         val prefs = context.getSharedPreferences("enchant_config", Context.MODE_PRIVATE)
 
-        _gatewayUrl = prefs.getString("gateway_url", "https://api.enchant.app")
-            ?.trimEnd('/') ?: "https://api.enchant.app"
+        _gatewayUrl = prefs.getString("gateway_url", "https://instrumentation-paragraph-classification-century.trycloudflare.com")
+            ?.trimEnd('/') ?: "https://instrumentation-paragraph-classification-century.trycloudflare.com"
         _wsUrl = deriveWsUrl(_gatewayUrl)
         _turnUrl = prefs.getString("turn_url", null)
         _turnUsername = prefs.getString("turn_username", null)
