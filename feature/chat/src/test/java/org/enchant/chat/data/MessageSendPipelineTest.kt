@@ -19,7 +19,7 @@ import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.entity.ConversationEntity
 import org.enchant.core.database.entity.MessageEntity
-import org.enchant.core.model.ConversationType
+import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
 import org.enchant.core.network.ApiClient
 import org.enchant.core.network.ConnectivityMonitor
@@ -154,7 +154,7 @@ class MessageSendPipelineTest {
             coEvery { repo.updateMessageStatus(any(), any()) } returns Unit
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {
-                    put("envelope_id", "env-1")
+                    put("envelope_id", kotlinx.serialization.json.JsonPrimitive("env-1"))
                 })
             }
             MessageSendPipeline.sendMessage("conv-1", "user-1", "Hello".encodeToByteArray())
@@ -167,7 +167,7 @@ class MessageSendPipelineTest {
             coEvery { repo.updateMessageStatus(any(), any()) } returns Unit
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {
-                    put("envelope_id", "env-1")
+                    put("envelope_id", kotlinx.serialization.json.JsonPrimitive("env-1"))
                 })
             }
             MessageSendPipeline.sendMessage("conv-1", "user-1", "Reply".encodeToByteArray(), replyTo = "env-orig")
@@ -179,7 +179,11 @@ class MessageSendPipelineTest {
     inner class SendSealedTest {
         @Test @DisplayName("sendSealedMessage fails with PAYLOAD_TOO_LARGE for > 64KB")
         fun `sealed payload too large`() = runTest {
-            val result = MessageSendPipeline.sendSealedMessage("user-1", ByteArray(65 * 1024), null)
+            val result = MessageSendPipeline.sendSealedMessage(
+                conversationId = "conv-1",
+                recipientUserId = "user-1",
+                plaintext = ByteArray(65 * 1024)
+            )
             assertTrue(result is SendResult.Failed)
             assertEquals(SendError.PAYLOAD_TOO_LARGE, (result as SendResult.Failed).error)
         }
@@ -187,7 +191,11 @@ class MessageSendPipelineTest {
         @Test @DisplayName("sendSealedMessage fails with ENCRYPTION_FAILED when no identity key")
         fun `sealed no identity key`() = runTest {
             coEvery { SessionManager.encryptMessage(any(), any()) } returns null
-            val result = MessageSendPipeline.sendSealedMessage("user-1", "Hello".encodeToByteArray(), null)
+            val result = MessageSendPipeline.sendSealedMessage(
+                conversationId = "conv-1",
+                recipientUserId = "user-1",
+                plaintext = "Hello".encodeToByteArray()
+            )
             assertTrue(result is SendResult.Failed)
             assertEquals(SendError.ENCRYPTION_FAILED, (result as SendResult.Failed).error)
         }
@@ -199,10 +207,14 @@ class MessageSendPipelineTest {
                     put("envelope_ids", kotlinx.serialization.json.buildJsonArray {
                         add(kotlinx.serialization.json.JsonPrimitive("env-sealed-1"))
                     })
-                    put("sealed", true)
+                    put("sealed", kotlinx.serialization.json.JsonPrimitive(true))
                 })
             }
-            val result = MessageSendPipeline.sendSealedMessage("user-1", "Hello".encodeToByteArray(), null)
+            val result = MessageSendPipeline.sendSealedMessage(
+                conversationId = "conv-1",
+                recipientUserId = "user-1",
+                plaintext = "Hello".encodeToByteArray()
+            )
             assertTrue(result is SendResult.Success)
         }
 
@@ -211,7 +223,11 @@ class MessageSendPipelineTest {
             coEvery { apiClient.postAnonymous(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.failure(Exception("Network error"))
             }
-            val result = MessageSendPipeline.sendSealedMessage("user-1", "Hello".encodeToByteArray(), null)
+            val result = MessageSendPipeline.sendSealedMessage(
+                conversationId = "conv-1",
+                recipientUserId = "user-1",
+                plaintext = "Hello".encodeToByteArray()
+            )
             assertTrue(result is SendResult.Failed)
         }
     }
@@ -221,7 +237,9 @@ class MessageSendPipelineTest {
         @Test @DisplayName("sendReaction calls PUT /v1/reactions/{messageId}")
         fun `send reaction`() = runTest {
             coEvery { apiClient.put(any(), any()) } returns kotlinx.coroutines.runBlocking {
-                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("reacted", true) })
+                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {
+                    put("reacted", kotlinx.serialization.json.JsonPrimitive(true))
+                })
             }
             val result = MessageSendPipeline.sendReaction("msg-1", "\uD83D\uDC4D")
             assertTrue(result.isSuccess)
@@ -246,7 +264,7 @@ class MessageSendPipelineTest {
                 payload = "receipt".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
-                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", true) })
+                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", kotlinx.serialization.json.JsonPrimitive(true)) })
             }
             MessageSendPipeline.sendDeliveryReceipt("env-1", "sender-1")
         }
@@ -258,7 +276,7 @@ class MessageSendPipelineTest {
                 payload = "receipt".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
-                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", true) })
+                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", kotlinx.serialization.json.JsonPrimitive(true)) })
             }
             MessageSendPipeline.sendReadReceipt("env-1", "sender-1")
         }
@@ -273,7 +291,7 @@ class MessageSendPipelineTest {
                 payload = "typing".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
-                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", true) })
+                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", kotlinx.serialization.json.JsonPrimitive(true)) })
             }
             MessageSendPipeline.sendTypingIndicator("user-1", true)
         }
@@ -285,7 +303,7 @@ class MessageSendPipelineTest {
                 payload = "typing".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
-                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", true) })
+                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", kotlinx.serialization.json.JsonPrimitive(true)) })
             }
             MessageSendPipeline.sendTypingIndicator("user-1", false)
         }
@@ -308,10 +326,9 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("editMessage fails when encryption fails")
         fun `edit encryption fails`() = runTest {
-            coEvery { repo.getMessage(any()) } returns MessageEntity(
+            coEvery { repo.getMessage(any()) } returns Message(
                 localId = 1, conversationId = "conv-1", senderId = "self-user",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
-                content = "Old text", status = "sent", timestamp = 1000
+                envelopeId = "env-1", content = "Old text", status = MessageStatus.SENT, timestamp = 1000
             )
             coEvery { SessionManager.encryptMessage(any(), any()) } returns null
             val result = MessageSendPipeline.editMessage("env-1", "New text".encodeToByteArray(), "user-1")
@@ -320,17 +337,16 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("editMessage succeeds when all steps pass")
         fun `edit success`() = runTest {
-            coEvery { repo.getMessage(any()) } returns MessageEntity(
+            coEvery { repo.getMessage(any()) } returns Message(
                 localId = 1, conversationId = "conv-1", senderId = "self-user",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
-                content = "Old text", status = "sent", timestamp = 1000
+                envelopeId = "env-1", content = "Old text", status = MessageStatus.SENT, timestamp = 1000
             )
             coEvery { SessionManager.encryptMessage(any(), any()) } returns EncryptedPayload(
                 messageType = EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
                 payload = "encrypted".encodeToByteArray()
             )
             coEvery { apiClient.put(any(), any()) } returns kotlinx.coroutines.runBlocking {
-                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("success", true) })
+                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("success", kotlinx.serialization.json.JsonPrimitive(true)) })
             }
             coEvery { repo.updateMessageContent(any(), any()) } returns Unit
             val result = MessageSendPipeline.editMessage("env-1", "New text".encodeToByteArray(), "user-1")
@@ -347,7 +363,7 @@ class MessageSendPipelineTest {
                 payload = "delete".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
-                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", true) })
+                kotlin.Result.success(kotlinx.serialization.json.buildJsonObject { put("ok", kotlinx.serialization.json.JsonPrimitive(true)) })
             }
             coEvery { repo.markMessageDeleted(any()) } returns Unit
             val result = MessageSendPipeline.deleteForEveryone("env-1", "user-1")
@@ -373,10 +389,9 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("forwardMessage sends message content to target")
         fun `forward success`() = runTest {
-            coEvery { repo.getMessage(any()) } returns MessageEntity(
+            coEvery { repo.getMessage(any()) } returns Message(
                 localId = 1, conversationId = "conv-1", senderId = "user-1",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
-                content = "Forward this", status = "sent", timestamp = 1000
+                envelopeId = "env-1", content = "Forward this", status = MessageStatus.SENT, timestamp = 1000
             )
             coEvery { repo.insertMessage(any()) } returns 1L
             coEvery { repo.updateMessageStatus(any(), any()) } returns Unit
@@ -386,7 +401,7 @@ class MessageSendPipelineTest {
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {
-                    put("envelope_id", "env-2")
+                    put("envelope_id", kotlinx.serialization.json.JsonPrimitive("env-2"))
                 })
             }
             val result = MessageSendPipeline.forwardMessage("conv-1", "env-1", "conv-2", "user-2")
