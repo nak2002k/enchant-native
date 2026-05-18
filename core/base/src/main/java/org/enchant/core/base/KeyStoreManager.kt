@@ -87,7 +87,8 @@ object KeyStoreManager {
     suspend fun deleteKey(alias: String) {
         try {
             getKeyStore().deleteEntry(alias)
-        } catch (_: KeyStoreException) {
+        } catch (e: KeyStoreException) {
+            android.util.Log.w("KeyStoreManager", "deleteKey failed for $alias: ${e.message}")
         }
     }
 

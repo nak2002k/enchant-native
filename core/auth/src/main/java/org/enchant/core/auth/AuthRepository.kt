@@ -84,7 +84,7 @@ class AuthRepository(private val apiClient: ApiClient) {
             apiClient.post("/v1/auth/logout")
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.success(Unit)
         }
     }
 
@@ -106,8 +106,8 @@ class AuthRepository(private val apiClient: ApiClient) {
 
     suspend fun revokeDevice(deviceId: String): Result<Unit> {
         return try {
-            apiClient.del("/v1/auth/devices/$deviceId")
-            Result.success(Unit)
+            val result = apiClient.del("/v1/auth/devices/$deviceId")
+            result.map { }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -118,24 +118,28 @@ class AuthRepository(private val apiClient: ApiClient) {
             apiClient.del("/v1/auth/account")
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.success(Unit)
         }
     }
 
     suspend fun fetchJwks(): Result<Map<String, String>> {
         return try {
             val response = apiClient.get("/v1/auth/.well-known/jwks.json")
-            response.map { json ->
-                val keysArray = json["keys"]?.jsonArray ?: return@map emptyMap()
-                keysArray.mapNotNull { keyObj ->
+            if (response.isSuccess) {
+                val json = response.getOrNull()!!
+                val keysArray = json["keys"]?.jsonArray ?: return Result.success(emptyMap())
+                val map = keysArray.mapNotNull { keyObj ->
                     val obj = keyObj.jsonObject
                     val kid = obj["kid"]?.jsonPrimitive?.content ?: return@mapNotNull null
                     val x = obj["x"]?.jsonPrimitive?.content ?: return@mapNotNull null
                     kid to x
                 }.toMap()
+                Result.success(map)
+            } else {
+                Result.success(emptyMap())
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.success(emptyMap())
         }
     }
 

@@ -1,5 +1,6 @@
 package org.enchant.core.push
 
+import android.util.Log
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.network.ApiClient
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +12,7 @@ import kotlinx.serialization.json.put
 
 object PushTokenRegistrar {
     private const val PUSH_TOKEN_KEY = "push.fcm_token"
+    private const val TAG = "PushTokenRegistrar"
 
     suspend fun registerWithBackend(token: String) {
         if (token == SecurePreferences.getString(PUSH_TOKEN_KEY)) return
@@ -24,7 +26,8 @@ object PushTokenRegistrar {
                 }
                 apiClient.post("/v1/push/register", body)
                 SecurePreferences.putString(PUSH_TOKEN_KEY, token)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "registerWithBackend failed: ${e.message}")
             }
         }
     }
@@ -35,7 +38,8 @@ object PushTokenRegistrar {
                 val apiClient = ApiClient()
                 apiClient.init()
                 apiClient.del("/v1/push/register")
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "deregisterFromBackend failed: ${e.message}")
             }
             SecurePreferences.remove(PUSH_TOKEN_KEY)
         }
@@ -47,7 +51,8 @@ object PushTokenRegistrar {
                 val token = FirebaseMessaging.getInstance().token.await()
                 SecurePreferences.putString(PUSH_TOKEN_KEY, token)
                 token
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "getFcmToken failed: ${e.message}")
                 SecurePreferences.getString(PUSH_TOKEN_KEY)
             }
         }
@@ -57,7 +62,8 @@ object PushTokenRegistrar {
         return try {
             com.google.android.gms.common.GoogleApiAvailability.getInstance()
                 .isGooglePlayServicesAvailable(context) == com.google.android.gms.common.ConnectionResult.SUCCESS
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "isPlayServicesAvailable check failed: ${e.message}")
             false
         }
     }

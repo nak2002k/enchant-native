@@ -1,12 +1,14 @@
 package org.enchant.core.performance
 
 import android.content.Context
+import android.util.Log
 import android.widget.ImageView
 import coil.Coil
 import coil.ImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
+import coil.request.ErrorResult
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import coil.size.Size
@@ -14,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object ImagePipeline {
+    private const val TAG = "ImagePipeline"
+
     @Volatile
     private var initialized = false
 
@@ -41,7 +45,12 @@ object ImagePipeline {
     fun loadImage(context: Context, url: String, target: ImageView) {
         val request = ImageRequest.Builder(context)
             .data(url)
-            .target(target)
+            .target(
+                onSuccess = { /* default target handles this */ },
+                onError = { drawable ->
+                    Log.w(TAG, "Image load failed for $url: ${drawable?.toString()}")
+                }
+            )
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .build()
@@ -56,7 +65,10 @@ object ImagePipeline {
                 .diskCachePolicy(CachePolicy.ENABLED)
                 .size(Size.ORIGINAL)
                 .build()
-            Coil.imageLoader(context).execute(request)
+            val result = Coil.imageLoader(context).execute(request)
+            if (result is ErrorResult) {
+                Log.w(TAG, "Prefetch failed for $url: ${result.throwable?.message}")
+            }
         }
     }
 

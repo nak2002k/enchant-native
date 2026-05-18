@@ -3,7 +3,9 @@ package org.enchant.core.base
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -19,11 +21,14 @@ class KeyStoreManagerTest {
         mockkObject(SecurePreferences)
         every { SecurePreferences.getString(any(), any()) } returns null
         every { SecurePreferences.getString(any()) } returns null
+        mockkStatic(android.util.Log::class)
+        every { android.util.Log.w(any<String>(), any<String>()) } returns 0
     }
 
     @AfterEach
     fun tearDown() {
         unmockkObject(SecurePreferences)
+        unmockkStatic(android.util.Log::class)
     }
 
     @Nested @DisplayName("Key Aliases")

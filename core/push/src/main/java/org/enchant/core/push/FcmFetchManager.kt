@@ -1,18 +1,27 @@
 package org.enchant.core.push
 
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 object FcmFetchManager {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private const val TAG = "FcmFetchManager"
+    private var scope: CoroutineScope? = null
     private var fetchJob: Job? = null
     private val _isFetchScheduled = MutableStateFlow(false)
-    private val _backoffCounter = java.util.concurrent.atomic.AtomicInteger(0)
+    private val _backoffCounter = AtomicInteger(0)
+    private var onFetchTriggered: (suspend () -> Unit)? = null
 
     val isFetchScheduled: StateFlow<Boolean> = _isFetchScheduled.asStateFlow()
+
+    fun init(onFetch: suspend () -> Unit) {
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        onFetchTriggered = onFetch
+    }
 
     suspend fun onFcmReceived() {
         scheduleFetch()
@@ -20,10 +29,20 @@ object FcmFetchManager {
 
     fun scheduleFetch() {
         fetchJob?.cancel()
-        fetchJob = scope.launch {
+        val currentScope = scope ?: return
+        fetchJob = currentScope.launch {
             _isFetchScheduled.value = true
-            delay(1000)
-            _isFetchScheduled.value = false
+            val backoff = minOf(1000L * (1 shl _backoffCounter.get()), 30000L)
+            delay(backoff)
+            try {
+                onFetchTriggered?.invoke()
+                _backoffCounter.set(0)
+            } catch (e: Exception) {
+                Log.w(TAG, "FCM fetch failed: ${e.message}")
+                _backoffCounter.incrementAndGet()
+            } finally {
+                _isFetchScheduled.value = false
+            }
         }
     }
 
@@ -35,5 +54,11 @@ object FcmFetchManager {
 
     fun notifyFcmRetryReceived() {
         _backoffCounter.set(0)
+    }
+
+    fun shutdown() {
+        fetchJob?.cancel()
+        scope?.cancel()
+        scope = null
     }
 }

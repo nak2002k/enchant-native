@@ -175,9 +175,11 @@ private suspend fun saveToGallery(context: android.content.Context, file: File, 
             val values = android.content.ContentValues().apply {
                 put(if (isVideo) android.provider.MediaStore.Video.Media.DISPLAY_NAME
                     else android.provider.MediaStore.Images.Media.DISPLAY_NAME, file.name)
-                put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
+                put(if (isVideo) android.provider.MediaStore.Video.Media.MIME_TYPE
+                    else android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+                    put(if (isVideo) android.provider.MediaStore.Video.Media.IS_PENDING
+                        else android.provider.MediaStore.Images.Media.IS_PENDING, 1)
                 }
             }
             val uri = context.contentResolver.insert(contentUri, values) ?: return@withContext
@@ -186,9 +188,10 @@ private suspend fun saveToGallery(context: android.content.Context, file: File, 
             }
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 values.clear()
-                values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                values.put(if (isVideo) android.provider.MediaStore.Video.Media.IS_PENDING
+                    else android.provider.MediaStore.Images.Media.IS_PENDING, 0)
                 context.contentResolver.update(uri, values, null, null)
             }
-        } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+        } catch (e: Exception) { android.util.Log.w("MediaViewer", "saveToGallery failed: ${e.message}") }
     }
 }

@@ -42,7 +42,11 @@ object BackupArchive {
                 CryptoHelper.decryptXChaCha20Poly1305(fullData, backupKey)
                 true
             }
-        } catch (_: Exception) {
+        } catch (e: javax.crypto.AEADBadTagException) {
+            android.util.Log.w("BackupArchive", "Integrity check failed: bad authentication tag (possible tampering)")
+            false
+        } catch (e: Exception) {
+            android.util.Log.w("BackupArchive", "Integrity check failed: ${e.message}")
             false
         }
     }

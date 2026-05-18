@@ -5,7 +5,11 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.enchant.core.auth.AuthManager
 import org.enchant.core.auth.AuthState
 import org.enchant.core.auth.RegistrationState
@@ -18,9 +22,11 @@ import org.junit.jupiter.api.Test
 
 @DisplayName("AuthViewModel — Full Coverage")
 class AuthViewModelTest {
+    private val testDispatcher = StandardTestDispatcher()
 
     @BeforeEach
     fun setUp() {
+        Dispatchers.setMain(testDispatcher)
         mockkObject(AuthManager)
         every { AuthManager.authState } returns kotlinx.coroutines.flow.MutableStateFlow(AuthState.Unauthenticated)
         every { AuthManager.currentState } returns kotlinx.coroutines.flow.MutableStateFlow(RegistrationState.Welcome)
@@ -29,6 +35,7 @@ class AuthViewModelTest {
     @AfterEach
     fun tearDown() {
         unmockkObject(AuthManager)
+        Dispatchers.resetMain()
     }
 
     @Nested @DisplayName("Request OTP")
@@ -38,6 +45,7 @@ class AuthViewModelTest {
             val viewModel = AuthViewModel()
             coEvery { AuthManager.requestOtp(any()) } returns kotlin.Result.success(Unit)
             viewModel.requestOtp("+15551234567")
+            testDispatcher.scheduler.advanceUntilIdle()
             coVerify { AuthManager.requestOtp("+15551234567") }
         }
     }
@@ -49,6 +57,7 @@ class AuthViewModelTest {
             val viewModel = AuthViewModel()
             coEvery { AuthManager.verifyOtp(any()) } returns kotlin.Result.success(Unit)
             viewModel.verifyOtp("123456")
+            testDispatcher.scheduler.advanceUntilIdle()
             coVerify { AuthManager.verifyOtp("123456") }
         }
     }
@@ -60,6 +69,7 @@ class AuthViewModelTest {
             val viewModel = AuthViewModel()
             coEvery { AuthManager.resendOtp() } returns kotlin.Result.success(Unit)
             viewModel.resendOtp()
+            testDispatcher.scheduler.advanceUntilIdle()
             coVerify { AuthManager.resendOtp() }
         }
     }
@@ -71,6 +81,7 @@ class AuthViewModelTest {
             val viewModel = AuthViewModel()
             coEvery { AuthManager.registerKeys() } returns kotlin.Result.success(Unit)
             viewModel.registerKeys()
+            testDispatcher.scheduler.advanceUntilIdle()
             coVerify { AuthManager.registerKeys() }
         }
     }

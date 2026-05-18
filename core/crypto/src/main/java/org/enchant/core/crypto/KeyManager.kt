@@ -126,11 +126,17 @@ object KeyManager {
                 if (spkKeyPair == null || spkSignature == null) {
                     generateSpk()
                 }
-                if (loadLocalOpks().size < 20) {
-                    val opks = generateOpks(100)
-                    storeOpksLocally(opks)
+                val opks = if (loadLocalOpks().size < 20) {
+                    val newOpks = generateOpks(100)
+                    storeOpksLocally(newOpks)
+                    newOpks
+                } else {
+                    loadLocalOpks()
                 }
-                val uploadResult = uploadKeyBundle()
+                if (opks.size < 20) {
+                    return@withContext Result.failure(IllegalStateException("Only ${opks.size} OPKs available, need at least 20"))
+                }
+                val uploadResult = uploadKeyBundle(opks)
                 if (uploadResult.isFailure) return@withContext uploadResult
                 topUpOpks()
                 Result.success(Unit)
@@ -140,7 +146,7 @@ object KeyManager {
         }
     }
 
-    private suspend fun uploadKeyBundle(): Result<Unit> {
+    private suspend fun uploadKeyBundle(opks: List<CryptoHelper.KeyPair>): Result<Unit> {
         val client = apiClient ?: return Result.failure(Exception("KeyManager has no API client"))
         val ik = identityKeyPair ?: return Result.failure(Exception("No identity key pair"))
         val spk = spkKeyPair ?: return Result.failure(Exception("No signed prekey pair"))
@@ -153,7 +159,6 @@ object KeyManager {
                 put("signature", JsonPrimitive(CryptoHelper.base64UrlEncode(sig)))
             })
             put("one_time_prekeys", buildJsonArray {
-                val opks = loadLocalOpks()
                 opks.forEach { opk ->
                     add(buildJsonObject { put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(opk.publicKey))) })
                 }
@@ -252,8 +257,12 @@ object KeyManager {
 
             if (remaining < 10) {
                 val opks = generateOpks(100)
-                uploadOpks(client, opks)
-                storeOpksLocally(opks)
+                val uploadResult = uploadOpks(client, opks)
+                if (uploadResult.isSuccess) {
+                    storeOpksLocally(opks)
+                } else {
+                    Log.w("KeyManager", "OPK upload failed, not storing locally: ${uploadResult.exceptionOrNull()?.message}")
+                }
             }
         } catch (e: Exception) { Log.w("KeyManager", "OPK top-up failed: ${e.message}") }
     }
@@ -262,15 +271,19 @@ object KeyManager {
         return (1..count).map { CryptoHelper.generateX25519KeyPair() }
     }
 
-    private suspend fun uploadOpks(client: ApiClient, opks: List<CryptoHelper.KeyPair>) {
-        val body = buildJsonObject {
-            put("one_time_prekeys", buildJsonArray {
-                opks.forEach { opk ->
-                    add(buildJsonObject { put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(opk.publicKey))) })
-                }
-            })
+    private suspend fun uploadOpks(client: ApiClient, opks: List<CryptoHelper.KeyPair>): Result<Unit> {
+        return try {
+            val body = buildJsonObject {
+                put("one_time_prekeys", buildJsonArray {
+                    opks.forEach { opk ->
+                        add(buildJsonObject { put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(opk.publicKey))) })
+                    }
+                })
+            }
+            client.post("/v1/keys/one-time-prekeys", body).map { }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        client.post("/v1/keys/one-time-prekeys", body)
     }
 
     private suspend fun storeOpksLocally(opks: List<CryptoHelper.KeyPair>) {

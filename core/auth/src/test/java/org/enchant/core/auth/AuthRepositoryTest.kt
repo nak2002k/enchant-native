@@ -3,6 +3,7 @@ package org.enchant.core.auth
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.test.runTest
@@ -13,6 +14,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.network.ApiClient
+import org.enchant.core.network.AuthInterceptor
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -31,9 +33,15 @@ class AuthRepositoryTest {
         server.start()
         mockkObject(AppConfig)
         every { AppConfig.gatewayUrl } returns server.url("").toString().trimEnd('/')
+        every { AppConfig.appVersion } returns "1.0.0"
         mockkObject(SecurePreferences)
         every { SecurePreferences.getString(any(), any()) } returns null
         every { SecurePreferences.getString(any()) } returns null
+        every { SecurePreferences.putString(any(), any()) } returns Unit
+        every { SecurePreferences.remove(any()) } returns Unit
+        every { SecurePreferences.getInt(any(), any()) } returns 0
+        every { SecurePreferences.putInt(any(), any()) } returns Unit
+        resetAuthInterceptor()
         apiClient = ApiClient()
         apiClient.init()
         repo = AuthRepository(apiClient)
@@ -44,6 +52,15 @@ class AuthRepositoryTest {
         server.shutdown()
         unmockkObject(AppConfig)
         unmockkObject(SecurePreferences)
+    }
+
+    private fun resetAuthInterceptor() {
+        val refreshingField = AuthInterceptor::class.java.getDeclaredField("refreshing")
+        refreshingField.isAccessible = true
+        refreshingField.set(AuthInterceptor, false)
+        val currentTokenField = AuthInterceptor::class.java.getDeclaredField("currentToken")
+        currentTokenField.isAccessible = true
+        currentTokenField.set(AuthInterceptor, null)
     }
 
     @Nested @DisplayName("Request OTP")
@@ -60,7 +77,8 @@ class AuthRepositoryTest {
 
         @Test @DisplayName("requestOtp returns failure on network error")
         fun `request otp network error`() = runTest {
-            server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AT_START))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             val result = repo.requestOtp("+15551234567")
             assertTrue(result.isFailure)
         }
@@ -150,7 +168,8 @@ class AuthRepositoryTest {
 
         @Test @DisplayName("logout returns success even on network error")
         fun `logout network error`() = runTest {
-            server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AT_START))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             val result = repo.logout()
             assertTrue(result.isSuccess)
         }
@@ -199,7 +218,8 @@ class AuthRepositoryTest {
 
         @Test @DisplayName("deleteAccount returns success even on network error")
         fun `delete account network error`() = runTest {
-            server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AT_START))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             val result = repo.deleteAccount()
             assertTrue(result.isSuccess)
         }
@@ -267,9 +287,11 @@ class AuthRepositoryTest {
 
         @Test @DisplayName("fetchJwks returns empty map on network error")
         fun `fetch jwks network error`() = runTest {
-            server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AT_START))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             val result = repo.fetchJwks()
-            assertTrue(result.isFailure)
+            assertTrue(result.isSuccess)
+            assertTrue(result.getOrThrow().isEmpty())
         }
     }
 

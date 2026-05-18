@@ -5,6 +5,7 @@ import android.content.Context
 object AppConfig {
     @Volatile
     private var initialized = false
+    private val lock = Any()
     var applicationContext: Context? = null
         private set
     private var _gatewayUrl: String = ""
@@ -35,8 +36,10 @@ object AppConfig {
 
     fun init(context: Context, overrideUrl: String? = null) {
         if (initialized) return
-        applicationContext = context
-        val prefs = context.getSharedPreferences("enchant_config", Context.MODE_PRIVATE)
+        synchronized(lock) {
+            if (initialized) return
+            applicationContext = context
+            val prefs = context.getSharedPreferences("enchant_config", Context.MODE_PRIVATE)
 
         val defaultUrl = overrideUrl ?: prefs.getString("gateway_url", null)
         if (defaultUrl != null) {
@@ -60,7 +63,8 @@ object AppConfig {
             "1.0.0"
         }
         _userAgent = "Enchant-Android/$_appVersion"
-        initialized = true
+            initialized = true
+        }
     }
 
     private fun deriveWsUrl(httpUrl: String): String {

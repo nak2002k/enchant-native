@@ -62,17 +62,25 @@ private val NotionDarkColorScheme = darkColorScheme(
 )
 
 object AppThemeManager {
-    var currentTheme: String = "system"
+    @Volatile
+    private var _currentTheme: String = "system"
+    private val lock = Any()
+
+    var currentTheme: String
+        get() = _currentTheme
+        private set(value) { _currentTheme = value }
 
     fun setTheme(theme: String) {
-        currentTheme = theme
+        synchronized(lock) {
+            _currentTheme = theme
+        }
         SecurePreferences.putString("settings.theme", theme)
     }
 
-    fun getTheme(): String = currentTheme
+    fun getTheme(): String = _currentTheme
 
     fun loadTheme() {
-        currentTheme = SecurePreferences.getString("settings.theme", "system") ?: "system"
+        _currentTheme = SecurePreferences.getString("settings.theme", "system") ?: "system"
     }
 }
 

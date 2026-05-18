@@ -51,11 +51,7 @@ class EnchantApp : Application() {
     }
 
     private fun initLeakCanary() {
-        try {
-            leakcanary.LeakCanary.config = leakcanary.LeakCanary.config.copy(
-                retainedVisibleThreshold = 3
-            )
-        } catch (e: Exception) { Log.w("EnchantApp", "LeakCanary: ${e.message}") }
+        LeakCanaryInitializer.init()
     }
 
     private fun initStrictMode() {

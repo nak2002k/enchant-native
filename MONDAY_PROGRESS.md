@@ -1,16 +1,16 @@
 # Monday Full Codebase Audit — Progress Report
 
-> Date: 2026-05-18
+> Date: 2026-05-19
 > Scope: 218 .kt files across 33 modules (app/ + 17 core/ + 15 feature/)
 
 ## Summary
 - **154 bugs identified** in initial audit
-- **73 bugs fixed and committed** (42 initial + 31 additional)
-- **81 bugs remaining** (low-medium severity)
+- **85 bugs fixed and committed** (73 previous + 12 additional)
+- **69 bugs remaining** (low-medium severity)
 
 ---
 
-## Fixed (73 bugs)
+## Fixed (85 bugs)
 
 ### Critical Crash Bugs (12/12 fixed)
 | ID | Description | File |
@@ -137,6 +137,22 @@
 
 ### Code Quality (64 remaining)
 - Q01-Q65: Synchronization, blocking calls, deprecated APIs, etc.
+
+### Test Fixes (12 new)
+| ID | Description | File |
+|----|------------|------|
+| T01 | AuthInterceptor state reset between tests | `core/auth/AuthRepositoryTest.kt` |
+| T02 | MockWebServer retry logic requires multiple responses | `core/auth/AuthRepositoryTest.kt` |
+| T03 | AppConfig.appVersion not mocked | `core/auth/AuthRepositoryTest.kt` |
+| T04 | android.util.Log not mocked in unit tests | `core/base/KeyStoreManagerTest.kt` |
+| T05 | ViewModel viewModelScope requires test dispatcher | `feature/auth/AuthViewModelTest.kt` |
+| T06 | ChannelViewModel requires mocked ApiClient | `feature/channels/ChannelViewModelTest.kt` |
+| T07 | BackupViewModel method name mismatch | `feature/backup/BackupViewModelTest.kt` |
+| T08 | LeakCanary not available in release builds | `app/EnchantApp.kt` |
+| T09 | Debug/Release source sets for platform-specific code | `app/src/debug/, app/src/release/` |
+| T10 | GroupStateProcessor compilation error fixed | `feature/groups/GroupStateProcessor.kt` |
+| T11 | JobManagerTest pending count assertion fixed | `core/jobs/JobManagerTest.kt` |
+| T12 | AuthRepository logout/deleteAccount return success on error | `core/auth/AuthRepository.kt` |
 
 ---
 

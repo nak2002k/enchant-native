@@ -278,6 +278,7 @@ object IncomingMessageProcessor {
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("IncomingMsg", "Unidentified sender processing failed: ${e.message}", e)
                 ProcessResult.Error("Unidentified sender processing failed: ${e.message}")
             }
         }
