@@ -155,7 +155,9 @@ class ConversationListViewModel(
                     onFailure = {}
                 )
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
-            _isRefreshing.value = false
+            finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

@@ -124,11 +124,13 @@ class ChannelViewModel(
                         )
                     },
                     onFailure = {
-                        _uiState.value = _uiState.value.copy(isLoadingMore = false)
+                        android.util.Log.w("ChannelVM", "loadMore failed: ${it.message}")
+                        _uiState.value = _uiState.value.copy(isLoadingMore = false, error = it.message)
                     }
                 )
-            } catch (_: Exception) {
-                _uiState.value = _uiState.value.copy(isLoadingMore = false)
+            } catch (e: Exception) {
+                android.util.Log.w("ChannelVM", "loadMore exception: ${e.message}")
+                _uiState.value = _uiState.value.copy(isLoadingMore = false, error = e.message)
             }
         }
     }

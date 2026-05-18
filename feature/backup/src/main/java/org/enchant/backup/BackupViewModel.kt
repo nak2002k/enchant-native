@@ -60,7 +60,7 @@ class BackupViewModel : ViewModel() {
         }
     }
 
-    fun uploadChunk(backupId: String, chunkIndex: Int, data: ByteArray) {
+    fun uploadChunk(backupId: String, chunkIndex: Int, totalChunks: Int, data: ByteArray) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
             val result = withContext(Dispatchers.Default) {
@@ -69,7 +69,7 @@ class BackupViewModel : ViewModel() {
             result.fold(
                 onSuccess = {
                     _uiState.value = _uiState.value.copy(isProcessing = false,
-                        uploadProgress = (chunkIndex + 1).toFloat())
+                        uploadProgress = (chunkIndex + 1).toFloat() / totalChunks.toFloat())
                 },
                 onFailure = { _uiState.value = _uiState.value.copy(
                     isProcessing = false, error = it.message)

@@ -41,8 +41,9 @@ object JobManager {
                 val data = parts.getOrElse(3) { "" }
                 val remaining = fireAt - System.currentTimeMillis()
                 if (remaining > 0 && tag.isNotEmpty()) {
-                    enqueue(Job(id = id, delayMs = remaining, tag = tag, run = {
-                        handlers[tag]?.invoke(Job(id = id, delayMs = remaining, tag = tag, run = {}))
+                    val restoredJob = Job(id = id, delayMs = remaining, tag = tag, run = {})
+                    enqueue(restoredJob.copy(run = {
+                        handlers[tag]?.invoke(restoredJob)
                     }))
                 }
             }

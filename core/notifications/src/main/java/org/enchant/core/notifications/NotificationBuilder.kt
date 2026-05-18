@@ -28,6 +28,11 @@ data class ConversationSummary(
 object NotificationBuilder {
     private const val REPLY_KEY = "inline_reply"
     private const val MARK_READ_KEY = "mark_read"
+    private val requestCodeCounter = java.util.concurrent.atomic.AtomicInteger(0)
+
+    private fun uniqueRequestCode(base: Int): Int {
+        return base xor requestCodeCounter.incrementAndGet()
+    }
 
     fun buildMessageNotification(
         context: Context,
@@ -105,7 +110,7 @@ object NotificationBuilder {
             putExtra("conversation_id", conversationId)
         }
         val pendingIntent = PendingIntent.getBroadcast(
-            context, conversationId.hashCode() * 3 + 1, replyIntent,
+            context, uniqueRequestCode(conversationId.hashCode() * 3 + 1), replyIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val remoteInput = RemoteInput.Builder(REPLY_KEY)
@@ -123,7 +128,7 @@ object NotificationBuilder {
             putExtra("conversation_id", conversationId)
         }
         val pendingIntent = PendingIntent.getBroadcast(
-            context, conversationId.hashCode() * 3 + 2, readIntent,
+            context, uniqueRequestCode(conversationId.hashCode() * 3 + 2), readIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Action.Builder(

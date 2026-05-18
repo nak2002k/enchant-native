@@ -153,6 +153,12 @@ class MessageDao(private val pool: DatabasePool) {
             val sanitized = query.trim()
                 .replace("\"", "\"\"")
                 .replace("*", "")
+                .replace("+", "")
+                .replace("-", "")
+                .replace("NEAR", "")
+                .replace("AND", "")
+                .replace("OR", "")
+                .replace("NOT", "")
             val ftsQuery = "\"$sanitized\""
             val cursor = db.rawQuery("""
                 SELECT m.* FROM messages m

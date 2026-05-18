@@ -306,29 +306,42 @@ object WebSocketManager {
                 WebSocketResources.WebSocketMessage.Type.REQUEST -> {
                     val request = message.request
                     if (request.verb == "PUT" && request.path == "/api/v1/message") {
-                        val envelope = EnvelopeProtos.Envelope.parseFrom(request.body)
-                        val replyToken = request.headersList.firstOrNull { it.startsWith("X-Reply-Token:") }
-                            ?.substringAfter("X-Reply-Token:")?.trim()?.ifEmpty { null }
-                        val isUnidentified = envelope.type == EnvelopeProtos.Envelope.Type.UNIDENTIFIED_SENDER
-                        _incomingMessages.tryEmit(IncomingEnvelope(
-                            envelopeId = envelope.serverGuid,
-                            senderUserId = if (isUnidentified) null else envelope.sourceServiceId.ifEmpty { null },
-                            senderDeviceId = if (envelope.hasSourceDeviceId()) envelope.sourceDeviceId.toString() else null,
-                            messageType = envelope.type.name,
-                            payload = envelope.content.toByteArray(),
-                            serverTimestamp = if (envelope.hasServerTimestamp()) envelope.serverTimestamp else null,
-                            ephemeral = if (isUnidentified) true else envelope.ephemeral,
-                            replyToken = replyToken
-                        ))
-                        val ack = WebSocketResources.WebSocketMessage.newBuilder()
-                            .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
-                            .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
-                                .setId(request.id)
-                                .setStatus(200)
-                                .setMessage("OK")
-                                .build())
-                            .build()
-                        webSocket?.send(ack.toByteArray().toByteString())
+                        try {
+                            val envelope = EnvelopeProtos.Envelope.parseFrom(request.body)
+                            val replyToken = request.headersList.firstOrNull { it.startsWith("X-Reply-Token:") }
+                                ?.substringAfter("X-Reply-Token:")?.trim()?.ifEmpty { null }
+                            val isUnidentified = envelope.type == EnvelopeProtos.Envelope.Type.UNIDENTIFIED_SENDER
+                            _incomingMessages.tryEmit(IncomingEnvelope(
+                                envelopeId = envelope.serverGuid,
+                                senderUserId = if (isUnidentified) null else envelope.sourceServiceId.ifEmpty { null },
+                                senderDeviceId = if (envelope.hasSourceDeviceId()) envelope.sourceDeviceId.toString() else null,
+                                messageType = envelope.type.name,
+                                payload = envelope.content.toByteArray(),
+                                serverTimestamp = if (envelope.hasServerTimestamp()) envelope.serverTimestamp else null,
+                                ephemeral = if (isUnidentified) true else envelope.ephemeral,
+                                replyToken = replyToken
+                            ))
+                            val ack = WebSocketResources.WebSocketMessage.newBuilder()
+                                .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
+                                .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
+                                    .setId(request.id)
+                                    .setStatus(200)
+                                    .setMessage("OK")
+                                    .build())
+                                .build()
+                            webSocket?.send(ack.toByteArray().toByteString())
+                        } catch (e: Exception) {
+                            Log.w("WS", "Envelope parse failed, sending NACK: ${e.message}")
+                            val nack = WebSocketResources.WebSocketMessage.newBuilder()
+                                .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
+                                .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
+                                    .setId(request.id)
+                                    .setStatus(400)
+                                    .setMessage("Parse error: ${e.message}")
+                                    .build())
+                                .build()
+                            webSocket?.send(nack.toByteArray().toByteString())
+                        }
                     }
                 }
                 else -> {}

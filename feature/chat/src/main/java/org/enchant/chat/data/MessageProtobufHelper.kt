@@ -25,7 +25,7 @@ object MessageProtobufHelper {
     }
 
     fun buildReceiptContent(
-        envelopeIds: List<String>,
+        timestamps: List<Long>,
         type: ReceiptType
     ): ByteArray {
         val receiptType = when (type) {
@@ -34,7 +34,7 @@ object MessageProtobufHelper {
         }
         val receiptMessage = org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.newBuilder()
             .setType(receiptType)
-            .addAllTimestamp(envelopeIds.map { it.toLongOrNull() ?: 0L })
+            .addAllTimestamp(timestamps)
             .build()
 
         return ContentProtos.Content.newBuilder()

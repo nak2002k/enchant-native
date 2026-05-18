@@ -161,7 +161,12 @@ object KeyStoreManager {
             SecurePreferences.putString("db.passphrase", wrapped.joinToString(",") { it.toString() })
             return key
         }
-        val bytes = raw.split(",").map { it.toInt().toByte() }.toByteArray()
+        val bytes = try {
+            raw.split(",").map { it.toInt().toByte() }.toByteArray()
+        } catch (e: NumberFormatException) {
+            SecurePreferences.remove("db.passphrase")
+            return getOrCreateDatabaseKey()
+        }
         return decrypt(alias, bytes) ?: throw IllegalStateException("Failed to decrypt DB key")
     }
 

@@ -21,7 +21,6 @@ object AuthInterceptor : Interceptor {
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .build()
-    private val json = Json { ignoreUnknownKeys = true }
     private val lock = Any()
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -47,20 +46,23 @@ object AuthInterceptor : Interceptor {
                 try {
                     val newToken = refreshToken()
                     if (newToken != null) {
-                        synchronized(lock) { currentToken = newToken }
+                        synchronized(lock) { currentToken = newToken; lock.notifyAll() }
                         val retryRequest = originalRequest.newBuilder()
                             .header("Authorization", "Bearer $newToken")
                             .build()
                         return chain.proceed(retryRequest)
                     }
                 } finally {
-                    synchronized(lock) { refreshing = false }
+                    synchronized(lock) { refreshing = false; lock.notifyAll() }
                 }
             } else {
-                var waited = 0
-                while (refreshing && waited < 10000) {
-                    Thread.sleep(500)
-                    waited += 500
+                synchronized(lock) {
+                    var waited = 0L
+                    val deadline = System.currentTimeMillis() + 10000
+                    while (refreshing && System.currentTimeMillis() < deadline) {
+                        lock.wait(500)
+                        waited += 500
+                    }
                 }
                 val refreshedToken = synchronized(lock) { currentToken }
                 if (refreshedToken != null && !refreshing) {

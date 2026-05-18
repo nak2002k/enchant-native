@@ -38,7 +38,9 @@ class ContactSyncService(
 
             val hashedNumbers = deviceContacts.map { hashPhoneNumber(it.normalizedE164) }
             val body = buildJsonObject {
-                put("hashes", hashedNumbers.joinToString(","))
+                put("hashes", kotlinx.serialization.json.buildJsonArray {
+                    hashedNumbers.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+                })
             }
 
             val response = apiClient.post("/v1/contacts/match", body)

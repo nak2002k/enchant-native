@@ -289,7 +289,7 @@ object IncomingMessageProcessor {
         val replyToken = envelope.replyToken ?: return
         val ts = envelope.envelopeId?.toLongOrNull() ?: System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
-            envelopeIds = listOf(ts.toString()),
+            timestamps = listOf(ts),
             type = MessageProtobufHelper.ReceiptType.DELIVERY
         )
         MessageSendPipeline.sendSealedMessage(

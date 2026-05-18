@@ -177,7 +177,7 @@ class StickerViewModel(
                     } ?: emptyList()
                     _uiState.value = _uiState.value.copy(library = packs)
                 },
-                onFailure = {}
+                onFailure = { android.util.Log.w("StickerVM", "loadLibrary failed: ${it.message}") }
             )
         }
     }
@@ -196,7 +196,7 @@ class StickerViewModel(
                     } ?: emptyList()
                     _uiState.value = _uiState.value.copy(recent = recent)
                 },
-                onFailure = {}
+                onFailure = { android.util.Log.w("StickerVM", "loadRecent failed: ${it.message}") }
             )
         }
     }
@@ -211,8 +211,9 @@ class StickerViewModel(
         }
     }
 
-    fun sendSticker(packId: String, stickerId: String) {
+    fun sendSticker(packId: String, stickerId: String, onSend: ((packId: String, stickerId: String) -> Unit)? = null) {
         recordStickerUse(packId, stickerId)
         loadRecent()
+        onSend?.invoke(packId, stickerId)
     }
 }

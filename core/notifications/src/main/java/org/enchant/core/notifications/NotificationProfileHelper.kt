@@ -31,7 +31,17 @@ object NotificationProfileHelper {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val count = prefs.getInt(PROFILE_COUNT_KEY, 0)
-        prefs.edit().putInt(PROFILE_COUNT_KEY, count + 1).apply()
+        val profileId = "profile_${count}"
+        prefs.edit()
+            .putInt(PROFILE_COUNT_KEY, count + 1)
+            .putString("${profileId}_name", name)
+            .putInt("${profileId}_start_h", schedule.startHour)
+            .putInt("${profileId}_start_m", schedule.startMinute)
+            .putInt("${profileId}_end_h", schedule.endHour)
+            .putInt("${profileId}_end_m", schedule.endMinute)
+            .putString("${profileId}_tz", schedule.timezone.id)
+            .putString("${profileId}_contacts", allowedContacts.joinToString(","))
+            .apply()
     }
 
     fun updateProfileSchedule(

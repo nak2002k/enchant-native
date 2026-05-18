@@ -29,8 +29,8 @@ fun MessageContextMenu(
     onDismiss: () -> Unit = {}
 ) {
     val twentyFourHoursAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000
-    val canEdit = isOwnMessage && sentAt > twentyFourHoursAgo
-    val canDeleteForEveryone = isOwnMessage && sentAt > twentyFourHoursAgo
+    val canEdit = isOwnMessage && sentAt < twentyFourHoursAgo
+    val canDeleteForEveryone = isOwnMessage && sentAt < twentyFourHoursAgo
 
     val actions = listOf(
         MessageContextAction(Icons.Default.ContentCopy, "Copy", onClick = onCopy),

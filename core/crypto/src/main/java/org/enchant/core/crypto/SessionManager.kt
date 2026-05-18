@@ -49,8 +49,19 @@ object SessionManager {
     private suspend fun loadSessionsFromDb(dao: SessionDao) {
         sessions.clear()
         identityKeys.clear()
-        // Signal sessions are keyed by user+device. Load all.
-        // For simplicity, load sessions by known peer IDs from identity store
+        try {
+            val storedSessions = dao.loadAll()
+            for ((userId, deviceId, serialized) in storedSessions) {
+                val state = DoubleRatchet.deserializeState(serialized)
+                if (state != null) {
+                    val key = sessionKey(userId)
+                    sessions[key] = state
+                }
+            }
+            android.util.Log.i("SessionManager", "Loaded ${storedSessions.size} sessions from DB")
+        } catch (e: Exception) {
+            android.util.Log.w("SessionManager", "Failed to load sessions: ${e.message}")
+        }
     }
 
     private fun sessionKey(peerId: String): String {

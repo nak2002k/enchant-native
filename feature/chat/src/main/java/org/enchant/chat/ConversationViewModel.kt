@@ -357,9 +357,18 @@ class ConversationViewModel(
 
     fun jumpToDate(timestamp: Long) {
         viewModelScope.launch {
-            val index = _messages.value.indexOfFirst { it.timestamp <= timestamp }
-            if (index >= 0) {
-                _scrollToEvent.emit(ScrollEvent.ToPosition(index))
+            val messages = _messages.value
+            var closestIndex = -1
+            var closestDiff = Long.MAX_VALUE
+            for (i in messages.indices) {
+                val diff = kotlin.math.abs(messages[i].timestamp - timestamp)
+                if (diff < closestDiff) {
+                    closestDiff = diff
+                    closestIndex = i
+                }
+            }
+            if (closestIndex >= 0) {
+                _scrollToEvent.emit(ScrollEvent.ToPosition(closestIndex))
             } else {
                 _scrollToEvent.emit(ScrollEvent.ToPosition(0))
             }

@@ -97,16 +97,26 @@ object OfflineQueue {
         persistToDisk()
 
         for (msg in batch) {
-            val outgoing = OutgoingMessage(
-                id = msg.id,
-                recipientUserId = msg.recipientUserId,
-                recipientDeviceId = msg.recipientDeviceId,
-                messageType = msg.messageType,
-                payload = msg.payload,
-                senderTs = msg.senderTs
-            )
-            val result = WebSocketManager.requestRESTFallback(outgoing)
-            if (result.isFailure) {
+            try {
+                val outgoing = OutgoingMessage(
+                    id = msg.id,
+                    recipientUserId = msg.recipientUserId,
+                    recipientDeviceId = msg.recipientDeviceId,
+                    messageType = msg.messageType,
+                    payload = msg.payload,
+                    senderTs = msg.senderTs
+                )
+                val result = WebSocketManager.requestRESTFallback(outgoing)
+                if (result.isFailure) {
+                    val retried = msg.copy(retryCount = msg.retryCount + 1)
+                    if (retried.retryCount < 5) {
+                        queue.offer(retried)
+                        _pendingCount.value = queue.size
+                        persistToDisk()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("OfflineQueue", "Drain failed for msg ${msg.id}: ${e.message}, re-enqueue")
                 val retried = msg.copy(retryCount = msg.retryCount + 1)
                 if (retried.retryCount < 5) {
                     queue.offer(retried)

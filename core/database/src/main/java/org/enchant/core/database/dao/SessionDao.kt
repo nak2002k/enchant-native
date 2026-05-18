@@ -27,4 +27,17 @@ class SessionDao(private val pool: DatabasePool) {
     suspend fun deleteAllForUser(userId: String) = pool.write { db ->
         db.execSQL("DELETE FROM signal_sessions WHERE user_id = ?", arrayOf(userId))
     }
+
+    suspend fun loadAll(): List<Triple<String, String, ByteArray>> = pool.readWith { db ->
+        db.rawQuery("SELECT user_id, device_id, serialized_session FROM signal_sessions", null).use { cursor ->
+            val sessions = mutableListOf<Triple<String, String, ByteArray>>()
+            while (cursor.moveToNext()) {
+                val userId = cursor.getString(0)
+                val deviceId = cursor.getString(1)
+                val session = cursor.getBlob(2)
+                sessions.add(Triple(userId, deviceId, session))
+            }
+            sessions
+        }
+    }
 }

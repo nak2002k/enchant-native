@@ -76,15 +76,16 @@ class ConversationDao(private val pool: DatabasePool) {
     }
 
     fun search(query: String): Flow<List<ConversationEntity>> = callbackFlow {
+        val escapedQuery = query.replace("%", "\\%").replace("_", "\\_")
         fun queryDb(): List<ConversationEntity> = pool.readWith { db ->
             db.rawQuery("""
                 SELECT c.* FROM conversations c
                 LEFT JOIN messages m ON c.last_message_envelope_id = m.envelope_id
-                WHERE m.content LIKE ? OR c.conversation_id IN (
-                    SELECT conversation_id FROM messages WHERE content LIKE ?
+                WHERE m.content LIKE ? ESCAPE '\' OR c.conversation_id IN (
+                    SELECT conversation_id FROM messages WHERE content LIKE ? ESCAPE '\'
                 )
                 ORDER BY c.last_message_timestamp DESC
-            """, arrayOf("%$query%", "%$query%"))
+            """, arrayOf("%$escapedQuery%", "%$escapedQuery%"))
                 .use { CursorMapper.mapToList<ConversationEntity>(it) }
         }
         try { trySend(queryDb()) } catch (_: Exception) { trySend(emptyList()) }
