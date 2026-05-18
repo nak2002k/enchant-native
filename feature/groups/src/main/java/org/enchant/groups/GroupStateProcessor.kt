@@ -94,7 +94,8 @@ class GroupStateProcessor(
 
     suspend fun updateLocalGroupToRevision(groupId: String, targetRevision: String): GroupUpdateResult {
         val current = groupDao.getById(groupId)
-        val changeLog = getGroupChangeLog(groupId, "0")
+        val fromRevision = current?.revision ?: "0"
+        val changeLog = getGroupChangeLog(groupId, fromRevision)
         return try {
             for (entry in changeLog) {
                 val response = apiClient.get("/v1/groups/$groupId/revision/${entry.revision}")

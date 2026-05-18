@@ -85,7 +85,8 @@ data class GroupEntity(
     val description: String? = null,
     val avatarMediaId: String? = null,
     val myRole: String = "member",
-    val memberCount: Int = 0
+    val memberCount: Int = 0,
+    val revision: String = "0"
 )
 
 data class GroupMemberEntity(

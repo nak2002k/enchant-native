@@ -5,12 +5,12 @@
 
 ## Summary
 - **154 bugs identified** in initial audit
-- **85 bugs fixed and committed** (73 previous + 12 additional)
-- **69 bugs remaining** (low-medium severity)
+- **87 bugs fixed and committed** (85 previous + 2 additional)
+- **67 bugs remaining** (low-medium severity, many already fixed in prior sessions)
 
 ---
 
-## Fixed (85 bugs)
+## Fixed (87 bugs)
 
 ### Critical Crash Bugs (12/12 fixed)
 | ID | Description | File |
@@ -153,6 +153,12 @@
 | T10 | GroupStateProcessor compilation error fixed | `feature/groups/GroupStateProcessor.kt` |
 | T11 | JobManagerTest pending count assertion fixed | `core/jobs/JobManagerTest.kt` |
 | T12 | AuthRepository logout/deleteAccount return success on error | `core/auth/AuthRepository.kt` |
+
+### Logic Fixes (2 new)
+| ID | Description | File |
+|----|------------|------|
+| L04 | ConversationRepository raw SQL null handling — pass null directly instead of empty strings | `feature/chat/ConversationRepository.kt` |
+| L08 | GroupStateProcessor revision tracking — added revision field to GroupEntity/GroupDao | `core/database/entity/Entities.kt`, `core/database/dao/GroupDao.kt`, `feature/groups/GroupStateProcessor.kt` |
 
 ---
 
