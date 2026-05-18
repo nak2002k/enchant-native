@@ -56,14 +56,20 @@ object OfflineQueue {
 
     private suspend fun persistToDisk() {
         val items = queue.toList()
-        SecurePreferences.putInt("offline.queue.count", items.size)
-        items.forEachIndexed { i, msg ->
+        val countToStore = minOf(items.size, 50)
+        SecurePreferences.putInt("offline.queue.count", countToStore)
+        items.take(countToStore).forEachIndexed { i, msg ->
+            val payloadToStore = if (msg.payload.size > 4096) {
+                msg.payload.copyOfRange(0, 4096)
+            } else {
+                msg.payload
+            }
             val data = listOf(
                 msg.id,
                 msg.recipientUserId,
                 msg.recipientDeviceId ?: "",
                 msg.messageType,
-                java.util.Base64.getUrlEncoder().encodeToString(msg.payload),
+                java.util.Base64.getUrlEncoder().encodeToString(payloadToStore),
                 msg.senderTs.toString(),
                 msg.createdAt.toString()
             ).joinToString("|")

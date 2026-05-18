@@ -249,7 +249,7 @@ class ConversationViewModel(
     fun editMessage(envelopeId: String, newText: String): Boolean {
         if (newText.isBlank()) return false
         viewModelScope.launch {
-            pipeline.editMessage(envelopeId, newText.encodeToByteArray(), conversationId)
+            pipeline.editMessage(envelopeId, newText.encodeToByteArray(), recipientUserId)
         }
         return true
     }

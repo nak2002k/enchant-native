@@ -127,7 +127,7 @@ object DI {
                 _offlineQueue = OfflineQueue
 
                 KeyManager.init(client)
-                SessionManager.init()
+                SessionManager.init(_sessionDao!!, _identityDao!!)
                 PreKeyWorker.schedule(context)
 
                 WebSocketManager.init()

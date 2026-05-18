@@ -110,7 +110,8 @@ class ConversationRepository(
                     arrayOf(entity.conversationId)
                 )
                 val currentUnread = if (cursor.moveToFirst()) cursor.getInt(0) else 0
-                val newUnread = if (entity.senderId == "self") currentUnread else currentUnread + 1
+                val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: ""
+                val newUnread = if (entity.senderId == selfId) currentUnread else currentUnread + 1
                 cursor.close()
 
                 db.execSQL("""

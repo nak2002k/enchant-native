@@ -28,7 +28,7 @@ object SessionManager {
     private val sessionLock = Mutex()
     private val SESSION_LOCK_TIMEOUT_MS = 5000L
     private var initialized = false
-    private var selfUserId: String = "self"
+    private var selfUserId: String? = null
     private var sessionDao: SessionDao? = null
     private var identityDao: IdentityDao? = null
     private val sessions = java.util.concurrent.ConcurrentHashMap<String, RatchetState>()
@@ -54,7 +54,8 @@ object SessionManager {
     }
 
     private fun sessionKey(peerId: String): String {
-        return if (selfUserId < peerId) "$selfUserId:$peerId:0" else "$peerId:$selfUserId:0"
+        val self = selfUserId ?: throw IllegalStateException("SessionManager not initialized with selfUserId")
+        return if (self < peerId) "$self:$peerId:0" else "$peerId:$self:0"
     }
 
     suspend fun encryptMessage(recipientUserId: String, plaintext: ByteArray): EncryptedPayload? {
