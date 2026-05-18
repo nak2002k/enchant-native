@@ -245,29 +245,43 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val payloadStr = envelope.payload.decodeToString()
-                val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-                val parsed = json.parseToJsonElement(payloadStr).jsonObject
-                val senderIdentityB64 = parsed["senderIdentity"]?.jsonPrimitive?.content
-                    ?: return@withContext ProcessResult.Error("Missing senderIdentity in sealed payload")
-                val ciphertextB64 = parsed["ciphertext"]?.jsonPrimitive?.content
-                    ?: return@withContext ProcessResult.Error("Missing ciphertext in sealed payload")
+                val content = org.enchant.protos.ContentProtos.Content.parseFrom(envelope.payload)
+                val senderUserId = envelope.senderUserId
+                    ?: return@withContext ProcessResult.Error("Missing senderUserId in unidentified envelope")
 
-                val senderIdentityKey = CryptoHelper.base64UrlDecode(senderIdentityB64)
-                val senderUserId = SessionManager.findUserIdByIdentityKey(senderIdentityKey)
-                    ?: return@withContext ProcessResult.Error("Unknown sender identity key")
+                val now = System.currentTimeMillis()
 
-                val ciphertext = CryptoHelper.base64UrlDecode(ciphertextB64)
-
-                val decrypted = SessionManager.decryptMessage(senderUserId,
-                    org.enchant.core.crypto.EncryptedPayload(
-                        messageType = org.enchant.protos.EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
-                        payload = ciphertext
-                    )
-                )
-                if (decrypted == null) {
-                    return@withContext ProcessResult.Error("Decryption failed for sealed sender message")
+                return@withContext when {
+                    content.hasDataMessage() -> {
+                        val dataMsg = content.dataMessage
+                        repo.insertMessageAndUpdateConversation(
+                            MessageEntity(
+                                conversationId = senderUserId,
+                                senderId = senderUserId,
+                                messageType = "SIGNAL_MESSAGE",
+                                content = dataMsg.body,
+                                status = "delivered",
+                                timestamp = envelope.serverTimestamp ?: now,
+                                serverTs = now
+                            ),
+                            conversationType = "direct"
+                        )
+                        sendSealedDeliveryReceipt(envelope, senderUserId)
+                        ProcessResult.Handled
+                    }
+                    content.hasReceiptMessage() -> {
+                        ProcessResult.Handled
+                    }
+                    content.hasTypingMessage() -> { ProcessResult.Handled }
+                    else -> {
+                        ProcessResult.Error("Unknown content type in sealed sender message")
+                    }
                 }
+            } catch (e: Exception) {
+                ProcessResult.Error("Unidentified sender processing failed: ${e.message}")
+            }
+        }
+    }
 
                 val now = System.currentTimeMillis()
                 val parsedContent = MessageProtobufHelper.parseContent(decrypted.plaintext)

@@ -30,8 +30,12 @@ object X3DH {
         val dh2 = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirIdentityKeyPublic)
         val dh3 = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirSignedPrekeyPublic)
 
-        val dhInput = if (theirOneTimePrekeyPublic != null) {
-            val dh4 = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirOneTimePrekeyPublic)
+        val dh4 = if (theirOneTimePrekeyPublic != null) {
+            val key = CryptoHelper.x25519DiffieHellman(ourEphemeralKey.privateKey, theirOneTimePrekeyPublic)
+            key
+        } else null
+
+        val dhInput = if (dh4 != null) {
             dh1 + dh2 + dh3 + dh4
         } else {
             dh1 + dh2 + dh3
@@ -47,9 +51,8 @@ object X3DH {
         CryptoHelper.zeroBytes(dh1)
         CryptoHelper.zeroBytes(dh2)
         CryptoHelper.zeroBytes(dh3)
-        if (dhInput.size > 96) {
-            CryptoHelper.zeroBytes(dhInput.copyOfRange(96, dhInput.size))
-        }
+        dh4?.let { CryptoHelper.zeroBytes(it) }
+        CryptoHelper.zeroBytes(dhInput)
 
         return X3dhResult(
             sharedSecret = sk,
@@ -91,13 +94,29 @@ object X3DH {
         val rootKey = rootMaterial.copyOfRange(0, 32)
         val chainKey = rootMaterial.copyOfRange(32, 64)
 
+        val dh4 = if (ourOneTimePrekeyKeyPair != null) {
+            val key = CryptoHelper.x25519DiffieHellman(ourOneTimePrekeyKeyPair.privateKey, theirEphemeralKeyPublic)
+            key
+        } else null
+
+        val dhInput = if (dh4 != null) {
+            dh1 + dh2 + dh3 + dh4
+        } else {
+            dh1 + dh2 + dh3
+        }
+
+        val salt = ByteArray(32)
+        val sk = CryptoHelper.hkdfSha256(dhInput, salt, "EnchantX3DH".encodeToByteArray(), 32)
+        val rootMaterial = CryptoHelper.hkdfSha256(sk, salt, "EnchantRoot".encodeToByteArray(), 64)
+        val rootKey = rootMaterial.copyOfRange(0, 32)
+        val chainKey = rootMaterial.copyOfRange(32, 64)
+
         CryptoHelper.zeroBytes(ikPrivX)
         CryptoHelper.zeroBytes(dh1)
         CryptoHelper.zeroBytes(dh2)
         CryptoHelper.zeroBytes(dh3)
-        if (dhInput.size > 96) {
-            CryptoHelper.zeroBytes(dhInput.copyOfRange(96, dhInput.size))
-        }
+        dh4?.let { CryptoHelper.zeroBytes(it) }
+        CryptoHelper.zeroBytes(dhInput)
 
         return X3dhResult(
             sharedSecret = sk,

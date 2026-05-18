@@ -45,11 +45,11 @@
 | 23 | vCard created but never sent | ✅ Fixed 2026-05-18 | |
 | 24 | scheduleMessage/cancel ID format mismatch | ✅ Fixed 2026-05-18 | |
 | 25 | Delivery receipt uses timestamp as envelope ID | ✅ Fixed 2026-05-18 | |
-| 26 | Read receipt uses timestamp as envelope ID | ⏳ Pending | |
-| 27 | Sealed sender decoded as JSON, not protobuf | ⏳ Pending | |
-| 28 | Unlimited reader connections via ThreadLocal | ⏳ Pending | |
-| 29 | X3DH DH key material not fully zeroed | ⏳ Pending | |
-| 30 | consumedKeys strings not zeroed | ⏳ Pending | |
+| 26 | Read receipt uses timestamp as envelope ID | ✅ Fixed 2026-05-18 | |
+| 27 | Sealed sender decoded as JSON, not protobuf | ✅ Fixed 2026-05-18 | |
+| 28 | Unlimited reader connections via ThreadLocal | ✅ Fixed 2026-05-18 | |
+| 29 | X3DH DH key material not fully zeroed | ✅ Fixed 2026-05-18 | |
+| 30 | consumedKeys strings not zeroed | ✅ Fixed 2026-05-18 | |
 | 31 | logout/deleteAccount always return success | ⏳ Pending | |
 | 32 | REST fallback missing recipientDeviceId | ⏳ Pending | |
 | 33 | removeParticipant uses remoteUserId as groupId | ⏳ Pending | |
