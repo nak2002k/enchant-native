@@ -265,9 +265,8 @@ object MessageSendPipeline {
 
     suspend fun sendDeliveryReceipt(envelopeId: String, senderUserId: String) {
         checkInit()
-        val ts = System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
-            envelopeIds = listOf(ts.toString()),
+            envelopeIds = listOf(envelopeId),
             type = MessageProtobufHelper.ReceiptType.DELIVERY
         )
         val encrypted = SessionManager.encryptMessage(senderUserId, contentBytes) ?: return

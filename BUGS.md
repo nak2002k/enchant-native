@@ -40,11 +40,11 @@
 | 18 | acceptCall silently fails if state changed | ✅ Fixed 2026-05-18 | |
 | 19 | Duplicate LaunchedEffect for call state | ✅ Fixed 2026-05-18 | |
 | 20 | Temporary ApiClient created and leaked | ✅ Fixed 2026-05-18 | |
-| 21 | Location sent as emoji text, not structured | ⏳ Pending | |
-| 22 | Sticker sent as emoji text, not structured | ⏳ Pending | |
-| 23 | vCard created but never sent | ⏳ Pending | |
-| 24 | scheduleMessage/cancel ID format mismatch | ⏳ Pending | |
-| 25 | Delivery receipt uses timestamp as envelope ID | ⏳ Pending | |
+| 21 | Location sent as emoji text, not structured | ✅ Fixed 2026-05-18 | |
+| 22 | Sticker sent as emoji text, not structured | ✅ Fixed 2026-05-18 | |
+| 23 | vCard created but never sent | ✅ Fixed 2026-05-18 | |
+| 24 | scheduleMessage/cancel ID format mismatch | ✅ Fixed 2026-05-18 | |
+| 25 | Delivery receipt uses timestamp as envelope ID | ✅ Fixed 2026-05-18 | |
 | 26 | Read receipt uses timestamp as envelope ID | ⏳ Pending | |
 | 27 | Sealed sender decoded as JSON, not protobuf | ⏳ Pending | |
 | 28 | Unlimited reader connections via ThreadLocal | ⏳ Pending | |

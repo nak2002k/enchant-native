@@ -181,7 +181,7 @@ class ConversationViewModel(
     fun sendLocationMessage(lat: Double, lng: Double, label: String? = null): Boolean {
         _sendingState.value = SendState.SENDING
         viewModelScope.launch {
-            val text = "📍 ${label ?: "$lat, $lng"}"
+            val text = "LOCATION_JSON:${lat}:${lng}:${label ?: ""}"
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
                 recipientUserId = recipientUserId,
@@ -206,7 +206,7 @@ class ConversationViewModel(
     fun sendSticker(packId: String, stickerId: String): Boolean {
         _sendingState.value = SendState.SENDING
         viewModelScope.launch {
-            val text = "🔄 Sticker:$packId:$stickerId"
+            val text = "STICKER_JSON:$packId:$stickerId"
             val result = pipeline.sendMessage(
                 conversationId = conversationId,
                 recipientUserId = recipientUserId,
@@ -368,7 +368,8 @@ class ConversationViewModel(
 
     fun scheduleMessage(body: String, scheduledDate: Long, replyTo: String? = null) {
         if (body.isBlank()) return
-        val jobId = "scheduled_${conversationId}_${System.currentTimeMillis()}"
+        val messageId = System.currentTimeMillis()
+        val jobId = "scheduled_msg_$messageId"
         JobManager.enqueue(
             org.enchant.core.jobmanager.Job(
                 id = jobId,
@@ -409,14 +410,14 @@ class ConversationViewModel(
         }
     }
 
-    fun sendContactCard(contactUserId: String, conversationId: String) {
+    fun sendContactCard(contactUserId: String, targetConversationId: String) {
         viewModelScope.launch {
-            val vcard = "BEGIN:VCARD\nVERSION:3.0\nFN:$contactUserId\nEND:VCARD"
-            val text = "📇 Contact: $contactUserId"
+            val vcard = "BEGIN:VCARD\nVERSION:3.0\nFN:$contactUserId\nUID:$contactUserId\nEND:VCARD"
+            val text = "VCARD_JSON:$contactUserId"
             pipeline.sendMessage(
-                conversationId = conversationId,
-                recipientUserId = conversationId,
-                plaintext = text.encodeToByteArray()
+                conversationId = targetConversationId,
+                recipientUserId = targetConversationId,
+                plaintext = "$text\n$vcard".encodeToByteArray()
             )
             try {
                 apiClient.post("/v1/contacts/share", buildJsonObject {
