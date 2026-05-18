@@ -30,11 +30,11 @@
 | 8 | cleanup() cancels call log insertion | ✅ Fixed 2026-05-18 | |
 | 9 | ICE candidates buffered but never sent | ✅ Fixed 2026-05-18 | |
 | 10 | JSON injection in refresh token | ✅ Fixed 2026-05-18 | |
-| 11 | Double base64 encoding in sealed sender | ⏳ Pending | |
-| 12 | Redundant key bundle fetch in prekey processing | ⏳ Pending | |
-| 13 | Cursor management in reactive Flow | ⏳ Pending | |
-| 14 | FTS5 MATCH query not sanitized | ⏳ Pending | |
-| 15 | OTP cooldown not persisted across restarts | ⏳ Pending | |
+| 11 | Double base64 encoding in sealed sender | ✅ Fixed 2026-05-18 | |
+| 12 | Redundant key bundle fetch in prekey processing | ✅ Fixed 2026-05-18 | |
+| 13 | Cursor management in reactive Flow | ✅ Fixed 2026-05-18 | |
+| 14 | FTS5 MATCH query not sanitized | ✅ Fixed 2026-05-18 | |
+| 15 | OTP cooldown not persisted across restarts | ✅ Fixed 2026-05-18 | |
 | 16 | needsKeyRotation() always returns false initially | ⏳ Pending | |
 | 17 | disconnect() doesn't cancel pending requests | ⏳ Pending | |
 | 18 | acceptCall silently fails if state changed | ⏳ Pending | |

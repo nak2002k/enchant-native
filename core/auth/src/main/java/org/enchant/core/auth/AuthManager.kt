@@ -135,7 +135,9 @@ object AuthManager {
         )
     }
 
-    private var lastOtpRequestMs = 0L
+    private var lastOtpRequestMs: Long
+        get() = SecurePreferences.getLong("auth.last_otp_request", 0L)
+        set(value) = SecurePreferences.putLong("auth.last_otp_request", value)
     private val otpCooldownMs = 30_000L
 
     suspend fun resendOtp(): Result<Unit> {

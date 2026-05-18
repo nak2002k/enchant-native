@@ -174,13 +174,12 @@ object MessageSendPipeline {
                 if (encrypted == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
 
                 val ciphertextB64 = CryptoHelper.base64UrlEncode(encrypted.payload)
-                val sealedPayloadB64 = CryptoHelper.base64UrlEncode(ciphertextB64.encodeToByteArray())
 
                 val client = apiClient!!
                 val response = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {
                     put("recipient_user_id", recipientUserId)
                     put("message_type", "UNIDENTIFIED_SENDER")
-                    put("payload", sealedPayloadB64)
+                    put("payload", ciphertextB64)
                     if (replyToken != null) put("reply_token", replyToken)
                 })
 

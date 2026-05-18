@@ -122,12 +122,6 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val theirIk = SessionManager.getIdentityKey(senderUserId)
-                if (theirIk == null) {
-                    val bundleResult = fetchKeyBundle(senderUserId)
-                    if (bundleResult == null) return@withContext ProcessResult.Error("No key bundle for $senderUserId")
-                }
-
                 val decrypted = SessionManager.decryptPreKeyMessage(senderUserId, envelope.payload)
 
                 if (decrypted == null) return@withContext ProcessResult.Error("Failed to establish session")

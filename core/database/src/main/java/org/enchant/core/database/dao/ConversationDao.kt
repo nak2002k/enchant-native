@@ -33,20 +33,16 @@ class ConversationDao(private val pool: DatabasePool) {
     }
 
     fun getAll(): Flow<List<ConversationEntity>> = callbackFlow {
-        val cursor = pool.readWith { db ->
+        fun queryDb(): List<ConversationEntity> = pool.readWith { db ->
             db.rawQuery("SELECT * FROM conversations ORDER BY last_message_timestamp DESC", null)
+                .use { CursorMapper.mapToList<ConversationEntity>(it) }
         }
-        val items = cursor.use { CursorMapper.mapToList<ConversationEntity>(it) }
-        trySend(items)
+        trySend(queryDb())
 
         val job = launch {
             DatabaseNotifier.tableChanges.collect { table ->
                 if (table == "conversations") {
-                    val c = pool.readWith { db ->
-                        db.rawQuery("SELECT * FROM conversations ORDER BY last_message_timestamp DESC", null)
-                    }
-                    val updated = c.use { CursorMapper.mapToList<ConversationEntity>(it) }
-                    trySend(updated)
+                    trySend(queryDb())
                 }
             }
         }

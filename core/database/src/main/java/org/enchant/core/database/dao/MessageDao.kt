@@ -150,12 +150,16 @@ class MessageDao(private val pool: DatabasePool) {
 
     fun searchMessages(query: String): Flow<List<MessageEntity>> = callbackFlow {
         fun query(): List<MessageEntity> = pool.readWith { db ->
+            val sanitized = query.trim()
+                .replace("\"", "\"\"")
+                .replace("*", "")
+            val ftsQuery = "\"$sanitized\""
             val cursor = db.rawQuery("""
                 SELECT m.* FROM messages m
                 INNER JOIN messages_fts fts ON m.local_id = fts.rowid
                 WHERE messages_fts MATCH ? AND m.is_deleted = 0
                 ORDER BY m.timestamp DESC LIMIT 100
-            """, arrayOf(query.trim()))
+            """, arrayOf(ftsQuery))
             cursor.use { CursorMapper.mapToList<MessageEntity>(it) }
         }
         try { trySend(query()) } catch (_: Exception) { trySend(emptyList()) }
