@@ -239,7 +239,7 @@ class ConversationViewModel(
     fun deleteMessage(envelopeId: String, forEveryone: Boolean) {
         viewModelScope.launch {
             if (forEveryone) {
-                pipeline.deleteForEveryone(envelopeId, conversationId)
+                pipeline.deleteForEveryone(envelopeId, recipientUserId)
             } else {
                 pipeline.deleteForSelf(envelopeId)
             }

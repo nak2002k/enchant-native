@@ -94,6 +94,7 @@ object WebSocketManager {
     suspend fun connect() {
         if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) return
         _connectionState.value = ConnectionState.CONNECTING
+        retryCount = 0
 
         var jwt = SecurePreferences.getString("auth.jwt")
         if (jwt != null && isJwtExpired(jwt)) {

@@ -45,6 +45,7 @@ object CallManager {
     private val webSocket get() = WebSocketManager
     private val pool get() = DatabasePool.instance
     private var callScope: CoroutineScope? = null
+    private var logScope: CoroutineScope? = null
 
     fun setApiClient(client: ApiClient) { _apiClient = client }
     private val apiClient get() = _apiClient ?: error("ApiClient not set. Call setApiClient() first.")
@@ -54,12 +55,15 @@ object CallManager {
         WebRtcService.init(AppConfig.applicationContext ?: return)
         AudioRouter.init(AppConfig.applicationContext ?: return)
         callScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        logScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         initialized = true
     }
 
     fun shutdown() {
         callScope?.cancel()
+        logScope?.cancel()
         callScope = null
+        logScope = null
         cleanup()
     }
 
@@ -437,7 +441,12 @@ object CallManager {
 
     private val pcObserver = object : PeerConnection.Observer {
         override fun onIceCandidate(candidate: IceCandidate) {
-            incomingIceCandidates.add("${candidate.sdpMid}|${candidate.sdpMLineIndex}|${candidate.sdp}")
+            val candidateStr = "${candidate.sdpMid}|${candidate.sdpMLineIndex}|${candidate.sdp}"
+            incomingIceCandidates.add(candidateStr)
+            val remoteId = _callState.value.remoteUserId ?: return
+            callScope?.launch(Dispatchers.IO) {
+                sendCallSignaling(remoteId, CallMessage.Ice(candidateStr))
+            }
         }
         override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) { android.util.Log.v("Calls", "onIceCandidatesRemoved called") }
         override fun onSignalingChange(state: PeerConnection.SignalingState) { android.util.Log.v("Calls", "onSignalingChange called") }
@@ -473,7 +482,7 @@ object CallManager {
     private fun insertCallLog(state: CallState) {
         val callId = state.callId ?: UUID.randomUUID().toString()
         val remoteId = state.remoteUserId ?: return
-        callScope?.launch(Dispatchers.IO) {
+        logScope?.launch {
             try {
                 val db = pool?.writer ?: return@launch
                 db.execSQL("""

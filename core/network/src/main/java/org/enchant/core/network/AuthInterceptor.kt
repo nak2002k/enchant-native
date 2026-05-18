@@ -80,7 +80,12 @@ object AuthInterceptor : Interceptor {
     private fun refreshToken(): String? {
         val refreshToken = SecurePreferences.getString("auth.refresh_token") ?: return null
         return try {
-            val bodyJson = """{"refresh_token":"$refreshToken"}"""
+            val bodyJson = kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.json.JsonObject.serializer(),
+                kotlinx.serialization.json.buildJsonObject {
+                    put("refresh_token", kotlinx.serialization.json.JsonPrimitive(refreshToken))
+                }
+            )
             val request = Request.Builder()
                 .url("${AppConfig.gatewayUrl}/v1/auth/refresh")
                 .post(bodyJson.toRequestBody("application/json".toMediaType()))

@@ -25,11 +25,11 @@
 | 3 | "self" check always false, unread count wrong | ✅ Fixed 2026-05-18 | |
 | 4 | OfflineQueue SecurePreferences overflow risk | ✅ Fixed 2026-05-18 | |
 | 5 | editMessage: conversationId passed as recipientUserId | ✅ Fixed 2026-05-18 | |
-| 6 | deleteForEveryone: conversationId passed as recipientUserId | ⏳ Pending | |
-| 7 | WebSocket retryCount never resets on success | ⏳ Pending | |
-| 8 | cleanup() cancels call log insertion | ⏳ Pending | |
-| 9 | ICE candidates buffered but never sent | ⏳ Pending | |
-| 10 | JSON injection in refresh token | ⏳ Pending | |
+| 6 | deleteForEveryone: conversationId passed as recipientUserId | ✅ Fixed 2026-05-18 | |
+| 7 | WebSocket retryCount never resets on success | ✅ Fixed 2026-05-18 | |
+| 8 | cleanup() cancels call log insertion | ✅ Fixed 2026-05-18 | |
+| 9 | ICE candidates buffered but never sent | ✅ Fixed 2026-05-18 | |
+| 10 | JSON injection in refresh token | ✅ Fixed 2026-05-18 | |
 | 11 | Double base64 encoding in sealed sender | ⏳ Pending | |
 | 12 | Redundant key bundle fetch in prekey processing | ⏳ Pending | |
 | 13 | Cursor management in reactive Flow | ⏳ Pending | |
