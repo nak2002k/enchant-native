@@ -35,6 +35,7 @@ class SessionManagerTest {
         SessionManager.reset()
         KeyManager.clearTestKeyBundles()
         SessionManager.init()
+        SessionManager.setSelfUserIdForTest("self")
     }
 
     @AfterEach

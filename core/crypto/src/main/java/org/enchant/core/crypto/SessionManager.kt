@@ -41,7 +41,7 @@ object SessionManager {
         if (initialized) return
         sessionDao = dao
         identityDao = idDao
-        selfUserId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: "self"
+        selfUserId = org.enchant.core.base.SecurePreferences.getString("auth.user_id")
         sessionDao?.let { loadSessionsFromDb(it) }
         initialized = true
     }
@@ -313,11 +313,17 @@ object SessionManager {
     }
 
     @VisibleForTesting
+    fun setSelfUserIdForTest(userId: String) {
+        selfUserId = userId
+    }
+
+    @VisibleForTesting
     fun reset() {
         sessions.clear()
         identityKeys.clear()
         nonBlockingApproval.clear()
         initialized = false
+        selfUserId = null
     }
 
     private operator fun ByteArray.plus(other: ByteArray): ByteArray {

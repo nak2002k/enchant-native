@@ -81,19 +81,6 @@ object X3DH {
         val dh2 = CryptoHelper.x25519DiffieHellman(ikPrivX, theirEphemeralKeyPublic)
         val dh3 = CryptoHelper.x25519DiffieHellman(ourSignedPrekeyKeyPair.privateKey, theirEphemeralKeyPublic)
 
-        val dhInput = if (ourOneTimePrekeyKeyPair != null) {
-            val dh4 = CryptoHelper.x25519DiffieHellman(ourOneTimePrekeyKeyPair.privateKey, theirEphemeralKeyPublic)
-            dh1 + dh2 + dh3 + dh4
-        } else {
-            dh1 + dh2 + dh3
-        }
-
-        val salt = ByteArray(32)
-        val sk = CryptoHelper.hkdfSha256(dhInput, salt, "EnchantX3DH".encodeToByteArray(), 32)
-        val rootMaterial = CryptoHelper.hkdfSha256(sk, salt, "EnchantRoot".encodeToByteArray(), 64)
-        val rootKey = rootMaterial.copyOfRange(0, 32)
-        val chainKey = rootMaterial.copyOfRange(32, 64)
-
         val dh4 = if (ourOneTimePrekeyKeyPair != null) {
             val key = CryptoHelper.x25519DiffieHellman(ourOneTimePrekeyKeyPair.privateKey, theirEphemeralKeyPublic)
             key

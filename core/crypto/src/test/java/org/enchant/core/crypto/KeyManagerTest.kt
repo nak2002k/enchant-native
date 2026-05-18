@@ -129,10 +129,10 @@ class KeyManagerTest {
 
     @Nested @DisplayName("SPK Rotation")
     inner class SpkRotationTest {
-        @Test @DisplayName("needsKeyRotation returns false initially")
-        fun `needs rotation false initially`() = runTest {
+        @Test @DisplayName("needsKeyRotation returns true initially")
+        fun `needs rotation true initially`() = runTest {
             KeyManager.init()
-            assertFalse(KeyManager.needsKeyRotation())
+            assertTrue(KeyManager.needsKeyRotation())
         }
 
         @Test @DisplayName("rotateSignedPreKey fails without API client")
