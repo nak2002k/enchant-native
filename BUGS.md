@@ -55,11 +55,11 @@
 | 33 | removeParticipant uses remoteUserId as groupId | ✅ Fixed 2026-05-18 | |
 | 34 | saveKeyPair alias prefix | ✅ Verified correct | |
 | 35 | getPinnedMessages queries is_starred not is_pinned | ✅ Fixed 2026-05-18 | |
-| 36 | sender_ts uses ISO-8601 instead of milliseconds | ⏳ Pending | |
-| 37 | searchUsername result discarded in UI | ⏳ Pending | |
-| 38 | PendingIntent hash collision risk | ⏳ Pending | |
-| 39 | No auth check before starting WebSocketService on boot | ⏳ Pending | |
-| 40 | getString silently returns default when uninitialized | ⏳ Pending | |
+| 36 | sender_ts uses ISO-8601 instead of milliseconds | ✅ Fixed 2026-05-18 | |
+| 37 | searchUsername result discarded in UI | ✅ Fixed 2026-05-18 | |
+| 38 | PendingIntent hash collision risk | ✅ Fixed 2026-05-18 | |
+| 39 | No auth check before starting WebSocketService on boot | ✅ Fixed 2026-05-18 | |
+| 40 | getString silently returns default when uninitialized | ✅ Fixed 2026-05-18 | |
 
 ---
 

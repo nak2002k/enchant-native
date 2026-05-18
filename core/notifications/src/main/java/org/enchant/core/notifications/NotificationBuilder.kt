@@ -105,7 +105,7 @@ object NotificationBuilder {
             putExtra("conversation_id", conversationId)
         }
         val pendingIntent = PendingIntent.getBroadcast(
-            context, conversationId.hashCode(), replyIntent,
+            context, conversationId.hashCode() * 3 + 1, replyIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val remoteInput = RemoteInput.Builder(REPLY_KEY)
@@ -123,7 +123,7 @@ object NotificationBuilder {
             putExtra("conversation_id", conversationId)
         }
         val pendingIntent = PendingIntent.getBroadcast(
-            context, conversationId.hashCode() + 10000, readIntent,
+            context, conversationId.hashCode() * 3 + 2, readIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Action.Builder(

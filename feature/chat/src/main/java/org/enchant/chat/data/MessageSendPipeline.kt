@@ -119,7 +119,7 @@ object MessageSendPipeline {
                     put("recipient_user_id", recipientUserId)
                     put("message_type", if (hasSession) "SIGNAL_MESSAGE" else "PREKEY_MESSAGE")
                     put("payload", payloadB64)
-                    put("sender_ts", Instant.now().toString())
+                    put("sender_ts", System.currentTimeMillis().toString())
                 })
 
                 response.fold(

@@ -362,7 +362,7 @@ fun AppNavigation() {
                         if (result.isSuccess) {
                             result.getOrDefault(emptyList()).isEmpty()
                         } else {
-                            throw result.exceptionOrNull() ?: Exception("check failed")
+                            null
                         }
                     } catch (_: Exception) { null }
                 },

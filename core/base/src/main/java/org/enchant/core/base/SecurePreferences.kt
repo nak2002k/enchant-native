@@ -35,7 +35,8 @@ object SecurePreferences {
     }
 
     fun getString(key: String, default: String? = null): String? {
-        return getPrefs()?.getString(key, default) ?: default
+        val p = getPrefs() ?: throw IllegalStateException("SecurePreferences not initialized. Call init() first.")
+        return p.getString(key, default) ?: default
     }
 
     fun putInt(key: String, value: Int) {
