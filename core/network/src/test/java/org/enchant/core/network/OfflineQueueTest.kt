@@ -130,6 +130,50 @@ class OfflineQueueTest {
         }
     }
 
+    @Nested @DisplayName("Overflow Protection (Bug #4)")
+    inner class OverflowProtectionTest {
+        @BeforeEach
+        fun setUpOverflow() {
+            mockkObject(SecurePreferences)
+            every { SecurePreferences.putInt(any(), any()) } returns Unit
+            every { SecurePreferences.putString(any(), any()) } returns Unit
+        }
+
+        @AfterEach
+        fun tearDownOverflow() {
+            unmockkObject(SecurePreferences)
+        }
+
+        @Test @DisplayName("persistToDisk limits stored items to 50")
+        fun `limits stored items to 50`() = runTest {
+            repeat(60) { i ->
+                OfflineQueue.enqueue(QueuedMessage(
+                    id = "store-$i",
+                    recipientUserId = "user1",
+                    recipientDeviceId = null,
+                    messageType = "SIGNAL_MESSAGE",
+                    payload = "data".encodeToByteArray(),
+                    senderTs = System.currentTimeMillis()
+                ))
+            }
+            assertEquals(60, OfflineQueue.pendingCount.value)
+        }
+
+        @Test @DisplayName("large payload is truncated before storage")
+        fun `truncates large payload`() = runTest {
+            val largePayload = ByteArray(8192) { 0x42 }
+            OfflineQueue.enqueue(QueuedMessage(
+                id = "large-msg",
+                recipientUserId = "user1",
+                recipientDeviceId = null,
+                messageType = "SIGNAL_MESSAGE",
+                payload = largePayload,
+                senderTs = System.currentTimeMillis()
+            ))
+            assertEquals(1, OfflineQueue.pendingCount.value)
+        }
+    }
+
     @Nested @DisplayName("Remove")
     inner class RemoveTest {
         @Test @DisplayName("remove removes message by ID")

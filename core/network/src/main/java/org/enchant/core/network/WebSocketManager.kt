@@ -1,6 +1,7 @@
 package org.enchant.core.network
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
@@ -464,5 +465,20 @@ object WebSocketManager {
                 } else null
             } else null
         } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); null }
+    }
+
+    @VisibleForTesting
+    fun resetForTesting() {
+        initialized = false
+        scope = null
+        webSocket = null
+        requestIdCounter.set(0)
+        consecutive401s = 0
+        retryCount = 0
+        pendingRequests.clear()
+        keepAliveJob?.cancel()
+        keepAliveJob = null
+        _connectionState.value = ConnectionState.DISCONNECTED
+        apiClient = null
     }
 }
