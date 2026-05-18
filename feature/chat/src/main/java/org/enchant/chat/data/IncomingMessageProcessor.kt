@@ -283,46 +283,6 @@ object IncomingMessageProcessor {
         }
     }
 
-                val now = System.currentTimeMillis()
-                val parsedContent = MessageProtobufHelper.parseContent(decrypted.plaintext)
-
-                return@withContext when (parsedContent) {
-                    is MessageProtobufHelper.ParsedContent.DataMessage -> {
-                        repo.insertMessageAndUpdateConversation(
-                            MessageEntity(
-                                conversationId = senderUserId,
-                                senderId = senderUserId,
-                                messageType = "SIGNAL_MESSAGE",
-                                content = parsedContent.body,
-                                status = "delivered",
-                                timestamp = envelope.serverTimestamp ?: now,
-                                serverTs = now
-                            ),
-                            conversationType = "direct"
-                        )
-                        sendSealedDeliveryReceipt(envelope, senderUserId)
-                        ProcessResult.Handled
-                    }
-                    is MessageProtobufHelper.ParsedContent.Receipt -> {
-                        val status = when (parsedContent.type) {
-                            MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
-                            MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
-                        }
-                        ProcessResult.Handled
-                    }
-                    is MessageProtobufHelper.ParsedContent.Typing -> { ProcessResult.Handled }
-                    is MessageProtobufHelper.ParsedContent.Delete -> { ProcessResult.Handled }
-                    is MessageProtobufHelper.ParsedContent.Null -> { ProcessResult.Handled }
-                    is MessageProtobufHelper.ParsedContent.Unknown -> {
-                        ProcessResult.Error("Unknown content type in sealed sender message")
-                    }
-                }
-            } catch (e: Exception) {
-                ProcessResult.Error("Unidentified sender processing failed: ${e.message}")
-            }
-        }
-    }
-
     private suspend fun sendSealedDeliveryReceipt(
         envelope: IncomingEnvelope, senderUserId: String
     ) {

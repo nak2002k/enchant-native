@@ -10,7 +10,11 @@ class MessageSendPipelineSealedTest {
     @Test
     fun `sendSealedMessage throws when not initialized`() = runTest {
         try {
-            MessageSendPipeline.sendSealedMessage("user1", "test".encodeToByteArray())
+            MessageSendPipeline.sendSealedMessage(
+                conversationId = "conv-1",
+                recipientUserId = "user1",
+                plaintext = "test".encodeToByteArray()
+            )
             assert(false) { "Expected IllegalStateException" }
         } catch (e: IllegalStateException) {
             assert(true)

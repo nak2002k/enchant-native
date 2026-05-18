@@ -105,7 +105,7 @@ class MessageSendPipelineTest {
             coEvery { repo.updateMessageStatus(any(), any()) } returns Unit
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {
-                    put("envelope_id", "env-server-1")
+                    put("envelope_id", kotlinx.serialization.json.JsonPrimitive("env-server-1"))
                 })
             }
             val result = MessageSendPipeline.sendMessage("conv-1", "user-1", "Hello".encodeToByteArray())
@@ -140,7 +140,7 @@ class MessageSendPipelineTest {
             coEvery { repo.updateMessageStatus(any(), any()) } returns Unit
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {
-                    put("envelope_id", "env-1")
+                    put("envelope_id", kotlinx.serialization.json.JsonPrimitive("env-1"))
                 })
             }
             MessageSendPipeline.sendMessage("conv-1", "user-1", "Hello".encodeToByteArray())

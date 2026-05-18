@@ -423,4 +423,31 @@ class ConversationViewModelTest {
             viewModel.loadMoreMessages()
         }
     }
+
+    @Nested @DisplayName("Bug #5, #6 — editMessage/deleteForEveryone use recipientUserId")
+    inner class EditDeleteParamTest {
+        @Test @DisplayName("editMessage passes recipientUserId to pipeline")
+        fun `editMessage uses recipientUserId`() {
+            viewModel.init("conv-1")
+            coEvery { pipeline.editMessage(any(), any(), any()) } returns Result.success(Unit)
+            viewModel.editMessage("env-1", "Edited text")
+            coVerify { pipeline.editMessage("env-1", "Edited text".encodeToByteArray(), "self-user") }
+        }
+
+        @Test @DisplayName("deleteForEveryone passes recipientUserId to pipeline")
+        fun `deleteForEveryone uses recipientUserId`() {
+            viewModel.init("conv-1")
+            coEvery { pipeline.deleteForEveryone(any(), any()) } returns Result.success(Unit)
+            viewModel.deleteMessage("env-1", forEveryone = true)
+            coVerify { pipeline.deleteForEveryone("env-1", "self-user") }
+        }
+
+        @Test @DisplayName("deleteForSelf does not pass recipientUserId")
+        fun `deleteForSelf no recipientUserId`() {
+            viewModel.init("conv-1")
+            coEvery { pipeline.deleteForSelf(any()) } returns Unit
+            viewModel.deleteMessage("env-1", forEveryone = false)
+            coVerify { pipeline.deleteForSelf("env-1") }
+        }
+    }
 }
