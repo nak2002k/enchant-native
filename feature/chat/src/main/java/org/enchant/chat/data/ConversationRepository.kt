@@ -293,7 +293,7 @@ class ConversationRepository(
     }
 
     suspend fun getPinnedMessages(conversationId: String): List<Message> = pool.readWith { db ->
-        db.query("SELECT * FROM messages WHERE conversation_id = ? AND is_starred = 1 AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 10", arrayOf(conversationId))
+        db.query("SELECT * FROM messages WHERE conversation_id = ? AND is_pinned = 1 AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 10", arrayOf(conversationId))
             .use { org.enchant.core.database.util.CursorMapper.mapToList<MessageEntity>(it) }
             .map { Message.fromEntity(it) }
     }

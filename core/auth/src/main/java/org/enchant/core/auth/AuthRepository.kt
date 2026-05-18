@@ -83,8 +83,8 @@ class AuthRepository(private val apiClient: ApiClient) {
         return try {
             apiClient.post("/v1/auth/logout")
             Result.success(Unit)
-        } catch (_: Exception) {
-            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -117,8 +117,8 @@ class AuthRepository(private val apiClient: ApiClient) {
         return try {
             apiClient.del("/v1/auth/account")
             Result.success(Unit)
-        } catch (_: Exception) {
-            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

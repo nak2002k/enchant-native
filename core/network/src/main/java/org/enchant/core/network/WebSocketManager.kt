@@ -252,16 +252,19 @@ object WebSocketManager {
     }
 
     suspend fun requestRESTFallback(message: OutgoingMessage): Result<Any> {
-        return apiClient?.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(
-            mapOf(
-                "recipient_user_id" to kotlinx.serialization.json.JsonPrimitive(message.recipientUserId),
-                "message_type" to kotlinx.serialization.json.JsonPrimitive(message.messageType),
-                "payload" to kotlinx.serialization.json.JsonPrimitive(
-                    java.util.Base64.getUrlEncoder().encodeToString(message.payload)
-                ),
-                "sender_ts" to kotlinx.serialization.json.JsonPrimitive(message.senderTs)
-            )
-        )) ?: Result.failure(Exception("ApiClient not initialized"))
+        val jsonMap = mutableMapOf(
+            "recipient_user_id" to kotlinx.serialization.json.JsonPrimitive(message.recipientUserId),
+            "message_type" to kotlinx.serialization.json.JsonPrimitive(message.messageType),
+            "payload" to kotlinx.serialization.json.JsonPrimitive(
+                java.util.Base64.getUrlEncoder().encodeToString(message.payload)
+            ),
+            "sender_ts" to kotlinx.serialization.json.JsonPrimitive(message.senderTs)
+        )
+        message.recipientDeviceId?.let { deviceId ->
+            jsonMap["recipient_device_id"] = kotlinx.serialization.json.JsonPrimitive(deviceId)
+        }
+        return apiClient?.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(jsonMap))
+            ?: Result.failure(Exception("ApiClient not initialized"))
     }
 
     private suspend fun authenticate(ws: WebSocket, jwt: String): Boolean {

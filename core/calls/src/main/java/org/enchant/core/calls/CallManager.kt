@@ -430,8 +430,7 @@ object CallManager {
         }
     }
 
-    fun removeParticipant(participantId: String) {
-        val groupId = _callState.value.remoteUserId ?: return
+    fun removeParticipant(groupId: String, participantId: String) {
         callScope?.launch(Dispatchers.IO) {
             try {
                 apiClient.del("/v1/groups/$groupId/members/$participantId")

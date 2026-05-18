@@ -50,11 +50,11 @@
 | 28 | Unlimited reader connections via ThreadLocal | ✅ Fixed 2026-05-18 | |
 | 29 | X3DH DH key material not fully zeroed | ✅ Fixed 2026-05-18 | |
 | 30 | consumedKeys strings not zeroed | ✅ Fixed 2026-05-18 | |
-| 31 | logout/deleteAccount always return success | ⏳ Pending | |
-| 32 | REST fallback missing recipientDeviceId | ⏳ Pending | |
-| 33 | removeParticipant uses remoteUserId as groupId | ⏳ Pending | |
+| 31 | logout/deleteAccount always return success | ✅ Fixed 2026-05-18 | |
+| 32 | REST fallback missing recipientDeviceId | ✅ Fixed 2026-05-18 | |
+| 33 | removeParticipant uses remoteUserId as groupId | ✅ Fixed 2026-05-18 | |
 | 34 | saveKeyPair alias prefix | ✅ Verified correct | |
-| 35 | getPinnedMessages queries is_starred not is_pinned | ⏳ Pending | |
+| 35 | getPinnedMessages queries is_starred not is_pinned | ✅ Fixed 2026-05-18 | |
 | 36 | sender_ts uses ISO-8601 instead of milliseconds | ⏳ Pending | |
 | 37 | searchUsername result discarded in UI | ⏳ Pending | |
 | 38 | PendingIntent hash collision risk | ⏳ Pending | |
