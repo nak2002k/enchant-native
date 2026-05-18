@@ -23,7 +23,7 @@ class MessageProtobufHelperTest {
     @DisplayName("buildReceiptContent produces parseable receipt")
     fun `build receipt content`() {
         val bytes = MessageProtobufHelper.buildReceiptContent(
-            envelopeIds = listOf("12345"),
+            timestamps = listOf(12345L),
             type = MessageProtobufHelper.ReceiptType.DELIVERY
         )
         assertTrue(bytes.isNotEmpty())

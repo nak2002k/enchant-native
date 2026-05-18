@@ -21,7 +21,7 @@ object AuthInterceptor : Interceptor {
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .build()
-    private val lock = Any()
+    private val lock = java.lang.Object()
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
@@ -96,7 +96,7 @@ object AuthInterceptor : Interceptor {
             if (response.isSuccessful) {
                 val body = response.body?.string()
                 if (body != null) {
-                    val parsed = json.parseToJsonElement(body).jsonObject
+                    val parsed = kotlinx.serialization.json.Json.parseToJsonElement(body).jsonObject
                     val newJwt = parsed["access_token"]?.jsonPrimitive?.content
                     val newRefreshToken = parsed["refresh_token"]?.jsonPrimitive?.content
                     if (newJwt != null) {
