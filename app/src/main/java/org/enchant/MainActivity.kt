@@ -154,7 +154,8 @@ fun AppNavigation() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(callUiState.callState.status) {
-        when (callUiState.callState.status) {
+        val status = callUiState.callState.status
+        when (status) {
             CallStatusEnum.RINGING -> navController.navigate("incoming_call/${callUiState.callState.callId}")
             CallStatusEnum.CALLING -> navController.navigate("outgoing_call/${callUiState.callState.remoteUserId}")
             CallStatusEnum.CONNECTED -> {
@@ -176,10 +177,8 @@ fun AppNavigation() {
             }
             else -> {}
         }
-    }
 
-    LaunchedEffect(callUiState.callState.status) {
-        if (callUiState.callState.status != CallStatusEnum.IDLE) {
+        if (status != CallStatusEnum.IDLE) {
             val intent = Intent(context, org.enchant.core.calls.CallForegroundService::class.java).apply {
                 action = org.enchant.core.calls.CallForegroundService.ACTION_START_CALL
                 putExtra("call_id", callUiState.callState.callId)

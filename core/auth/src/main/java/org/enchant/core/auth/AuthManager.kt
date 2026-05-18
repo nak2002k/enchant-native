@@ -49,7 +49,7 @@ object AuthManager {
             apiClient = client
             repository = AuthRepository(client)
         }
-        val storedState = AuthStateMachine.validateRestoredState(apiClient)
+        val storedState = AuthStateMachine.validateRestoredState(apiClient!!)
         _currentState.value = storedState
         _authState.value = when (storedState) {
             is RegistrationState.Complete -> {

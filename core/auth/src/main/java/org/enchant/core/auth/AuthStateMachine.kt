@@ -145,7 +145,7 @@ object AuthStateMachine {
         return permissions
     }
 
-    suspend fun validateRestoredState(apiClient: ApiClient? = null): RegistrationState {
+    suspend fun validateRestoredState(apiClient: ApiClient): RegistrationState {
         val jwt = SecurePreferences.getString("auth.jwt")
         val refreshToken = SecurePreferences.getString("auth.refresh_token")
 
@@ -168,12 +168,7 @@ object AuthStateMachine {
 
         return if (refreshToken != null) {
             try {
-                val client = apiClient ?: run {
-                    val c = ApiClient()
-                    c.init()
-                    c
-                }
-                val repo = AuthRepository(client)
+                val repo = AuthRepository(apiClient)
                 val result = repo.refreshToken(refreshToken)
                 if (result.isSuccess) {
                     val response = result.getOrThrow()

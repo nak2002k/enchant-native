@@ -351,7 +351,7 @@ object KeyManager {
     }
 
     fun needsKeyRotation(): Boolean {
-        if (lastSpkRotationMs == 0L) return false
+        if (lastSpkRotationMs == 0L) return true
         return (System.currentTimeMillis() - lastSpkRotationMs) > spkRotationIntervalMs
     }
 }

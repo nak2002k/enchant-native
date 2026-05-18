@@ -50,6 +50,11 @@ class CallViewModel : ViewModel() {
 
     fun acceptCall(withVideo: Boolean) {
         val callId = _uiState.value.callState.callId ?: return
+        val currentState = _uiState.value.callState.status
+        if (currentState != org.enchant.core.calls.CallStatusEnum.RINGING) {
+            android.util.Log.w("CallViewModel", "acceptCall called in state $currentState, expected RINGING")
+            return
+        }
         viewModelScope.launch {
             CallManager.acceptCall(callId, withVideo)
         }

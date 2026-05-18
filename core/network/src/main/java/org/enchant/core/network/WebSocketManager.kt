@@ -155,6 +155,8 @@ object WebSocketManager {
 
     fun disconnect() {
         keepAliveJob?.cancel()
+        pendingRequests.values.forEach { it.completeExceptionally(Exception("WebSocket disconnected")) }
+        pendingRequests.clear()
         webSocket?.close(1000, "Client disconnect")
         webSocket = null
         _connectionState.value = ConnectionState.DISCONNECTED

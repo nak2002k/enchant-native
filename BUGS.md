@@ -35,11 +35,11 @@
 | 13 | Cursor management in reactive Flow | ✅ Fixed 2026-05-18 | |
 | 14 | FTS5 MATCH query not sanitized | ✅ Fixed 2026-05-18 | |
 | 15 | OTP cooldown not persisted across restarts | ✅ Fixed 2026-05-18 | |
-| 16 | needsKeyRotation() always returns false initially | ⏳ Pending | |
-| 17 | disconnect() doesn't cancel pending requests | ⏳ Pending | |
-| 18 | acceptCall silently fails if state changed | ⏳ Pending | |
-| 19 | Duplicate LaunchedEffect for call state | ⏳ Pending | |
-| 20 | Temporary ApiClient created and leaked | ⏳ Pending | |
+| 16 | needsKeyRotation() always returns false initially | ✅ Fixed 2026-05-18 | |
+| 17 | disconnect() doesn't cancel pending requests | ✅ Fixed 2026-05-18 | |
+| 18 | acceptCall silently fails if state changed | ✅ Fixed 2026-05-18 | |
+| 19 | Duplicate LaunchedEffect for call state | ✅ Fixed 2026-05-18 | |
+| 20 | Temporary ApiClient created and leaked | ✅ Fixed 2026-05-18 | |
 | 21 | Location sent as emoji text, not structured | ⏳ Pending | |
 | 22 | Sticker sent as emoji text, not structured | ⏳ Pending | |
 | 23 | vCard created but never sent | ⏳ Pending | |
