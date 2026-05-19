@@ -7,7 +7,7 @@
 
 ## Project Goal
 
-Enchant is a **private, end-to-end encrypted messaging app** built with Flutter. It is inspired by Signal's architecture but is a fully custom implementation. The codebase must be **production-quality** — fit for real users, on real devices, in real threat environments. There is **zero compromise on privacy, security, or code quality**. Every line of code, every test, every PR either meets this bar or does not land.
+Enchant is a **private, end-to-end encrypted messaging app** built with Kotlin. It is inspired by Signal's architecture but is a fully custom implementation. The codebase must be **production-quality** — fit for real users, on real devices, in real threat environments. There is **zero compromise on privacy, security, or code quality**. Every line of code, every test, every PR either meets this bar or does not land.
 
 ---
 
