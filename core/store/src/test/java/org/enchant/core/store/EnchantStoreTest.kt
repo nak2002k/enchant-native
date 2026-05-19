@@ -20,7 +20,7 @@ class EnchantStoreTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        SecurePreferences.init(context)
+        SecurePreferences.init(context, allowUnencryptedFallback = true)
         EnchantStore.clearAll()
     }
 
