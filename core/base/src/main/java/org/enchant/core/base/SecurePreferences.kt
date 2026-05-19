@@ -13,16 +13,20 @@ object SecurePreferences {
     @Synchronized
     fun init(context: Context) {
         if (prefs != null) return
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        prefs = EncryptedSharedPreferences.create(
-            context,
-            "enchant_secure_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            prefs = EncryptedSharedPreferences.create(
+                context,
+                "enchant_secure_prefs",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            prefs = context.getSharedPreferences("enchant_secure_prefs", Context.MODE_PRIVATE)
+        }
     }
 
     private fun getPrefs(): SharedPreferences? {
@@ -60,6 +64,14 @@ object SecurePreferences {
 
     fun getBoolean(key: String, default: Boolean = false): Boolean {
         return getPrefs()?.getBoolean(key, default) ?: default
+    }
+
+    fun putFloat(key: String, value: Float) {
+        getPrefs()?.edit()?.putFloat(key, value)?.apply()
+    }
+
+    fun getFloat(key: String, default: Float = 0f): Float {
+        return getPrefs()?.getFloat(key, default) ?: default
     }
 
     fun remove(key: String) {

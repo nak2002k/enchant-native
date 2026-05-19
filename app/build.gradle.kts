@@ -57,7 +57,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:jobmanager"))
     implementation(project(":core:protos"))
-    implementation(project(":core:signalstore"))
+    implementation(project(":core:store"))
     implementation(project(":core:notifications"))
     implementation(project(":core:push"))
     implementation(project(":core:calls"))
