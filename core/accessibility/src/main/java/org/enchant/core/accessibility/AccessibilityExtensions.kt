@@ -1,9 +1,22 @@
 package org.enchant.core.accessibility
 
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.StringRes
 import androidx.core.view.ViewCompat
+
+/**
+ * Sets the accessibility live region mode, using the direct View API on
+ * Android 14+ (API 34) and falling back to ViewCompat on older versions.
+ */
+fun View.setLiveRegionCompat(mode: Int) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        accessibilityLiveRegion = mode
+    } else {
+        ViewCompat.setAccessibilityLiveRegion(this, mode)
+    }
+}
 
 /**
  * Kotlin extension functions for quick accessibility setup on Views.
@@ -37,7 +50,7 @@ fun View.withContentDescription(text: String): View {
  * text changes automatically.
  */
 fun View.asLiveRegion(): View {
-    ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
+    setLiveRegionCompat(ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
     return this
 }
 
@@ -45,7 +58,7 @@ fun View.asLiveRegion(): View {
  * Marks this view as an assertive live region (interrupts current speech).
  */
 fun View.asAssertiveLiveRegion(): View {
-    ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_ASSERTIVE)
+    setLiveRegionCompat(ViewCompat.ACCESSIBILITY_LIVE_REGION_ASSERTIVE)
     return this
 }
 

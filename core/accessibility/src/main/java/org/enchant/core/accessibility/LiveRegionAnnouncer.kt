@@ -5,7 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.view.ViewCompat
-import androidx.core.view.accessibility.AccessibilityViewCommand
+import org.enchant.core.accessibility.setLiveRegionCompat
 
 /**
  * Announces dynamic events to screen readers via an accessibility live region.
@@ -27,7 +27,7 @@ class LiveRegionAnnouncer {
      * in the root layout).
      */
     fun attach(liveRegionView: View) {
-        ViewCompat.setAccessibilityLiveRegion(liveRegionView, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
+        liveRegionView.setLiveRegionCompat(ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
         liveRegionView.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         this.liveRegion = liveRegionView
     }
@@ -156,7 +156,7 @@ class LiveRegionAnnouncer {
                 isFocusable = false
                 isFocusableInTouchMode = false
                 layoutParams = ViewGroup.LayoutParams(0, 0)
-                ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
+                setLiveRegionCompat(ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
             }
         }
