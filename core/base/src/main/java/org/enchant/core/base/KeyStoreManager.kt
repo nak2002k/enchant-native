@@ -2,7 +2,10 @@ package org.enchant.core.base
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
+import android.util.Log
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.KeyStoreException
@@ -12,8 +15,9 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 object KeyStoreManager {
+
+    private const val TAG = "KeyStoreManager"
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
-    private const val KEYSTORE_TYPE = "PKCS12"
 
     const val KEY_ALIAS_IDENTITY = "enchant_identity_key"
     const val KEY_ALIAS_DB_ENCRYPTION = "enchant_db_key"
@@ -25,8 +29,7 @@ object KeyStoreManager {
 
     suspend fun init(context: Context) {
         if (initialized) return
-        val ks = KeyStore.getInstance(ANDROID_KEYSTORE)
-        ks.load(null)
+        val ks = getKeyStore()
         _isHardwareBacked = try {
             val spec = KeyGenParameterSpec.Builder("__test__", KeyProperties.PURPOSE_SIGN)
                 .setIsStrongBoxBacked(true)
@@ -42,7 +45,11 @@ object KeyStoreManager {
         initialized = true
     }
 
-    suspend fun generateKey(alias: String, purpose: Int): Boolean {
+    suspend fun generateKey(
+        alias: String,
+        purpose: Int,
+        requireAuth: Boolean = false
+    ): Boolean {
         val ks = getKeyStore()
         if (ks.containsAlias(alias)) return false
         when (purpose) {
@@ -52,6 +59,10 @@ object KeyStoreManager {
                     .setKeySize(256)
                     .apply {
                         if (_isHardwareBacked) setIsStrongBoxBacked(true)
+                        if (requireAuth) {
+                            setUserAuthenticationRequired(true)
+                            setUserAuthenticationValidityDurationSeconds(300)
+                        }
                     }
                     .build()
                 val kg = KeyPairGenerator.getInstance("EC", ANDROID_KEYSTORE)
@@ -79,7 +90,8 @@ object KeyStoreManager {
     fun keyExists(alias: String): Boolean {
         return try {
             getKeyStore().containsAlias(alias)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "keyExists check failed: ${e.message}")
             false
         }
     }
@@ -88,7 +100,47 @@ object KeyStoreManager {
         try {
             getKeyStore().deleteEntry(alias)
         } catch (e: KeyStoreException) {
-            android.util.Log.w("KeyStoreManager", "deleteKey failed for $alias: ${e.message}")
+            Log.w(TAG, "deleteKey failed: ${e.message}")
+        }
+    }
+
+    fun keyInfo(alias: String): KeyStoreEntryInfo? {
+        return try {
+            val ks = getKeyStore()
+            val entry = ks.getEntry(alias, null) ?: return null
+            val creationDate = ks.getCreationDate(alias)
+            when (entry) {
+                is KeyStore.PrivateKeyEntry -> {
+                    val factory = KeyFactory.getInstance(entry.privateKey.algorithm, ANDROID_KEYSTORE)
+                    val keySpec = factory.getKeySpec(entry.privateKey, KeyInfo::class.java) as KeyInfo
+                    KeyStoreEntryInfo(
+                        alias = alias,
+                        algorithm = entry.privateKey.algorithm,
+                        isInsideSecureHardware = keySpec.isInsideSecureHardware,
+                        origin = keySpec.origin.toString(),
+                        purposes = keySpec.purposes,
+                        keySize = keySpec.keySize,
+                        creationDate = creationDate
+                    )
+                }
+                is KeyStore.SecretKeyEntry -> {
+                    val factory = KeyFactory.getInstance(entry.secretKey.algorithm, ANDROID_KEYSTORE)
+                    val keySpec = factory.getKeySpec(entry.secretKey, KeyInfo::class.java) as KeyInfo
+                    KeyStoreEntryInfo(
+                        alias = alias,
+                        algorithm = entry.secretKey.algorithm,
+                        isInsideSecureHardware = keySpec.isInsideSecureHardware,
+                        origin = keySpec.origin.toString(),
+                        purposes = keySpec.purposes,
+                        keySize = keySpec.keySize,
+                        creationDate = creationDate
+                    )
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "keyInfo failed: ${e.message}")
+            null
         }
     }
 
@@ -100,7 +152,8 @@ object KeyStoreManager {
             signature.initSign(entry.privateKey)
             signature.update(data)
             signature.sign()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "sign failed: ${e.message}")
             null
         }
     }
@@ -113,7 +166,8 @@ object KeyStoreManager {
             signature.initVerify(cert)
             signature.update(data)
             signature.verify(signatureBytes)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "verify failed: ${e.message}")
             false
         }
     }
@@ -130,7 +184,8 @@ object KeyStoreManager {
                 iv.copyInto(this, 0)
                 ct.copyInto(this, iv.size)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "encrypt failed: ${e.message}")
             null
         }
     }
@@ -145,7 +200,8 @@ object KeyStoreManager {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
             cipher.doFinal(ct)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "decrypt failed: ${e.message}")
             null
         }
     }
@@ -178,4 +234,14 @@ object KeyStoreManager {
         ks.load(null)
         return ks
     }
+
+    data class KeyStoreEntryInfo(
+        val alias: String,
+        val algorithm: String,
+        val isInsideSecureHardware: Boolean,
+        val origin: String,
+        val purposes: Int,
+        val keySize: Int?,
+        val creationDate: java.util.Date?
+    )
 }
