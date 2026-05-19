@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.security.crypto)
+    implementation(libs.libphonenumber)
 
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
