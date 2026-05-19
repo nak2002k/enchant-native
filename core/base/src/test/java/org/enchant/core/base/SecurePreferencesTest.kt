@@ -23,7 +23,7 @@ class SecurePreferencesTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         resetPrefs()
-        SecurePreferences.init(context)
+        SecurePreferences.init(context, allowUnencryptedFallback = true)
     }
 
     @After
