@@ -1,5 +1,6 @@
 package org.enchant.core.base
 
+import android.os.HandlerThread
 import android.os.Process
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -9,40 +10,37 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-object ThreadPoolUtil {
+object EnchantExecutors {
 
     val UNBOUNDED: ExecutorService = Executors.newCachedThreadPool(
-        NumberedThreadFactory("unbounded", Process.THREAD_PRIORITY_BACKGROUND)
+        NumberedThreadFactory("unbounded", PRIORITY_BACKGROUND_THREAD)
     )
 
     val BOUNDED: ExecutorService = Executors.newFixedThreadPool(
-        4, NumberedThreadFactory("bounded", Process.THREAD_PRIORITY_BACKGROUND)
+        4, NumberedThreadFactory("bounded", PRIORITY_BACKGROUND_THREAD)
     )
 
     val SERIAL: ExecutorService = Executors.newSingleThreadExecutor(
-        NumberedThreadFactory("serial", Process.THREAD_PRIORITY_BACKGROUND)
+        NumberedThreadFactory("serial", PRIORITY_BACKGROUND_THREAD)
     )
 
     val BOUNDED_IO: ExecutorService = newCachedBoundedExecutor(
         name = "io-bounded",
-        priority = Process.THREAD_PRIORITY_DEFAULT,
+        priority = PRIORITY_IMPORTANT_BACKGROUND_THREAD,
         minThreads = 1,
         maxThreads = 32,
         timeoutSeconds = 30
     )
 
-    class NumberedThreadFactory(
-        private val name: String,
-        private val priority: Int
-    ) : ThreadFactory {
-        private val counter = AtomicInteger(0)
-
-        override fun newThread(r: Runnable): Thread {
-            return Thread(r, "$name-${counter.incrementAndGet()}").apply {
+    fun newCachedSingleThreadExecutor(name: String, priority: Int): ExecutorService {
+        val executor = ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, LinkedBlockingQueue()) { r ->
+            Thread(r, name).apply {
                 isDaemon = true
                 Process.setThreadPriority(priority)
             }
         }
+        executor.allowCoreThreadTimeOut(true)
+        return executor
     }
 
     fun newCachedBoundedExecutor(
@@ -75,4 +73,28 @@ object ThreadPoolUtil {
 
         return threadPool
     }
+
+    fun getAndStartHandlerThread(name: String, priority: Int): HandlerThread {
+        return HandlerThread(name, priority).apply { start() }
+    }
+
+    class NumberedThreadFactory(
+        private val baseName: String,
+        private val priority: Int
+    ) : ThreadFactory {
+        private val counter = AtomicInteger(0)
+
+        override fun newThread(r: Runnable): Thread {
+            return object : Thread(r, "$baseName-${counter.incrementAndGet()}") {
+                override fun run() {
+                    Process.setThreadPriority(priority)
+                    super.run()
+                }
+            }.apply { isDaemon = true }
+        }
+    }
+
+    private const val PRIORITY_BACKGROUND_THREAD = Process.THREAD_PRIORITY_BACKGROUND
+    private const val PRIORITY_IMPORTANT_BACKGROUND_THREAD =
+        Process.THREAD_PRIORITY_DEFAULT + Process.THREAD_PRIORITY_LESS_FAVORABLE
 }
