@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Accessibility: Button labels -->
+    <string name="a11y_button_send">Send message</string>
+    <string name="a11y_button_attach">Attach file</string>
+    <string name="a11y_button_emoji">Emoji picker</string>
+    <string name="a11y_button_mic">Voice message</string>
+    <string name="a11y_button_back">Go back</string>
+    <string name="a11y_button_call">Start call</string>
+    <string name="a11y_button_video_call">Start video call</string>
+    <string name="a11y_button_mute">Mute</string>
+    <string name="a11y_button_archive">Archive conversation</string>
+    <string name="a11y_button_delete">Delete message</string>
+    <string name="a11y_button_reply">Reply to message</string>
+    <string name="a11y_button_forward">Forward message</string>
+    <string name="a11y_button_star">Star message</string>
+    <string name="a11y_button_search">Search</string>
+    <string name="a11y_button_more">More options</string>
+    <string name="a11y_button_camera">Take photo</string>
+    <string name="a11y_button_gallery">Open gallery</string>
+    <string name="a11y_button_document">Send document</string>
+    <string name="a11y_button_location">Send location</string>
+    <string name="a11y_button_contact">Send contact</string>
+    <string name="a11y_button_poll">Create poll</string>
+    <string name="a11y_button_sticker">Sticker picker</string>
+    <string name="a11y_button_gif">GIF picker</string>
+    <string name="a11y_button_payment">Send payment</string>
+    <string name="a11y_button_schedule">Schedule message</string>
+    <string name="a11y_button_note">Send note</string>
+    <string name="a11y_button_edit">Edit message</string>
+    <string name="a11y_button_copy">Copy text</string>
+    <string name="a11y_button_select">Select text</string>
+    <string name="a11y_button_pin">Pin message</string>
+    <string name="a11y_button_unpin">Unpin message</string>
+    <string name="a11y_button_resend">Resend message</string>
+    <string name="a11y_button_cancel">Cancel</string>
+    <string name="a11y_button_confirm">Confirm</string>
+    <string name="a11y_button_close">Close</string>
+    <string name="a11y_button_open">Open</string>
+    <string name="a11y_button_download">Download</string>
+    <string name="a11y_button_pause">Pause call</string>
+    <string name="a11y_button_end_call">End call</string>
+    <string name="a11y_button_accept_call">Accept call</string>
+    <string name="a11y_button_decline_call">Decline call</string>
+    <string name="a11y_button_toggle_video">Toggle video</string>
+    <string name="a11y_button_toggle_mic">Toggle microphone</string>
+    <string name="a11y_button_toggle_speaker">Toggle speaker</string>
+
+    <!-- Accessibility: Button state templates -->
+    <string name="a11y_button_with_state">%1$s button. Current state: %2$s.</string>
+    <string name="a11y_button_plain">%1$s button.</string>
+    <string name="a11y_button_toggled_on">%1$s button. Enabled.</string>
+    <string name="a11y_button_toggled_off">%1$s button. Disabled.</string>
+
+    <!-- Accessibility: Message descriptions -->
+    <string name="a11y_message_outgoing">Outgoing text message: %1$s. %2$s at %3$s%4$s</string>
+    <string name="a11y_message_incoming">Incoming text message: %1$s. %2$s at %3$s%4$s</string>
+    <string name="a11y_message_outgoing_media">Outgoing text message: %1$s with media attachment. %2$s at %3$s%4$s</string>
+    <string name="a11y_message_incoming_media">Incoming text message: %1$s with media attachment. %2$s at %3$s%4$s</string>
+    <string name="a11y_message_edited_suffix"> Edited.</string>
+    <string name="a11y_message_plain_suffix">.</string>
+    <string name="a11y_message_status_sending">Sending</string>
+    <string name="a11y_message_status_sent">Sent</string>
+    <string name="a11y_message_status_delivered">Delivered</string>
+    <string name="a11y_message_status_read">Read</string>
+    <string name="a11y_message_status_failed">Failed to send</string>
+    <string name="a11y_message_status_pending">Pending approval</string>
+
+    <!-- Accessibility: Avatar descriptions -->
+    <string name="a11y_avatar_online">%1$s\'s avatar. Online.</string>
+    <string name="a11y_avatar_offline">%1$s\'s avatar. Offline.</string>
+    <string name="a11y_avatar_unknown">Unknown user\'s avatar.</string>
+    <string name="a11y_avatar_group">Group avatar for %1$s.</string>
+
+    <!-- Accessibility: Reaction descriptions -->
+    <string name="a11y_reactions_count">%1$s %2$s reactions. Tap to view.</string>
+    <string name="a11y_reactions_emoji_heart">heart</string>
+    <string name="a11y_reactions_emoji_laugh">laughing face</string>
+    <string name="a11y_reactions_emoji_surprised">surprised face</string>
+    <string name="a11y_reactions_emoji_crying">crying face</string>
+    <string name="a11y_reactions_emoji_angry">angry face</string>
+    <string name="a11y_reactions_emoji_thumbs_up">thumbs up</string>
+    <string name="a11y_reactions_emoji_thumbs_down">thumbs down</string>
+    <string name="a11y_reactions_emoji_clapping">clapping</string>
+    <string name="a11y_reactions_emoji_default">emoji</string>
+    <string name="a11y_reactions_no">No</string>
+
+    <!-- Accessibility: Dynamic announcements -->
+    <string name="a11y_announce_typing">%1$s is typing</string>
+    <string name="a11y_announce_unread">%1$d unread messages</string>
+    <string name="a11y_announce_unread_single">1 unread message</string>
+    <string name="a11y_announce_incoming_message">New message from %1$s: %2$s</string>
+    <string name="a11y_announce_call_incoming">Incoming call from %1$s</string>
+    <string name="a11y_announce_call_ongoing">Call with %1$s in progress</string>
+    <string name="a11y_announce_call_ended">Call with %1$s ended</string>
+    <string name="a11y_announce_call_missed">Missed call from %1$s</string>
+    <string name="a11y_announce_connected">Connected</string>
+    <string name="a11y_announce_reconnecting">Reconnecting</string>
+    <string name="a11y_announce_disconnected">Disconnected</string>
+    <string name="a11y_announce_message_sent">Message sent</string>
+    <string name="a11y_announce_message_delivered">Message delivered</string>
+    <string name="a11y_announce_message_read">Message read</string>
+    <string name="a11y_announce_message_failed">Message failed to send</string>
+    <string name="a11y_announce_recording_started">Recording voice message</string>
+    <string name="a11y_announce_recording_stopped">Recording stopped</string>
+    <string name="a11y_announce_upload_progress">Uploading %1$d percent</string>
+    <string name="a11y_announce_download_progress">Downloading %1$d percent</string>
+    <string name="a11y_announce_upload_complete">Upload complete</string>
+    <string name="a11y_announce_download_complete">Download complete</string>
+
+    <!-- Accessibility: Delivery status (standalone) -->
+    <string name="a11y_delivery_none"></string>
+    <string name="a11y_delivery_pending">Message pending</string>
+    <string name="a11y_delivery_sent">Message sent</string>
+    <string name="a11y_delivery_delivered">Message delivered</string>
+    <string name="a11y_delivery_read">Message read</string>
+
+    <!-- Accessibility: Timestamp descriptions -->
+    <string name="a11y_timestamp_absolute">%1$s at %2$s</string>
+    <string name="a11y_timestamp_relative">%1$s, %2$s ago</string>
+    <string name="a11y_timestamp_edited_absolute">%1$s at %2$s. Edited.</string>
+    <string name="a11y_timestamp_edited_relative">%1$s, %2$s ago. Edited.</string>
+    <string name="a11y_timestamp_now">Just now</string>
+    <string name="a11y_timestamp_edited_now">Just now. Edited.</string>
+
+    <!-- Accessibility: Call UI -->
+    <string name="a11y_call_duration">Call duration: %1$s</string>
+    <string name="a11y_call_secure">Secure call with %1$s</string>
+    <string name="a11y_call_encrypted">End-to-end encrypted call</string>
+    <string name="a11y_call_participant_count">%1$d participants</string>
+    <string name="a11y_call_muted">You are muted</string>
+    <string name="a11y_call_unmuted">You are unmuted</string>
+    <string name="a11y_call_video_on">Video is on</string>
+    <string name="a11y_call_video_off">Video is off</string>
+    <string name="a11y_call_speaker_on">Speaker is on</string>
+    <string name="a11y_call_speaker_off">Speaker is off</string>
+    <string name="a11y_call_screen_sharing">Screen sharing active</string>
+    <string name="a11y_call_raising_hand">Raised hand</string>
+
+    <!-- Accessibility: Chat list items -->
+    <string name="a11y_chat_list_item">%1$s. Last message: %2$s. %3$s%4$s</string>
+    <string name="a11y_chat_list_unread_badge">%1$d unread messages.</string>
+    <string name="a11y_chat_list_unread_badge_single">1 unread message.</string>
+    <string name="a11y_chat_list_muted">Muted conversation.</string>
+    <string name="a11y_chat_list_pinned">Pinned conversation.</string>
+    <string name="a11y_chat_list_archived">Archived conversation.</string>
+    <string name="a11y_chat_list_draft">Draft: %1$s</string>
+
+    <!-- Accessibility: Media descriptions -->
+    <string name="a11y_media_photo">Photo</string>
+    <string name="a11y_media_video">Video</string>
+    <string name="a11y_media_audio">Audio message</string>
+    <string name="a11y_media_document">Document</string>
+    <string name="a11y_media_gif">GIF</string>
+    <string name="a11y_media_sticker">Sticker</string>
+    <string name="a11y_media_contact">Contact card</string>
+    <string name="a11y_media_location">Location</string>
+    <string name="a11y_media_poll">Poll</string>
+    <string name="a11y_media_payment">Payment</string>
+    <string name="a11y_media_voice_note">Voice note, %1$s</string>
+    <string name="a11y_media_video_note">Video note, %1$s</string>
+    <string name="a11y_media_multiple">%1$d media items</string>
+
+    <!-- Accessibility: Security indicators -->
+    <string name="a11y_security_encrypted">End-to-end encrypted</string>
+    <string name="a11y_security_safety_number">Safety number changed for %1$s</string>
+    <string name="a11y_security_unverified">Unverified contact</string>
+    <string name="a11y_security_verified">Verified contact</string>
+    <string name="a11y_security_blocked">Blocked contact</string>
+
+    <!-- Accessibility: Group indicators -->
+    <string name="a11y_group_info">Group: %1$s, %2$d members</string>
+    <string name="a11y_group_admin">Group admin</string>
+    <string name="a11y_group_member">Group member</string>
+    <string name="a11y_group_you_created">You created this group</string>
+    <string name="a11y_group_someone_created">%1$s created this group</string>
+
+    <!-- Accessibility: Live region container description -->
+    <string name="a11y_live_region_description">Screen reader announcements</string>
+
+</resources>

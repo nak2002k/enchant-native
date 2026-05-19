@@ -13,6 +13,12 @@ android {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 tasks.withType<Test> {
@@ -23,6 +29,8 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation(libs.core.ktx)
+    implementation(libs.appcompat)
     implementation(project(":core:base"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
@@ -30,5 +38,9 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.robolectric.junit)
+    testImplementation(libs.androidx.test.ext.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

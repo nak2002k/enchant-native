@@ -10,21 +10,26 @@ import org.junit.jupiter.api.Test
 @DisplayName("RtlSupport")
 class RtlSupportTest {
 
-    @Nested @DisplayName("getTextAlignment")
+    @Nested
+    @DisplayName("getTextAlignment")
     inner class GetTextAlignmentTest {
-        @Test @DisplayName("returns END for RTL")
+
+        @Test
+        @DisplayName("returns END for RTL")
         fun `rtl returns end`() {
             val alignment = getTextAlignment(true)
             assertEquals(android.view.View.TEXT_ALIGNMENT_VIEW_END, alignment)
         }
 
-        @Test @DisplayName("returns START for LTR")
+        @Test
+        @DisplayName("returns START for LTR")
         fun `ltr returns start`() {
             val alignment = getTextAlignment(false)
             assertEquals(android.view.View.TEXT_ALIGNMENT_VIEW_START, alignment)
         }
 
-        @Test @DisplayName("RTL and LTR return different values")
+        @Test
+        @DisplayName("RTL and LTR return different values")
         fun `rtl differs from ltr`() {
             assertFalse(getTextAlignment(true) == getTextAlignment(false))
         }
