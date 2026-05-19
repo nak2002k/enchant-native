@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.security.crypto)
     implementation(libs.libphonenumber)
+    implementation(libs.sqlite)
 
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
