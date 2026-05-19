@@ -45,7 +45,7 @@ import org.enchant.auth.screens.TwoStepPinScreen
 import org.enchant.auth.screens.UsernamePickerScreen
 import org.enchant.auth.screens.WelcomeScreen
 import org.enchant.calls.CallViewModel
-import org.enchant.core.base.NotionTheme
+import org.enchant.ui.theme.NotionTheme
 import org.enchant.core.calls.CallLogFilter
 import org.enchant.calls.SafetyNumberDialog
 import org.enchant.calls.screens.ActiveVideoCallScreen

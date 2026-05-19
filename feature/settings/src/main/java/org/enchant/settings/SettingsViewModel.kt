@@ -13,7 +13,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import org.enchant.core.base.AppThemeManager
+import org.enchant.ui.theme.AppThemeManager
 import org.enchant.core.network.ApiClient
 
 data class DeviceInfo(

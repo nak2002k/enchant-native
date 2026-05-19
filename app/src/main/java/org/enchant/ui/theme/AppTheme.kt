@@ -1,9 +1,12 @@
-package org.enchant.core.base
+package org.enchant.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import org.enchant.core.store.EnchantStore
 
 object NotionColors {
     val Blue = Color(0xFF3B82F6)
@@ -62,33 +65,23 @@ private val NotionDarkColorScheme = darkColorScheme(
 )
 
 object AppThemeManager {
-    @Volatile
-    private var _currentTheme: String = "system"
-    private val lock = Any()
 
-    var currentTheme: String
-        get() = _currentTheme
-        private set(value) { _currentTheme = value }
+    fun currentTheme(): String = EnchantStore.Settings.theme ?: "system"
 
     fun setTheme(theme: String) {
-        synchronized(lock) {
-            _currentTheme = theme
-        }
-        SecurePreferences.putString("settings.theme", theme)
+        EnchantStore.Settings.setTheme(theme)
     }
 
-    fun getTheme(): String = _currentTheme
-
     fun loadTheme() {
-        _currentTheme = SecurePreferences.getString("settings.theme", "system") ?: "system"
+        EnchantStore.Settings.theme
     }
 }
 
 @Composable
 fun NotionTheme(
-    theme: String = AppThemeManager.currentTheme,
     content: @Composable () -> Unit
 ) {
+    val theme = AppThemeManager.currentTheme()
     val isDark = when (theme) {
         "dark" -> true
         "light" -> false
