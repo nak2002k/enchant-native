@@ -1,146 +1,148 @@
 package org.enchant.core.base
 
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Nested
-import org.junit.jupiter.api.Test
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
-@DisplayName("AppConfig — Full Coverage")
+@Config(sdk = [35])
+@RunWith(AndroidJUnit4::class)
 class AppConfigTest {
 
-    @Nested @DisplayName("URL Derivation")
-    inner class UrlDerivationTest {
-        @Test @DisplayName("deriveWsUrl converts http to ws")
-        fun `derive ws from http`() {
-            val method = AppConfig::class.java.getDeclaredMethod("deriveWsUrl", String::class.java)
-            method.isAccessible = true
-            val result = method.invoke(AppConfig, "http://example.com") as String
-            assertEquals("ws://example.com", result)
-        }
+    private lateinit var context: Context
+    private lateinit var prefs: SharedPreferences
 
-        @Test @DisplayName("deriveWsUrl converts https to wss")
-        fun `derive ws from https`() {
-            val method = AppConfig::class.java.getDeclaredMethod("deriveWsUrl", String::class.java)
-            method.isAccessible = true
-            val result = method.invoke(AppConfig, "https://example.com") as String
-            assertEquals("wss://example.com", result)
-        }
+    @Before
+    fun setUp() {
+        context = ApplicationProvider.getApplicationContext()
+        prefs = context.getSharedPreferences("enchant_config", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        resetInitialized()
+    }
 
-        @Test @DisplayName("deriveWsUrl preserves path")
-        fun `derive ws preserves path`() {
-            val method = AppConfig::class.java.getDeclaredMethod("deriveWsUrl", String::class.java)
-            method.isAccessible = true
-            val result = method.invoke(AppConfig, "https://api.example.com/v1") as String
-            assertEquals("wss://api.example.com/v1", result)
-        }
+    @After
+    fun tearDown() {
+        prefs.edit().clear().commit()
+        resetInitialized()
+    }
 
-        @Test @DisplayName("deriveWsUrl preserves port")
-        fun `derive ws preserves port`() {
-            val method = AppConfig::class.java.getDeclaredMethod("deriveWsUrl", String::class.java)
-            method.isAccessible = true
-            val result = method.invoke(AppConfig, "http://localhost:8080") as String
-            assertEquals("ws://localhost:8080", result)
-        }
+    private fun resetInitialized() {
+        val field = AppConfig::class.java.getDeclaredField("initialized")
+        field.isAccessible = true
+        field.set(AppConfig, false)
+    }
 
-        @Test @DisplayName("deriveWsUrl handles localhost")
-        fun `derive ws localhost`() {
-            val method = AppConfig::class.java.getDeclaredMethod("deriveWsUrl", String::class.java)
-            method.isAccessible = true
-            val result = method.invoke(AppConfig, "http://localhost:8080") as String
-            assertEquals("ws://localhost:8080", result)
+    @Test
+    fun `init with override URL sets gateway and WS URLs`() {
+        AppConfig.init(context, overrideUrl = "https://api.example.com")
+        assertEquals("https://api.example.com", AppConfig.gatewayUrl)
+        assertEquals("wss://api.example.com", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `init with SharedPreferences value uses stored URL`() {
+        prefs.edit().putString("gateway_url", "https://stored.example.com").commit()
+        AppConfig.init(context)
+        assertEquals("https://stored.example.com", AppConfig.gatewayUrl)
+        assertEquals("wss://stored.example.com", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `init with string resource uses resource URL`() {
+        AppConfig.init(context)
+        assertEquals("http://localhost:8080", AppConfig.gatewayUrl)
+        assertEquals("ws://localhost:8080", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `init derives WS URL from HTTP`() {
+        AppConfig.init(context, overrideUrl = "http://localhost:8080")
+        assertEquals("ws://localhost:8080", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `init derives WS URL from HTTPS`() {
+        AppConfig.init(context, overrideUrl = "https://api.example.com/v1")
+        assertEquals("wss://api.example.com/v1", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `init preserves port in WS URL`() {
+        AppConfig.init(context, overrideUrl = "http://localhost:9090")
+        assertEquals("ws://localhost:9090", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `init trims trailing slash from gateway URL`() {
+        AppConfig.init(context, overrideUrl = "https://api.example.com/")
+        assertEquals("https://api.example.com", AppConfig.gatewayUrl)
+    }
+
+    @Test
+    fun `init loads TURN credentials from SharedPreferences`() {
+        prefs.edit()
+            .putString("turn_url", "turn:server.example.com")
+            .putString("turn_username", "user")
+            .putString("turn_password", "pass")
+            .commit()
+        AppConfig.init(context)
+        assertEquals("turn:server.example.com", AppConfig.turnUrl)
+        assertEquals("user", AppConfig.turnUsername)
+        assertEquals("pass", AppConfig.turnPassword)
+    }
+
+    @Test
+    fun `init TURN credentials default to null`() {
+        AppConfig.init(context, overrideUrl = "https://api.example.com")
+        assertNull(AppConfig.turnUrl)
+        assertNull(AppConfig.turnUsername)
+        assertNull(AppConfig.turnPassword)
+    }
+
+    @Test
+    fun `init loads JWT public key from SharedPreferences`() {
+        prefs.edit().putString("jwt_public_key", "key-data").commit()
+        AppConfig.init(context)
+        assertEquals("key-data", AppConfig.jwtPublicKey)
+    }
+
+    @Test
+    fun `init JWT public key defaults to null`() {
+        AppConfig.init(context, overrideUrl = "https://api.example.com")
+        assertNull(AppConfig.jwtPublicKey)
+    }
+
+    @Test
+    fun `init sets user agent with app version`() {
+        AppConfig.init(context, overrideUrl = "https://api.example.com")
+        assertEquals("Enchant-Android/1.0.0", AppConfig.userAgent)
+    }
+
+    @Test
+    fun `init is idempotent`() {
+        AppConfig.init(context, overrideUrl = "https://first.example.com")
+        AppConfig.init(context, overrideUrl = "https://second.example.com")
+        assertEquals("https://first.example.com", AppConfig.gatewayUrl)
+    }
+
+    @Test
+    fun `accessing values before init throws IllegalStateException`() {
+        assertThrows(IllegalStateException::class.java) {
+            AppConfig.gatewayUrl
         }
     }
 
-    @Nested @DisplayName("Check Initialized")
-    inner class CheckInitializedTest {
-        @Test @DisplayName("checkInitialized throws when not initialized")
-        fun `check initialized throws`() {
-            val method = AppConfig::class.java.getDeclaredMethod("checkInitialized")
-            method.isAccessible = true
-            val field = AppConfig::class.java.getDeclaredField("initialized")
-            field.isAccessible = true
-            field.set(AppConfig, false)
-
-            try {
-                method.invoke(AppConfig)
-                fail("Expected IllegalStateException")
-            } catch (e: java.lang.reflect.InvocationTargetException) {
-                assertTrue(e.cause is IllegalStateException)
-            }
-        }
-
-        @Test @DisplayName("checkInitialized does not throw when initialized")
-        fun `check initialized ok`() {
-            val method = AppConfig::class.java.getDeclaredMethod("checkInitialized")
-            method.isAccessible = true
-            val field = AppConfig::class.java.getDeclaredField("initialized")
-            field.isAccessible = true
-            field.set(AppConfig, true)
-
-            // Should not throw
-            method.invoke(AppConfig)
-
-            // Reset for other tests
-            field.set(AppConfig, false)
-        }
-    }
-
-    @Nested @DisplayName("Default Values")
-    inner class DefaultValuesTest {
-        @Test @DisplayName("gatewayUrl defaults to localhost when not initialized")
-        fun `gateway url default`() {
-            val field = AppConfig::class.java.getDeclaredField("_gatewayUrl")
-            field.isAccessible = true
-            assertEquals("", field.get(AppConfig))
-        }
-
-        @Test @DisplayName("wsUrl defaults to empty when not initialized")
-        fun `ws url default`() {
-            val field = AppConfig::class.java.getDeclaredField("_wsUrl")
-            field.isAccessible = true
-            assertEquals("", field.get(AppConfig))
-        }
-
-        @Test @DisplayName("appVersion defaults to 1.0.0 when not initialized")
-        fun `app version default`() {
-            val field = AppConfig::class.java.getDeclaredField("_appVersion")
-            field.isAccessible = true
-            assertEquals("1.0.0", field.get(AppConfig))
-        }
-
-        @Test @DisplayName("userAgent defaults to empty when not initialized")
-        fun `user agent default`() {
-            val field = AppConfig::class.java.getDeclaredField("_userAgent")
-            field.isAccessible = true
-            assertEquals("", field.get(AppConfig))
-        }
-
-        @Test @DisplayName("turnUrl defaults to null when not initialized")
-        fun `turn url default`() {
-            val field = AppConfig::class.java.getDeclaredField("_turnUrl")
-            field.isAccessible = true
-            assertNull(field.get(AppConfig))
-        }
-
-        @Test @DisplayName("turnUsername defaults to null when not initialized")
-        fun `turn username default`() {
-            val field = AppConfig::class.java.getDeclaredField("_turnUsername")
-            field.isAccessible = true
-            assertNull(field.get(AppConfig))
-        }
-
-        @Test @DisplayName("turnPassword defaults to null when not initialized")
-        fun `turn password default`() {
-            val field = AppConfig::class.java.getDeclaredField("_turnPassword")
-            field.isAccessible = true
-            assertNull(field.get(AppConfig))
-        }
-
-        @Test @DisplayName("jwtPublicKey defaults to null when not initialized")
-        fun `jwt public key default`() {
-            val field = AppConfig::class.java.getDeclaredField("_jwtPublicKey")
-            field.isAccessible = true
-            assertNull(field.get(AppConfig))
-        }
+    @Test
+    fun `app version defaults to one`() {
+        AppConfig.init(context, overrideUrl = "https://api.example.com")
+        assertEquals("1.0.0", AppConfig.appVersion)
     }
 }

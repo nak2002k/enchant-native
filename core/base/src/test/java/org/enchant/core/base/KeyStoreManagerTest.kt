@@ -1,125 +1,93 @@
 package org.enchant.core.base
 
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.mockkStatic
-import io.mockk.unmockkObject
-import io.mockk.unmockkStatic
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Nested
-import org.junit.jupiter.api.Test
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
-@DisplayName("KeyStoreManager — Full Coverage")
+@Config(sdk = [35])
+@RunWith(AndroidJUnit4::class)
 class KeyStoreManagerTest {
 
-    @BeforeEach
+    private lateinit var context: Context
+
+    @Before
     fun setUp() {
-        mockkObject(SecurePreferences)
-        every { SecurePreferences.getString(any(), any()) } returns null
-        every { SecurePreferences.getString(any()) } returns null
-        mockkStatic(android.util.Log::class)
-        every { android.util.Log.w(any<String>(), any<String>()) } returns 0
+        context = ApplicationProvider.getApplicationContext()
+        resetKeyStoreManager()
     }
 
-    @AfterEach
+    @After
     fun tearDown() {
-        unmockkObject(SecurePreferences)
-        unmockkStatic(android.util.Log::class)
+        resetKeyStoreManager()
     }
 
-    @Nested @DisplayName("Key Aliases")
-    inner class KeyAliasesTest {
-        @Test @DisplayName("KEY_ALIAS_IDENTITY is correct")
-        fun `identity alias`() {
-            assertEquals("enchant_identity_key", KeyStoreManager.KEY_ALIAS_IDENTITY)
-        }
+    private fun resetKeyStoreManager() {
+        val initField = KeyStoreManager::class.java.getDeclaredField("initialized")
+        initField.isAccessible = true
+        initField.set(KeyStoreManager, false)
 
-        @Test @DisplayName("KEY_ALIAS_DB_ENCRYPTION is correct")
-        fun `db encryption alias`() {
-            assertEquals("enchant_db_key", KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION)
-        }
+        val hwField = KeyStoreManager::class.java.getDeclaredField("_isHardwareBacked")
+        hwField.isAccessible = true
+        hwField.set(KeyStoreManager, false)
     }
 
-    @Nested @DisplayName("Hardware Backed")
-    inner class HardwareBackedTest {
-        @Test @DisplayName("isHardwareBacked returns false by default")
-        fun `hardware backed default`() {
-            assertFalse(KeyStoreManager.isHardwareBacked())
-        }
+    @Test
+    fun `key aliases are correct constants`() {
+        assertEquals("enchant_identity_key", KeyStoreManager.KEY_ALIAS_IDENTITY)
+        assertEquals("enchant_db_key", KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION)
     }
 
-    @Nested @DisplayName("Key Exists")
-    inner class KeyExistsTest {
-        @Test @DisplayName("keyExists returns false for non-existent key")
-        fun `key exists false`() {
-            assertFalse(KeyStoreManager.keyExists("nonexistent"))
-        }
+    @Test
+    fun `isHardwareBacked returns false before init`() {
+        assertFalse(KeyStoreManager.isHardwareBacked())
     }
 
-    @Nested @DisplayName("Delete Key")
-    inner class DeleteKeyTest {
-        @Test @DisplayName("deleteKey does not throw for non-existent key")
-        fun `delete key non existent`() {
-            // Should not throw
-            kotlinx.coroutines.test.runTest {
-                KeyStoreManager.deleteKey("nonexistent")
-            }
-        }
+    @Test
+    fun `keyExists returns false for non-existent key`() {
+        assertFalse(KeyStoreManager.keyExists("nonexistent-key"))
     }
 
-    @Nested @DisplayName("Sign")
-    inner class SignTest {
-        @Test @DisplayName("sign returns null for non-existent key")
-        fun `sign non existent`() {
-            kotlinx.coroutines.test.runTest {
-                val result = KeyStoreManager.sign("nonexistent", byteArrayOf(1, 2, 3))
-                assertNull(result)
-            }
-        }
+    @Test
+    fun `deleteKey does not throw for non-existent key`() = runTest {
+        KeyStoreManager.deleteKey("nonexistent-key")
     }
 
-    @Nested @DisplayName("Verify")
-    inner class VerifyTest {
-        @Test @DisplayName("verify returns false for non-existent key")
-        fun `verify non existent`() {
-            kotlinx.coroutines.test.runTest {
-                val result = KeyStoreManager.verify("nonexistent", byteArrayOf(1, 2, 3), byteArrayOf(4, 5, 6))
-                assertFalse(result)
-            }
-        }
+    @Test
+    fun `sign returns null for non-existent key`() = runTest {
+        val result = KeyStoreManager.sign("nonexistent-key", byteArrayOf(1, 2, 3))
+        assertNull(result)
     }
 
-    @Nested @DisplayName("Encrypt")
-    inner class EncryptTest {
-        @Test @DisplayName("encrypt returns null for non-existent key")
-        fun `encrypt non existent`() {
-            kotlinx.coroutines.test.runTest {
-                val result = KeyStoreManager.encrypt("nonexistent", byteArrayOf(1, 2, 3))
-                assertNull(result)
-            }
-        }
+    @Test
+    fun `verify returns false for non-existent key`() = runTest {
+        val result = KeyStoreManager.verify("nonexistent-key", byteArrayOf(1), byteArrayOf(2))
+        assertFalse(result)
     }
 
-    @Nested @DisplayName("Decrypt")
-    inner class DecryptTest {
-        @Test @DisplayName("decrypt returns null for non-existent key")
-        fun `decrypt non existent`() {
-            kotlinx.coroutines.test.runTest {
-                val result = KeyStoreManager.decrypt("nonexistent", byteArrayOf(1, 2, 3))
-                assertNull(result)
-            }
-        }
+    @Test
+    fun `encrypt returns null for non-existent key`() = runTest {
+        val result = KeyStoreManager.encrypt("nonexistent-key", byteArrayOf(1, 2, 3))
+        assertNull(result)
+    }
 
-        @Test @DisplayName("decrypt returns null for too-short ciphertext")
-        fun `decrypt short ciphertext`() {
-            kotlinx.coroutines.test.runTest {
-                val result = KeyStoreManager.decrypt("nonexistent", byteArrayOf(1, 2))
-                assertNull(result)
-            }
-        }
+    @Test
+    fun `decrypt returns null for non-existent key`() = runTest {
+        val result = KeyStoreManager.decrypt("nonexistent-key", byteArrayOf(1, 2, 3))
+        assertNull(result)
+    }
+
+    @Test
+    fun `decrypt returns null for ciphertext shorter than 13 bytes`() = runTest {
+        val result = KeyStoreManager.decrypt("any-key", byteArrayOf(1, 2))
+        assertNull(result)
     }
 }
