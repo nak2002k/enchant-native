@@ -24,6 +24,7 @@ protobuf = "4.34.1"
 security-crypto = "1.1.0-alpha06"
 play-services-auth = "18.1.0"
 bouncycastle = "1.78.1"
+javaxinject = "1"
 core-ktx = "1.15.0"
 appcompat = "1.7.0"
 biometric = "1.1.0"
@@ -71,6 +72,7 @@ core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf" }
+javaxinject = { module = "javax.inject:javax.inject", version.ref = "javaxinject" }
 leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 leakcanary-android-core = { module = "com.squareup.leakcanary:leakcanary-android-core", version.ref = "leakcanary" }
 junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5" }

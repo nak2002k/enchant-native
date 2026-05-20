@@ -11,7 +11,7 @@ import org.enchant.core.calls.model.CallState as CallStateModel
 import java.util.UUID
 import javax.inject.Inject
 
-class CallLogger @Inject constructor(
+class CallLogger(
     private val databasePool: DatabasePool
 ) {
     suspend fun insertCallLog(state: CallStateModel) {

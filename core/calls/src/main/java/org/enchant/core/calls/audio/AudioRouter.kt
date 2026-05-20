@@ -3,7 +3,7 @@ package org.enchant.core.calls.audio
 import android.media.AudioManager
 import javax.inject.Inject
 
-class AudioRouter @Inject constructor(
+class AudioRouter(
     private val audioManager: AudioManager
 ) {
     fun selectDevice(device: org.enchant.core.calls.model.AudioDevice) {

@@ -9,7 +9,7 @@ import org.webrtc.*
 import java.util.UUID
 import javax.inject.Inject
 
-class MediaStreamManager @Inject constructor(
+class MediaStreamManager(
     private val context: Context,
     private val engine: WebRtcEngine
 ) {

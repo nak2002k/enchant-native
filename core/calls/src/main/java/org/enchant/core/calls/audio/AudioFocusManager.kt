@@ -6,7 +6,7 @@ import android.media.AudioManager
 import android.os.Build
 import javax.inject.Inject
 
-class AudioFocusManager @Inject constructor(
+class AudioFocusManager(
     private val audioManager: AudioManager
 ) {
     private var focusRequest: AudioFocusRequest? = null

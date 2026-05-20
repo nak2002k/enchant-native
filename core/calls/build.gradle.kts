@@ -28,6 +28,7 @@ dependencies {
     implementation(libs.webrtc)
     implementation(libs.protobuf.javalite)
     implementation(libs.core.ktx)
+    implementation(libs.javaxinject)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))

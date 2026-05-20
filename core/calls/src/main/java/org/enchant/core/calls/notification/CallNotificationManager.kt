@@ -9,7 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import javax.inject.Inject
 
-class CallNotificationManager @Inject constructor(
+class CallNotificationManager(
     private val context: Context
 ) {
     companion object {

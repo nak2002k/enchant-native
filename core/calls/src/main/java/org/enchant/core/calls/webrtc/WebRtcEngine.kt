@@ -6,12 +6,12 @@ import org.webrtc.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
-class WebRtcEngine @Inject constructor(
+class WebRtcEngine(
     private val context: Context
 ) {
     private var rootEglBase: EglBase? = null
-    private var peerConnectionFactory: PeerConnectionFactory? = null
+    var peerConnectionFactory: PeerConnectionFactory? = null
+        private set
     private var audioManager: android.media.AudioManager? = null
 
     @Volatile

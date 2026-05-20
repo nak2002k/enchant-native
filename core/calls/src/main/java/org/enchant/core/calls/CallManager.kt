@@ -18,11 +18,8 @@ import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.SessionDescription
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class CallManager @Inject constructor(
+class DefaultCallManager(
     private val stateMachine: CallStateMachine,
     private val webRtcEngine: WebRtcEngine,
     private val mediaStreamManager: MediaStreamManager,

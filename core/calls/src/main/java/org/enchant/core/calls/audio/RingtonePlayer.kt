@@ -14,7 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-class RingtonePlayer @Inject constructor(
+class RingtonePlayer(
     private val context: Context
 ) {
     private var mediaPlayer: MediaPlayer? = null
