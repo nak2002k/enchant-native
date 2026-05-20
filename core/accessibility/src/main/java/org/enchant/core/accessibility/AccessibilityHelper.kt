@@ -61,7 +61,7 @@ object AccessibilityHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             return areAnimationsDisabled(context)
         }
-        return areAnimationsDisabled(context)
+        return areAnimationsDisabled(context) || isLargeFontScale(context)
     }
 
     /**

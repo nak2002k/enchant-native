@@ -65,7 +65,7 @@ object AccessibilityDelegate {
      * Content description for a group avatar.
      */
     fun getGroupAvatarDescription(context: Context, groupName: String): String {
-        val name = groupName.ifBlank { "Unknown group" }
+        val name = groupName.ifBlank { return context.getString(R.string.a11y_avatar_group_unknown) }
         return context.getString(R.string.a11y_avatar_group, name)
     }
 

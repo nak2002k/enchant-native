@@ -123,6 +123,7 @@ class AccessibilityDelegateTest {
     fun `empty group name`() {
         val result = AccessibilityDelegate.getGroupAvatarDescription(context, "")
         assertTrue(result.contains("Unknown group"))
+        assertTrue(result.contains("avatar"))
     }
 
     @Test

@@ -72,6 +72,7 @@
     <string name="a11y_avatar_offline">%1$s\'s avatar. Offline.</string>
     <string name="a11y_avatar_unknown">Unknown user\'s avatar.</string>
     <string name="a11y_avatar_group">Group avatar for %1$s.</string>
+    <string name="a11y_avatar_group_unknown">Unknown group\'s avatar.</string>
 
     <!-- Accessibility: Reaction descriptions -->
     <string name="a11y_reactions_count">%1$s %2$s reactions. Tap to view.</string>
