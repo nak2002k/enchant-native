@@ -1,10 +1,18 @@
 package org.enchant.core.base
 
+/**
+ * Thread-safe LRU (Least Recently Used) cache with a fixed maximum size.
+ *
+ * Uses a [LinkedHashMap] with access-order iteration to automatically
+ * evict the least recently used entry when the cache is full.
+ *
+ * @param maxSize the maximum number of entries the cache can hold
+ */
 class LRUCache<K : Any, V : Any>(
     private val maxSize: Int
 ) {
 
-    private val map = object : LinkedHashMap<K, V>(0, 0.75f, true) {
+    private val map = object : LinkedHashMap<K, V>(maxSize / 2 + 1, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>): Boolean {
             return size > maxSize
         }
@@ -38,4 +46,7 @@ class LRUCache<K : Any, V : Any>(
 
     @Synchronized
     fun values(): List<V> = ArrayList(map.values)
+
+    @Synchronized
+    fun keys(): Set<K> = LinkedHashSet(map.keys)
 }

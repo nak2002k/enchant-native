@@ -17,8 +17,8 @@ class UuidUtilTest {
     }
 
     @Test
-    fun `parseOrNull returns null for null input`() {
-        assertNull(UuidUtil.parseOrNull(null))
+    fun `parseOrNull returns null for null string input`() {
+        assertNull(UuidUtil.parseOrNull(null as String?))
     }
 
     @Test
