@@ -4,18 +4,35 @@ import android.content.ContentValues
 import androidx.sqlite.db.SupportSQLiteDatabase
 import org.enchant.core.base.logging.Log
 
+/**
+ * SQL utility helpers for safe and efficient SQLite operations.
+ *
+ * Provides collection query building, bulk insert batching, true-update
+ * detection, and schema introspection — all parameterized to prevent
+ * SQL injection.
+ */
 object SqlUtil {
 
     private val TAG = Log.tag(SqlUtil::class)
 
+    /**
+     * Maximum number of bind arguments allowed in a single SQLite statement.
+     * SQLite's default limit is 999 (SQLITE_MAX_VARIABLE_NUMBER).
+     */
     const val MAX_QUERY_ARGS = 999
 
+    /**
+     * Checks whether a table exists in the database.
+     */
     fun tableExists(db: SupportSQLiteDatabase, table: String): Boolean {
         db.query("SELECT name FROM sqlite_master WHERE type=? AND name=?", arrayOf("table", table)).use { cursor ->
-            return cursor != null && cursor.moveToNext()
+            return cursor.moveToNext()
         }
     }
 
+    /**
+     * Returns the names of all user tables in the database.
+     */
     fun getAllTables(db: SupportSQLiteDatabase): List<String> {
         val tables = mutableListOf<String>()
         db.query("SELECT name FROM sqlite_master WHERE type=?", arrayOf("table")).use { cursor ->
@@ -26,6 +43,9 @@ object SqlUtil {
         return tables
     }
 
+    /**
+     * Checks whether a column exists in the given table.
+     */
     fun columnExists(db: SupportSQLiteDatabase, table: String, column: String): Boolean {
         db.query("PRAGMA table_info($table)", arrayOf()).use { cursor ->
             val nameColumnIndex = cursor.getColumnIndexOrThrow("name")
@@ -36,12 +56,21 @@ object SqlUtil {
         return false
     }
 
+    /**
+     * Returns true if the table contains no rows.
+     */
     fun isEmpty(db: SupportSQLiteDatabase, table: String): Boolean {
         db.query("SELECT COUNT(*) FROM $table", arrayOf()).use { cursor ->
             return if (cursor.moveToFirst()) cursor.getInt(0) == 0 else true
         }
     }
 
+    /**
+     * Builds a collection of IN/NOT IN queries, chunked to respect [MAX_QUERY_ARGS].
+     *
+     * Example: `buildCollectionQuery("id", listOf(1,2,3))` produces
+     * `"id IN (?, ?, ?)"` with args `[1, 2, 3]`.
+     */
     fun buildCollectionQuery(
         column: String,
         values: Collection<Any?>,
@@ -74,6 +103,13 @@ object SqlUtil {
         return Query("$prefix $column ${collectionOperator.sql} ($query)".trim(), buildArgs(*args))
     }
 
+    /**
+     * Builds a bulk INSERT statement with multiple value rows, chunked to
+     * respect [maxQueryArgs].
+     *
+     * Non-null non-ByteArray values are bound as parameters. ByteArray values
+     * are inlined as hex literals (`X'...'`) to avoid bloating the bind arg count.
+     */
     fun buildBulkInsert(
         tableName: String,
         columns: Array<String>,
@@ -91,7 +127,7 @@ object SqlUtil {
         tableName: String,
         columns: Array<String>,
         contentValues: List<ContentValues>,
-        onConflict: String? = null
+        onConflict: String?
     ): Query {
         val conflictString = onConflict?.let { " OR $onConflict" } ?: ""
         val builder = StringBuilder()
@@ -123,23 +159,32 @@ object SqlUtil {
         return Query(builder.toString(), args.toTypedArray())
     }
 
+    /**
+     * Builds a WHERE clause that only updates rows where the ContentValues
+     * values differ from the current database values (a "true update").
+     *
+     * This prevents unnecessary writes and trigger firings when the data
+     * hasn't actually changed.
+     *
+     * @param selection the base WHERE clause
+     * @param args bind arguments for the base clause
+     * @param contentValues the values to update
+     * @param columns explicit list of column names being updated. If null or empty,
+     *   attempts to extract keys from ContentValues via valueSet() (API 28+) or
+     *   reflection. Falls back to the original selection if extraction fails.
+     */
     fun buildTrueUpdateQuery(
         selection: String,
         args: Array<String>,
-        contentValues: ContentValues
+        contentValues: ContentValues,
+        columns: Array<String>? = null
     ): Query {
         val qualifier = StringBuilder()
         val fullArgs = args.toMutableList()
-        // Uses ContentValues accessors instead of valueSet() for Robolectric compat.
-        // valueSet() was added in API 28.
-        val keys = try {
-            contentValues.valueSet()?.map { it.key } ?: emptyList()
-        } catch (_: Exception) {
-            emptyList()
-        }
-        // TODO(EN): full implementation pending proper ContentValues key enumeration.
-        // For now, fall back to simple query without true-update comparison.
+
+        val keys = columns?.toList() ?: getContentValuesKeys(contentValues)
         if (keys.isEmpty()) return Query(selection, args)
+
         var i = 0
         for (key in keys) {
             val value = contentValues.get(key)
@@ -158,6 +203,30 @@ object SqlUtil {
             i++
         }
         return Query("($selection) AND ($qualifier)", fullArgs.toTypedArray())
+    }
+
+    /**
+     * Extracts keys from a ContentValues instance.
+     *
+     * Uses the official valueSet() method on API 28+. Falls back to
+     * reflection for older API levels.
+     */
+    private fun getContentValuesKeys(contentValues: ContentValues): List<String> {
+        try {
+            return contentValues.valueSet()?.map { it.key } ?: emptyList()
+        } catch (_: NoSuchMethodError) {
+        }
+
+        try {
+            val mValuesField = ContentValues::class.java.getDeclaredField("mValues")
+            mValuesField.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val values = mValuesField.get(contentValues) as Map<String, Any?>
+            return values.keys.toList()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to extract ContentValues keys: ${e.message}")
+            return emptyList()
+        }
     }
 
     data class Query(

@@ -70,3 +70,40 @@ suspend fun topUpOpks() {
 **Fix needed:** `storeOpksLocally` should either:
 - Append new OPKs at the end of existing ones (e.g., start at index `currentCount`), or
 - Have the server clear old OPKs before uploading new ones (add a `PUT`/`DELETE` endpoint call)
+Plan: Rewrite core/base Module
+Phase 1: Security Fixes (existing files)
+1. stream/NonClosingOutputStream.kt — Fix close() to call flush() (data loss bug)
+2. stream/LimitedInputStream.kt — Use Math.toIntExact() for overflow safety, add logging on leftoverStream()
+3. ByteArrayExtensions.kt — Replace custom constantTimeEquals with MessageDigest.isEqual() (timing attack resistance)
+4. SqlUtil.kt — Complete the TODO in buildTrueUpdateQuery
+Phase 2: New Security Utilities
+5. logging/Scrubber.kt — PII scrubber (phones, emails, UUIDs, IPs, URLs) with HMAC-based consistent hashing
+6. stream/StreamUtil.kt — readFully() with maxBytes (OOM prevention), copy(), null-safe close()
+Phase 3: Enhanced Logging
+7. logging/Log.kt — Add internal() pattern, flush(), blockUntilAllWritesFinished()
+8. logging/AndroidLogger.kt — Serial executor for log writes, prevent interleaving
+9. logging/CompoundLogger.kt — Multi-sink logging (logcat + persistent file)
+10. logging/NoopLogger.kt — Explicit no-op implementation
+Phase 4: Enhanced Existing Utilities
+11. Base64.kt — ByteArray decode overload, offset/length encode, KDoc
+12. Hex.kt — dump() hexdump method, offset/length, fromStringOrThrow
+13. UuidUtil.kt — parseOrUnknown, filterKnown, batch conversion, byte array validation
+14. E164Util.kt — Formatter class (cached parsing), short code detection, input sanitization
+15. SqlUtil.kt — buildFastCollectionQuery (JSON1), FK violation detection, getNextAutoIncrementId
+16. KeyStoreManager.kt — MasterSecret pattern, key rotation support
+17. SecurePreferences.kt — Batch writes, crash-resilient writes
+18. CoroutineDispatchers.kt — Test dispatcher support
+19. FlowExtensions.kt — debounceLatest, retry, mapNotNull, distinctUntilChanged
+20. Stopwatch.kt — Overflow safety, KDoc
+21. ResettableLazy.kt — toString() override, KDoc
+22. Result.kt — KDoc, @JvmStatic
+23. LRUCache.kt — Optimized initial capacity
+24. StringExtensions.kt — Sanitization utilities
+25. AppConfig.kt — Runtime config override, KDoc
+Phase 5: Concurrency & Reliability
+26. concurrent/KeyedSerialExecutor.kt — Per-key serial execution with LIFO ordering
+27. concurrent/AnrDetector.kt — ANR (Application Not Responding) detection
+28. concurrent/DeadlockDetector.kt — Thread deadlock detection
+29. EnchantExecutors.kt — Integrate new executors
+Phase 6: Tests
+30. Write comprehensive tests for all new/changed files (95%+ core, 90%+ services)

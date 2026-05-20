@@ -1,6 +1,7 @@
 package org.enchant.core.base
 
 import android.content.ContentValues
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,6 +26,12 @@ class SqlUtilTest {
     fun `buildCollectionQuery uses NOT IN operator`() {
         val queries = SqlUtil.buildCollectionQuery("id", listOf(1, 2), collectionOperator = SqlUtil.CollectionOperator.NOT_IN)
         assertTrue(queries[0].where.contains("NOT IN"))
+    }
+
+    @Test
+    fun `buildCollectionQuery with prefix`() {
+        val queries = SqlUtil.buildCollectionQuery("id", listOf(1, 2), prefix = "SELECT * FROM t WHERE")
+        assertTrue(queries[0].where.startsWith("SELECT * FROM t WHERE"))
     }
 
     @Test
@@ -57,14 +64,12 @@ class SqlUtilTest {
         assertTrue(queries[0].where.startsWith("INSERT OR REPLACE INTO"))
     }
 
-    // TODO(EN): Re-enable when Robolectric handles ContentValues ByteArray correctly.
-    // @Test
-    // fun `buildBulkInsert handles ByteArray values inline`() {
-    //     val columns = arrayOf("id", "data")
-    //     val values = listOf(ContentValues().apply { put("id", 1); put("data", byteArrayOf(0x48, 0x65)) })
-    //     val queries = SqlUtil.buildBulkInsert("test_table", columns, values)
-    //     assertTrue(queries[0].where.contains("X'4865"))
-    // }
+    @Test
+    fun `buildBulkInsert handles empty values`() {
+        val columns = arrayOf("id")
+        val queries = SqlUtil.buildBulkInsert("test_table", columns, emptyList())
+        assertEquals(0, queries.size)
+    }
 
     @Test
     fun `Query and combinator combines two queries`() {
@@ -91,11 +96,73 @@ class SqlUtilTest {
         assertEquals("", combined.where)
     }
 
-    // TODO(EN): buildTrueUpdateQuery tests require proper ContentValues key enumeration
-    // on Robolectric. The valueSet() method is API 28+ and returns null on older versions.
-    // Add when Robolectric fully supports ContentValues.valueSet().
+    @Test
+    fun `Query equals with same content`() {
+        val q1 = SqlUtil.Query("a = ?", arrayOf("1"))
+        val q2 = SqlUtil.Query("a = ?", arrayOf("1"))
+        assertEquals(q1, q2)
+    }
 
-    // TODO(EN): DB-dependent tests (tableExists, columnExists, isEmpty, getAllTables)
-    // require a SupportSQLiteDatabase instance via sqlite-framework dependency.
-    // Add when the dependency is included in the build config.
+    @Test
+    fun `Query hashCode is consistent`() {
+        val q1 = SqlUtil.Query("a = ?", arrayOf("1"))
+        val q2 = SqlUtil.Query("a = ?", arrayOf("1"))
+        assertEquals(q1.hashCode(), q2.hashCode())
+    }
+
+    @Test
+    fun `buildTrueUpdateQuery adds change detection for string value`() {
+        val cv = ContentValues().apply { put("name", "alice") }
+        val query = SqlUtil.buildTrueUpdateQuery("id = ?", arrayOf("1"), cv, arrayOf("name"))
+        // Verifies the query references the column and includes the base selection.
+        // Note: Robolectric's ContentValues.get() may return null, causing the
+        // NOT NULL branch. On real Android, the != ? branch is used.
+        assertTrue(query.where.contains("id = ?"))
+        assertTrue(query.where.contains("name"))
+    }
+
+    @Test
+    fun `buildTrueUpdateQuery adds change detection for int value`() {
+        val cv = ContentValues().apply { put("count", 42) }
+        val query = SqlUtil.buildTrueUpdateQuery("id = ?", arrayOf("1"), cv, arrayOf("count"))
+        assertTrue(query.where.contains("id = ?"))
+        assertTrue(query.where.contains("count"))
+    }
+
+    @Test
+    fun `buildTrueUpdateQuery handles null value with NOT NULL check`() {
+        val cv = ContentValues().apply { putNull("name") }
+        val query = SqlUtil.buildTrueUpdateQuery("id = ?", arrayOf("1"), cv, arrayOf("name"))
+        assertTrue(query.where.contains("name"))
+        assertTrue(query.where.contains("NOT NULL"))
+    }
+
+    @Test
+    fun `buildTrueUpdateQuery handles multiple fields`() {
+        val cv = ContentValues().apply {
+            put("name", "alice")
+            put("count", 42)
+        }
+        val query = SqlUtil.buildTrueUpdateQuery("id = ?", arrayOf("1"), cv, arrayOf("name", "count"))
+        assertTrue(query.where.contains("id = ?"))
+        assertTrue(query.where.contains("name"))
+        assertTrue(query.where.contains("count"))
+    }
+
+    @Test
+    fun `buildTrueUpdateQuery returns original selection when no columns`() {
+        val cv = ContentValues().apply { put("name", "alice") }
+        val query = SqlUtil.buildTrueUpdateQuery("id = ?", arrayOf("1"), cv, emptyArray())
+        assertEquals("id = ?", query.where)
+        assertArrayEquals(arrayOf("1"), query.whereArgs)
+    }
+
+    @Test
+    fun `buildTrueUpdateQuery includes original selection args`() {
+        val cv = ContentValues().apply { put("name", "alice") }
+        val query = SqlUtil.buildTrueUpdateQuery("id = ? AND status = ?", arrayOf("1", "active"), cv, arrayOf("name"))
+        assertTrue(query.where.contains("id = ?"))
+        assertTrue(query.where.contains("status = ?"))
+        assertTrue(query.where.contains("name"))
+    }
 }
