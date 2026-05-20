@@ -3,6 +3,8 @@ package org.enchant.core.calls
 import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import org.enchant.core.calls.audio.AudioRouter
 import org.enchant.core.calls.audio.AudioFocusManager
 import org.enchant.core.calls.audio.RingtonePlayer
@@ -12,6 +14,7 @@ import org.enchant.core.calls.observer.CallObserverRegistry
 import org.enchant.core.calls.webrtc.IceCandidateHandler
 import org.enchant.core.calls.webrtc.MediaStreamManager
 import org.enchant.core.calls.webrtc.SdpHandler
+import org.enchant.core.calls.webrtc.StatsCollector
 import org.enchant.core.calls.webrtc.WebRtcEngine
 import org.webrtc.IceCandidate
 import org.webrtc.MediaStream
@@ -40,6 +43,7 @@ class DefaultCallManager(
     private var durationJob: Job? = null
     private var turnServers: List<IceServer> = emptyList()
     private var turnServersFetchedAt: Long = 0
+    private var statsCollector: StatsCollector? = null
 
     init {
         webRtcEngine.initialize()
@@ -56,6 +60,10 @@ class DefaultCallManager(
         if (!stateMachine.startOutgoing(remoteUserId, isVideo, callId)) {
             stateMachine.setError("Already in a call")
             return
+        }
+
+        if (!audioFocusManager.requestFocus()) {
+            Log.w("CallManager", "Audio focus not granted")
         }
 
         observerRegistry.notifyStarted(remoteUserId, isVideo)
@@ -104,6 +112,10 @@ class DefaultCallManager(
 
     suspend fun acceptCall(withVideo: Boolean) {
         if (!stateMachine.acceptCall()) return
+
+        if (!audioFocusManager.requestFocus()) {
+            Log.w("CallManager", "Audio focus not granted")
+        }
 
         notificationManager.cancelIncoming()
 
@@ -302,11 +314,14 @@ class DefaultCallManager(
     private fun cleanup() {
         durationJob?.cancel()
         durationJob = null
+        statsCollector?.stopCollecting()
+        statsCollector = null
         peerConnection?.close()
         peerConnection?.dispose()
         peerConnection = null
         iceHandler.clear()
         mediaStreamManager.release()
+        audioFocusManager.abandonFocus()
     }
 
     private fun createPeerConnectionObserver(): PeerConnection.Observer {
@@ -326,6 +341,7 @@ class DefaultCallManager(
                         stateMachine.setConnected()
                         observerRegistry.notifyConnected()
                         iceHandler.drainAndApply(peerConnection!!)
+                        startStatsCollection()
                     }
                     PeerConnection.IceConnectionState.DISCONNECTED -> {
                         stateMachine.setReconnecting()
@@ -347,6 +363,18 @@ class DefaultCallManager(
             override fun onDataChannel(channel: org.webrtc.DataChannel) {}
             override fun onRenegotiationNeeded() {}
             override fun onAddTrack(receiver: org.webrtc.RtpReceiver, tracks: Array<MediaStream>) {}
+        }
+    }
+
+    private fun startStatsCollection() {
+        val pc = peerConnection ?: return
+        statsCollector = StatsCollector(pc).also { collector ->
+            collector.stats
+                .onEach { stats -> observerRegistry.notifyQuality(stats) }
+                .launchIn(callScope)
+            callScope.launch {
+                collector.startCollecting()
+            }
         }
     }
 }
