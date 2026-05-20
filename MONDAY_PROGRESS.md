@@ -1,4 +1,4 @@
-# Monday Full Codebase Audit — Progress Report
+[# Monday Full Codebase Audit — Progress Report
 
 > Date: 2026-05-19
 > Scope: 218 .kt files across 33 modules (app/ + 17 core/ + 15 feature/)
@@ -170,3 +170,194 @@ grep -c "### .*:" MONDAY_AUDIT.md
 # Run existing tests
 ./gradlew testDebugUnitTest --no-daemon
 ```
+](Thinking: Now I have a comprehensive understanding of all 14 core modules. Let me compile the assessment.
+Here is the comprehensive assessment of all 14 core modules:
+---
+1. core/crypto
+Source files (8 main + 8 test):
+File	Description
+CryptoHelper.kt (322 lines)	Core cryptographic primitives: X25519 key generation, Ed25519 signing, XChaCha20-Poly1305 encryption, HKDF-SHA256, SHA-256/384/512, constant-time comparison, base64url encoding/decoding, hChaCha20 implementation
+DoubleRatchet.kt (405 lines)	Signal-style double ratchet: encrypt/decrypt, header serialization, skipped message key handling, state serialization/deserialization, memory zeroing
+X3DH.kt (128 lines)	Extended Triple Diffie-Hellman key agreement: Alice initiate and Bob respond flows, with optional one-time prekey support
+SessionManager.kt (346 lines)	End-to-end session management: encrypt/decrypt messages, pre-key message handling, session persistence, safety numbers, identity key verification
+KeyManager.kt (370 lines)	Identity key, signed prekey, and one-time prekey lifecycle: generation, storage (KeyStore-backed), upload to server, rotation, top-up
+SenderKeyManager.kt (124 lines)	Sender key encryption for group messages: distribution messages, encrypt/decrypt group messages, group key cleanup
+SodiumProvider.kt (24 lines)	libsodium JNI wrapper stub -- delegates to CryptoHelper; memlock/munlock are no-ops
+PreKeyWorker.kt (41 lines)	Android WorkManager periodic worker for prekey rotation (every 30 days)
+Tests (8): CryptoHelperTest, DoubleRatchetTest, X3DHTest, SessionManagerTest, KeyManagerTest, SenderKeyManagerTest, SodiumProviderTest, BugFixVerificationTest
+Assessment: Mature and well-tested. This is the most substantial module with a full X3DH + Double Ratchet + Sender Keys stack. Memory zeroing is done throughout. Only SodiumProvider is a stub.
+---
+2. core/auth
+Source files (3 main + 5 test):
+File	Description
+AuthManager.kt (272 lines)	High-level auth orchestration: OTP request/verify, token refresh, logout, delete account, key registration, profile update, username search. State management via StateFlow
+AuthRepository.kt (210 lines)	API layer for auth: request OTP, verify OTP, refresh token, logout, device management, account deletion, JWKS fetch, key registration/rotation/OPK upload
+AuthStateMachine.kt (188 lines)	Registration state machine: Welcome -> PhoneEntry -> OtpVerification -> Permissions -> ProfileSetup -> UsernamePicker -> KeyGeneration -> Complete, with event-driven transitions
+Tests (5): AuthManagerTest, AuthRepositoryTest, AuthStateMachineTest, AuthBackendIntegrationTest, E2EEMessagingIntegrationTest
+Assessment: Complete and well-tested. Full OTP-based registration flow with state machine, key management integration, and profile management.
+---
+3. core/config
+Source files (1 main, 0 test):
+File	Description
+RemoteConfig.kt (36 lines)	Simple in-memory configuration store with defaults (message retention, max group size, media size, prekey rotation, etc.) and override support via ConcurrentHashMap
+Tests: None
+Assessment: Minimal/stub. Only local defaults with in-memory overrides. No mechanism to fetch from a remote config server, no disk persistence, no tests. Needs significant expansion.
+---
+4. core/network
+Source files (7 main + 1 models + 4 test):
+File	Description
+ApiClient.kt (213 lines)	OkHttp-based REST client: GET/POST/PUT/DELETE, binary download, file upload, anonymous requests, automatic retry (429, 5xx), rate limit tracking
+AuthInterceptor.kt (120 lines)	OkHttp interceptor: Bearer token injection, automatic 401 handling with token refresh, thread-safe refresh coordination
+WebSocketManager.kt (497 lines)	WebSocket client: connect/auth, message send/receive (protobuf frames), keep-alive, JWT refresh, reconnect with exponential backoff, typing/receipt/call signaling
+WebSocketService.kt (124 lines)	Foreground service wrapping WebSocketManager with notification
+ConnectivityMonitor.kt (82 lines)	Android ConnectivityManager wrapper: online/offline state, network type detection (WiFi/cellular/ethernet) via StateFlow
+OfflineQueue.kt (140 lines)	Offline message queue: enqueue, drain on reconnect, disk persistence, retry with backoff, eviction
+RateLimitTracker.kt (62 lines)	Rate limit tracking: call logging, header parsing (X-RateLimit-*), automatic wait
+models/ApiModels.kt (187 lines)	25+ serializable data classes for all API request/response types
+Tests (4): ApiClientTest, WebSocketManagerTest, ConnectivityMonitorTest, OfflineQueueTest
+Assessment: Complete and well-tested. Full REST + WebSocket networking stack with auth, offline support, rate limiting, and connectivity monitoring.
+---
+5. core/database
+Source files (1 main + 12 DAOs + 1 entity + 2 utils + 4 test):
+File	Description
+AppDatabase.kt (271 lines)	SQLCipher-encrypted SQLite database: WAL mode, reader pool (4 readers), migrations (v1->v2->v3), full schema (15 tables), FTS5 search triggers
+entity/Entities.kt (149 lines)	15 data classes mirroring DB tables: MessageEntity, ConversationEntity, SignalSessionEntity, IdentityEntity, KeyMaterialEntity, RecipientEntity, GroupEntity, GroupMemberEntity, MediaCacheEntity, ProfileCacheEntity, CallLogEntity, StatusCacheEntity, StickerPackEntity, InstalledStickerEntity
+util/CursorMapper.kt (59 lines)	Reflection-based Cursor-to-data-class mapper with camelCase-to-snake_case conversion
+util/DatabaseNotifier.kt	Table change notification via Flow (referenced by DAOs)
+dao/ConversationDao.kt (101 lines)	CRUD + Flow-based reactive queries, search, archive/pin/mute, unread count
+dao/MessageDao.kt (199 lines)	Insert, batch insert, get by ID/envelope, paginated conversation messages, FTS5 search, star/pin/delete, expire, status updates
+dao/SessionDao.kt (43 lines)	Signal session store/load/delete/loadAll
+dao/IdentityDao.kt (36 lines)	Identity key CRUD
+dao/KeyMaterialDao.kt (32 lines)	Key material CRUD
+dao/RecipientDao.kt (76 lines)	Recipient CRUD, block/unblock, search
+dao/GroupDao.kt (43 lines)	Group CRUD
+dao/GroupMemberDao.kt (34 lines)	Group member CRUD
+dao/CallLogDao.kt (44 lines)	Call log CRUD
+dao/MediaCacheDao.kt (26 lines)	Media cache CRUD
+dao/ProfileCacheDao.kt (33 lines)	Profile cache CRUD
+dao/StatusCacheDao.kt (38 lines)	Status cache CRUD
+dao/StickerPackDao.kt (38 lines)	Sticker pack CRUD
+dao/InstalledStickerDao.kt (28 lines)	Installed stickers CRUD
+Tests (4): ConversationDaoTest, MessageDaoTest, SessionDaoTest, DatabasePoolTest
+Assessment: Complete and well-tested. SQLCipher-encrypted database with 15 tables, FTS5 search, 12 DAOs, reactive Flow-based queries, and migrations.
+---
+6. core/model
+Source files (1 main, 0 test):
+File	Description
+DomainModels.kt (90 lines)	Domain data classes: Conversation, Message, Reaction, Mention, User, BodyRange, LinkPreview with enums (ConversationType, MessageStatus, BodyRangeType) and entity-to-domain mappers
+Tests: None
+Assessment: Complete but untested. Clean domain models with safe enum parsing and entity conversion. No dedicated tests.
+---
+7. core/protos
+Source files (0 Kotlin + 15 proto + 0 test):
+File
+AttachmentPointer.proto
+BodyRange.proto
+CallMessage.proto
+Content.proto
+DataMessage.proto
+Envelope.proto
+GroupContext.proto
+InternalSerialization.proto
+Provisioning.proto
+ReceiptMessage.proto
+StorageService.proto
+StoryMessage.proto
+SyncMessage.proto
+TypingMessage.proto
+WebSocketResources.proto
+Tests: None (proto files are typically not unit-tested directly)
+Assessment: Complete. 15 protobuf definitions covering the full Signal-compatible protocol surface. No Kotlin source files -- generated code lives in build/.
+---
+8. core/push
+Source files (5 main, 0 test):
+File	Description
+PushTokenRegistrar.kt (70 lines)	FCM token management: get token, register/deregister with backend, Play Services availability check
+FcmReceiveService.kt (56 lines)	FirebaseMessagingService: onMessageReceived (foreground vs background dispatch), onNewToken, onDeletedMessages
+FcmFetchManager.kt (64 lines)	FCM fetch scheduling with exponential backoff, state tracking via StateFlow
+FcmFetchForegroundService.kt (64 lines)	Foreground service for background FCM fetch
+HuaweiPushFallback.kt (65 lines)	HTTP polling fallback for Huawei devices without GMS
+Tests: None
+Assessment: Complete but untested. Full FCM push pipeline with Huawei fallback. No unit tests.
+---
+9. core/notifications
+Source files (6 main + 1 test):
+File	Description
+NotificationChannels.kt (44 lines)	Creates 5 notification channels: Messages, Messages (Silent), Calls, Voice Messages, Other
+NotificationBuilder.kt (179 lines)	Builds message notifications (InboxStyle), summary notifications, call notifications, reply/mark-read actions
+MessageNotifier.kt (112 lines)	Orchestrates notifications per conversation: aggregation, summary updates, cancel
+OptimizedMessageNotifier.kt (73 lines)	Batched notification queue: debounced flush (50ms), groups by conversation
+NotificationReplyReceiver.kt (74 lines)	BroadcastReceiver for inline reply and mark-as-read from notifications
+NotificationProfileHelper.kt (97 lines)	Scheduled notification profiles (Android 12+): create/update/delete profiles with time schedules
+Tests (1): NotificationChannelsTest
+Assessment: Complete but under-tested. Full notification system with channels, inline reply, batching, and profiles. Only 1 test file for 6 source files.
+---
+10. core/jobmanager
+Source files (2 main + 2 test):
+File	Description
+JobManager.kt (123 lines)	In-memory job queue with persistence: enqueue, tag-based handlers, retry with backoff, disk restore, max 50 pending jobs
+DisappearingMessagesWorker.kt (29 lines)	Rate-limited tick handler for disappearing message cleanup (60s interval)
+Tests (2): JobManagerTest, DisappearingMessagesWorkerTest
+Assessment: Mostly complete. JobManager is solid with persistence and retry. DisappearingMessagesWorker is a thin coordinator that delegates to an external handler -- no built-in DB cleanup.
+---
+11. core/calls
+Source files (8 main + 1 test):
+File	Description
+CallManager.kt (530 lines)	Full WebRTC call manager: outgoing/incoming calls, SDP offer/answer, ICE candidates, mute/video/speaker/flip/hold, call reconnection, group call updates, TURN server fetch, call logs, hand raise, reactions, remote mute
+CallState.kt (76 lines)	Call state data classes and enums: CallState, CallLogEntry, PeekInfo, CallLinkData, IceServer, CallSummary, status/direction/type enums
+WebRtcService.kt (209 lines)	WebRTC PeerConnectionFactory wrapper: create PC, offer/answer, ICE, local stream (audio+video), camera switching, speaker control, cleanup
+AudioRouter.kt (176 lines)	Audio management: focus request, incoming/outgoing ringer, vibrate, disconnect tone, device selection (speaker/earpiece/Bluetooth/headset)
+ActiveCallManager.kt (102 lines)	Active call notification management: show/update/cancel notification, start/stop call screen
+CallForegroundService.kt (112 lines)	Foreground service for active calls with notification and CallManager lifecycle
+CallNotificationReceiver.kt (27 lines)	BroadcastReceiver for call notification actions (mute/speaker/hangup)
+CallObserver.kt (60 lines)	Observer interface + registry for call events
+Tests (1): CallManagerTest
+Assessment: Complete but under-tested. Full WebRTC calling stack with signaling, audio routing, foreground service, and notifications. Only 1 test file for 8 source files.
+---
+12. core/crash
+Source files (1 main + 1 test):
+File	Description
+CrashReporter.kt (86 lines)	Firebase Crashlytics wrapper: log, logEvent, logError, logDecryptionFailure, setUserId, recordException, setCustomKey, scrub (PII redaction)
+Tests (1): CrashReporterTest
+Assessment: Complete and tested. Thin but functional Crashlytics wrapper with PII scrubbing.
+---
+13. core/navigation
+Source files (2 main + 1 test):
+File	Description
+NavRoute.kt (52 lines)	Sealed class with 40+ navigation routes: auth flow, chat, calls, groups, settings, status, stickers, share, QR, media viewer
+NavHost.kt (43 lines)	Extension functions for NavController: navigate, navigateAndClearStack with route string construction
+Tests (1): NavRouteTest
+Assessment: Complete and tested. Comprehensive route definitions covering the full app surface.
+---
+14. core/performance
+Source files (4 main + 2 test):
+File	Description
+MessageCache.kt (45 lines)	Generic LRU cache: per-conversation message caching with configurable limits (50 msgs/convo, 20 convos max)
+MessageTrimmer.kt (78 lines)	Periodic message cleanup: WorkManager-based daily trim of old messages, direct API for manual trim
+PerformanceTracker.kt (34 lines)	Simple performance tracing: start/end trace with logging for >100ms operations, average calculation
+ImagePipeline.kt (82 lines)	Coil image loading: init with memory/disk cache, load, prefetch, clear caches
+Tests (2): MessageCacheTest, ImagePipelineTest
+Assessment: Complete and partially tested. All 4 components are functional. MessageTrimmer and PerformanceTracker lack dedicated tests.
+---
+Summary Table
+Module	Source Files
+crypto	8
+auth	3
+config	1
+network	8
+database	16
+model	1
+protos	15 proto
+push	5
+notifications	6
+jobmanager	2
+calls	8
+crash	1
+navigation	2
+performance	4
+Key gaps to address:
+1. core/config -- needs remote fetch capability, persistence, and tests
+2. core/push -- no tests at all (5 source files)
+3. core/notifications -- only 1 test for 6 source files
+4. core/calls -- only 1 test for 8 source files (complex WebRTC code)
+5. core/model -- no tests for domain model mappers)

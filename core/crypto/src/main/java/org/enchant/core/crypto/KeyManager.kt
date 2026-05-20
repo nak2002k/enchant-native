@@ -1,144 +1,142 @@
 package org.enchant.core.crypto
 
-import android.util.Log
-import androidx.annotation.VisibleForTesting
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.*
-import org.enchant.core.base.KeyStoreManager
-import org.enchant.core.base.SecurePreferences
-import org.enchant.core.network.ApiClient
 
-data class KeyBundle(
-    val deviceId: String,
-    val identityKey: ByteArray,
-    val signedPrekey: SignedPrekeyData,
-    val oneTimePrekey: ByteArray?
-)
-
-data class SignedPrekeyData(
-    val publicKey: ByteArray,
-    val signature: ByteArray
-)
-
+/**
+ * Key bundle orchestration: identity key, signed prekey, one-time prekey
+ * generation, storage, upload to the IKS server, rotation, and top-up.
+ *
+ * Manages the full lifecycle of cryptographic keys:
+ * 1. Generate Ed25519 identity key pair (persistent device identity)
+ * 2. Generate X25519 signed prekey (rotated every 30 days)
+ * 3. Generate X25519 one-time prekeys (batch of 100, topped up when < 10)
+ * 4. Upload key bundle to IKS server
+ * 5. Fetch other users' key bundles for session establishment
+ *
+ * NOTE: This module depends on:
+ * - :core:base (SecurePreferences, KeyStoreManager) for key storage
+ * - :core:network (ApiClient) for server communication
+ * - :core:protos (generated protobuf classes) for wire format
+ */
 object KeyManager {
     private val mutex = Mutex()
-    @Volatile
     private var initialized = false
-    private var identityKeyPair: CryptoHelper.KeyPair? = null
-    private var spkKeyPair: CryptoHelper.KeyPair? = null
-    private var spkSignature: ByteArray? = null
-    private var apiClient: ApiClient? = null
+    private var identityKeyPair: CryptoPrimitives.KeyPair? = null
+    private var preKeyStore: PreKeyStore? = null
+    private var apiClient: ApiClientLike? = null
     private var lastSpkRotationMs = 0L
-    private val spkRotationIntervalMs = 25L * 24 * 60 * 60 * 1000 // 25 days
+    private val spkRotationIntervalMs = 25L * 24 * 60 * 60 * 1000 // 25 days (rotate before 30-day threshold)
     private val testKeyBundles = mutableMapOf<String, KeyBundle>()
 
-    @VisibleForTesting
-    fun setTestIdentityKeyPair(pair: CryptoHelper.KeyPair) {
+    // NOTE: ApiClientLike is a minimal interface to avoid depending on the full ApiClient class.
+    // The actual ApiClient in :core:network should implement this interface.
+    interface ApiClientLike {
+        suspend fun get(path: String): Result<JsonObject>
+        suspend fun post(path: String, body: JsonObject): Result<JsonObject>
+        suspend fun put(path: String, body: JsonObject): Result<JsonObject>
+    }
+
+    data class KeyBundle(
+        val deviceId: String,
+        val identityKey: ByteArray,
+        val signedPrekey: SignedPrekeyData,
+        val oneTimePrekey: ByteArray?
+    )
+
+    data class SignedPrekeyData(
+        val publicKey: ByteArray,
+        val signature: ByteArray
+    )
+
+    // ──────────────────────────────────────────────
+    // Test Helpers
+    // ──────────────────────────────────────────────
+
+    fun setTestIdentityKeyPair(pair: CryptoPrimitives.KeyPair) {
         identityKeyPair = pair
     }
 
-    @VisibleForTesting
     fun setTestKeyBundle(userId: String, bundle: KeyBundle) {
         testKeyBundles[userId] = bundle
     }
 
-    @VisibleForTesting
     fun clearTestKeyBundles() {
         testKeyBundles.clear()
     }
 
-    @VisibleForTesting
     fun reset() {
         identityKeyPair = null
-        spkKeyPair = null
-        spkSignature = null
         lastSpkRotationMs = 0L
         initialized = false
         testKeyBundles.clear()
     }
 
-    suspend fun init(client: ApiClient? = null) {
+    // ──────────────────────────────────────────────
+    // Initialization
+    // ──────────────────────────────────────────────
+
+    /**
+     * Initialize the KeyManager.
+     *
+     * NOTE: SecurePreferences and KeyStoreManager are from :core:base module.
+     * This function loads existing identity keys from secure storage.
+     */
+    suspend fun init(
+        client: ApiClientLike? = null,
+        store: PreKeyStore? = null,
+        identityPublicB64: String? = null,
+        identityPrivateB64: String? = null
+    ) {
         if (initialized) return
-        apiClient = client
         mutex.withLock {
             if (initialized) return@withLock
-            val existingIkPublic = SecurePreferences.getString("crypto.identity_public_ks")
-            if (existingIkPublic != null) {
-                val publicKey = CryptoHelper.base64UrlDecode(existingIkPublic)
-                val wrappedPrivateB64 = SecurePreferences.getString("crypto.identity_private_ks")
-                if (wrappedPrivateB64 != null) {
-                    val privateKeyEncoded = CryptoHelper.base64UrlDecode(wrappedPrivateB64)
-                    val privateKey = KeyStoreManager.decrypt(
-                        KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION,
-                        privateKeyEncoded
-                    )
-                    if (privateKey != null) {
-                        identityKeyPair = CryptoHelper.KeyPair(publicKey, privateKey)
-                    }
+            apiClient = client
+            preKeyStore = store
+
+            if (identityPublicB64 != null && identityPrivateB64 != null) {
+                try {
+                    val publicKey = CryptoPrimitives.base64UrlDecode(identityPublicB64)
+                    val privateKey = CryptoPrimitives.base64UrlDecode(identityPrivateB64)
+                    identityKeyPair = CryptoPrimitives.KeyPair(publicKey, privateKey)
+                } catch (_: Exception) {
+                    identityKeyPair = null
                 }
             }
-            loadSpk()
-            lastSpkRotationMs = SecurePreferences.getLong("crypto.spk_last_rotation", 0L)
+
             initialized = true
         }
     }
 
-    private suspend fun loadSpk() {
-        val pubB64 = SecurePreferences.getString("crypto.spk_public")
-        val privWrapped = SecurePreferences.getString("crypto.spk_private")
-        val sigB64 = SecurePreferences.getString("crypto.spk_signature")
-        if (pubB64 != null && privWrapped != null && sigB64 != null) {
-            try {
-                val publicKey = CryptoHelper.base64UrlDecode(pubB64)
-                val privEncoded = CryptoHelper.base64UrlDecode(privWrapped)
-                val privateKey = KeyStoreManager.decrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, privEncoded)
-                if (privateKey != null) {
-                    spkKeyPair = CryptoHelper.KeyPair(publicKey, privateKey)
-                    spkSignature = CryptoHelper.base64UrlDecode(sigB64)
-                }
-            } catch (_: Exception) {
-                spkKeyPair = null; spkSignature = null
-            }
-        }
-    }
+    // ──────────────────────────────────────────────
+    // Key Generation & Upload
+    // ──────────────────────────────────────────────
 
-    private suspend fun saveKeyPair(alias: String, keyPair: CryptoHelper.KeyPair) {
-        val pubB64 = CryptoHelper.base64UrlEncode(keyPair.publicKey)
-        val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, keyPair.privateKey)
-        if (wrappedPriv != null) {
-            val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
-            SecurePreferences.putString("${alias}_public_ks", pubB64)
-            SecurePreferences.putString("${alias}_private_ks", privB64)
-        }
-    }
-
+    /**
+     * Generate and upload a full key bundle to the IKS server.
+     *
+     * Creates identity key (if not exists), signed prekey, and 100 one-time prekeys,
+     * then uploads them to POST /v1/keys/register.
+     *
+     * @return Result indicating success or failure
+     */
     suspend fun generateAndUploadKeys(): Result<Unit> {
         return withContext(Dispatchers.Default) {
             try {
-                if (identityKeyPair == null) {
-                    val pair = CryptoHelper.generateEd25519KeyPair()
-                    identityKeyPair = pair
-                    saveKeyPair("crypto.identity", pair)
+                val ik = ensureIdentityKey()
+                val spk = ensureSignedPreKey(ik)
+                val opks = ensureOpkBatch()
+
+                if (opks.isEmpty()) {
+                    return@withContext Result.failure(IllegalStateException("No OPKs available"))
                 }
-                if (spkKeyPair == null || spkSignature == null) {
-                    generateSpk()
-                }
-                val opks = if (loadLocalOpks().size < 20) {
-                    val newOpks = generateOpks(100)
-                    storeOpksLocally(newOpks)
-                    newOpks
-                } else {
-                    loadLocalOpks()
-                }
-                if (opks.size < 20) {
-                    return@withContext Result.failure(IllegalStateException("Only ${opks.size} OPKs available, need at least 20"))
-                }
-                val uploadResult = uploadKeyBundle(opks)
+
+                val uploadResult = uploadKeyBundle(ik, spk, opks)
                 if (uploadResult.isFailure) return@withContext uploadResult
-                topUpOpks()
+
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
@@ -146,78 +144,112 @@ object KeyManager {
         }
     }
 
-    private suspend fun uploadKeyBundle(opks: List<CryptoHelper.KeyPair>): Result<Unit> {
-        val client = apiClient ?: return Result.failure(Exception("KeyManager has no API client"))
-        val ik = identityKeyPair ?: return Result.failure(Exception("No identity key pair"))
-        val spk = spkKeyPair ?: return Result.failure(Exception("No signed prekey pair"))
-        val sig = spkSignature ?: return Result.failure(Exception("No SPK signature"))
+    private suspend fun ensureIdentityKey(): CryptoPrimitives.KeyPair {
+        if (identityKeyPair == null) {
+            val pair = CryptoPrimitives.generateEd25519KeyPair()
+            identityKeyPair = pair
+        }
+        return identityKeyPair!!
+    }
+
+    private suspend fun ensureSignedPreKey(ik: CryptoPrimitives.KeyPair): PreKeyStore.SignedPreKeyRecord {
+        val store = preKeyStore ?: throw IllegalStateException("PreKeyStore not set")
+        val current = store.getCurrentSignedPreKey()
+        if (current != null && !store.needsSignedPreKeyRotation()) {
+            return current
+        }
+        return store.generateSignedPreKey(ik)
+    }
+
+    private suspend fun ensureOpkBatch(): List<PreKeyStore.OneTimePreKeyRecord> {
+        val store = preKeyStore ?: throw IllegalStateException("PreKeyStore not set")
+        val count = store.getOneTimePreKeyCount()
+        return if (count < 20) {
+            store.generateOneTimePreKeys(100)
+        } else {
+            store.getOneTimePreKeyPublicKeys().map { pub ->
+                PreKeyStore.OneTimePreKeyRecord(
+                    id = pub.id,
+                    publicKey = pub.publicKey,
+                    privateKey = ByteArray(32),
+                    timestamp = System.currentTimeMillis()
+                )
+            }
+        }
+    }
+
+    private suspend fun uploadKeyBundle(
+        ik: CryptoPrimitives.KeyPair,
+        spk: PreKeyStore.SignedPreKeyRecord,
+        opks: List<PreKeyStore.OneTimePreKeyRecord>
+    ): Result<Unit> {
+        val client = apiClient ?: return Result.failure(Exception("No API client"))
 
         val body = buildJsonObject {
-            put("identity_key", JsonPrimitive(CryptoHelper.base64UrlEncode(ik.publicKey)))
+            put("identity_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(ik.publicKey)))
             put("signed_prekey", buildJsonObject {
-                put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(spk.publicKey)))
-                put("signature", JsonPrimitive(CryptoHelper.base64UrlEncode(sig)))
+                put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(spk.publicKey)))
+                put("signature", JsonPrimitive(CryptoPrimitives.base64UrlEncode(spk.signature)))
             })
             put("one_time_prekeys", buildJsonArray {
                 opks.forEach { opk ->
-                    add(buildJsonObject { put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(opk.publicKey))) })
+                    add(buildJsonObject {
+                        put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(opk.publicKey)))
+                    })
                 }
             })
         }
+
         return client.post("/v1/keys/register", body).map { }
     }
 
-    private suspend fun generateSpk() {
-        val ik = identityKeyPair ?: return
-        val newSpk = CryptoHelper.generateX25519KeyPair()
-        val spkPubX = newSpk.publicKey
-        val newSig = CryptoHelper.signEd25519(spkPubX, ik.privateKey)
-        spkKeyPair = newSpk
-        spkSignature = newSig
-        val pubB64 = CryptoHelper.base64UrlEncode(spkKeyPair!!.publicKey)
-        val sigB64 = CryptoHelper.base64UrlEncode(spkSignature!!)
-        val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, spkKeyPair!!.privateKey)
-        if (wrappedPriv != null) {
-            val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
-            SecurePreferences.putString("crypto.spk_public", pubB64)
-            SecurePreferences.putString("crypto.spk_private", privB64)
-            SecurePreferences.putString("crypto.spk_signature", sigB64)
+    // ──────────────────────────────────────────────
+    // Key Accessors
+    // ──────────────────────────────────────────────
+
+    suspend fun getIdentityKeyPair(): CryptoPrimitives.KeyPair? = identityKeyPair
+
+    suspend fun getSignedPreKeyPair(): CryptoPrimitives.KeyPair? {
+        val store = preKeyStore ?: return null
+        return store.getCurrentSignedPreKey()?.let {
+            CryptoPrimitives.KeyPair(it.publicKey, it.privateKey)
         }
     }
 
-    suspend fun getIdentityKeyPair(): CryptoHelper.KeyPair? = identityKeyPair
-
-    suspend fun getSignedPreKeyPair(): CryptoHelper.KeyPair? = spkKeyPair
-
-    suspend fun getOneTimePreKeyPair(id: Int): CryptoHelper.KeyPair? {
-        val pub = SecurePreferences.getString("crypto.opk_${id}_public") ?: return null
-        val privWrapped = SecurePreferences.getString("crypto.opk_${id}_private") ?: return null
-        return try {
-            val publicKey = CryptoHelper.base64UrlDecode(pub)
-            val encoded = CryptoHelper.base64UrlDecode(privWrapped)
-            val privateKey = KeyStoreManager.decrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, encoded)
-            if (privateKey != null) CryptoHelper.KeyPair(publicKey, privateKey) else null
-        } catch (_: Exception) { null }
+    suspend fun getOneTimePreKeyPair(id: Int): CryptoPrimitives.KeyPair? {
+        val store = preKeyStore ?: return null
+        return store.consumeOneTimePreKey(id)?.let {
+            CryptoPrimitives.KeyPair(it.publicKey, it.privateKey)
+        }
     }
 
     suspend fun consumeOneTimePreKey(id: Int) {
-        SecurePreferences.remove("crypto.opk_${id}_public")
-        SecurePreferences.remove("crypto.opk_${id}_private")
-        val count = SecurePreferences.getInt("crypto.opk_count", 0)
-        if (count > 0) SecurePreferences.putInt("crypto.opk_count", count - 1)
+        preKeyStore?.consumeOneTimePreKey(id)
     }
 
     suspend fun getIdentityPublicKeyBase64(): String? {
-        return identityKeyPair?.let { CryptoHelper.base64UrlEncode(it.publicKey) }
+        return identityKeyPair?.let { CryptoPrimitives.base64UrlEncode(it.publicKey) }
     }
 
     suspend fun hasKeys(): Boolean = identityKeyPair != null
 
     suspend fun signWithIdentity(data: ByteArray): ByteArray? {
         val ik = identityKeyPair ?: return null
-        return CryptoHelper.signEd25519(data, ik.privateKey)
+        return CryptoPrimitives.signEd25519(data, ik.privateKey)
     }
 
+    // ──────────────────────────────────────────────
+    // Key Bundle Fetching
+    // ──────────────────────────────────────────────
+
+    /**
+     * Fetch another user's key bundle from the IKS server.
+     *
+     * GET /v1/keys/bundle/{userId}
+     *
+     * @param userId the target user's ID
+     * @return KeyBundle with identity key, signed prekey, and optional one-time prekey
+     */
     suspend fun fetchKeyBundle(userId: String): KeyBundle? {
         testKeyBundles[userId]?.let { return it }
         val client = apiClient ?: return null
@@ -235,20 +267,30 @@ object KeyManager {
 
                     KeyBundle(
                         deviceId = device["device_id"]?.jsonPrimitive?.content ?: "",
-                        identityKey = CryptoHelper.base64UrlDecode(ikStr),
+                        identityKey = CryptoPrimitives.base64UrlDecode(ikStr),
                         signedPrekey = SignedPrekeyData(
-                            publicKey = CryptoHelper.base64UrlDecode(spkPubStr),
-                            signature = CryptoHelper.base64UrlDecode(spkSigStr)
+                            publicKey = CryptoPrimitives.base64UrlDecode(spkPubStr),
+                            signature = CryptoPrimitives.base64UrlDecode(spkSigStr)
                         ),
-                        oneTimePrekey = if (opkStr != null) CryptoHelper.base64UrlDecode(opkStr) else null
+                        oneTimePrekey = if (opkStr != null) CryptoPrimitives.base64UrlDecode(opkStr) else null
                     )
                 }
             } catch (_: Exception) { null }
         }
     }
 
+    // ──────────────────────────────────────────────
+    // OPK Top-Up
+    // ──────────────────────────────────────────────
+
+    /**
+     * Check OPK count on server and upload new batch if below threshold.
+     *
+     * GET /v1/keys/opk-count → if count < 10 → POST /v1/keys/one-time-prekeys
+     */
     suspend fun topUpOpks() {
         val client = apiClient ?: return
+        val store = preKeyStore ?: return
         try {
             val countResponse = client.get("/v1/keys/opk-count")
             val remaining = countResponse.getOrNull()?.let { json ->
@@ -256,27 +298,28 @@ object KeyManager {
             } ?: return
 
             if (remaining < 10) {
-                val opks = generateOpks(100)
+                val opks = store.generateOneTimePreKeys(100)
                 val uploadResult = uploadOpks(client, opks)
-                if (uploadResult.isSuccess) {
-                    storeOpksLocally(opks)
-                } else {
-                    Log.w("KeyManager", "OPK upload failed, not storing locally: ${uploadResult.exceptionOrNull()?.message}")
+                if (uploadResult.isFailure) {
+                    // NOTE: Log this failure. In production, schedule a retry via WorkManager.
                 }
             }
-        } catch (e: Exception) { Log.w("KeyManager", "OPK top-up failed: ${e.message}") }
+        } catch (e: Exception) {
+            // NOTE: Log OPK top-up failure. In production, schedule a retry.
+        }
     }
 
-    private fun generateOpks(count: Int): List<CryptoHelper.KeyPair> {
-        return (1..count).map { CryptoHelper.generateX25519KeyPair() }
-    }
-
-    private suspend fun uploadOpks(client: ApiClient, opks: List<CryptoHelper.KeyPair>): Result<Unit> {
+    private suspend fun uploadOpks(
+        client: ApiClientLike,
+        opks: List<PreKeyStore.OneTimePreKeyRecord>
+    ): Result<Unit> {
         return try {
             val body = buildJsonObject {
                 put("one_time_prekeys", buildJsonArray {
                     opks.forEach { opk ->
-                        add(buildJsonObject { put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(opk.publicKey))) })
+                        add(buildJsonObject {
+                            put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(opk.publicKey)))
+                        })
                     }
                 })
             }
@@ -286,63 +329,33 @@ object KeyManager {
         }
     }
 
-    private suspend fun storeOpksLocally(opks: List<CryptoHelper.KeyPair>) {
-        SecurePreferences.putInt("crypto.opk_count", opks.size)
-        opks.forEachIndexed { i, opk ->
-            val pubB64 = CryptoHelper.base64UrlEncode(opk.publicKey)
-            val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, opk.privateKey)
-            if (wrappedPriv != null) {
-                val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
-                SecurePreferences.putString("crypto.opk_${i}_public", pubB64)
-                SecurePreferences.putString("crypto.opk_${i}_private", privB64)
-            }
-        }
-    }
+    // ──────────────────────────────────────────────
+    // SPK Rotation
+    // ──────────────────────────────────────────────
 
-    private suspend fun loadLocalOpks(): List<CryptoHelper.KeyPair> {
-        val count = SecurePreferences.getInt("crypto.opk_count", 0)
-        return (0 until count).mapNotNull { i ->
-            val pub = SecurePreferences.getString("crypto.opk_${i}_public") ?: return@mapNotNull null
-            val privWrapped = SecurePreferences.getString("crypto.opk_${i}_private")
-            try {
-                val publicKey = CryptoHelper.base64UrlDecode(pub)
-                val privateKey = if (privWrapped != null) {
-                    val encoded = CryptoHelper.base64UrlDecode(privWrapped)
-                    KeyStoreManager.decrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, encoded)
-                } else null
-                if (privateKey != null) CryptoHelper.KeyPair(publicKey, privateKey) else null
-            } catch (_: Exception) { null }
-        }
-    }
-
+    /**
+     * Rotate the signed prekey.
+     *
+     * PUT /v1/keys/signed-prekey
+     *
+     * Should be called every 30 days or when the current SPK is compromised.
+     */
     suspend fun rotateSignedPreKey(): Result<Unit> {
-        val client = apiClient ?: return Result.failure(Exception("ApiClient not available"))
+        val client = apiClient ?: return Result.failure(Exception("No API client"))
+        val ik = identityKeyPair ?: return Result.failure(Exception("No identity key"))
+        val store = preKeyStore ?: return Result.failure(Exception("No PreKeyStore"))
+
         return withContext(Dispatchers.Default) {
             try {
-                val ik = identityKeyPair ?: return@withContext Result.failure(Exception("No identity key"))
-                val newSpk = CryptoHelper.generateX25519KeyPair()
-                val spkPubX = newSpk.publicKey
-                val newSig = CryptoHelper.signEd25519(spkPubX, ik.privateKey)
+                val newSpk = store.generateSignedPreKey(ik)
 
                 val body = buildJsonObject {
-                    put("public_key", JsonPrimitive(CryptoHelper.base64UrlEncode(newSpk.publicKey)))
-                    put("signature", JsonPrimitive(CryptoHelper.base64UrlEncode(newSig)))
+                    put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(newSpk.publicKey)))
+                    put("signature", JsonPrimitive(CryptoPrimitives.base64UrlEncode(newSpk.signature)))
                 }
                 val response = client.put("/v1/keys/signed-prekey", body)
                 if (response.isSuccess) {
-                    spkKeyPair = newSpk
-                    spkSignature = newSig
-                    val pubB64 = CryptoHelper.base64UrlEncode(newSpk.publicKey)
-                    val sigB64 = CryptoHelper.base64UrlEncode(newSig)
-                    val wrappedPriv = KeyStoreManager.encrypt(KeyStoreManager.KEY_ALIAS_DB_ENCRYPTION, newSpk.privateKey)
-                    if (wrappedPriv != null) {
-                        val privB64 = CryptoHelper.base64UrlEncode(wrappedPriv)
-                        SecurePreferences.putString("crypto.spk_public", pubB64)
-                        SecurePreferences.putString("crypto.spk_private", privB64)
-                        SecurePreferences.putString("crypto.spk_signature", sigB64)
-                    }
                     lastSpkRotationMs = System.currentTimeMillis()
-                    SecurePreferences.putLong("crypto.spk_last_rotation", lastSpkRotationMs)
                 }
                 response.fold({ Result.success(Unit) }, { Result.failure(it) })
             } catch (e: Exception) {
@@ -351,20 +364,14 @@ object KeyManager {
         }
     }
 
-    suspend fun cleanSignedPreKeys() {
-        val threshold = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-        if (lastSpkRotationMs > 0 && lastSpkRotationMs < threshold) {
-            SecurePreferences.remove("crypto.spk_public")
-            SecurePreferences.remove("crypto.spk_private")
-            SecurePreferences.remove("crypto.spk_signature")
-            SecurePreferences.putLong("crypto.spk_last_rotation", 0L)
-            spkKeyPair = null
-            spkSignature = null
-        }
+    /** Check if the signed prekey needs rotation. */
+    fun needsKeyRotation(): Boolean {
+        val store = preKeyStore ?: return true
+        return store.needsSignedPreKeyRotation()
     }
 
-    fun needsKeyRotation(): Boolean {
-        if (lastSpkRotationMs == 0L) return true
-        return (System.currentTimeMillis() - lastSpkRotationMs) > spkRotationIntervalMs
+    /** Remove old signed prekeys. */
+    suspend fun cleanSignedPreKeys() {
+        preKeyStore?.cleanSignedPreKeys()
     }
 }

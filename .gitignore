@@ -33,7 +33,7 @@ Thumbs.db
 # Gradle
 .gradle/
 build/
-
+LEADING_APPS_REFERENCe-crypto.md
 # Local
 local.properties
 *.keystore

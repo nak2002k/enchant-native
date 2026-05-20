@@ -8,23 +8,37 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 
+/**
+ * Android WorkManager periodic worker for prekey maintenance.
+ *
+ * Runs every 30 days to:
+ * 1. Top up one-time prekeys if count < 10
+ * 2. Clean stale signed prekeys (older than 30 days)
+ * 3. Rotate signed prekey if needed (25+ days since last rotation)
+ *
+ * Requires network connectivity to communicate with the IKS server.
+ */
 class PreKeyWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        try {
+        return try {
             KeyManager.topUpOpks()
             KeyManager.cleanSignedPreKeys()
             if (KeyManager.needsKeyRotation()) {
-                KeyManager.rotateSignedPreKey()
+                val rotationResult = KeyManager.rotateSignedPreKey()
+                if (rotationResult.isFailure) {
+                    return Result.retry()
+                }
             }
-            return Result.success()
+            Result.success()
         } catch (e: Exception) {
-            return Result.retry()
+            Result.retry()
         }
     }
 
     companion object {
         private const val WORK_NAME = "prekey_rotation"
 
+        /** Schedule the periodic prekey rotation worker. */
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<PreKeyWorker>(30, TimeUnit.DAYS)
                 .setConstraints(

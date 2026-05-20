@@ -28,6 +28,7 @@ class BugFixVerificationTest {
     inner class Bug2SelfUserIdTest {
         @Test
         fun `encryptMessage throws when selfUserId not set`() = runTest {
+            SessionManager.reset()
             SessionManager.init()
             val result = runCatching {
                 SessionManager.encryptMessage("user1", "test".encodeToByteArray())
@@ -52,16 +53,16 @@ class BugFixVerificationTest {
     inner class Bug29X3DHZeroingTest {
         @Test
         fun `aliceInitiate produces correct shared secret`() = runTest {
-            val aliceIk = CryptoHelper.generateEd25519KeyPair()
-            val aliceEk = CryptoHelper.generateX25519KeyPair()
-            val bobIk = CryptoHelper.generateEd25519KeyPair()
-            val bobSpk = CryptoHelper.generateX25519KeyPair()
-            val bobOpk = CryptoHelper.generateX25519KeyPair()
+            val aliceIk = CryptoPrimitives.generateEd25519KeyPair()
+            val aliceEk = CryptoPrimitives.generateX25519KeyPair()
+            val bobIk = CryptoPrimitives.generateEd25519KeyPair()
+            val bobSpk = CryptoPrimitives.generateX25519KeyPair()
+            val bobOpk = CryptoPrimitives.generateX25519KeyPair()
 
             val aliceResult = X3DH.aliceInitiate(
                 ourIdentityKey = aliceIk,
                 ourEphemeralKey = aliceEk,
-                theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(bobIk.publicKey),
+                theirIdentityKeyPublic = CryptoPrimitives.ed25519PkToX25519(bobIk.publicKey),
                 theirSignedPrekeyPublic = bobSpk.publicKey,
                 theirOneTimePrekeyPublic = bobOpk.publicKey
             )
@@ -71,17 +72,17 @@ class BugFixVerificationTest {
 
         @Test
         fun `bobRespond produces correct shared secret`() = runTest {
-            val aliceIk = CryptoHelper.generateEd25519KeyPair()
-            val aliceEk = CryptoHelper.generateX25519KeyPair()
-            val bobIk = CryptoHelper.generateEd25519KeyPair()
-            val bobSpk = CryptoHelper.generateX25519KeyPair()
-            val bobOpk = CryptoHelper.generateX25519KeyPair()
+            val aliceIk = CryptoPrimitives.generateEd25519KeyPair()
+            val aliceEk = CryptoPrimitives.generateX25519KeyPair()
+            val bobIk = CryptoPrimitives.generateEd25519KeyPair()
+            val bobSpk = CryptoPrimitives.generateX25519KeyPair()
+            val bobOpk = CryptoPrimitives.generateX25519KeyPair()
 
             val bobResult = X3DH.bobRespond(
                 ourIdentityKey = bobIk,
                 ourSignedPrekeyKeyPair = bobSpk,
                 ourOneTimePrekeyKeyPair = bobOpk,
-                theirIdentityKeyPublic = CryptoHelper.ed25519PkToX25519(aliceIk.publicKey),
+                theirIdentityKeyPublic = CryptoPrimitives.ed25519PkToX25519(aliceIk.publicKey),
                 theirEphemeralKeyPublic = aliceEk.publicKey
             )
             assertNotNull(bobResult.sharedSecret)
@@ -90,20 +91,20 @@ class BugFixVerificationTest {
 
         @Test
         fun `alice and bob derive identical shared secret`() = runTest {
-            val aliceIk = CryptoHelper.generateEd25519KeyPair()
-            val aliceEk = CryptoHelper.generateX25519KeyPair()
-            val bobIk = CryptoHelper.generateEd25519KeyPair()
-            val bobSpk = CryptoHelper.generateX25519KeyPair()
-            val bobOpk = CryptoHelper.generateX25519KeyPair()
+            val aliceIk = CryptoPrimitives.generateEd25519KeyPair()
+            val aliceEk = CryptoPrimitives.generateX25519KeyPair()
+            val bobIk = CryptoPrimitives.generateEd25519KeyPair()
+            val bobSpk = CryptoPrimitives.generateX25519KeyPair()
+            val bobOpk = CryptoPrimitives.generateX25519KeyPair()
 
             val aliceResult = X3DH.aliceInitiate(
                 aliceIk, aliceEk,
-                CryptoHelper.ed25519PkToX25519(bobIk.publicKey),
+                CryptoPrimitives.ed25519PkToX25519(bobIk.publicKey),
                 bobSpk.publicKey, bobOpk.publicKey
             )
             val bobResult = X3DH.bobRespond(
                 bobIk, bobSpk, bobOpk,
-                CryptoHelper.ed25519PkToX25519(aliceIk.publicKey),
+                CryptoPrimitives.ed25519PkToX25519(aliceIk.publicKey),
                 aliceEk.publicKey
             )
             assertTrue(aliceResult.sharedSecret.contentEquals(bobResult.sharedSecret))
