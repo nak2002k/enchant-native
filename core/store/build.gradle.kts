@@ -29,6 +29,8 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation(libs.sqlcipher)
+    implementation(libs.sqlite)
     implementation(project(":core:base"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)

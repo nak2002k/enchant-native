@@ -1,11 +1,15 @@
 package org.enchant.core.store
 
+import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.enchant.core.base.SecurePreferences
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -17,19 +21,30 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 class EnchantStoreTest {
 
+    private lateinit var context: Context
+
     @Before
     fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context = ApplicationProvider.getApplicationContext()
         SecurePreferences.init(context, allowUnencryptedFallback = true)
-        EnchantStore.clearAll()
+        SecurePreferences.clearAll()
+        resetStoreState()
+        EnchantStore.init(InMemoryKeyValueStorage())
     }
 
     @After
     fun tearDown() {
-        EnchantStore.clearAll()
+        EnchantStore.store.close()
+        resetStoreState()
     }
 
-    // -- Account --------------------------------------------------------------------------
+    private fun resetStoreState() {
+        val field = EnchantStore::class.java.getDeclaredField("initialized")
+        field.isAccessible = true
+        field.set(null, false)
+    }
+
+    // -- Account tests --------------------------------------------------------------------
 
     @Test
     fun `Account userId defaults to null`() {
@@ -62,8 +77,8 @@ class EnchantStoreTest {
 
     @Test
     fun `Account about set and get`() {
-        EnchantStore.Account.setAbout("Hey there!")
-        assertEquals("Hey there!", EnchantStore.Account.about)
+        EnchantStore.Account.setAbout("Hello!")
+        assertEquals("Hello!", EnchantStore.Account.about)
     }
 
     @Test
@@ -79,38 +94,70 @@ class EnchantStoreTest {
 
     @Test
     fun `Account aci set and get`() {
-        EnchantStore.Account.setAci("aci-abc")
-        assertEquals("aci-abc", EnchantStore.Account.aci)
+        EnchantStore.Account.setAci("aci-uuid")
+        assertEquals("aci-uuid", EnchantStore.Account.aci)
     }
 
     @Test
     fun `Account pni set and get`() {
-        EnchantStore.Account.setPni("pni-xyz")
-        assertEquals("pni-xyz", EnchantStore.Account.pni)
+        EnchantStore.Account.setPni("pni-uuid")
+        assertEquals("pni-uuid", EnchantStore.Account.pni)
     }
 
     @Test
-    fun `Account clear removes all values`() {
+    fun `Account isRegistered defaults to false`() {
+        assertFalse(EnchantStore.Account.isRegistered)
+    }
+
+    @Test
+    fun `Account isRegistered set and get`() {
+        EnchantStore.Account.setRegistered(true)
+        assertTrue(EnchantStore.Account.isRegistered)
+    }
+
+    @Test
+    fun `Account fcmToken set and get`() {
+        EnchantStore.Account.setFcmToken("fcm-token-abc")
+        assertEquals("fcm-token-abc", EnchantStore.Account.fcmToken)
+    }
+
+    @Test
+    fun `Account multiDevice defaults to false`() {
+        assertFalse(EnchantStore.Account.multiDevice)
+    }
+
+    @Test
+    fun `Account multiDevice set and get`() {
+        EnchantStore.Account.setMultiDevice(true)
+        assertTrue(EnchantStore.Account.multiDevice)
+    }
+
+    @Test
+    fun `Account clear resets all fields`() {
         EnchantStore.Account.setUserId("user-123")
         EnchantStore.Account.setDeviceId("device-456")
         EnchantStore.Account.setUsername("alice")
-        EnchantStore.Account.setDisplayName("Alice")
-        EnchantStore.Account.setAbout("Hey")
         EnchantStore.Account.setRegistrationId(42)
-        EnchantStore.Account.setAci("aci-abc")
-        EnchantStore.Account.setPni("pni-xyz")
+        EnchantStore.Account.setRegistered(true)
+
         EnchantStore.Account.clear()
+
         assertNull(EnchantStore.Account.userId)
         assertNull(EnchantStore.Account.deviceId)
         assertNull(EnchantStore.Account.username)
-        assertNull(EnchantStore.Account.displayName)
-        assertNull(EnchantStore.Account.about)
         assertEquals(0, EnchantStore.Account.registrationId)
-        assertNull(EnchantStore.Account.aci)
-        assertNull(EnchantStore.Account.pni)
+        assertFalse(EnchantStore.Account.isRegistered)
     }
 
-    // -- Registration ---------------------------------------------------------------------
+    @Test
+    fun `Account backup keys are non-empty`() {
+        val keys = EnchantStore.Account.getKeysToIncludeInBackup()
+        assertTrue(keys.contains("account.user_id"))
+        assertTrue(keys.contains("account.device_id"))
+        assertTrue(keys.contains("account.registered"))
+    }
+
+    // -- Registration tests ---------------------------------------------------------------
 
     @Test
     fun `Registration isComplete defaults to false`() {
@@ -130,7 +177,7 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Registration clear removes all values`() {
+    fun `Registration clear`() {
         EnchantStore.Registration.setComplete(true)
         EnchantStore.Registration.setLockPin("1234")
         EnchantStore.Registration.clear()
@@ -138,7 +185,7 @@ class EnchantStoreTest {
         assertNull(EnchantStore.Registration.lockPin)
     }
 
-    // -- Backup ---------------------------------------------------------------------------
+    // -- Backup tests ---------------------------------------------------------------------
 
     @Test
     fun `Backup isEnabled defaults to false`() {
@@ -169,7 +216,7 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Backup clear removes all values`() {
+    fun `Backup clear`() {
         EnchantStore.Backup.setEnabled(true)
         EnchantStore.Backup.setLastBackupTs(123L)
         EnchantStore.Backup.setBackupKey("key")
@@ -179,7 +226,7 @@ class EnchantStoreTest {
         assertNull(EnchantStore.Backup.backupKey)
     }
 
-    // -- Settings -------------------------------------------------------------------------
+    // -- Settings tests -------------------------------------------------------------------
 
     @Test
     fun `Settings readReceipts defaults to true`() {
@@ -209,12 +256,6 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Settings linkPreviews set and get`() {
-        EnchantStore.Settings.setLinkPreviews(false)
-        assertFalse(EnchantStore.Settings.linkPreviews)
-    }
-
-    @Test
     fun `Settings theme defaults to system`() {
         assertEquals("system", EnchantStore.Settings.theme)
     }
@@ -226,50 +267,48 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Settings fontSize defaults to one`() {
-        assertEquals(1.0f, EnchantStore.Settings.fontSize, 0.001f)
+    fun `Settings fontSize defaults to 1_0`() {
+        assertEquals(1.0f, EnchantStore.Settings.fontSize)
     }
 
     @Test
-    fun `Settings fontSize set and get as float`() {
-        EnchantStore.Settings.setFontSize(1.25f)
-        assertEquals(1.25f, EnchantStore.Settings.fontSize, 0.001f)
+    fun `Settings fontSize set and get`() {
+        EnchantStore.Settings.setFontSize(1.5f)
+        assertEquals(1.5f, EnchantStore.Settings.fontSize)
     }
 
     @Test
     fun `Settings language set and get`() {
-        EnchantStore.Settings.setLanguage("en")
-        assertEquals("en", EnchantStore.Settings.language)
+        EnchantStore.Settings.setLanguage("ja")
+        assertEquals("ja", EnchantStore.Settings.language)
     }
 
     @Test
-    fun `Settings clear removes all values`() {
-        EnchantStore.Settings.setReadReceipts(false)
-        EnchantStore.Settings.setTypingIndicators(false)
-        EnchantStore.Settings.setLinkPreviews(false)
-        EnchantStore.Settings.setTheme("dark")
-        EnchantStore.Settings.setFontSize(1.5f)
-        EnchantStore.Settings.setLanguage("fr")
-        EnchantStore.Settings.clear()
-        assertTrue(EnchantStore.Settings.readReceipts)
-        assertTrue(EnchantStore.Settings.typingIndicators)
-        assertTrue(EnchantStore.Settings.linkPreviews)
-        assertEquals("system", EnchantStore.Settings.theme)
-        assertEquals(1.0f, EnchantStore.Settings.fontSize, 0.001f)
-        assertNull(EnchantStore.Settings.language)
+    fun `Settings screenLockEnabled defaults to false`() {
+        assertFalse(EnchantStore.Settings.screenLockEnabled)
     }
 
-    // -- Notifications --------------------------------------------------------------------
+    @Test
+    fun `Settings spellCheck defaults to true`() {
+        assertTrue(EnchantStore.Settings.spellCheck)
+    }
+
+    @Test
+    fun `Settings clear`() {
+        EnchantStore.Settings.setReadReceipts(false)
+        EnchantStore.Settings.setTheme("dark")
+        EnchantStore.Settings.setFontSize(2.0f)
+        EnchantStore.Settings.clear()
+        assertTrue(EnchantStore.Settings.readReceipts)
+        assertEquals("system", EnchantStore.Settings.theme)
+        assertEquals(1.0f, EnchantStore.Settings.fontSize)
+    }
+
+    // -- Notifications tests --------------------------------------------------------------
 
     @Test
     fun `Notifications messageNotifications defaults to true`() {
         assertTrue(EnchantStore.Notifications.messageNotifications)
-    }
-
-    @Test
-    fun `Notifications messageNotifications set and get`() {
-        EnchantStore.Notifications.setMessageNotifications(false)
-        assertFalse(EnchantStore.Notifications.messageNotifications)
     }
 
     @Test
@@ -278,52 +317,35 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Notifications showPreview set and get`() {
-        EnchantStore.Notifications.setShowPreview(false)
-        assertFalse(EnchantStore.Notifications.showPreview)
-    }
-
-    @Test
-    fun `Notifications sound set and get`() {
-        EnchantStore.Notifications.setSound("default")
-        assertEquals("default", EnchantStore.Notifications.sound)
-    }
-
-    @Test
     fun `Notifications vibrate defaults to true`() {
         assertTrue(EnchantStore.Notifications.vibrate)
     }
 
     @Test
-    fun `Notifications vibrate set and get`() {
-        EnchantStore.Notifications.setVibrate(false)
-        assertFalse(EnchantStore.Notifications.vibrate)
+    fun `Notifications sound set and get`() {
+        EnchantStore.Notifications.setSound("chime")
+        assertEquals("chime", EnchantStore.Notifications.sound)
     }
 
     @Test
-    fun `Notifications clear removes all values`() {
-        EnchantStore.Notifications.setMessageNotifications(false)
-        EnchantStore.Notifications.setShowPreview(false)
-        EnchantStore.Notifications.setSound("silent")
-        EnchantStore.Notifications.setVibrate(false)
-        EnchantStore.Notifications.clear()
-        assertTrue(EnchantStore.Notifications.messageNotifications)
-        assertTrue(EnchantStore.Notifications.showPreview)
-        assertNull(EnchantStore.Notifications.sound)
-        assertTrue(EnchantStore.Notifications.vibrate)
+    fun `Notifications callNotifications defaults to true`() {
+        assertTrue(EnchantStore.Notifications.callNotifications)
     }
 
-    // -- Privacy --------------------------------------------------------------------------
+    @Test
+    fun `Notifications clear`() {
+        EnchantStore.Notifications.setMessageNotifications(false)
+        EnchantStore.Notifications.setSound("bell")
+        EnchantStore.Notifications.clear()
+        assertTrue(EnchantStore.Notifications.messageNotifications)
+        assertNull(EnchantStore.Notifications.sound)
+    }
+
+    // -- Privacy tests --------------------------------------------------------------------
 
     @Test
     fun `Privacy lastSeenVisibility defaults to contacts`() {
         assertEquals("contacts", EnchantStore.Privacy.lastSeenVisibility)
-    }
-
-    @Test
-    fun `Privacy lastSeenVisibility set and get`() {
-        EnchantStore.Privacy.setLastSeenVisibility("everyone")
-        assertEquals("everyone", EnchantStore.Privacy.lastSeenVisibility)
     }
 
     @Test
@@ -332,31 +354,8 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Privacy onlineVisibility set and get`() {
-        EnchantStore.Privacy.setOnlineVisibility("nobody")
-        assertEquals("nobody", EnchantStore.Privacy.onlineVisibility)
-    }
-
-    @Test
     fun `Privacy avatarVisibility defaults to contacts`() {
         assertEquals("contacts", EnchantStore.Privacy.avatarVisibility)
-    }
-
-    @Test
-    fun `Privacy avatarVisibility set and get`() {
-        EnchantStore.Privacy.setAvatarVisibility("everyone")
-        assertEquals("everyone", EnchantStore.Privacy.avatarVisibility)
-    }
-
-    @Test
-    fun `Privacy aboutVisibility defaults to contacts`() {
-        assertEquals("contacts", EnchantStore.Privacy.aboutVisibility)
-    }
-
-    @Test
-    fun `Privacy aboutVisibility set and get`() {
-        EnchantStore.Privacy.setAboutVisibility("nobody")
-        assertEquals("nobody", EnchantStore.Privacy.aboutVisibility)
     }
 
     @Test
@@ -365,38 +364,32 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Privacy groupsAddPolicy set and get`() {
-        EnchantStore.Privacy.setGroupsAddPolicy("contacts")
-        assertEquals("contacts", EnchantStore.Privacy.groupsAddPolicy)
+    fun `Privacy set and get`() {
+        EnchantStore.Privacy.setLastSeenVisibility("nobody")
+        EnchantStore.Privacy.setOnlineVisibility("everyone")
+        assertEquals("nobody", EnchantStore.Privacy.lastSeenVisibility)
+        assertEquals("everyone", EnchantStore.Privacy.onlineVisibility)
     }
 
     @Test
-    fun `Privacy clear removes all values`() {
+    fun `Privacy clear`() {
         EnchantStore.Privacy.setLastSeenVisibility("nobody")
-        EnchantStore.Privacy.setOnlineVisibility("nobody")
-        EnchantStore.Privacy.setAvatarVisibility("nobody")
-        EnchantStore.Privacy.setAboutVisibility("nobody")
-        EnchantStore.Privacy.setGroupsAddPolicy("nobody")
         EnchantStore.Privacy.clear()
         assertEquals("contacts", EnchantStore.Privacy.lastSeenVisibility)
-        assertEquals("contacts", EnchantStore.Privacy.onlineVisibility)
-        assertEquals("contacts", EnchantStore.Privacy.avatarVisibility)
-        assertEquals("contacts", EnchantStore.Privacy.aboutVisibility)
-        assertEquals("everyone", EnchantStore.Privacy.groupsAddPolicy)
     }
 
-    // -- Pin ------------------------------------------------------------------------------
+    // -- Pin tests ------------------------------------------------------------------------
 
     @Test
     fun `Pin hash set and get`() {
-        EnchantStore.Pin.setHash("hash123")
-        assertEquals("hash123", EnchantStore.Pin.hash)
+        EnchantStore.Pin.setHash("hashed-pin")
+        assertEquals("hashed-pin", EnchantStore.Pin.hash)
     }
 
     @Test
     fun `Pin salt set and get`() {
-        EnchantStore.Pin.setSalt("salt456")
-        assertEquals("salt456", EnchantStore.Pin.salt)
+        EnchantStore.Pin.setSalt("salt-value")
+        assertEquals("salt-value", EnchantStore.Pin.salt)
     }
 
     @Test
@@ -411,9 +404,9 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Pin clear removes all values`() {
-        EnchantStore.Pin.setHash("hash")
-        EnchantStore.Pin.setSalt("salt")
+    fun `Pin clear`() {
+        EnchantStore.Pin.setHash("h")
+        EnchantStore.Pin.setSalt("s")
         EnchantStore.Pin.setFailedAttempts(5)
         EnchantStore.Pin.clear()
         assertNull(EnchantStore.Pin.hash)
@@ -421,17 +414,11 @@ class EnchantStoreTest {
         assertEquals(0, EnchantStore.Pin.failedAttempts)
     }
 
-    // -- Onboarding -----------------------------------------------------------------------
+    // -- Onboarding tests -----------------------------------------------------------------
 
     @Test
     fun `Onboarding isComplete defaults to false`() {
         assertFalse(EnchantStore.Onboarding.isComplete)
-    }
-
-    @Test
-    fun `Onboarding isComplete set and get`() {
-        EnchantStore.Onboarding.setComplete(true)
-        assertTrue(EnchantStore.Onboarding.isComplete)
     }
 
     @Test
@@ -440,21 +427,14 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Onboarding hasSeenWelcome set and get`() {
+    fun `Onboarding set and get`() {
+        EnchantStore.Onboarding.setComplete(true)
         EnchantStore.Onboarding.setHasSeenWelcome(true)
+        assertTrue(EnchantStore.Onboarding.isComplete)
         assertTrue(EnchantStore.Onboarding.hasSeenWelcome)
     }
 
-    @Test
-    fun `Onboarding clear removes all values`() {
-        EnchantStore.Onboarding.setComplete(true)
-        EnchantStore.Onboarding.setHasSeenWelcome(true)
-        EnchantStore.Onboarding.clear()
-        assertFalse(EnchantStore.Onboarding.isComplete)
-        assertFalse(EnchantStore.Onboarding.hasSeenWelcome)
-    }
-
-    // -- Proxy ----------------------------------------------------------------------------
+    // -- Proxy tests ----------------------------------------------------------------------
 
     @Test
     fun `Proxy host set and get`() {
@@ -473,26 +453,11 @@ class EnchantStoreTest {
         assertEquals(8080, EnchantStore.Proxy.port)
     }
 
-    @Test
-    fun `Proxy clear removes all values`() {
-        EnchantStore.Proxy.setHost("proxy.example.com")
-        EnchantStore.Proxy.setPort(3128)
-        EnchantStore.Proxy.clear()
-        assertNull(EnchantStore.Proxy.host)
-        assertEquals(0, EnchantStore.Proxy.port)
-    }
-
-    // -- RateLimit ------------------------------------------------------------------------
+    // -- RateLimit tests ------------------------------------------------------------------
 
     @Test
     fun `RateLimit lastOtpMs defaults to 0`() {
         assertEquals(0L, EnchantStore.RateLimit.lastOtpMs)
-    }
-
-    @Test
-    fun `RateLimit lastOtpMs set and get`() {
-        EnchantStore.RateLimit.setLastOtpMs(1234567890L)
-        assertEquals(1234567890L, EnchantStore.RateLimit.lastOtpMs)
     }
 
     @Test
@@ -501,21 +466,14 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `RateLimit otpAttempts set and get`() {
-        EnchantStore.RateLimit.setOtpAttempts(5)
-        assertEquals(5, EnchantStore.RateLimit.otpAttempts)
-    }
-
-    @Test
-    fun `RateLimit clear removes all values`() {
-        EnchantStore.RateLimit.setLastOtpMs(123L)
+    fun `RateLimit set and get`() {
+        EnchantStore.RateLimit.setLastOtpMs(1000L)
         EnchantStore.RateLimit.setOtpAttempts(3)
-        EnchantStore.RateLimit.clear()
-        assertEquals(0L, EnchantStore.RateLimit.lastOtpMs)
-        assertEquals(0, EnchantStore.RateLimit.otpAttempts)
+        assertEquals(1000L, EnchantStore.RateLimit.lastOtpMs)
+        assertEquals(3, EnchantStore.RateLimit.otpAttempts)
     }
 
-    // -- PhoneNumberPrivacy ---------------------------------------------------------------
+    // -- PhoneNumberPrivacy tests ---------------------------------------------------------
 
     @Test
     fun `PhoneNumberPrivacy shareWithContacts defaults to true`() {
@@ -523,19 +481,12 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `PhoneNumberPrivacy shareWithContacts set and get`() {
+    fun `PhoneNumberPrivacy set and get`() {
         EnchantStore.PhoneNumberPrivacy.setShareWithContacts(false)
         assertFalse(EnchantStore.PhoneNumberPrivacy.shareWithContacts)
     }
 
-    @Test
-    fun `PhoneNumberPrivacy clear removes all values`() {
-        EnchantStore.PhoneNumberPrivacy.setShareWithContacts(false)
-        EnchantStore.PhoneNumberPrivacy.clear()
-        assertTrue(EnchantStore.PhoneNumberPrivacy.shareWithContacts)
-    }
-
-    // -- Emoji ----------------------------------------------------------------------------
+    // -- Emoji tests ----------------------------------------------------------------------
 
     @Test
     fun `Emoji recent set and get`() {
@@ -544,36 +495,27 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Emoji clear removes all values`() {
+    fun `Emoji clear`() {
         EnchantStore.Emoji.setRecent("😀")
         EnchantStore.Emoji.clear()
         assertNull(EnchantStore.Emoji.recent)
     }
 
-    // -- ChatColors -----------------------------------------------------------------------
+    // -- ChatColors tests -----------------------------------------------------------------
 
     @Test
     fun `ChatColors wallpaper set and get`() {
-        EnchantStore.ChatColors.setWallpaper("default")
-        assertEquals("default", EnchantStore.ChatColors.wallpaper)
+        EnchantStore.ChatColors.setWallpaper("wallpaper-1")
+        assertEquals("wallpaper-1", EnchantStore.ChatColors.wallpaper)
     }
 
     @Test
     fun `ChatColors color set and get`() {
-        EnchantStore.ChatColors.setColor("blue")
-        assertEquals("blue", EnchantStore.ChatColors.color)
+        EnchantStore.ChatColors.setColor("#FF5733")
+        assertEquals("#FF5733", EnchantStore.ChatColors.color)
     }
 
-    @Test
-    fun `ChatColors clear removes all values`() {
-        EnchantStore.ChatColors.setWallpaper("custom")
-        EnchantStore.ChatColors.setColor("red")
-        EnchantStore.ChatColors.clear()
-        assertNull(EnchantStore.ChatColors.wallpaper)
-        assertNull(EnchantStore.ChatColors.color)
-    }
-
-    // -- CallQuality ----------------------------------------------------------------------
+    // -- CallQuality tests ----------------------------------------------------------------
 
     @Test
     fun `CallQuality useLowBandwidth defaults to false`() {
@@ -586,14 +528,7 @@ class EnchantStoreTest {
         assertTrue(EnchantStore.CallQuality.useLowBandwidth)
     }
 
-    @Test
-    fun `CallQuality clear removes all values`() {
-        EnchantStore.CallQuality.setUseLowBandwidth(true)
-        EnchantStore.CallQuality.clear()
-        assertFalse(EnchantStore.CallQuality.useLowBandwidth)
-    }
-
-    // -- Labs -----------------------------------------------------------------------------
+    // -- Labs tests -----------------------------------------------------------------------
 
     @Test
     fun `Labs experimentalFeatures defaults to false`() {
@@ -606,14 +541,7 @@ class EnchantStoreTest {
         assertTrue(EnchantStore.Labs.experimentalFeatures)
     }
 
-    @Test
-    fun `Labs clear removes all values`() {
-        EnchantStore.Labs.setExperimentalFeatures(true)
-        EnchantStore.Labs.clear()
-        assertFalse(EnchantStore.Labs.experimentalFeatures)
-    }
-
-    // -- Stories --------------------------------------------------------------------------
+    // -- Stories tests --------------------------------------------------------------------
 
     @Test
     fun `Stories myStoriesPrivacy defaults to contacts`() {
@@ -626,24 +554,11 @@ class EnchantStoreTest {
         assertEquals("everyone", EnchantStore.Stories.myStoriesPrivacy)
     }
 
-    @Test
-    fun `Stories clear removes all values`() {
-        EnchantStore.Stories.setMyStoriesPrivacy("nobody")
-        EnchantStore.Stories.clear()
-        assertEquals("contacts", EnchantStore.Stories.myStoriesPrivacy)
-    }
-
-    // -- Internal -------------------------------------------------------------------------
+    // -- Internal tests -------------------------------------------------------------------
 
     @Test
     fun `Internal lastDeviceSyncTs defaults to 0`() {
         assertEquals(0L, EnchantStore.Internal.lastDeviceSyncTs)
-    }
-
-    @Test
-    fun `Internal lastDeviceSyncTs set and get`() {
-        EnchantStore.Internal.setLastDeviceSyncTs(1234567890L)
-        assertEquals(1234567890L, EnchantStore.Internal.lastDeviceSyncTs)
     }
 
     @Test
@@ -652,21 +567,218 @@ class EnchantStoreTest {
     }
 
     @Test
-    fun `Internal lastPreKeyRotationTs set and get`() {
-        EnchantStore.Internal.setLastPreKeyRotationTs(9876543210L)
-        assertEquals(9876543210L, EnchantStore.Internal.lastPreKeyRotationTs)
+    fun `Internal set and get`() {
+        EnchantStore.Internal.setLastDeviceSyncTs(100L)
+        EnchantStore.Internal.setLastPreKeyRotationTs(200L)
+        assertEquals(100L, EnchantStore.Internal.lastDeviceSyncTs)
+        assertEquals(200L, EnchantStore.Internal.lastPreKeyRotationTs)
+    }
+
+    // -- SVR tests ------------------------------------------------------------------------
+
+    @Test
+    fun `Svr masterKey set and get`() {
+        EnchantStore.Svr.setMasterKey("svr-master-key")
+        assertEquals("svr-master-key", EnchantStore.Svr.masterKey)
     }
 
     @Test
-    fun `Internal clear removes all values`() {
-        EnchantStore.Internal.setLastDeviceSyncTs(1L)
-        EnchantStore.Internal.setLastPreKeyRotationTs(2L)
-        EnchantStore.Internal.clear()
-        assertEquals(0L, EnchantStore.Internal.lastDeviceSyncTs)
-        assertEquals(0L, EnchantStore.Internal.lastPreKeyRotationTs)
+    fun `Svr isConfigured defaults to false`() {
+        assertFalse(EnchantStore.Svr.isConfigured)
     }
 
-    // -- Global clearAll ------------------------------------------------------------------
+    @Test
+    fun `Svr isConfigured set and get`() {
+        EnchantStore.Svr.setIsConfigured(true)
+        assertTrue(EnchantStore.Svr.isConfigured)
+    }
+
+    @Test
+    fun `Svr clear`() {
+        EnchantStore.Svr.setMasterKey("key")
+        EnchantStore.Svr.setBackupId("backup-1")
+        EnchantStore.Svr.setIsConfigured(true)
+        EnchantStore.Svr.clear()
+        assertNull(EnchantStore.Svr.masterKey)
+        assertNull(EnchantStore.Svr.backupId)
+        assertFalse(EnchantStore.Svr.isConfigured)
+    }
+
+    // -- RemoteConfig tests ---------------------------------------------------------------
+
+    @Test
+    fun `RemoteConfig values set and get`() {
+        EnchantStore.RemoteConfig.setValues("""{"feature": true}""")
+        assertEquals("""{"feature": true}""", EnchantStore.RemoteConfig.values)
+    }
+
+    @Test
+    fun `RemoteConfig lastFetchTs defaults to 0`() {
+        assertEquals(0L, EnchantStore.RemoteConfig.lastFetchTs)
+    }
+
+    // -- StorageService tests -------------------------------------------------------------
+
+    @Test
+    fun `StorageService manifestVersion defaults to 0`() {
+        assertEquals(0, EnchantStore.StorageService.manifestVersion)
+    }
+
+    @Test
+    fun `StorageService isSyncEnabled defaults to true`() {
+        assertTrue(EnchantStore.StorageService.isSyncEnabled)
+    }
+
+    @Test
+    fun `StorageService set and get`() {
+        EnchantStore.StorageService.setManifestVersion(5)
+        EnchantStore.StorageService.setSyncEnabled(false)
+        assertEquals(5, EnchantStore.StorageService.manifestVersion)
+        assertFalse(EnchantStore.StorageService.isSyncEnabled)
+    }
+
+    // -- UiHints tests --------------------------------------------------------------------
+
+    @Test
+    fun `UiHints hasSeenConversationListSwipe defaults to false`() {
+        assertFalse(EnchantStore.UiHints.hasSeenConversationListSwipe)
+    }
+
+    @Test
+    fun `UiHints set and get`() {
+        EnchantStore.UiHints.setHasSeenConversationListSwipe(true)
+        EnchantStore.UiHints.setHasSeenReactionHint(true)
+        assertTrue(EnchantStore.UiHints.hasSeenConversationListSwipe)
+        assertTrue(EnchantStore.UiHints.hasSeenReactionHint)
+    }
+
+    // -- Tooltips tests -------------------------------------------------------------------
+
+    @Test
+    fun `Tooltips hasSeenChatSearchTooltip defaults to false`() {
+        assertFalse(EnchantStore.Tooltips.hasSeenChatSearchTooltip)
+    }
+
+    @Test
+    fun `Tooltips set and get`() {
+        EnchantStore.Tooltips.setHasSeenChatSearchTooltip(true)
+        EnchantStore.Tooltips.setHasSeenStoriesTooltip(true)
+        assertTrue(EnchantStore.Tooltips.hasSeenChatSearchTooltip)
+        assertTrue(EnchantStore.Tooltips.hasSeenStoriesTooltip)
+    }
+
+    // -- Certificate tests ----------------------------------------------------------------
+
+    @Test
+    fun `Certificate unidentifiedAccessCertificate set and get`() {
+        EnchantStore.Certificate.setUnidentifiedAccessCertificate("cert-data")
+        assertEquals("cert-data", EnchantStore.Certificate.unidentifiedAccessCertificate)
+    }
+
+    @Test
+    fun `Certificate certificateExpiration defaults to 0`() {
+        assertEquals(0L, EnchantStore.Certificate.certificateExpiration)
+    }
+
+    // -- Wallpaper tests ------------------------------------------------------------------
+
+    @Test
+    fun `Wallpaper globalWallpaper set and get`() {
+        EnchantStore.Wallpaper.setGlobalWallpaper("wp-1")
+        assertEquals("wp-1", EnchantStore.Wallpaper.globalWallpaper)
+    }
+
+    @Test
+    fun `Wallpaper brightness defaults to 1_0`() {
+        assertEquals(1.0f, EnchantStore.Wallpaper.brightness)
+    }
+
+    @Test
+    fun `Wallpaper brightness set and get`() {
+        EnchantStore.Wallpaper.setBrightness(0.5f)
+        assertEquals(0.5f, EnchantStore.Wallpaper.brightness)
+    }
+
+    // -- Payments tests -------------------------------------------------------------------
+
+    @Test
+    fun `Payments isEnabled defaults to false`() {
+        assertFalse(EnchantStore.Payments.isEnabled)
+    }
+
+    @Test
+    fun `Payments set and get`() {
+        EnchantStore.Payments.setEnabled(true)
+        assertTrue(EnchantStore.Payments.isEnabled)
+    }
+
+    // -- InAppPayment tests ---------------------------------------------------------------
+
+    @Test
+    fun `InAppPayment subscriptionTier set and get`() {
+        EnchantStore.InAppPayment.setSubscriptionTier("premium")
+        assertEquals("premium", EnchantStore.InAppPayment.subscriptionTier)
+    }
+
+    // -- ImageEditor tests ----------------------------------------------------------------
+
+    @Test
+    fun `ImageEditor brushSize defaults to 5_0`() {
+        assertEquals(5.0f, EnchantStore.ImageEditor.brushSize)
+    }
+
+    @Test
+    fun `ImageEditor brushSize set and get`() {
+        EnchantStore.ImageEditor.setBrushSize(10.0f)
+        assertEquals(10.0f, EnchantStore.ImageEditor.brushSize)
+    }
+
+    // -- NotificationProfile tests --------------------------------------------------------
+
+    @Test
+    fun `NotificationProfile customProfiles set and get`() {
+        EnchantStore.NotificationProfile.setCustomProfiles("[{\"id\":\"work\"}]")
+        assertEquals("[{\"id\":\"work\"}]", EnchantStore.NotificationProfile.customProfiles)
+    }
+
+    // -- ReleaseChannel tests -------------------------------------------------------------
+
+    @Test
+    fun `ReleaseChannel channel defaults to stable`() {
+        assertEquals("stable", EnchantStore.ReleaseChannel.channel)
+    }
+
+    @Test
+    fun `ReleaseChannel channel set and get`() {
+        EnchantStore.ReleaseChannel.setChannel("beta")
+        assertEquals("beta", EnchantStore.ReleaseChannel.channel)
+    }
+
+    // -- ApkUpdate tests ------------------------------------------------------------------
+
+    @Test
+    fun `ApkUpdate lastCheckTs defaults to 0`() {
+        assertEquals(0L, EnchantStore.ApkUpdate.lastCheckTs)
+    }
+
+    @Test
+    fun `ApkUpdate lastVersionCode defaults to 0`() {
+        assertEquals(0, EnchantStore.ApkUpdate.lastVersionCode)
+    }
+
+    // -- Miscellaneous tests --------------------------------------------------------------
+
+    @Test
+    fun `Miscellaneous lastVersionCode defaults to 0`() {
+        assertEquals(0, EnchantStore.Miscellaneous.lastVersionCode)
+    }
+
+    @Test
+    fun `Miscellaneous hasCompletedFirstRun defaults to false`() {
+        assertFalse(EnchantStore.Miscellaneous.hasCompletedFirstRun)
+    }
+
+    // -- Global clearAll tests ------------------------------------------------------------
 
     @Test
     fun `clearAll resets every category`() {
@@ -674,19 +786,33 @@ class EnchantStoreTest {
         EnchantStore.Registration.setComplete(true)
         EnchantStore.Backup.setEnabled(true)
         EnchantStore.Settings.setTheme("dark")
-        EnchantStore.Notifications.setMessageNotifications(false)
+        EnchantStore.Notifications.setSound("bell")
         EnchantStore.Privacy.setLastSeenVisibility("nobody")
         EnchantStore.Pin.setHash("hash")
         EnchantStore.Onboarding.setComplete(true)
-        EnchantStore.Proxy.setHost("proxy.example.com")
-        EnchantStore.RateLimit.setLastOtpMs(123L)
+        EnchantStore.Proxy.setHost("proxy")
+        EnchantStore.RateLimit.setOtpAttempts(5)
         EnchantStore.PhoneNumberPrivacy.setShareWithContacts(false)
         EnchantStore.Emoji.setRecent("😀")
-        EnchantStore.ChatColors.setWallpaper("custom")
+        EnchantStore.ChatColors.setColor("#FFF")
         EnchantStore.CallQuality.setUseLowBandwidth(true)
         EnchantStore.Labs.setExperimentalFeatures(true)
-        EnchantStore.Stories.setMyStoriesPrivacy("nobody")
-        EnchantStore.Internal.setLastDeviceSyncTs(1L)
+        EnchantStore.Stories.setMyStoriesPrivacy("everyone")
+        EnchantStore.Internal.setLastDeviceSyncTs(100L)
+        EnchantStore.Svr.setMasterKey("svr-key")
+        EnchantStore.RemoteConfig.setValues("{}")
+        EnchantStore.StorageService.setManifestVersion(3)
+        EnchantStore.UiHints.setHasSeenConversationListSwipe(true)
+        EnchantStore.Tooltips.setHasSeenChatSearchTooltip(true)
+        EnchantStore.Certificate.setUnidentifiedAccessCertificate("cert")
+        EnchantStore.Wallpaper.setGlobalWallpaper("wp")
+        EnchantStore.Payments.setEnabled(true)
+        EnchantStore.InAppPayment.setSubscriptionTier("premium")
+        EnchantStore.ImageEditor.setBrushSize(10f)
+        EnchantStore.NotificationProfile.setCustomProfiles("[]")
+        EnchantStore.ReleaseChannel.setChannel("beta")
+        EnchantStore.ApkUpdate.setLastCheckTs(999L)
+        EnchantStore.Miscellaneous.setLastVersionCode(42)
 
         EnchantStore.clearAll()
 
@@ -694,18 +820,188 @@ class EnchantStoreTest {
         assertFalse(EnchantStore.Registration.isComplete)
         assertFalse(EnchantStore.Backup.isEnabled)
         assertEquals("system", EnchantStore.Settings.theme)
-        assertTrue(EnchantStore.Notifications.messageNotifications)
+        assertNull(EnchantStore.Notifications.sound)
         assertEquals("contacts", EnchantStore.Privacy.lastSeenVisibility)
         assertNull(EnchantStore.Pin.hash)
         assertFalse(EnchantStore.Onboarding.isComplete)
         assertNull(EnchantStore.Proxy.host)
-        assertEquals(0L, EnchantStore.RateLimit.lastOtpMs)
+        assertEquals(0, EnchantStore.RateLimit.otpAttempts)
         assertTrue(EnchantStore.PhoneNumberPrivacy.shareWithContacts)
         assertNull(EnchantStore.Emoji.recent)
-        assertNull(EnchantStore.ChatColors.wallpaper)
+        assertNull(EnchantStore.ChatColors.color)
         assertFalse(EnchantStore.CallQuality.useLowBandwidth)
         assertFalse(EnchantStore.Labs.experimentalFeatures)
         assertEquals("contacts", EnchantStore.Stories.myStoriesPrivacy)
         assertEquals(0L, EnchantStore.Internal.lastDeviceSyncTs)
+        assertNull(EnchantStore.Svr.masterKey)
+        assertNull(EnchantStore.RemoteConfig.values)
+        assertEquals(0, EnchantStore.StorageService.manifestVersion)
+        assertFalse(EnchantStore.UiHints.hasSeenConversationListSwipe)
+        assertFalse(EnchantStore.Tooltips.hasSeenChatSearchTooltip)
+        assertNull(EnchantStore.Certificate.unidentifiedAccessCertificate)
+        assertNull(EnchantStore.Wallpaper.globalWallpaper)
+        assertFalse(EnchantStore.Payments.isEnabled)
+        assertNull(EnchantStore.InAppPayment.subscriptionTier)
+        assertEquals(5.0f, EnchantStore.ImageEditor.brushSize)
+        assertNull(EnchantStore.NotificationProfile.customProfiles)
+        assertEquals("stable", EnchantStore.ReleaseChannel.channel)
+        assertEquals(0L, EnchantStore.ApkUpdate.lastCheckTs)
+        assertEquals(0, EnchantStore.Miscellaneous.lastVersionCode)
+    }
+
+    // -- Backup keys tests ----------------------------------------------------------------
+
+    @Test
+    fun `getAllBackupKeys returns non-empty list`() {
+        val keys = EnchantStore.getAllBackupKeys()
+        assertTrue(keys.isNotEmpty())
+        assertTrue(keys.contains("account.user_id"))
+        assertTrue(keys.contains("settings.read_receipts"))
+        assertTrue(keys.contains("privacy.last_seen"))
+    }
+
+    @Test
+    fun `getAllBackupKeys has no duplicates`() {
+        val keys = EnchantStore.getAllBackupKeys()
+        assertEquals(keys.size, keys.distinct().size)
+    }
+
+    @Test
+    fun `Backup category returns empty keys`() {
+        val keys = EnchantStore.Backup.getKeysToIncludeInBackup()
+        assertTrue(keys.isEmpty())
+    }
+
+    @Test
+    fun `Internal category returns empty keys`() {
+        val keys = EnchantStore.Internal.getKeysToIncludeInBackup()
+        assertTrue(keys.isEmpty())
+    }
+
+    // -- Atomic batch write tests ---------------------------------------------------------
+
+    @Test
+    fun `atomic batch writes multiple keys`() {
+        EnchantStore.store.beginWrite()
+            .putString("batch.string", "hello")
+            .putInt("batch.int", 42)
+            .putLong("batch.long", 1000L)
+            .putBoolean("batch.bool", true)
+            .putFloat("batch.float", 3.14f)
+            .apply()
+
+        EnchantStore.store.flushPendingWrites()
+
+        assertEquals("hello", EnchantStore.store.getString("batch.string"))
+        assertEquals(42, EnchantStore.store.getInt("batch.int"))
+        assertEquals(1000L, EnchantStore.store.getLong("batch.long"))
+        assertTrue(EnchantStore.store.getBoolean("batch.bool"))
+        assertEquals(3.14f, EnchantStore.store.getFloat("batch.float"))
+    }
+
+    @Test
+    fun `atomic batch remove works`() {
+        EnchantStore.store.putString("batch.remove_test", "value")
+        EnchantStore.store.flushPendingWrites()
+
+        EnchantStore.store.beginWrite()
+            .remove("batch.remove_test")
+            .apply()
+
+        EnchantStore.store.flushPendingWrites()
+
+        assertNull(EnchantStore.store.getString("batch.remove_test"))
+    }
+
+    // -- Flow observation tests -----------------------------------------------------------
+
+    @Test
+    fun `observe emits current value and changes`() = runBlocking {
+        EnchantStore.store.putString("flow.test", "initial")
+        EnchantStore.store.flushPendingWrites()
+
+        val flow = EnchantStore.delegates.observe<String>("flow.test")
+        assertEquals("initial", flow.first())
+
+        EnchantStore.store.putString("flow.test", "updated")
+        EnchantStore.delegates.emitValue("flow.test", "updated")
+
+        assertEquals("updated", flow.first())
+    }
+
+    @Test
+    fun `observe with default handles null`() = runBlocking {
+        val flow = EnchantStore.delegates.observe("flow.null_test", "default-value")
+        assertEquals("default-value", flow.first())
+    }
+
+    // -- KeyValueStore direct tests -------------------------------------------------------
+
+    @Test
+    fun `KeyValueStore contains returns true for existing key`() {
+        EnchantStore.store.putString("contains.test", "value")
+        EnchantStore.store.flushPendingWrites()
+        assertTrue(EnchantStore.store.contains("contains.test"))
+    }
+
+    @Test
+    fun `KeyValueStore contains returns false for missing key`() {
+        assertFalse(EnchantStore.store.contains("nonexistent.key"))
+    }
+
+    @Test
+    fun `KeyValueStore getAll returns populated map`() {
+        EnchantStore.store.putString("all.k1", "v1")
+        EnchantStore.store.putInt("all.k2", 42)
+        EnchantStore.store.flushPendingWrites()
+
+        val all = EnchantStore.store.getAll()
+        assertEquals("v1", all["all.k1"])
+        assertEquals(42, all["all.k2"])
+    }
+
+    @Test
+    fun `KeyValueStore clearAll removes everything`() {
+        EnchantStore.store.putString("clear.k1", "v1")
+        EnchantStore.store.putInt("clear.k2", 1)
+        EnchantStore.store.flushPendingWrites()
+
+        EnchantStore.store.clearAll()
+        EnchantStore.store.flushPendingWrites()
+
+        val all = EnchantStore.store.getAll()
+        assertFalse(all.containsKey("clear.k1"))
+        assertFalse(all.containsKey("clear.k2"))
+    }
+
+    @Test
+    fun `KeyValueStore getBlob set and get`() {
+        val data = byteArrayOf(1, 2, 3, 4, 5)
+        EnchantStore.store.putBlob("blob.test", data)
+        EnchantStore.store.flushPendingWrites()
+
+        val result = EnchantStore.store.getBlob("blob.test")
+        assertNotNull(result)
+        assertTrue(result!!.contentEquals(data))
+    }
+
+    @Test
+    fun `KeyValueStore remove works`() {
+        EnchantStore.store.putString("remove.test", "value")
+        EnchantStore.store.flushPendingWrites()
+
+        EnchantStore.store.remove("remove.test")
+        EnchantStore.store.flushPendingWrites()
+
+        assertNull(EnchantStore.store.getString("remove.test"))
+    }
+
+    @Test
+    fun `KeyValueStore default values returned for missing keys`() {
+        assertEquals("default", EnchantStore.store.getString("missing.string", "default"))
+        assertEquals(99, EnchantStore.store.getInt("missing.int", 99))
+        assertEquals(999L, EnchantStore.store.getLong("missing.long", 999L))
+        assertTrue(EnchantStore.store.getBoolean("missing.bool", true))
+        assertEquals(2.5f, EnchantStore.store.getFloat("missing.float", 2.5f))
     }
 }

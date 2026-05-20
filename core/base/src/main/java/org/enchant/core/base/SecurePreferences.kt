@@ -102,6 +102,11 @@ object SecurePreferences {
         return getPrefs()?.getBoolean(key, default) ?: default
     }
 
+    fun getBoolean(key: String, default: Boolean?): Boolean? {
+        val p = getPrefs() ?: return default
+        return if (p.contains(key)) p.getBoolean(key, default ?: false) else default
+    }
+
     fun putFloat(key: String, value: Float) {
         getPrefs()?.edit()?.putFloat(key, value)?.apply()
     }
@@ -112,6 +117,11 @@ object SecurePreferences {
 
     fun getFloat(key: String, default: Float = 0f): Float {
         return getPrefs()?.getFloat(key, default) ?: default
+    }
+
+    fun getFloat(key: String, default: Float?): Float? {
+        val p = getPrefs() ?: return default
+        return if (p.contains(key)) p.getFloat(key, default ?: 0f) else default
     }
 
     fun remove(key: String) {
