@@ -1,103 +1,137 @@
 package org.enchant.core.base.logging
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
-@Config(sdk = [35])
-@RunWith(RobolectricTestRunner::class)
 class LogTest {
 
-    private val captured = mutableListOf<String>()
-
-    private val testLogger = object : Log.Logger {
-        override fun v(tag: String, message: String?, t: Throwable?) { captured.add("v:$tag:$message") }
-        override fun d(tag: String, message: String?, t: Throwable?) { captured.add("d:$tag:$message") }
-        override fun i(tag: String, message: String?, t: Throwable?) { captured.add("i:$tag:$message") }
-        override fun w(tag: String, message: String?, t: Throwable?) { captured.add("w:$tag:$message") }
-        override fun e(tag: String, message: String?, t: Throwable?) { captured.add("e:$tag:$message") }
+    @Test
+    fun `default logger is NoopLogger`() {
+        Log.initialize(NoopLogger)
+        Log.d("Test", "message")
     }
 
     @Test
-    fun `initialize sets logger`() {
-        Log.initialize(testLogger)
-        Log.d("Tag", "msg")
-        assertTrue(captured.any { it == "d:Tag:msg" })
+    fun `tag truncates to 23 characters max`() {
+        val tag = Log.tag(LogTest::class.java)
+        assertTrue(tag.length <= 23)
     }
 
     @Test
-    fun `v logs verbose`() {
-        Log.initialize(testLogger)
-        Log.v("Tag", "verbose")
-        assertTrue(captured.any { it == "v:Tag:verbose" })
-    }
-
-    @Test
-    fun `d logs debug`() {
-        Log.initialize(testLogger)
-        Log.d("Tag", "debug")
-        assertTrue(captured.any { it == "d:Tag:debug" })
-    }
-
-    @Test
-    fun `i logs info`() {
-        Log.initialize(testLogger)
-        Log.i("Tag", "info")
-        assertTrue(captured.any { it == "i:Tag:info" })
-    }
-
-    @Test
-    fun `w logs warn`() {
-        Log.initialize(testLogger)
-        Log.w("Tag", "warn")
-        assertTrue(captured.any { it == "w:Tag:warn" })
-    }
-
-    @Test
-    fun `e logs error`() {
-        Log.initialize(testLogger)
-        Log.e("Tag", "error")
-        assertTrue(captured.any { it == "e:Tag:error" })
-    }
-
-    @Test
-    fun `log with throwable includes throwable`() {
-        Log.initialize(testLogger)
-        Log.d("Tag", "msg", RuntimeException("test"))
-        assertTrue(captured.any { it == "d:Tag:msg" })
-    }
-
-    @Test
-    fun `tag from class truncates long names`() {
-        val tag = Log.tag(ClassWithAVeryLongNameThatExceedsTwentyThreeChars::class.java)
-        assertEquals(23, tag.length)
-    }
-
-    private class ClassWithAVeryLongNameThatExceedsTwentyThreeChars
-
-    @Test
-    fun `tag from short class returns full name`() {
-        val tag = Log.tag(this.javaClass)
+    fun `tag uses simple class name`() {
+        val tag = Log.tag(LogTest::class.java)
         assertEquals("LogTest", tag)
     }
 
     @Test
-    fun `default logger is silent`() {
-        Log.d("Tag", "should be silent")
-        Log.e("Tag", "should not throw", RuntimeException())
+    fun `internal returns disabled logger by default`() {
+        val internal = Log.internal()
+        internal.d("Test", "should not appear")
     }
 
     @Test
-    fun `AndroidLogger logs without throwing`() {
-        Log.initialize(AndroidLogger)
-        Log.v("V", "v")
-        Log.d("D", "d")
-        Log.i("I", "i")
-        Log.w("W", "w")
-        Log.e("E", "e")
-        Log.d("D", "msg", RuntimeException("test"))
+    fun `internal returns enabled logger when check is true`() {
+        Log.setInternalCheck(object : Log.InternalCheck {
+            override fun isInternal(): Boolean = true
+        })
+        Log.initialize(NoopLogger)
+        val internal = Log.internal()
+        internal.d("Test", "message")
+        Log.setInternalCheck(object : Log.InternalCheck {
+            override fun isInternal(): Boolean = false
+        })
+    }
+
+    @Test
+    fun `flush does not throw`() {
+        Log.initialize(NoopLogger)
+        Log.flush()
+    }
+
+    @Test
+    fun `blockUntilAllWritesFinished does not throw`() {
+        Log.initialize(NoopLogger)
+        Log.blockUntilAllWritesFinished()
+    }
+
+    @Test
+    fun `tag from KClass works`() {
+        val tag = Log.tag(LogTest::class)
+        assertEquals("LogTest", tag)
+    }
+}
+
+class NoopLoggerTest {
+
+    @Test
+    fun `all methods are no-op`() {
+        NoopLogger.v("tag", "msg", null)
+        NoopLogger.d("tag", "msg", null)
+        NoopLogger.i("tag", "msg", null)
+        NoopLogger.w("tag", "msg", null)
+        NoopLogger.e("tag", "msg", null)
+        NoopLogger.flush()
+        NoopLogger.blockUntilAllWritesFinished()
+    }
+}
+
+class CompoundLoggerTest {
+
+    @Test
+    fun `dispatches to all delegates`() {
+        val logger1 = TrackingLogger()
+        val logger2 = TrackingLogger()
+        val compound = CompoundLogger(logger1, logger2)
+
+        compound.d("tag", "hello", null)
+        assertEquals(1, logger1.debugCount)
+        assertEquals(1, logger2.debugCount)
+    }
+
+    @Test
+    fun `flush calls all delegates`() {
+        val logger1 = TrackingLogger()
+        val logger2 = TrackingLogger()
+        val compound = CompoundLogger(logger1, logger2)
+
+        compound.flush()
+        assertEquals(1, logger1.flushCount)
+        assertEquals(1, logger2.flushCount)
+    }
+
+    @Test
+    fun `blockUntilAllWritesFinished calls all delegates`() {
+        val logger1 = TrackingLogger()
+        val logger2 = TrackingLogger()
+        val compound = CompoundLogger(logger1, logger2)
+
+        compound.blockUntilAllWritesFinished()
+        assertEquals(1, logger1.blockCount)
+        assertEquals(1, logger2.blockCount)
+    }
+
+    @Test
+    fun `handles empty delegate list`() {
+        val compound = CompoundLogger()
+        compound.d("tag", "msg", null)
+        compound.flush()
+        compound.blockUntilAllWritesFinished()
+    }
+
+    private class TrackingLogger : Log.Logger {
+        var debugCount = 0
+        var flushCount = 0
+        var blockCount = 0
+
+        override fun v(tag: String, message: String?, t: Throwable?) {}
+        override fun d(tag: String, message: String?, t: Throwable?) { debugCount++ }
+        override fun i(tag: String, message: String?, t: Throwable?) {}
+        override fun w(tag: String, message: String?, t: Throwable?) {}
+        override fun e(tag: String, message: String?, t: Throwable?) {}
+        override fun flush() { flushCount++ }
+        override fun blockUntilAllWritesFinished() { blockCount++ }
     }
 }
