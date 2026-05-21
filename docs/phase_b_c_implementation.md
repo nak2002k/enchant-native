@@ -1312,3 +1312,651 @@ class ActionProcessorTest {
 - [ ] All existing tests still pass
 - [ ] No direct state mutation outside of action processors
 - [ ] All handlers log entrance with tag
+
+---
+
+## Phase D: CallLogViewModel Full Rewrite
+
+### D1: Signal-Style CallLogViewModel Implementation
+
+**Reference:** Signal's `CallLogViewModel.kt` at `/home/nsk/project/Signal-Android-main/app/src/main/java/org/thoughtcrime/securesms/calls/log/`
+
+Signal uses:
+- **RxStore pattern** with `BehaviorProcessor` for reactive state
+- **CallLogRepository** for database abstraction
+- **PagedData** for call log loading
+- **Three selection states**: `Includes` (opt-in), `Excludes` (opt-out), `All`
+
+**File:** `feature/calls/src/main/java/org/enchant/calls/CallLogViewModel.kt`
+
+**Implementation:**
+
+```kotlin
+package org.enchant.calls
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import org.enchant.core.calls.CallDirection
+import org.enchant.core.calls.CallEndReason
+import org.enchant.core.calls.CallLogFilter
+import org.enchant.core.calls.CallManager
+import org.enchant.core.calls.model.CallLogEntry
+
+data class CallLogUiState(
+    val entries: List<CallLogEntry> = emptyList(),
+    val filter: CallLogFilter = CallLogFilter.ALL,
+    val isLoading: Boolean = false,
+    val isSelectionMode: Boolean = false,
+    val selectedIds: Set<String> = emptySet(),
+    val stagedDeletion: StagedDeletion? = null,
+    val error: String? = null
+)
+
+sealed class CallLogSelectionState {
+    data class Includes(val ids: Set<String>) : CallLogSelectionState()
+    data class Excludes(val ids: Set<String>) : CallLogSelectionState()
+    object All : CallLogSelectionState()
+}
+
+class CallLogViewModel : ViewModel() {
+
+    private val _uiState = MutableStateFlow(CallLogUiState())
+    val uiState: StateFlow<CallLogUiState> = _uiState.asStateFlow()
+
+    private val selectionState = MutableStateFlow<CallLogSelectionState>(CallLogSelectionState.Includes(emptySet()))
+
+    init {
+        loadCallLogs()
+    }
+
+    fun loadCallLogs() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val allLogs = CallManager.getCallLogs(100)
+                val filteredLogs = applyFilter(allLogs, _uiState.value.filter)
+                _uiState.update { it.copy(entries = filteredLogs, isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun setFilter(filter: CallLogFilter) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(filter = filter) }
+            loadCallLogs()
+        }
+    }
+
+    private fun applyFilter(logs: List<CallLogEntry>, filter: CallLogFilter): List<CallLogEntry> {
+        return when (filter) {
+            CallLogFilter.ALL -> logs
+            CallLogFilter.MISSED -> logs.filter { isMissedCall(it) }
+            CallLogFilter.OUTGOING -> logs.filter { it.direction == CallDirection.OUTGOING }
+            CallLogFilter.INCOMING -> logs.filter { it.direction == CallDirection.INCOMING }
+        }
+    }
+
+    private fun isMissedCall(entry: CallLogEntry): Boolean {
+        return entry.direction == CallDirection.INCOMING && 
+               entry.status in listOf(CallEndReason.BUSY, CallEndReason.TIMEOUT)
+    }
+
+    fun startSelection() {
+        _uiState.update { it.copy(isSelectionMode = true, selectedIds = emptySet()) }
+        selectionState.value = CallLogSelectionState.Includes(emptySet())
+    }
+
+    fun endSelection() {
+        _uiState.update { it.copy(isSelectionMode = false, selectedIds = emptySet()) }
+        selectionState.value = CallLogSelectionState.Includes(emptySet())
+    }
+
+    fun toggleSelected(callId: String) {
+        val current = _uiState.value.selectedIds
+        val newSelection = if (callId in current) {
+            current - callId
+        } else {
+            current + callId
+        }
+        _uiState.update { it.copy(selectedIds = newSelection) }
+        selectionState.value = CallLogSelectionState.Includes(newSelection)
+    }
+
+    fun selectAll() {
+        val allIds = _uiState.value.entries.map { it.callId }.toSet()
+        _uiState.update { it.copy(selectedIds = allIds) }
+        selectionState.value = CallLogSelectionState.All
+    }
+
+    fun stageDeletion(): StagedDeletion {
+        val selectedIds = _uiState.value.selectedIds.toList()
+        val staged = StagedDeletion(selectedIds)
+        _uiState.update { it.copy(stagedDeletion = staged) }
+        return staged
+    }
+
+    fun confirmDeletion(staged: StagedDeletion) {
+        viewModelScope.launch {
+            try {
+                val pool = org.enchant.core.database.DatabasePool.instance
+                pool?.writer?.let { db ->
+                    db.execSQL("DELETE FROM call_logs WHERE call_id = ?", staged.callIds.toTypedArray())
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to delete: ${e.message}") }
+            }
+            _uiState.update { 
+                it.copy(
+                    stagedDeletion = null, 
+                    isSelectionMode = false, 
+                    selectedIds = emptySet()
+                )
+            }
+            loadCallLogs()
+        }
+    }
+}
+```
+
+**Rules (Signal Pattern):**
+- Use `viewModelScope.launch` for all async operations
+- Apply filter in `applyFilter()` method, not in database query
+- `isMissedCall()` checks direction INCOMING + status BUSY/TIMEOUT
+- Selection state tracks `Set<String>` of call IDs
+- Always reload logs after deletion
+
+---
+
+### D2: CallLogViewModel Tests
+
+**File:** `feature/calls/src/test/java/org/enchant/calls/CallLogViewModelTest.kt`
+
+**Test Pattern (from Signal's `CallEventCacheTest`):**
+
+```kotlin
+package org.enchant.calls
+
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.enchant.core.calls.CallDirection
+import org.enchant.core.calls.CallEndReason
+import org.enchant.core.calls.CallLogFilter
+import org.enchant.core.calls.CallManager
+import org.enchant.core.calls.CallsModule
+import org.enchant.core.calls.model.CallLogEntry
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@DisplayName("CallLogViewModel — Full Coverage")
+class CallLogViewModelTest {
+
+    private val testDispatcher = StandardTestDispatcher()
+    private lateinit var mockCallManager: org.enchant.core.calls.DefaultCallManager
+
+    @BeforeEach
+    fun setUp() {
+        Dispatchers.setMain(testDispatcher)
+        mockCallManager = mockk(relaxed = true)
+        mockkObject(CallsModule)
+        every { CallsModule.getCallManager() } returns mockCallManager
+        coEvery { mockCallManager.getCallLogs(any()) } returns emptyList()
+    }
+
+    @AfterEach
+    fun tearDown() {
+        unmockkObject(CallsModule)
+        Dispatchers.resetMain()
+    }
+
+    @Nested @DisplayName("Load Call Logs")
+    inner class LoadCallLogsTest {
+        @Test @DisplayName("loadCallLogs calls getCallLogs")
+        fun `load call logs`() = runTest {
+            val viewModel = CallLogViewModel()
+            testDispatcher.scheduler.runCurrent()
+            coEvery { mockCallManager.getCallLogs(100) } returns emptyList()
+            viewModel.loadCallLogs()
+            testDispatcher.scheduler.runCurrent()
+            coVerify { mockCallManager.getCallLogs(100) }
+        }
+
+        @Test @DisplayName("loadCallLogs applies filter")
+        fun `load call logs with filter`() = runTest {
+            val logs = listOf(
+                CallLogEntry("id1", "user1", null, org.enchant.core.calls.model.CallType.AUDIO, 
+                    CallDirection.INCOMING, CallEndReason.BUSY, 0, System.currentTimeMillis()),
+                CallLogEntry("id2", "user2", null, org.enchant.core.calls.model.CallType.AUDIO,
+                    CallDirection.OUTGOING, CallEndReason.HANGUP_LOCAL, 60, System.currentTimeMillis())
+            )
+            coEvery { mockCallManager.getCallLogs(100) } returns logs
+            val viewModel = CallLogViewModel()
+            testDispatcher.scheduler.runCurrent()
+            viewModel.setFilter(CallLogFilter.MISSED)
+            testDispatcher.scheduler.runCurrent()
+            assertTrue(viewModel.uiState.value.entries.isNotEmpty())
+        }
+    }
+
+    @Nested @DisplayName("Filter")
+    inner class FilterTest {
+        @Test @DisplayName("setFilter changes filter and reloads")
+        fun `set filter`() = runTest {
+            val viewModel = CallLogViewModel()
+            viewModel.setFilter(CallLogFilter.MISSED)
+            testDispatcher.scheduler.runCurrent()
+            assertEquals(CallLogFilter.MISSED, viewModel.uiState.value.filter)
+        }
+    }
+
+    @Nested @DisplayName("Selection")
+    inner class SelectionTest {
+        @Test @DisplayName("startSelection enables selection mode")
+        fun `start selection`() = runTest {
+            val viewModel = CallLogViewModel()
+            viewModel.startSelection()
+            assertTrue(viewModel.uiState.value.isSelectionMode)
+        }
+
+        @Test @DisplayName("toggleSelected adds to selection")
+        fun `toggle selected`() = runTest {
+            val viewModel = CallLogViewModel()
+            viewModel.startSelection()
+            viewModel.toggleSelected("call-1")
+            assertTrue(viewModel.uiState.value.selectedIds.contains("call-1"))
+        }
+
+        @Test @DisplayName("selectAll selects all entries")
+        fun `select all`() = runTest {
+            val logs = listOf(
+                CallLogEntry("id1", "user1", null, org.enchant.core.calls.model.CallType.AUDIO,
+                    CallDirection.OUTGOING, CallEndReason.HANGUP_LOCAL, 60, System.currentTimeMillis()),
+                CallLogEntry("id2", "user2", null, org.enchant.core.calls.model.CallType.AUDIO,
+                    CallDirection.OUTGOING, CallEndReason.HANGUP_LOCAL, 60, System.currentTimeMillis())
+            )
+            coEvery { mockCallManager.getCallLogs(100) } returns logs
+            val viewModel = CallLogViewModel()
+            testDispatcher.scheduler.runCurrent()
+            viewModel.startSelection()
+            viewModel.selectAll()
+            assertEquals(2, viewModel.uiState.value.selectedIds.size)
+        }
+    }
+
+    @Nested @DisplayName("Deletion")
+    inner class DeletionTest {
+        @Test @DisplayName("stageDeletion returns selected IDs")
+        fun `stage deletion`() = runTest {
+            val viewModel = CallLogViewModel()
+            viewModel.startSelection()
+            viewModel.toggleSelected("call-1")
+            viewModel.toggleSelected("call-2")
+            val staged = viewModel.stageDeletion()
+            assertEquals(2, staged.callIds.size)
+            assertTrue(staged.callIds.contains("call-1"))
+            assertTrue(staged.callIds.contains("call-2"))
+        }
+
+        @Test @DisplayName("confirmDeletion clears selection and reloads")
+        fun `confirm deletion`() = runTest {
+            mockkStatic("org.enchant.core.database.DatabasePool")
+            val mockPool = mockk<org.enchant.core.database.DatabasePool>(relaxed = true)
+            val mockDb = mockk<org.enchant.core.database.DatabaseWriter>(relaxed = true)
+            every { org.enchant.core.database.DatabasePool.instance } returns mockPool
+            every { mockPool.writer } returns mockDb
+
+            val viewModel = CallLogViewModel()
+            testDispatcher.scheduler.runCurrent()
+            viewModel.startSelection()
+            viewModel.toggleSelected("call-1")
+            val staged = viewModel.stageDeletion()
+            viewModel.confirmDeletion(staged)
+            testDispatcher.scheduler.runCurrent()
+            assertFalse(viewModel.uiState.value.isSelectionMode)
+            assertTrue(viewModel.uiState.value.selectedIds.isEmpty())
+        }
+    }
+
+    @Nested @DisplayName("UI State")
+    inner class UiStateTest {
+        @Test @DisplayName("uiState has default values")
+        fun `ui state defaults`() = runTest {
+            val viewModel = CallLogViewModel()
+            val state = viewModel.uiState.value
+            assertNotNull(state)
+            assertTrue(state.entries.isEmpty())
+            assertEquals(CallLogFilter.ALL, state.filter)
+            assertFalse(state.isLoading)
+            assertFalse(state.isSelectionMode)
+            assertTrue(state.selectedIds.isEmpty())
+        }
+    }
+}
+```
+
+**Rules (Signal Pattern):**
+- Mock `CallsModule.getCallManager()` returning mock `DefaultCallManager`
+- Use `coEvery { mockCallManager.getCallLogs(any()) }` for suspend functions
+- Use `testDispatcher.scheduler.runCurrent()` to advance async operations
+- For database deletion test, mock `DatabasePool.instance` and `DatabasePool.writer`
+- All tests must be deterministic with no timing dependencies
+
+---
+
+## Phase E: End-to-End Integration Tests
+
+### E1: Test All Action Processors End-to-End
+
+**File:** `core/calls/src/test/java/org/enchant/core/calls/action/ActionProcessorEndToEndTest.kt`
+
+```kotlin
+package org.enchant.core.calls.action
+
+import io.mockk.mockk
+import org.enchant.core.calls.CallLogger
+import org.enchant.core.calls.action.processors.*
+import org.enchant.core.calls.model.CallDirection
+import org.enchant.core.calls.model.CallStatus
+import org.enchant.core.calls.observer.CallObserverRegistry
+import org.enchant.core.calls.state.CallServiceState
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+
+@DisplayName("ActionProcessor End-to-End")
+class ActionProcessorEndToEndTest {
+
+    private lateinit var callLogger: CallLogger
+    private lateinit var observerRegistry: CallObserverRegistry
+
+    @BeforeEach
+    fun setUp() {
+        callLogger = mockk(relaxed = true)
+        observerRegistry = mockk(relaxed = true)
+    }
+
+    @Nested @DisplayName("Full Call Lifecycle")
+    inner class FullLifecycleTest {
+        @Test fun `outgoing call goes through all phases`() {
+            var state = CallServiceState(
+                actionProcessor = IdleActionProcessor(callLogger, observerRegistry)
+            )
+
+            // IDLE -> OUTGOING
+            state = state.actionProcessor.process(state, CallAction.StartOutgoingCall("user1", false))
+            assertTrue(state.actionProcessor is OutgoingCallActionProcessor)
+            assertEquals(CallStatus.CALLING, state.callState.status)
+
+            // OUTGOING -> CONNECTED
+            state = state.actionProcessor.process(state, CallAction.CallConnected)
+            assertTrue(state.actionProcessor is ConnectedCallActionProcessor)
+            assertEquals(CallStatus.CONNECTED, state.callState.status)
+
+            // CONNECTED -> toggle mute
+            state = state.actionProcessor.process(state, CallAction.ToggleMute)
+            assertTrue(state.localDeviceState.isMuted)
+
+            // CONNECTED -> end call
+            state = state.actionProcessor.process(state, CallAction.CallEnded)
+            assertTrue(state.actionProcessor is IdleActionProcessor)
+            assertEquals(CallStatus.IDLE, state.callState.status)
+        }
+
+        @Test fun `incoming call goes through all phases`() {
+            var state = CallServiceState(
+                actionProcessor = IdleActionProcessor(callLogger, observerRegistry)
+            )
+
+            // IDLE -> INCOMING
+            state = state.actionProcessor.process(state, CallAction.ReceiveIncomingOffer("user1", "sdp", "call-1", false))
+            assertTrue(state.actionProcessor is IncomingCallActionProcessor)
+            assertEquals(CallStatus.RINGING, state.callState.status)
+
+            // INCOMING -> CONNECTING (accept)
+            state = state.actionProcessor.process(state, CallAction.AcceptIncomingCall(false))
+            assertEquals(CallStatus.CONNECTING, state.callState.status)
+
+            // CONNECTING -> CONNECTED
+            state = state.actionProcessor.process(state, CallAction.CallConnected)
+            assertTrue(state.actionProcessor is ConnectedCallActionProcessor)
+            assertEquals(CallStatus.CONNECTED, state.callState.status)
+
+            // CONNECTED -> hangup
+            state = state.actionProcessor.process(state, CallAction.ReceiveHangup(null))
+            assertTrue(state.actionProcessor is IdleActionProcessor)
+        }
+
+        @Test fun `incoming call deny goes back to idle`() {
+            var state = CallServiceState(
+                actionProcessor = IdleActionProcessor(callLogger, observerRegistry)
+            )
+
+            state = state.actionProcessor.process(state, CallAction.ReceiveIncomingOffer("user1", "sdp", "call-1", true))
+            assertEquals(CallStatus.RINGING, state.callState.status)
+
+            state = state.actionProcessor.process(state, CallAction.DenyIncomingCall(null))
+            assertTrue(state.actionProcessor is IdleActionProcessor)
+            assertEquals(CallStatus.IDLE, state.callState.status)
+        }
+
+        @Test fun `incoming call timeout goes back to idle`() {
+            var state = CallServiceState(
+                actionProcessor = IdleActionProcessor(callLogger, observerRegistry)
+            )
+
+            state = state.actionProcessor.process(state, CallAction.ReceiveIncomingOffer("user1", "sdp", "call-1", true))
+            state = state.actionProcessor.process(state, CallAction.IncomingCallTimeout)
+            assertTrue(state.actionProcessor is IdleActionProcessor)
+        }
+    }
+
+    @Nested @DisplayName("Error Handling")
+    inner class ErrorHandlingTest {
+        @Test fun `call failed transitions to idle`() {
+            var state = CallServiceState(
+                actionProcessor = IdleActionProcessor(callLogger, observerRegistry)
+            )
+
+            state = state.actionProcessor.process(state, CallAction.StartOutgoingCall("user1", false))
+            state = state.actionProcessor.process(state, CallAction.CallFailed("ICE connection failed"))
+
+            assertTrue(state.actionProcessor is IdleActionProcessor)
+            assertEquals(CallStatus.ENDED, state.callState.status)
+            assertEquals("ICE connection failed", state.callState.error)
+        }
+
+        @Test fun `outgoing call cancel transitions to idle`() {
+            var state = CallServiceState(
+                actionProcessor = IdleActionProcessor(callLogger, observerRegistry)
+            )
+
+            state = state.actionProcessor.process(state, CallAction.StartOutgoingCall("user1", false))
+            state = state.actionProcessor.process(state, CallAction.CancelOutgoingCall(null))
+
+            assertTrue(state.actionProcessor is IdleActionProcessor)
+        }
+    }
+}
+```
+
+---
+
+### E2: Test DefaultCallManager with Action Processor
+
+**File:** `core/calls/src/test/java/org/enchant/core/calls/DefaultCallManagerActionProcessorTest.kt`
+
+```kotlin
+package org.enchant.core.calls
+
+import io.mockk.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.enchant.core.calls.action.CallAction
+import org.enchant.core.calls.model.CallState
+import org.enchant.core.calls.model.CallStatus
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+
+@DisplayName("DefaultCallManager — Action Processor Integration")
+class DefaultCallManagerActionProcessorTest {
+
+    private lateinit var mockStateMachine: CallStateMachine
+    private lateinit var mockWebRtcEngine: WebRtcEngine
+    private lateinit var mockMediaStreamManager: MediaStreamManager
+    private lateinit var mockSdpHandler: SdpHandler
+    private lateinit var mockIceHandler: IceCandidateHandler
+    private lateinit var mockSignalingClient: SignalingClient
+    private lateinit var mockAudioRouter: AudioRouter
+    private lateinit var mockAudioFocusManager: AudioFocusManager
+    private lateinit var mockRingtonePlayer: RingtonePlayer
+    private lateinit var mockNotificationManager: CallNotificationManager
+    private lateinit var mockCallLogger: CallLogger
+    private lateinit var mockObserverRegistry: CallObserverRegistry
+
+    @BeforeEach
+    fun setUp() {
+        mockStateMachine = mockk(relaxed = true)
+        mockWebRtcEngine = mockk(relaxed = true)
+        mockMediaStreamManager = mockk(relaxed = true)
+        mockSdpHandler = mockk(relaxed = true)
+        mockIceHandler = mockk(relaxed = true)
+        mockSignalingClient = mockk(relaxed = true)
+        mockAudioRouter = mockk(relaxed = true)
+        mockAudioFocusManager = mockk(relaxed = true)
+        mockRingtonePlayer = mockk(relaxed = true)
+        mockNotificationManager = mockk(relaxed = true)
+        mockCallLogger = mockk(relaxed = true)
+        mockObserverRegistry = mockk(relaxed = true)
+
+        every { mockStateMachine.state } returns MutableStateFlow(CallState())
+    }
+
+    @Nested @DisplayName("Action Processing")
+    inner class ActionProcessingTest {
+        @Test fun `startOutgoingCall dispatches StartOutgoingCall action`() {
+            val manager = DefaultCallManager(
+                stateMachine = mockStateMachine,
+                webRtcEngine = mockWebRtcEngine,
+                mediaStreamManager = mockMediaStreamManager,
+                sdpHandler = mockSdpHandler,
+                iceHandler = mockIceHandler,
+                signalingClient = mockSignalingClient,
+                audioRouter = mockAudioRouter,
+                audioFocusManager = mockAudioFocusManager,
+                ringtonePlayer = mockRingtonePlayer,
+                notificationManager = mockNotificationManager,
+                callLogger = mockCallLogger,
+                observerRegistry = mockObserverRegistry
+            )
+
+            // The action processor should receive StartOutgoingCall
+            // We verify this by checking state transitions
+            verify { mockObserverRegistry.notifyStarted(any(), any()) }
+        }
+    }
+}
+```
+
+---
+
+## Complete Implementation Order
+
+### Phase A (Already Done ✅)
+- Tests passing (107 feature:calls + 121 core:calls = 228 total)
+
+### Phase B (Incremental Improvements)
+1. **B1: CallForegroundService** — 1-2 hours
+2. **B2: CallNotificationManager updates** — 1-2 hours
+3. **B3: StatsCollector wiring** — 1-2 hours
+
+### Phase C (Action Processor State Machine)
+4. **C1: CallAction sealed classes** — 1 hour
+5. **C2: ActionProcessor interface** — 30 min
+6. **C3: CallServiceState + Builder** — 2 hours
+7. **C4: IdleActionProcessor** — 1 hour
+8. **C5: OutgoingCallActionProcessor** — 1 hour
+9. **C6: IncomingCallActionProcessor** — 1 hour
+10. **C7: ConnectedCallActionProcessor** — 1 hour
+11. **C8: ActiveCallDelegate** — 1 hour
+12. **C9: Update DefaultCallManager** — 4-6 hours
+13. **C10: ActionProcessor tests** — 2-3 hours
+
+### Phase D (CallLogViewModel Rewrite)
+14. **D1: CallLogViewModel implementation** — 3-4 hours
+15. **D2: CallLogViewModel tests** — 2-3 hours
+
+### Phase E (End-to-End Tests)
+16. **E1: ActionProcessor end-to-end tests** — 2 hours
+17. **E2: DefaultCallManager integration tests** — 2 hours
+
+**Total estimated: 25-35 hours**
+
+---
+
+## All Files Summary
+
+**New Files to Create:**
+- `core/calls/src/main/java/org/enchant/core/calls/action/CallAction.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/action/ActionProcessor.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/action/CallPhase.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/action/processors/IdleActionProcessor.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/action/processors/OutgoingCallActionProcessor.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/action/processors/IncomingCallActionProcessor.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/action/processors/ConnectedCallActionProcessor.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/action/delegates/ActiveCallDelegate.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/state/CallServiceState.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/state/CallServiceStateBuilder.kt`
+- `core/calls/src/main/java/org/enchant/core/calls/notification/CallForegroundService.kt`
+- `core/calls/src/test/java/org/enchant/core/calls/action/ActionProcessorTest.kt`
+- `core/calls/src/test/java/org/enchant/core/calls/action/ActionProcessorEndToEndTest.kt`
+- `core/calls/src/test/java/org/enchant/core/calls/DefaultCallManagerActionProcessorTest.kt`
+
+**Modified Files:**
+- `core/calls/src/main/java/org/enchant/core/calls/CallManager.kt` — Add action processor
+- `core/calls/src/main/java/org/enchant/core/calls/notification/CallNotificationManager.kt` — Add updateDuration
+- `core/calls/src/main/java/org/enchant/core/calls/webrtc/StatsCollector.kt` — Wire notifyQuality
+- `app/src/main/AndroidManifest.xml` — Already has CallForegroundService declaration
+- `feature/calls/src/main/java/org/enchant/calls/CallLogViewModel.kt` — Full rewrite (D1)
+- `feature/calls/src/test/java/org/enchant/calls/CallLogViewModelTest.kt` — Full rewrite (D2)
+
+---
+
+## Complete Acceptance Criteria
+
+- [ ] All 228 tests pass (107 feature:calls + 121 core:calls)
+- [ ] CallForegroundService starts with START_STICKY and proper foreground service type
+- [ ] Active call notification updates every second with current duration
+- [ ] StatsCollector emits quality stats to observers
+- [ ] All action processors (Idle, Outgoing, Incoming, Connected) handle all relevant actions
+- [ ] State transitions are deterministic and testable
+- [ ] No direct state mutation outside of action processors
+- [ ] All handlers log entrance with tag
+- [ ] CallLogViewModel supports all filters (ALL, MISSED, OUTGOING, INCOMING)
+- [ ] CallLogViewModel supports staged deletion
+- [ ] End-to-end tests verify full call lifecycle
+- [ ] All new code follows SOLID principles
+- [ ] No duplication between action processors (use ActiveCallDelegate)
