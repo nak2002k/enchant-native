@@ -43,12 +43,9 @@ object CrashHandler {
 
     private fun blockUntilWritesFinish() {
         try {
-            EnchantStore.storage.flushPendingWrites()
-        } catch (_: Exception) {}
-        pool?.write { db ->
-            try {
-                db.execSQL("SELECT 1")
-            } catch (_: Exception) {}
+            EnchantStore.storage.blockUntilAllWritesFinished()
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to block on writes", e)
         }
     }
 

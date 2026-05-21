@@ -25,6 +25,7 @@ interface KeyValueStorage {
     fun getAll(): Map<String, Any?>
     fun clearAll()
     fun flushPendingWrites()
+    fun blockUntilAllWritesFinished()
     fun close()
 
     interface WriteBatch {

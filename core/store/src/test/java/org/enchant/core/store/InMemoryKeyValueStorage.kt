@@ -85,6 +85,10 @@ class InMemoryKeyValueStorage : KeyValueStorage {
         batchOps.clear()
     }
 
+    override fun blockUntilAllWritesFinished() {
+        flushPendingWrites()
+    }
+
     override fun close() {}
 
     internal fun enqueueBatchOp(op: () -> Unit) {

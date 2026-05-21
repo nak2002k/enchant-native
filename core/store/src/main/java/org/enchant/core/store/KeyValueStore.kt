@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class KeyValueStore(
@@ -151,6 +152,14 @@ class KeyValueStore(
         val pending = mutableListOf<WriteOperation>()
         writeQueue.drainTo(pending)
         for (op in pending) executeWrite(op)
+    }
+
+    override fun blockUntilAllWritesFinished() {
+        val latch = CountDownLatch(1)
+        writeExecutor.execute {
+            latch.countDown()
+        }
+        latch.await(5, TimeUnit.SECONDS)
     }
 
     override fun close() {
