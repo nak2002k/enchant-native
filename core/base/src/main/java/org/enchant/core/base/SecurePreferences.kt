@@ -14,10 +14,10 @@ object SecurePreferences {
 
     val isEncrypted: Boolean get() = _isEncrypted
 
-    @Synchronized
-    fun init(context: Context, allowUnencryptedFallback: Boolean = false) {
+    fun init(context: Context) {
         if (prefs != null) return
-        try {
+        synchronized(this) {
+            if (prefs != null) return
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
@@ -29,14 +29,6 @@ object SecurePreferences {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
             _isEncrypted = true
-        } catch (e: Exception) {
-            if (allowUnencryptedFallback) {
-                Log.w("SecurePreferences", "Encrypted init failed, falling back to plaintext: ${e.message}")
-                prefs = context.getSharedPreferences("enchant_secure_prefs", Context.MODE_PRIVATE)
-                _isEncrypted = false
-            } else {
-                throw IllegalStateException("Failed to init encrypted preferences: ${e.message}", e)
-            }
         }
     }
 
