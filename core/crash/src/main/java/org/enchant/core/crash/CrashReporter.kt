@@ -1,5 +1,6 @@
 package org.enchant.core.crash
 
+import org.enchant.core.base.SecurePreferences
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.LogDatabase
 import org.enchant.core.store.EnchantStore
@@ -30,8 +31,8 @@ object CrashHandler {
                               throwable.message?.contains("no such table: message_fts") == true
 
         if (isFtsCorruption) {
-            android.util.Log.w(TAG, "FTS corruption detected. Resetting FTS index.")
-            resetFtsIndex()
+            android.util.Log.w(TAG, "FTS corruption detected. Deferring reset to app startup.")
+            SecurePreferences.putBoolean("fts_needs_reset", true)
         }
 
         val fullStackTrace = getStackTrace(throwable)

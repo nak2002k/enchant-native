@@ -101,8 +101,12 @@ object DI {
                 val pool = try {
                     DatabasePool(context, dbPassphrase, emptyList()).also {
                         _databasePool = it
-                        DatabasePool.instance = it
+DatabasePool.instance = it
+                    if (SecurePreferences.getBoolean("fts_needs_reset", false)) {
+                        resetFtsIndex(it)
+                        SecurePreferences.remove("fts_needs_reset")
                     }
+                }
                 } catch (e: Exception) {
                     android.util.Log.w("DI", "DatabasePool init failed: ${e.message}")
                     null
@@ -178,5 +182,38 @@ object DI {
         _connectivityMonitor = null
         _offlineQueue = null
         _initialized = false
+    }
+
+    private fun resetFtsIndex(pool: DatabasePool) {
+        try {
+            pool.write { db ->
+                db.execSQL("DROP TABLE IF EXISTS messages_fts")
+                db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, conversation_id UNINDEXED, tokenize='unicode61')")
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+                        INSERT INTO messages_fts(rowid, content, conversation_id)
+                        VALUES (new.local_id, new.content, new.conversation_id);
+                    END
+                """)
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+                        INSERT INTO messages_fts(messages_fts, rowid, content, conversation_id)
+                        VALUES ('delete', old.local_id, old.content, old.conversation_id);
+                    END
+                """)
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE OF content ON messages BEGIN
+                        INSERT INTO messages_fts(messages_fts, rowid, content, conversation_id)
+                        VALUES ('delete', old.local_id, old.content, old.conversation_id);
+                        INSERT INTO messages_fts(rowid, content, conversation_id)
+                        VALUES (new.local_id, new.content, new.conversation_id);
+                    END
+                """)
+                db.execSQL("INSERT INTO messages_fts(rowid, content, conversation_id) SELECT local_id, content, conversation_id FROM messages")
+            }
+            android.util.Log.w("DI", "FTS index reset completed")
+        } catch (e: Exception) {
+            android.util.Log.e("DI", "FTS index reset failed", e)
+        }
     }
 }
