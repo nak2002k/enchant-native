@@ -1,86 +1,172 @@
 package org.enchant.core.crash
 
-import android.util.Log
+import android.content.ContentValues
+import org.enchant.core.database.DatabasePool
+import java.util.concurrent.atomic.AtomicBoolean
 
-object CrashReporter {
+object CrashHandler {
     private const val TAG = "EnchantCrash"
-    @Volatile
-    private var initialized = false
 
-    fun init() {
-        if (initialized) return
-        initialized = true
+    private var pool: DatabasePool? = null
+    private var originalHandler: Thread.UncaughtExceptionHandler? = null
+    private val installed = AtomicBoolean(false)
+
+    fun install(databasePool: DatabasePool) {
+        if (!installed.compareAndSet(false, true)) return
+        pool = databasePool
+        originalHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            uncaughtException(thread, throwable)
+        }
+        android.util.Log.d(TAG, "CrashHandler installed")
     }
 
-    fun log(message: String) {
-        val scrubbed = scrub(message)
-        Log.d(TAG, scrubbed)
-        try {
-            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().log(scrubbed)
-        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
+    private fun uncaughtException(thread: Thread, throwable: Throwable) {
+        val exceptionName = throwable::class.java.canonicalName ?: throwable::class.java.name
+
+        val isFtsCorruption = throwable.message?.contains("message_fts") == true ||
+                              throwable.message?.contains("invalid fts5 file format") == true ||
+                              throwable.message?.contains("no such table: message_fts") == true
+
+        if (isFtsCorruption) {
+            android.util.Log.w(TAG, "FTS corruption detected. Resetting FTS index.")
+            resetFtsIndex()
+        }
+
+        val fullStackTrace = getStackTrace(throwable)
+        android.util.Log.e(TAG, "uncaught exception: $exceptionName, message: ${throwable.message}", throwable)
+        saveCrashLocally(System.currentTimeMillis(), exceptionName, throwable.message, fullStackTrace, isFatal = true)
+        pool?.let { blockUntilWritesFinish(it) }
+        Log.blockUntilAllWritesFinished()
+        originalHandler?.uncaughtException(thread, throwable)
     }
 
-    fun logEvent(name: String, data: Map<String, String>? = null) {
-        val scrubbedName = scrub(name)
-        Log.d(TAG, "event: $scrubbedName")
-        try {
-            val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
-            data?.forEach { (key, value) ->
-                instance.setCustomKey(scrub(key), scrub(value))
+    private fun resetFtsIndex() {
+        pool?.write { db ->
+            try {
+                db.execSQL("DROP TABLE IF EXISTS messages_fts")
+                db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, conversation_id UNINDEXED, tokenize='unicode61')")
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+                        INSERT INTO messages_fts(rowid, content, conversation_id)
+                        VALUES (new.local_id, new.content, new.conversation_id);
+                    END
+                """)
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+                        INSERT INTO messages_fts(messages_fts, rowid, content, conversation_id)
+                        VALUES ('delete', old.local_id, old.content, old.conversation_id);
+                    END
+                """)
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE OF content ON messages BEGIN
+                        INSERT INTO messages_fts(messages_fts, rowid, content, conversation_id)
+                        VALUES ('delete', old.local_id, old.content, old.conversation_id);
+                        INSERT INTO messages_fts(rowid, content, conversation_id)
+                        VALUES (new.local_id, new.content, new.conversation_id);
+                    END
+                """)
+                db.execSQL("INSERT INTO messages_fts(rowid, content, conversation_id) SELECT local_id, content, conversation_id FROM messages")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Failed to reset FTS index", e)
             }
-            instance.log("event: $scrubbedName")
-        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
+        }
     }
 
-    fun logError(message: String, throwable: Throwable? = null) {
-        val scrubbed = scrub(message)
-        Log.e(TAG, scrubbed, throwable)
-        try {
-            val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
-            instance.log("error: $scrubbed")
-            if (throwable != null) instance.recordException(throwable)
-        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
+    private fun saveCrashLocally(timestamp: Long, exceptionName: String, message: String?, stackTrace: String, isFatal: Boolean) {
+        pool?.write { db ->
+            try {
+                val values = ContentValues().apply {
+                    put("timestamp", timestamp)
+                    put("exception_name", exceptionName)
+                    put("message", message)
+                    put("stack_trace", stackTrace)
+                    put("is_fatal", if (isFatal) 1 else 0)
+                    put("remote_reported", 0)
+                }
+                db.insert("crashes", null, values)
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Failed to save crash locally", e)
+            }
+        }
     }
 
-    fun logDecryptionFailure() {
-        Log.w(TAG, "Decryption failure")
+    private fun blockUntilWritesFinish(db: DatabasePool) {
         try {
-            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().log("decryption_failure")
-        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
-    }
-
-    fun setUserId(userId: String?) {
-        if (userId != null) Log.d(TAG, "user set")
-        else Log.d(TAG, "user cleared")
-        try {
-            val instance = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
-            if (userId != null) instance.setUserId(userId)
-            else instance.setUserId("")
-        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
+            db.write { database ->
+                database.execSQL("SELECT 1")
+            }
+        } catch (_: Exception) {}
     }
 
     fun recordException(t: Throwable) {
-        Log.e(TAG, "Exception", t)
-        try {
-            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().recordException(t)
-        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
+        val exceptionName = t::class.java.canonicalName ?: t::class.java.name
+        val fullStackTrace = getStackTrace(t)
+        android.util.Log.e(TAG, "Exception: $exceptionName", t)
+        saveCrashLocally(System.currentTimeMillis(), exceptionName, t.message, fullStackTrace, isFatal = false)
     }
 
-    fun setCustomKey(key: String, value: String) {
-        val scrubbed = scrub(value)
-        Log.d(TAG, "meta: $key=$scrubbed")
-        try {
-            com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance().setCustomKey(
-                scrub(key), scrubbed
-            )
-        } catch (e: Exception) { Log.w(TAG, "Crashlytics unavailable: ${e.message}") }
+    fun log(message: String) {
+        android.util.Log.d(TAG, message)
     }
 
-    fun scrub(input: String): String {
-        return input
-            .replace(Regex("[A-Za-z0-9+/]{40,}={0,3}"), "[REDACTED_KEY]")
-            .replace(Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"), "[REDACTED_UUID]")
-            .replace(Regex("\\+[1-9]\\d{6,14}"), "[REDACTED_PHONE]")
-            .replace(Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"), "[REDACTED_EMAIL]")
+    fun logError(message: String, throwable: Throwable? = null) {
+        if (throwable != null) {
+            android.util.Log.e(TAG, message, throwable)
+        } else {
+            android.util.Log.e(TAG, message)
+        }
+    }
+
+    private fun getStackTrace(throwable: Throwable): String {
+        return buildString {
+            append(throwable::class.java.name)
+            throwable.message?.let { append(": $it") }
+            append("\n")
+            throwable.stackTrace.take(30).forEach { frame ->
+                append("  at ${frame.className}.${frame.methodName}(${frame.fileName}:${frame.lineNumber})\n")
+            }
+            throwable.cause?.let { cause ->
+                append("Caused by: ")
+                append(getStackTrace(cause))
+            }
+        }
+    }
+}
+
+object Log {
+    private val logs = mutableListOf<String>()
+
+    fun d(tag: String, message: String) {
+        synchronized(logs) {
+            logs.add("[D] $tag: $message")
+            if (logs.size > 500) logs.removeAt(0)
+        }
+    }
+
+    fun e(tag: String, message: String) {
+        synchronized(logs) {
+            logs.add("[E] $tag: $message")
+            if (logs.size > 500) logs.removeAt(0)
+        }
+    }
+
+    fun e(tag: String, message: String, t: Throwable) {
+        synchronized(logs) {
+            logs.add("[E] $tag: $message")
+            logs.add("[E] $tag: ${t::class.java.simpleName}: ${t.message}")
+            if (logs.size > 500) logs.removeAt(0)
+        }
+    }
+
+    fun w(tag: String, message: String) {
+        synchronized(logs) {
+            logs.add("[W] $tag: $message")
+            if (logs.size > 500) logs.removeAt(0)
+        }
+    }
+
+    fun blockUntilAllWritesFinished() {
+        try { Thread.sleep(50) } catch (_: InterruptedException) {}
     }
 }

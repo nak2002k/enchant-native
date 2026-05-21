@@ -47,6 +47,34 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                                     db.execSQL("CREATE INDEX IF NOT EXISTS idx_mentions_msg ON message_mentions(message_local_id)")
                                     db.execSQL("PRAGMA user_version = 3")
                                 }
+                                4 -> {
+                                    db.execSQL("""
+                                        CREATE TABLE IF NOT EXISTS crashes (
+                                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                            timestamp INTEGER NOT NULL,
+                                            exception_name TEXT NOT NULL,
+                                            message TEXT,
+                                            stack_trace TEXT NOT NULL,
+                                            is_fatal INTEGER NOT NULL DEFAULT 1,
+                                            remote_reported INTEGER NOT NULL DEFAULT 0
+                                        )
+                                    """)
+                                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_crashes_timestamp ON crashes(timestamp DESC)")
+                                    db.execSQL("""
+                                        CREATE TABLE IF NOT EXISTS key_value_store (
+                                            key TEXT PRIMARY KEY,
+                                            value_type TEXT NOT NULL,
+                                            value_blob BLOB,
+                                            value_text TEXT,
+                                            value_int INTEGER,
+                                            value_long INTEGER,
+                                            value_float REAL,
+                                            value_boolean INTEGER,
+                                            updated_at INTEGER NOT NULL
+                                        )
+                                    """)
+                                    db.execSQL("PRAGMA user_version = 4")
+                                }
                                 else -> android.util.Log.w("AppDatabase", "No migration defined for v$version")
                             }
                     }
@@ -74,7 +102,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     companion object {
         @Volatile
         var instance: DatabasePool? = null
-        const val DB_VERSION = 3
+        const val DB_VERSION = 4
 
         fun createTables(db: SQLiteDatabase) {
             db.execSQL("""
@@ -250,6 +278,33 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 )
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_mentions_msg ON message_mentions(message_local_id)")
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS crashes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp INTEGER NOT NULL,
+                    exception_name TEXT NOT NULL,
+                    message TEXT,
+                    stack_trace TEXT NOT NULL,
+                    is_fatal INTEGER NOT NULL DEFAULT 1,
+                    remote_reported INTEGER NOT NULL DEFAULT 0
+                )
+            """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_crashes_timestamp ON crashes(timestamp DESC)")
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS key_value_store (
+                    key TEXT PRIMARY KEY,
+                    value_type TEXT NOT NULL,
+                    value_blob BLOB,
+                    value_text TEXT,
+                    value_int INTEGER,
+                    value_long INTEGER,
+                    value_float REAL,
+                    value_boolean INTEGER,
+                    updated_at INTEGER NOT NULL
+                )
+            """)
         }
     }
 }
