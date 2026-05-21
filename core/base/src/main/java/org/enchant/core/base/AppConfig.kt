@@ -97,7 +97,7 @@ object AppConfig {
             }
         }
 
-        return "http://localhost:8080"
+        return "https://localhost:8080"
     }
 
     private fun resolveAppVersion(context: Context): String {

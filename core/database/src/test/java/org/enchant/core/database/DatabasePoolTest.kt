@@ -30,9 +30,9 @@ class DatabasePoolTest {
 
     @Nested @DisplayName("Constants")
     inner class ConstantsTest {
-        @Test @DisplayName("DB_VERSION is 3")
+        @Test @DisplayName("DB_VERSION is 4")
         fun `db version`() {
-            assertEquals(3, DatabasePool.DB_VERSION)
+            assertEquals(4, DatabasePool.DB_VERSION)
         }
     }
 

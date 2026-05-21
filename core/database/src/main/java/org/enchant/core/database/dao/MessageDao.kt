@@ -151,15 +151,10 @@ class MessageDao(private val pool: DatabasePool) {
     fun searchMessages(query: String): Flow<List<MessageEntity>> = callbackFlow {
         fun query(): List<MessageEntity> = pool.readWith { db ->
             val sanitized = query.trim()
-                .replace("\"", "\"\"")
-                .replace("*", "")
-                .replace("+", "")
-                .replace("-", "")
-                .replace("NEAR", "")
-                .replace("AND", "")
-                .replace("OR", "")
-                .replace("NOT", "")
-            val ftsQuery = "\"$sanitized\""
+                .replace(Regex("[^a-zA-Z0-9 ]"), "")
+                .take(200)
+            val words = sanitized.split(Regex("\\s+")).filter { it.isNotEmpty() }
+            val ftsQuery = words.joinToString(" ") { "\"$it\"" }
             val cursor = db.rawQuery("""
                 SELECT m.* FROM messages m
                 INNER JOIN messages_fts fts ON m.local_id = fts.rowid
