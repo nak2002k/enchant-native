@@ -148,6 +148,12 @@ class KeyValueStore(
 
     private fun registerShutdownHook() { }
 
+    override fun resetCache() {
+        flushPendingWrites()
+        cache.clear()
+        loadCacheFromDb()
+    }
+
     override fun flushPendingWrites() {
         val pending = mutableListOf<WriteOperation>()
         writeQueue.drainTo(pending)

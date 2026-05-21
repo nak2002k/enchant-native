@@ -9,17 +9,30 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 /**
- * Kotlin property delegates for [KeyValueStore] with reactive [Flow] support.
+ * Kotlin property delegates for [KeyValueStorage] with reactive [Flow] support.
  *
- * Usage inside a category object:
- * ```
- * val userId by store.stringValue("account.user_id")
- * val readReceipts by store.booleanValue("settings.read_receipts", true)
- * ```
+ * Supports:
+ * - Primitive types: String, Int, Long, Boolean, Float, ByteArray
+ * - Enum types with serializers
+ * - Protobuf messages with adapters
+ * - Precondition gating (only store if predicate passes)
+ * - Value mapping (transform on read)
  *
- * Each delegate maintains a [MutableStateFlow] so UI can observe changes:
+ * Usage:
  * ```
- * store.observe("account.user_id").collect { value -> ... }
+ * val userId by delegates.stringValue("account.user_id")
+ * val theme by delegates.enumValue("settings.theme", Theme.SYSTEM, Theme.serializer)
+ * val metadata by delegates.protoValue("settings.meta", Metadata.ADAPTER)
+ *
+ * // With precondition:
+ * var experimental by delegates.booleanValue("labs.exp", false).withPrecondition { Environment.IS_STAGING }
+ *
+ * // With mapping:
+ * var feature by delegates.booleanValue("labs.feature", false).map { it && RemoteConfig.isEnabled }
+ *
+ * // Reactive:
+ * delegates.observe("account.user_id").collect { ... }
+ * themeDelegate.toFlow().collect { ... }
  * ```
  */
 class StoreValueDelegates(
@@ -27,19 +40,15 @@ class StoreValueDelegates(
 ) {
     private val flows = mutableMapOf<String, MutableStateFlow<Any?>>()
 
-    // -- String delegate ------------------------------------------------------------------
-
     fun stringValue(key: String, defaultValue: String? = null): StoreValueDelegate<String?> {
         return StoreValueDelegate(
             key = key,
             default = defaultValue,
             getter = { store.getString(key, defaultValue) },
-            setter = { store.putString(key, it) },
+            setter = { v -> store.putString(key, v) },
             flow = getOrCreateFlow(key, defaultValue)
         )
     }
-
-    // -- Int delegate ---------------------------------------------------------------------
 
     fun intValue(key: String, defaultValue: Int = 0): StoreValueDelegate<Int> {
         return StoreValueDelegate(
@@ -51,8 +60,6 @@ class StoreValueDelegates(
         )
     }
 
-    // -- Long delegate --------------------------------------------------------------------
-
     fun longValue(key: String, defaultValue: Long = 0L): StoreValueDelegate<Long> {
         return StoreValueDelegate(
             key = key,
@@ -62,8 +69,6 @@ class StoreValueDelegates(
             flow = getOrCreateFlow(key, defaultValue)
         )
     }
-
-    // -- Boolean delegate -----------------------------------------------------------------
 
     fun booleanValue(key: String, defaultValue: Boolean = false): StoreValueDelegate<Boolean> {
         return StoreValueDelegate(
@@ -75,8 +80,6 @@ class StoreValueDelegates(
         )
     }
 
-    // -- Float delegate -------------------------------------------------------------------
-
     fun floatValue(key: String, defaultValue: Float = 0f): StoreValueDelegate<Float> {
         return StoreValueDelegate(
             key = key,
@@ -86,8 +89,6 @@ class StoreValueDelegates(
             flow = getOrCreateFlow(key, defaultValue)
         )
     }
-
-    // -- Blob delegate --------------------------------------------------------------------
 
     fun blobValue(key: String, defaultValue: ByteArray? = null): StoreValueDelegate<ByteArray?> {
         return StoreValueDelegate(
@@ -99,33 +100,55 @@ class StoreValueDelegates(
         )
     }
 
-    // -- Flow observation -----------------------------------------------------------------
+    fun <T : Enum<T>> enumValue(
+        key: String,
+        defaultValue: T,
+        serializer: EnumSerializer<T>
+    ): StoreValueDelegate<T> {
+        return StoreValueDelegate(
+            key = key,
+            default = defaultValue,
+            getter = {
+                val raw = store.getString(key)
+                if (raw != null) serializer.deserialize(raw) else defaultValue
+            },
+            setter = { store.putString(key, serializer.serialize(it)) },
+            flow = getOrCreateFlow(key, defaultValue)
+        )
+    }
 
-    /**
-     * Returns a [Flow] that emits the current value and every subsequent change for [key].
-     */
-    @Suppress("UNCHECKED_CAST")
+    fun <T> protoValue(
+        key: String,
+        defaultValue: T? = null,
+        adapter: ProtoAdapter<T>
+    ): StoreValueDelegate<T?> {
+        return StoreValueDelegate(
+            key = key,
+            default = defaultValue,
+            getter = {
+                val raw = store.getBlob(key)
+                if (raw != null) adapter.decode(raw) else defaultValue
+            },
+            setter = { v ->
+                if (v != null) store.putBlob(key, adapter.encode(v))
+                else store.remove(key)
+            },
+            flow = getOrCreateFlow(key, defaultValue)
+        )
+    }
+
     fun <T : Any?> observe(key: String): Flow<T?> {
         val flow = getOrCreateFlow(key, null) as MutableStateFlow<T?>
         return flow.asStateFlow()
     }
 
-    /**
-     * Returns a typed [Flow] with a default value for null-safety.
-     */
     fun <T : Any> observe(key: String, default: T): Flow<T> {
         return observe<T>(key).map { it ?: default }
     }
 
-    /**
-     * Internal: emit a new value to the flow for [key].
-     * Called by delegates after each write.
-     */
     internal fun emitValue(key: String, value: Any?) {
         flows[key]?.value = value
     }
-
-    // -- Internal -------------------------------------------------------------------------
 
     @Suppress("UNCHECKED_CAST")
     private fun <T : Any?> getOrCreateFlow(key: String, default: T?): MutableStateFlow<T?> {
@@ -135,9 +158,16 @@ class StoreValueDelegates(
         } as MutableStateFlow<T?>
     }
 
-    /**
-     * A [ReadWriteProperty] backed by [KeyValueStore] that emits to a [Flow] on every write.
-     */
+    interface EnumSerializer<T : Enum<T>> {
+        fun serialize(value: T): String
+        fun deserialize(raw: String): T
+    }
+
+    interface ProtoAdapter<T> {
+        fun encode(value: T): ByteArray
+        fun decode(data: ByteArray): T
+    }
+
     class StoreValueDelegate<T : Any?> internal constructor(
         private val key: String,
         private val default: T,
@@ -146,31 +176,44 @@ class StoreValueDelegates(
         private val flow: MutableStateFlow<T?>
     ) : ReadWriteProperty<Any?, T> {
 
+        private var precondition: (() -> Boolean)? = null
+        private var mapper: ((T) -> T)? = null
+
         override fun getValue(thisRef: Any?, property: KProperty<*>): T {
-            return getter()
+            val raw = getter()
+            return mapper?.invoke(raw) ?: raw
         }
 
         override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
-            setter(value)
-            flow.value = value
+            val shouldWrite = precondition?.invoke() ?: true
+            if (shouldWrite) {
+                setter(value)
+                flow.value = value
+            }
         }
 
-        /**
-         * Returns the underlying [Flow] for reactive observation.
-         */
         fun toFlow(): Flow<T> = flow.asStateFlow().map { it ?: default }
 
-        /**
-         * Returns a flow that only emits when a precondition is met.
-         */
-        fun withPrecondition(predicate: () -> Boolean): Flow<T> {
-            return toFlow().filter { predicate() }
+        fun withPrecondition(predicate: () -> Boolean): StoreValueDelegate<T> {
+            this.precondition = predicate
+            return this
         }
 
-        /**
-         * Returns a flow that maps the value through a transformation.
-         */
-        fun <R> map(transform: (T) -> R): Flow<R> {
+        fun map(transform: (T) -> T): StoreValueDelegate<T> {
+            val existing = this.mapper
+            this.mapper = if (existing != null) {
+                { transform(existing(it)) }
+            } else {
+                transform
+            }
+            return this
+        }
+
+        fun withFlowPrecondition(predicate: (T) -> Boolean): Flow<T> {
+            return toFlow().filter { predicate(it) }
+        }
+
+        fun <R> mapFlow(transform: (T) -> R): Flow<R> {
             return toFlow().map(transform)
         }
     }

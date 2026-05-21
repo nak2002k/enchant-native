@@ -27,6 +27,7 @@ bouncycastle = "1.78.1"
 javaxinject = "1"
 core-ktx = "1.15.0"
 appcompat = "1.7.0"
+preference = "1.2.1"
 biometric = "1.1.0"
 media3 = "1.5.1"
 libphonenumber = "9.0.3"
@@ -70,6 +71,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 workmanager = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
 core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+preference = { module = "androidx.preference:preference-ktx", version.ref = "preference" }
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf" }
 javaxinject = { module = "javax.inject:javax.inject", version.ref = "javaxinject" }

@@ -78,6 +78,10 @@ class InMemoryKeyValueStorage : KeyValueStorage {
         data.clear()
     }
 
+    override fun resetCache() {
+        // In-memory storage doesn't need cache reset since it's already in memory
+    }
+
     override fun flushPendingWrites() {
         for (op in batchOps) {
             op()
