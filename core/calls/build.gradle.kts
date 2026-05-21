@@ -39,6 +39,8 @@ dependencies {
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)
     testImplementation(libs.mockk)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.robolectric.junit)
     testImplementation(libs.turbine)
     testImplementation(libs.coroutines.test)
     testRuntimeOnly(libs.junit.platform.launcher)
