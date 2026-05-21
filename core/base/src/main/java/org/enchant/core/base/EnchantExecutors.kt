@@ -12,9 +12,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 object EnchantExecutors {
 
-    val UNBOUNDED: ExecutorService = Executors.newCachedThreadPool(
+    val UNBOUNDED: ExecutorService = ThreadPoolExecutor(
+        2, 64, 60L, TimeUnit.SECONDS,
+        LinkedBlockingQueue(1024),
         NumberedThreadFactory("unbounded", PRIORITY_BACKGROUND_THREAD)
-    )
+    ) { runnable, _ -> runnable.run() }
 
     val BOUNDED: ExecutorService = Executors.newFixedThreadPool(
         4, NumberedThreadFactory("bounded", PRIORITY_BACKGROUND_THREAD)
