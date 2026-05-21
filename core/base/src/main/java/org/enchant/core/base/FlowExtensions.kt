@@ -50,22 +50,3 @@ fun <T> Flow<T>.throttleLatest(timeout: Duration, emitImmediately: (T) -> Boolea
 fun <T : Any, R : Any> Flow<T?>.mapNotNull(transform: suspend (T) -> R): Flow<R> {
     return filterNotNull().map(transform)
 }
-
-/**
- * Retries the flow up to [maxRetries] times when an exception occurs.
- */
-fun <T> Flow<T>.retry(maxRetries: Int, delayMs: Long): Flow<T> {
-    return channelFlow {
-        var retries = 0
-        while (retries <= maxRetries) {
-            try {
-                collect { send(it) }
-                break
-            } catch (e: Exception) {
-                retries++
-                if (retries > maxRetries) throw e
-                delay(delayMs)
-            }
-        }
-    }
-}

@@ -7,6 +7,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import android.os.Looper
 
 /**
  * An executor that processes tasks serially per key, using LIFO (last-in-first-out)
@@ -85,6 +86,12 @@ class KeyedSerialExecutor<K : Any>(
      */
     fun shutdown() {
         executor.shutdown()
-        executor.awaitTermination(10, TimeUnit.SECONDS)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Executors.newSingleThreadExecutor().execute {
+                executor.awaitTermination(10, TimeUnit.SECONDS)
+            }
+        } else {
+            executor.awaitTermination(10, TimeUnit.SECONDS)
+        }
     }
 }

@@ -2,6 +2,7 @@ package org.enchant.core.base.concurrent
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import org.enchant.core.base.logging.Log
 
 /**
@@ -33,13 +34,23 @@ class AnrDetector(
     @Volatile private var running = false
 
     private val heartbeat = object : Runnable {
-        private var lastAckTime = System.currentTimeMillis()
+        private var lastAckTime = SystemClock.uptimeMillis()
+        private val GC_THRESHOLD = 0.8f
 
         override fun run() {
-            val now = System.currentTimeMillis()
-            if (now - lastAckTime > thresholdMs) {
+            val now = SystemClock.uptimeMillis()
+            val elapsed = now - lastAckTime
+            if (elapsed > thresholdMs) {
+                val runtime = Runtime.getRuntime()
+                val freeMemory = runtime.freeMemory()
+                val totalMemory = runtime.totalMemory()
+                if (totalMemory > 0 && (totalMemory - freeMemory).toFloat() / totalMemory > GC_THRESHOLD) {
+                    lastAckTime = now
+                    if (running) handler.postDelayed(this, thresholdMs / 2)
+                    return
+                }
                 val stackTrace = getMainThreadStackTrace()
-                Log.w(TAG, "ANR detected: main thread blocked for ${now - lastAckTime}ms")
+                Log.w(TAG, "ANR detected: main thread blocked for ${elapsed}ms")
                 onAnrDetected(stackTrace)
             }
             lastAckTime = now

@@ -50,6 +50,11 @@ class DeadlockDetector(
     fun stop() {
         running = false
         executor.shutdown()
+        try {
+            executor.awaitTermination(5, TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 
     private fun checkForDeadlocks() {
