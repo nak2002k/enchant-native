@@ -1,10 +1,13 @@
 package org.enchant.core.database.dao
 
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.entity.RecipientEntity
 import org.enchant.core.database.util.CursorMapper
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import org.enchant.core.database.util.DatabaseNotifier
 
 class RecipientDao(private val pool: DatabasePool) {
     suspend fun upsert(recipient: RecipientEntity) = pool.write { db ->
@@ -54,11 +57,19 @@ class RecipientDao(private val pool: DatabasePool) {
     }
 
     fun getAll(): Flow<List<RecipientEntity>> = callbackFlow {
-        val cursor = pool.readWith { db ->
+        fun queryDb(): List<RecipientEntity> = pool.readWith { db ->
             db.rawQuery("SELECT * FROM recipients ORDER BY display_name ASC", null)
+                .use { CursorMapper.mapToList<RecipientEntity>(it) }
         }
-        val items = cursor.use { CursorMapper.mapToList<RecipientEntity>(it) }
-        trySend(items)
+        trySend(queryDb())
+        val job = launch {
+            DatabaseNotifier.tableChanges.collect { table ->
+                if (table == "recipients") {
+                    trySend(queryDb())
+                }
+            }
+        }
+        awaitClose { job.cancel() }
     }
 
     suspend fun getBlocked(): List<RecipientEntity> = pool.readWith { db ->
@@ -67,10 +78,18 @@ class RecipientDao(private val pool: DatabasePool) {
     }
 
     fun search(query: String): Flow<List<RecipientEntity>> = callbackFlow {
-        val cursor = pool.readWith { db ->
+        fun queryDb(): List<RecipientEntity> = pool.readWith { db ->
             db.rawQuery("SELECT * FROM recipients WHERE display_name LIKE ? OR username LIKE ? ORDER BY display_name ASC LIMIT 50", arrayOf("%$query%", "%$query%"))
+                .use { CursorMapper.mapToList<RecipientEntity>(it) }
         }
-        val items = cursor.use { CursorMapper.mapToList<RecipientEntity>(it) }
-        trySend(items)
+        trySend(queryDb())
+        val job = launch {
+            DatabaseNotifier.tableChanges.collect { table ->
+                if (table == "recipients") {
+                    trySend(queryDb())
+                }
+            }
+        }
+        awaitClose { job.cancel() }
     }
 }
