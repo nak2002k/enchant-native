@@ -55,10 +55,10 @@ class DeadlockDetector(
     private fun checkForDeadlocks() {
         val threadMap = Thread.getAllStackTraces()
         val blockedThreads = threadMap.entries.filter { (thread, _) ->
-            thread.state == Thread.State.BLOCKED || thread.state == Thread.State.WAITING
+            thread.state == Thread.State.BLOCKED
         }
 
-        if (blockedThreads.size >= 2) {
+        if (blockedThreads.size >= 3) {
             val infos = blockedThreads.map { (thread, stackTrace) ->
                 ThreadInfo(
                     name = thread.name,

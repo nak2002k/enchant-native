@@ -30,7 +30,7 @@ class AnrDetector(
 
     private val TAG = Log.tag(AnrDetector::class)
     private val handler = Handler(Looper.getMainLooper())
-    private var running = false
+    @Volatile private var running = false
 
     private val heartbeat = object : Runnable {
         private var lastAckTime = System.currentTimeMillis()
