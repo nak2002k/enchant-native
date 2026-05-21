@@ -28,17 +28,3 @@ data class CallParticipant(
     val hasRaisedHand: Boolean,
     val isAdmin: Boolean = false
 )
-
-data class GroupCallState(
-    val callId: String,
-    val eraId: String,
-    val groupId: String,
-    val isJoined: Boolean = false,
-    val participants: List<CallParticipant> = emptyList(),
-    val localHandRaised: Boolean = false,
-    val localReaction: String? = null,
-    val isRinging: Boolean = false,
-    val isCallFull: Boolean = false
-) {
-    val activeParticipantCount: Int get() = participants.count { !it.isMuted }
-}
