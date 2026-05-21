@@ -181,7 +181,7 @@ object EnchantStore {
     }
 
     private fun migrateBoolean(legacyKey: String): Boolean {
-        val value = SecurePreferences.getBoolean(legacyKey, null)
+        val value = SecurePreferences.getBooleanOrNull(legacyKey, null)
         if (value == null) return false
         store.putBoolean(legacyKey, value)
         SecurePreferences.remove(legacyKey)
