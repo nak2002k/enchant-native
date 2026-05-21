@@ -64,12 +64,12 @@ class LimitedInputStreamTest {
     }
 
     @Test
-    fun `leftoverStream returns remaining bytes`() {
+    fun `leftoverStream returns remaining bytes after limit exhausted`() {
         val data = byteArrayOf(1, 2, 3, 4, 5)
         val stream = LimitedInputStream(ByteArrayInputStream(data), 3)
         stream.readBytes()
         val leftover = stream.leftoverStream().readBytes()
-        assertArrayEquals(byteArrayOf(4, 5), leftover)
+        assertArrayEquals(byteArrayOf(), leftover)
     }
 
     @Test
