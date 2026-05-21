@@ -1,7 +1,7 @@
 package org.enchant.core.crash
 
-import android.content.ContentValues
 import org.enchant.core.database.DatabasePool
+import org.enchant.core.database.LogDatabase
 import org.enchant.core.store.EnchantStore
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -85,20 +85,10 @@ object CrashHandler {
     }
 
     private fun saveCrashLocally(timestamp: Long, exceptionName: String, message: String?, stackTrace: String, isFatal: Boolean) {
-        pool?.write { db ->
-            try {
-                val values = ContentValues().apply {
-                    put("timestamp", timestamp)
-                    put("exception_name", exceptionName)
-                    put("message", message)
-                    put("stack_trace", stackTrace)
-                    put("is_fatal", if (isFatal) 1 else 0)
-                    put("remote_reported", 0)
-                }
-                db.insert("crashes", null, values)
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "Failed to save crash locally", e)
-            }
+        try {
+            LogDatabase.saveCrash(timestamp, exceptionName, message, stackTrace)
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to save crash locally", e)
         }
     }
 
