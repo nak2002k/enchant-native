@@ -2227,3 +2227,492 @@ class DefaultCallManagerActionProcessorTest {
 - [ ] All new code follows SOLID principles
 - [ ] No duplication between action processors (use ActiveCallDelegate)
 - [ ] DefaultCallManager integration tests pass
+
+---
+
+## Phase F: Group Calls (Signal-Style)
+
+### Overview
+
+Signal handles group calls differently from 1:1 calls. Key differences:
+- **Server roundtrips** — group calls require membership proofs and member updates from server
+- **Moderation** — admins can mute/remove/block participants
+- **Call Links** — ad-hoc group calls with restrictions (ANYONE, APPROVAL_REQUIRED, CONTACTS_ONLY)
+- **Ring group** — group-wide ringing notifications
+
+### F1: Group Call State and Participants
+
+**Reference:** Signal's `CallParticipant`, `GroupCallState`, `WebRtcActionProcessor` group handlers
+
+**New File:** `core/calls/src/main/java/org/enchant/core/calls/action/processors/GroupCallActionProcessor.kt`
+
+**State Data Classes:**
+
+```kotlin
+// core/calls/src/main/java/org/enchant/core/calls/model/GroupCallState.kt
+
+data class GroupCallState(
+    val callId: String,
+    val eraId: String,                    // Group call epoch ID - changes each call
+    val groupId: String,
+    val isJoined: Boolean = false,
+    val participants: List<CallParticipant> = emptyList(),
+    val localHandRaised: Boolean = false,
+    val localReaction: String? = null,
+    val isRinging: Boolean = false,
+    val isCallFull: Boolean = false
+) {
+    val activeParticipantCount: Int get() = participants.count { !it.isMuted }
+}
+
+data class CallParticipant(
+    val userId: String,
+    val displayName: String,
+    val isMuted: Boolean,
+    val isVideoOn: Boolean,
+    val hasRaisedHand: Boolean,
+    val isAdmin: Boolean = false
+)
+
+enum class CallLinkRestrictions {
+    ANYONE,              // Anyone can join without approval
+    APPROVAL_REQUIRED,   // Admin approval needed
+    CONTACTS_ONLY        // Only contacts can join
+}
+
+data class CallLinkData(
+    val roomId: String,
+    val name: String,
+    val creatorId: String,
+    val restrictions: CallLinkRestrictions,
+    val isActive: Boolean,
+    val memberCount: Int = 0
+)
+
+data class CallLinkCredentials(
+    val roomId: String,
+    val authToken: String,
+    val iceServers: List<IceServer>
+)
+```
+
+### F2: Group Call Action Processor
+
+**GroupCallActionProcessor** handles all group call actions:
+
+```kotlin
+package org.enchant.core.calls.action.processors
+
+import android.util.Log
+import org.enchant.core.calls.CallLogger
+import org.enchant.core.calls.action.ActionProcessor
+import org.enchant.core.calls.action.CallAction
+import org.enchant.core.calls.action.CallPhase
+import org.enchant.core.calls.model.*
+import org.enchant.core.calls.observer.CallObserverRegistry
+import org.enchant.core.calls.state.CallServiceState
+
+class GroupCallActionProcessor(
+    private val callLogger: CallLogger?,
+    private val observerRegistry: CallObserverRegistry?,
+    private val groupId: String,
+    private val eraId: String
+) : ActionProcessor {
+
+    override val currentPhase: CallPhase = CallPhase.GROUP_CONNECTED
+    override val tag: String = "GroupCallActionProcessor"
+
+    override fun process(state: CallServiceState, action: CallAction): CallServiceState {
+        return when (action) {
+            // ── Hand Raising ──
+            is CallAction.RaiseHand -> handleRaiseHand(state, action)
+            is CallAction.GroupCallRaisedHand -> handleGroupCallRaisedHand(state, action)
+
+            // ── Reactions ──
+            is CallAction.SendReaction -> handleSendReaction(state, action)
+            is CallAction.GroupCallReaction -> handleGroupCallReaction(state, action)
+
+            // ── Moderation (Admin Only) ──
+            is CallAction.RemoteMute -> handleRemoteMute(state, action)
+            is CallAction.RemoteUnmute -> handleRemoteUnmute(state, action)
+            is CallAction.RemoveParticipant -> handleRemoveParticipant(state, action)
+            is CallAction.BlockParticipant -> handleBlockParticipant(state, action)
+
+            // ── Ring Group ──
+            is CallAction.SetRingGroup -> handleSetRingGroup(state, action)
+            is CallAction.GroupCallRingUpdate -> handleGroupCallRingUpdate(state, action)
+
+            // ── Group State Updates ──
+            is CallAction.GroupMembersUpdated -> handleGroupMembersUpdated(state, action)
+            is CallAction.GroupCallEnded -> handleGroupCallEnded(state)
+            is CallAction.LeaveGroupCall -> handleLeaveGroupCall(state)
+
+            // ── Fallback to Connected handlers ──
+            is CallAction.ToggleMute -> handleToggleMute(state)
+            is CallAction.ToggleSpeaker -> handleToggleSpeaker(state)
+            is CallAction.ToggleVideo -> handleToggleVideo(state)
+            is CallAction.CallReconnecting -> handleReconnecting(state)
+            is CallAction.CallReconnected -> handleReconnected(state)
+            else -> state
+        }
+    }
+
+    // ── Hand Raising ──
+
+    private fun handleRaiseHand(state: CallServiceState, action: CallAction.RaiseHand): CallServiceState {
+        Log.d(tag, "handleRaiseHand: raised=${action.raised}")
+        val newGroupState = state.callState.copy(isHandRaised = action.raised)
+        // Broadcast to other participants via signaling
+        return state.builder()
+            .callState(newGroupState)
+            .build()
+    }
+
+    private fun handleGroupCallRaisedHand(state: CallServiceState, action: CallAction.GroupCallRaisedHand): CallServiceState {
+        Log.d(tag, "handleGroupCallRaisedHand: userId=${action.userId}, raised=${action.raised}")
+        // Update participant's hand state
+        val updatedParticipants = state.callState.participants.map {
+            if (it.userId == action.userId) it.copy(hasRaisedHand = action.raised) else it
+        }
+        return state.builder()
+            .callState(state.callState.copy(participants = updatedParticipants))
+            .build()
+    }
+
+    // ── Reactions ──
+
+    private fun handleSendReaction(state: CallServiceState, action: CallAction.SendReaction): CallServiceState {
+        Log.d(tag, "handleSendReaction: emoji=${action.emoji}")
+        // Broadcast reaction to all participants via signaling
+        return state.builder()
+            .localDeviceState(state.localDeviceState.copy(localReaction = action.emoji))
+            .build()
+    }
+
+    private fun handleGroupCallReaction(state: CallServiceState, action: CallAction.GroupCallReaction): CallServiceState {
+        Log.d(tag, "handleGroupCallReaction: userId=${action.userId}, emoji=${action.emoji}")
+        // Notification for reaction received
+        observerRegistry?.notifyReaction(action.userId, action.emoji)
+        return state
+    }
+
+    // ── Moderation ──
+
+    private fun handleRemoteMute(state: CallServiceState, action: CallAction.RemoteMute): CallServiceState {
+        Log.d(tag, "handleRemoteMute: targetUserId=${action.targetUserId}")
+        // Only admins can mute others
+        if (!state.localDeviceState.isAdmin) {
+            Log.w(tag, "Non-admin attempted to mute another participant")
+            return state
+        }
+        // Send mute request via signaling
+        return state
+    }
+
+    private fun handleRemoteUnmute(state: CallServiceState, action: CallAction.RemoteUnmute): CallServiceState {
+        Log.d(tag, "handleRemoteUnmute: targetUserId=${action.targetUserId}")
+        return state
+    }
+
+    private fun handleRemoveParticipant(state: CallServiceState, action: CallAction.RemoveParticipant): CallServiceState {
+        Log.d(tag, "handleRemoveParticipant: targetUserId=${action.targetUserId}")
+        // Remove from participants list, send removal signal
+        val updatedParticipants = state.callState.participants.filter { it.userId != action.targetUserId }
+        return state.builder()
+            .callState(state.callState.copy(participants = updatedParticipants))
+            .build()
+    }
+
+    private fun handleBlockParticipant(state: CallServiceState, action: CallAction.BlockParticipant): CallServiceState {
+        Log.d(tag, "handleBlockParticipant: targetUserId=${action.targetUserId}")
+        // Remove and block — participant cannot rejoin
+        val updatedParticipants = state.callState.participants.filter { it.userId != action.targetUserId }
+        return state.builder()
+            .callState(state.callState.copy(participants = updatedParticipants))
+            .build()
+    }
+
+    // ── Ring Group ──
+
+    private fun handleSetRingGroup(state: CallServiceState, action: CallAction.SetRingGroup): CallServiceState {
+        Log.d(tag, "handleSetRingGroup: enabled=${action.enabled}")
+        return state.builder()
+            .callState(state.callState.copy(isRinging = action.enabled))
+            .build()
+    }
+
+    private fun handleGroupCallRingUpdate(state: CallServiceState, action: CallAction.GroupCallRingUpdate): CallServiceState {
+        Log.d(tag, "handleGroupCallRingUpdate: fromUserId=${action.fromUserId}")
+        observerRegistry?.notifyRingUpdate(action.fromUserId)
+        return state
+    }
+
+    // ── Group State ──
+
+    private fun handleGroupMembersUpdated(state: CallServiceState, action: CallAction.GroupMembersUpdated): CallServiceState {
+        Log.d(tag, "handleGroupMembersUpdated: ${action.participants.size} participants")
+        return state.builder()
+            .callState(state.callState.copy(participants = action.participants))
+            .build()
+    }
+
+    private fun handleGroupCallEnded(state: CallServiceState): CallServiceState {
+        Log.d(tag, "handleGroupCallEnded")
+        observerRegistry?.notifyEnded(CallEndReason.HANGUP_LOCAL, null)
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.IDLE))
+            .build()
+    }
+
+    private fun handleLeaveGroupCall(state: CallServiceState): CallServiceState {
+        Log.d(tag, "handleLeaveGroupCall")
+        observerRegistry?.notifyEnded(CallEndReason.HANGUP_LOCAL, null)
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.IDLE))
+            .build()
+    }
+
+    // ── Media Controls ──
+
+    private fun handleToggleMute(state: CallServiceState): CallServiceState {
+        val newDeviceState = state.localDeviceState.copy(isMuted = !state.localDeviceState.isMuted)
+        return state.builder().localDeviceState(newDeviceState).build()
+    }
+
+    private fun handleToggleSpeaker(state: CallServiceState): CallServiceState {
+        val newDeviceState = state.localDeviceState.copy(isSpeakerOn = !state.localDeviceState.isSpeakerOn)
+        return state.builder().localDeviceState(newDeviceState).build()
+    }
+
+    private fun handleToggleVideo(state: CallServiceState): CallServiceState {
+        val newDeviceState = state.localDeviceState.copy(isVideoEnabled = !state.localDeviceState.isVideoEnabled)
+        return state.builder().localDeviceState(newDeviceState).build()
+    }
+
+    private fun handleReconnecting(state: CallServiceState): CallServiceState {
+        return state.builder()
+            .callState(state.callState.copy(status = CallStatus.RECONNECTING))
+            .build()
+    }
+
+    private fun handleReconnected(state: CallServiceState): CallServiceState {
+        return state.builder()
+            .callState(state.callState.copy(status = CallStatus.CONNECTED))
+            .build()
+    }
+}
+```
+
+### F3: New Actions for Group Calls
+
+Add these to `CallAction.kt`:
+
+```kotlin
+// ── Group Call Actions ──
+data class JoinGroupCall(
+    val groupId: String,
+    val callLinkRoomId: String? = null  // Optional for call link joins
+) : CallAction()
+
+data object LeaveGroupCall : CallAction()
+data object CallFailedDeclinedElsewhere : CallAction()  // Already added
+
+// ── Hand Raising ──
+data class GroupCallRaisedHand(
+    val userId: String,
+    val raised: Boolean
+) : CallAction()
+
+// ── Reactions ──
+data class SendReaction(
+    val emoji: String
+) : CallAction()
+
+data class GroupCallReaction(
+    val userId: String,
+    val emoji: String
+) : CallAction()
+
+// ── Moderation ──
+data class RemoteMute(
+    val targetUserId: String
+) : CallAction()
+
+data class RemoteUnmute(
+    val targetUserId: String
+) : CallAction()
+
+data class RemoveParticipant(
+    val targetUserId: String
+) : CallAction()
+
+data class BlockParticipant(
+    val targetUserId: String
+) : CallAction()
+
+// ── Ring Group ──
+data class SetRingGroup(
+    val enabled: Boolean
+) : CallAction()
+
+data class GroupCallRingUpdate(
+    val fromUserId: String
+) : CallAction()
+
+// ── Group State ──
+data class GroupMembersUpdated(
+    val participants: List<CallParticipant>
+) : CallAction()
+
+data object GroupCallEnded : CallAction()
+```
+
+### F4: Call Link Management (Already Implemented ✓)
+
+Enchant's `CallLinkManager.kt` already handles:
+- `createCallLink()` — creates call link with restrictions
+- `getCallLink(roomId)` — gets call link data
+- `updateCallLink()` — updates name/restrictions
+- `deleteCallLink()` — deletes call link
+- `getCredentials(roomId)` — gets auth token + ICE servers
+
+**Call link restrictions:**
+```kotlin
+enum class CallLinkRestrictions {
+    ANYONE,              // Open join
+    APPROVAL_REQUIRED,   // Admin approves each join
+    CONTACTS_ONLY        // Only contacts can join
+}
+```
+
+### F5: Call Screening (Signal-Style)
+
+**Call screening** in Signal uses recipient blocking, not spam detection (calls are E2EE, server cannot inspect).
+
+**Implementation:**
+
+```kotlin
+// core/calls/src/main/java/org/enchant/core/calls/screening/CallScreenFilter.kt
+
+data class CallScreenFilter(
+    val blockedUserIds: Set<String> = emptySet(),
+    val blockedGroupIds: Set<String> = emptySet(),
+    val showOnlyContacts: Boolean = false
+) {
+    fun isAllowed(peerId: String): Boolean {
+        return peerId !in blockedUserIds && peerId !in blockedGroupIds
+    }
+}
+
+// In CallManager or signaling layer:
+fun shouldRejectCall(senderUserId: String, screenFilter: CallScreenFilter): Boolean {
+    return !screenFilter.isAllowed(senderUserId)
+}
+```
+
+**Call log filtering by blocked users:**
+
+```kotlin
+// In CallLogViewModel.applyFilter():
+private fun filterBlockedCalls(
+    logs: List<CallLogEntry>,
+    screenFilter: CallScreenFilter
+): List<CallLogEntry> {
+    return logs.filter { log ->
+        screenFilter.isAllowed(log.remoteUserId)
+    }
+}
+```
+
+**Group announcement-mode filtering:**
+- If group is announcement-only and user is not admin, reject call attempt
+- Check via `GroupDao.isAnnouncementOnly(groupId) && !GroupDao.isAdmin(groupId, userId)`
+
+### F6: Group Call Phase Enum
+
+Add to `CallPhase`:
+
+```kotlin
+enum class CallPhase {
+    IDLE,
+    OUTGOING_CALL,
+    INCOMING_CALL,
+    CONNECTED,
+    RECONNECTING,
+    GROUP_CONNECTED,     // New: group call active
+    CALL_LINK            // New: call link (ad-hoc group)
+}
+```
+
+---
+
+## Complete Implementation Order (Updated)
+
+### Phase A (Already Done ✅)
+- Tests passing (107 feature:calls + 121 core:calls = 228 total)
+
+### Phase B (Incremental Improvements)
+1. **B1: CallForegroundService** — 1-2 hours
+2. **B2: CallNotificationManager updates** — 1-2 hours
+3. **B3: StatsCollector wiring** — 1-2 hours
+
+### Phase C (Action Processor State Machine)
+4. **C1: CallAction sealed classes** — 1 hour
+5. **C2: ActionProcessor interface** — 30 min
+6. **C3: CallServiceState + Builder** — 2 hours
+7. **C4: IdleActionProcessor** — 1 hour
+8. **C5: OutgoingCallActionProcessor** — 1 hour
+9. **C6: IncomingCallActionProcessor** — 1 hour
+10. **C7: ConnectedCallActionProcessor** — 1 hour
+11. **C8: ActiveCallDelegate** — 1 hour
+12. **C9: Update DefaultCallManager** — 4-6 hours
+13. **C10: ActionProcessor tests** — 2-3 hours
+
+### Phase D (CallLogViewModel Rewrite)
+14. **D1: CallLogViewModel implementation** — 3-4 hours
+15. **D2: CallLogViewModel tests** — 2-3 hours
+
+### Phase E (End-to-End Tests)
+16. **E1: ActionProcessor end-to-end tests** — 2 hours
+17. **E2: DefaultCallManager integration tests** — 2 hours
+
+### Phase F (Group Calls + Call Screening)
+18. **F1: GroupCallState + CallParticipant models** — 1 hour
+19. **F2: GroupCallActionProcessor** — 3-4 hours
+20. **F3: Add group actions to CallAction.kt** — 1 hour
+21. **F4: Call screening filter** — 2 hours
+22. **F5: Group call tests** — 3-4 hours
+
+**Total estimated: 30-40 hours**
+
+---
+
+## Final Acceptance Criteria (All Phases)
+
+### Core 1:1 Calls
+- [ ] All 228 tests pass
+- [ ] CallForegroundService with START_STICKY
+- [ ] Single-threaded dispatcher via `limitedParallelism(1)`
+- [ ] Granular error reasons (5 types)
+- [ ] Exhaustive compilation via abstract base class
+
+### Call Log
+- [ ] Paging support (20 items per page)
+- [ ] 4-hour clustering
+- [ ] Includes/Excludes/All selection states
+
+### Group Calls
+- [ ] GroupCallActionProcessor handles all group actions
+- [ ] Hand raising broadcast to all participants
+- [ ] Reactions broadcast to all participants
+- [ ] Remote mute/remove/block for admins
+- [ ] Ring group controls
+- [ ] Call link restrictions (ANYONE, APPROVAL_REQUIRED, CONTACTS_ONLY)
+
+### Call Screening
+- [ ] `CallScreenFilter` with blocked users/groups
+- [ ] Blocked users cannot initiate calls
+- [ ] Call log filters blocked calls
+- [ ] Group announcement-mode filtering
