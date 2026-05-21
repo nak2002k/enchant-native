@@ -107,6 +107,23 @@ class LimitedInputStream(
         if (totalBytesRead < maxBytes) {
             Log.w(TAG, "leftoverStream called before limit exhausted: $totalBytesRead/$maxBytes bytes read")
         }
-        return wrapped
+        return object : InputStream() {
+            private var remaining = (maxBytes - totalBytesRead).coerceAtLeast(0).toInt()
+            override fun read(): Int {
+                if (remaining <= 0) return -1
+                val b = wrapped.read()
+                if (b >= 0) remaining--
+                return b
+            }
+            override fun read(buf: ByteArray, off: Int, len: Int): Int {
+                if (remaining <= 0) return -1
+                val toRead = remaining.coerceAtMost(len)
+                val n = wrapped.read(buf, off, toRead)
+                if (n >= 0) remaining -= n
+                return n
+            }
+            override fun skip(n: Long): Long = wrapped.skip(n.coerceAtMost(remaining.toLong())).also { remaining -= it.toInt() }
+            override fun available(): Int = remaining.coerceAtMost(wrapped.available())
+        }
     }
 }

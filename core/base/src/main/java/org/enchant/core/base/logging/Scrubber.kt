@@ -1,5 +1,6 @@
 package org.enchant.core.base.logging
 
+import org.enchant.core.base.SecurePreferences
 import java.security.MessageDigest
 import java.util.regex.Pattern
 
@@ -24,7 +25,18 @@ object Scrubber {
 
     private val TAG = Log.tag(Scrubber::class)
 
-    private const val SALT = "enchant-scrubber-v1"
+    private val SALT: String by lazy {
+        val stored = SecurePreferences.getString("scrubber_salt")
+        if (stored != null) {
+            stored
+        } else {
+            val bytes = ByteArray(16)
+            java.security.SecureRandom().nextBytes(bytes)
+            val hex = bytes.joinToString("") { "%02x".format(it) }
+            SecurePreferences.putString("scrubber_salt", hex)
+            hex
+        }
+    }
 
     private val PHONE_PATTERN = Pattern.compile(
         "\\+?[0-9]{7,15}"

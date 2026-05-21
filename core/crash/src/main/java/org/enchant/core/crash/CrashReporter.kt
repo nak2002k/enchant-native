@@ -116,50 +116,17 @@ object CrashHandler {
             append(throwable::class.java.name)
             throwable.message?.let { append(": $it") }
             append("\n")
-            throwable.stackTrace.take(30).forEach { frame ->
+            throwable.stackTrace.take(100).forEach { frame ->
                 append("  at ${frame.className}.${frame.methodName}(${frame.fileName}:${frame.lineNumber})\n")
             }
             throwable.cause?.let { cause ->
                 append("Caused by: ")
                 append(getStackTrace(cause))
             }
+            throwable.suppressedExceptions.forEach { suppressed ->
+                append("Suppressed: ")
+                append(getStackTrace(suppressed))
+            }
         }
-    }
-}
-
-object Log {
-    private val logs = mutableListOf<String>()
-
-    fun d(tag: String, message: String) {
-        synchronized(logs) {
-            logs.add("[D] $tag: $message")
-            if (logs.size > 500) logs.removeAt(0)
-        }
-    }
-
-    fun e(tag: String, message: String) {
-        synchronized(logs) {
-            logs.add("[E] $tag: $message")
-            if (logs.size > 500) logs.removeAt(0)
-        }
-    }
-
-    fun e(tag: String, message: String, t: Throwable) {
-        synchronized(logs) {
-            logs.add("[E] $tag: $message")
-            logs.add("[E] $tag: ${t::class.java.simpleName}: ${t.message}")
-            if (logs.size > 500) logs.removeAt(0)
-        }
-    }
-
-    fun w(tag: String, message: String) {
-        synchronized(logs) {
-            logs.add("[W] $tag: $message")
-            if (logs.size > 500) logs.removeAt(0)
-        }
-    }
-
-    fun blockUntilAllWritesFinished() {
-        try { Thread.sleep(50) } catch (_: InterruptedException) {}
     }
 }

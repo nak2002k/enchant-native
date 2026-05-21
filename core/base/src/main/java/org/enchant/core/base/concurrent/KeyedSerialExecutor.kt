@@ -19,8 +19,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * @param concurrency the number of parallel worker threads
  */
 class KeyedSerialExecutor<K : Any>(
-    concurrency: Int = 4
+    private val concurrency: Int = 1
 ) {
+    private val TAG = "KeyedSerialExecutor"
     private val queues = ConcurrentHashMap<K, LinkedBlockingQueue<Runnable>>()
     private val executor: ExecutorService = ThreadPoolExecutor(
         concurrency, concurrency, 60L, TimeUnit.SECONDS,
@@ -63,7 +64,7 @@ class KeyedSerialExecutor<K : Any>(
                     try {
                         task.run()
                     } catch (e: Exception) {
-                        // Log and continue processing other tasks
+                        android.util.Log.e(TAG, "Task failed for key $key", e)
                     }
                     if (queue.isEmpty()) {
                         queues.remove(key, queue)

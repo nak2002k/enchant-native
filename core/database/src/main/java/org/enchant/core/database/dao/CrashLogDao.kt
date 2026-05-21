@@ -13,7 +13,7 @@ data class CrashEntity(
 )
 
 class CrashLogDao(private val pool: DatabasePool) {
-    suspend fun insert(timestamp: Long, exceptionName: String, message: String?, stackTrace: String, isFatal: Boolean): Long {
+    fun insert(timestamp: Long, exceptionName: String, message: String?, stackTrace: String, isFatal: Boolean): Long {
         return pool.write { db ->
             db.execSQL("""
                 INSERT INTO crashes (timestamp, exception_name, message, stack_trace, is_fatal, remote_reported)
@@ -23,7 +23,7 @@ class CrashLogDao(private val pool: DatabasePool) {
         }
     }
 
-    suspend fun getAll(limit: Int = 100): List<CrashEntity> = pool.readWith { db ->
+    fun getAll(limit: Int = 100): List<CrashEntity> = pool.readWith { db ->
         db.rawQuery(
             "SELECT id, timestamp, exception_name, message, stack_trace, is_fatal, remote_reported FROM crashes ORDER BY timestamp DESC LIMIT ?",
             arrayOf(limit.toString())
@@ -46,7 +46,7 @@ class CrashLogDao(private val pool: DatabasePool) {
         }
     }
 
-    suspend fun getUnreported(limit: Int = 50): List<CrashEntity> = pool.readWith { db ->
+    fun getUnreported(limit: Int = 50): List<CrashEntity> = pool.readWith { db ->
         db.rawQuery(
             "SELECT id, timestamp, exception_name, message, stack_trace, is_fatal, remote_reported FROM crashes WHERE remote_reported = 0 ORDER BY timestamp DESC LIMIT ?",
             arrayOf(limit.toString())
@@ -69,26 +69,27 @@ class CrashLogDao(private val pool: DatabasePool) {
         }
     }
 
-    suspend fun markReported(ids: List<Long>) = pool.write { db ->
+    fun markReported(ids: List<Long>) = pool.write { db ->
+        if (ids.isEmpty()) return@write
         val placeholders = ids.joinToString(",") { "?" }
         db.execSQL("UPDATE crashes SET remote_reported = 1 WHERE id IN ($placeholders)", ids.map { it.toString() }.toTypedArray())
     }
 
-    suspend fun delete(id: Long) = pool.write { db ->
+    fun delete(id: Long) = pool.write { db ->
         db.execSQL("DELETE FROM crashes WHERE id = ?", arrayOf(id.toString()))
     }
 
-    suspend fun deleteOlderThan(timestamp: Long) = pool.write { db ->
+    fun deleteOlderThan(timestamp: Long) = pool.write { db ->
         db.execSQL("DELETE FROM crashes WHERE timestamp < ?", arrayOf(timestamp.toString()))
     }
 
-    suspend fun getCount(): Int = pool.readWith { db ->
+    fun getCount(): Int = pool.readWith { db ->
         db.rawQuery("SELECT COUNT(*) FROM crashes", null).use { c ->
             if (c.moveToFirst()) c.getInt(0) else 0
         }
     }
 
-    suspend fun getUnreportedCount(): Int = pool.readWith { db ->
+    fun getUnreportedCount(): Int = pool.readWith { db ->
         db.rawQuery("SELECT COUNT(*) FROM crashes WHERE remote_reported = 0", null).use { c ->
             if (c.moveToFirst()) c.getInt(0) else 0
         }

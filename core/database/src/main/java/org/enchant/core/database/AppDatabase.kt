@@ -77,12 +77,13 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     private val maxReaders = 4
     private val readerPool = Array(maxReaders) { openHelper.getReadableDatabase(passphrase) }
     private val readerIndex = java.util.concurrent.atomic.AtomicInteger(0)
-    val reader: SQLiteDatabase get() = readerPool[readerIndex.getAndIncrement() % maxReaders]
+    val reader: SQLiteDatabase get() = readerPool[readerIndex.getAndIncrement() and (maxReaders - 1)]
 
     fun <T> readWith(block: (SQLiteDatabase) -> T): T = block(reader)
     fun <T> write(block: (SQLiteDatabase) -> T): T = synchronized(writer) { block(writer) }
 
     fun close() {
+        readerPool.forEach { it.close() }
         writer.close()
     }
 

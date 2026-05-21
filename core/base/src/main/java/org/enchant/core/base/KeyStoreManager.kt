@@ -215,12 +215,12 @@ object KeyStoreManager {
         if (raw == null) {
             val key = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
             val wrapped = encrypt(alias, key) ?: throw IllegalStateException("Failed to encrypt DB key")
-            SecurePreferences.putString("db.passphrase", wrapped.joinToString(",") { it.toString() })
+            SecurePreferences.putString("db.passphrase", android.util.Base64.encodeToString(wrapped, android.util.Base64.NO_WRAP))
             return key
         }
         val bytes = try {
-            raw.split(",").map { it.toInt().toByte() }.toByteArray()
-        } catch (e: NumberFormatException) {
+            android.util.Base64.decode(raw, android.util.Base64.NO_WRAP)
+        } catch (e: Exception) {
             SecurePreferences.remove("db.passphrase")
             return getOrCreateDatabaseKey()
         }

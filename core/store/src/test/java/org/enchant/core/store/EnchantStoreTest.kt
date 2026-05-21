@@ -26,7 +26,7 @@ class EnchantStoreTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        SecurePreferences.init(context, allowUnencryptedFallback = true)
+        SecurePreferences.init(context)
         SecurePreferences.clearAll()
         resetStoreState()
         EnchantStore.init(InMemoryKeyValueStorage())
