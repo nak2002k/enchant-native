@@ -2,15 +2,21 @@ package org.enchant.core.calls
 
 import android.util.Log
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import org.enchant.core.calls.audio.AudioRouter
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import org.enchant.core.calls.action.CallAction
+import org.enchant.core.calls.action.processors.IdleActionProcessor
 import org.enchant.core.calls.audio.AudioFocusManager
+import org.enchant.core.calls.audio.AudioRouter
 import org.enchant.core.calls.audio.RingtonePlayer
 import org.enchant.core.calls.model.*
 import org.enchant.core.calls.notification.CallNotificationManager
 import org.enchant.core.calls.observer.CallObserverRegistry
+import org.enchant.core.calls.service.CallForegroundService
+import org.enchant.core.calls.state.CallServiceState
 import org.enchant.core.calls.webrtc.IceCandidateHandler
 import org.enchant.core.calls.webrtc.MediaStreamManager
 import org.enchant.core.calls.webrtc.SdpHandler
@@ -36,9 +42,25 @@ class DefaultCallManager(
     private val callLogger: CallLogger,
     private val observerRegistry: CallObserverRegistry
 ) {
-    val callState: StateFlow<CallState> = stateMachine.state
+    private val _callState = MutableStateFlow(
+        CallServiceState(
+            actionProcessor = IdleActionProcessor(callLogger, observerRegistry),
+            callLogger = callLogger,
+            observerRegistry = observerRegistry
+        ).callState
+    )
 
-    private val callScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val callState: StateFlow<CallState> = _callState.asStateFlow()
+
+    private val _serviceState = MutableStateFlow(
+        CallServiceState(
+            actionProcessor = IdleActionProcessor(callLogger, observerRegistry),
+            callLogger = callLogger,
+            observerRegistry = observerRegistry
+        )
+    )
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
     private var peerConnection: PeerConnection? = null
     private var durationJob: Job? = null
     private var turnServers: List<IceServer> = emptyList()
@@ -47,6 +69,11 @@ class DefaultCallManager(
 
     init {
         webRtcEngine.initialize()
+        serviceScope.launch {
+            _serviceState.collect {
+                _callState.value = it.callState
+            }
+        }
     }
 
     fun registerObserver(observer: org.enchant.core.calls.observer.CallObserver) =
@@ -55,18 +82,23 @@ class DefaultCallManager(
     fun unregisterObserver(observer: org.enchant.core.calls.observer.CallObserver) =
         observerRegistry.unregister(observer)
 
+    private suspend fun processAction(action: CallAction) {
+        _serviceState.value = _serviceState.value.actionProcessor.process(_serviceState.value, action)
+        updateCallState()
+    }
+
+    private fun updateCallState() {
+        _callState.value = _serviceState.value.callState
+    }
+
     suspend fun startOutgoingCall(remoteUserId: String, isVideo: Boolean) {
-        val callId = UUID.randomUUID().toString()
-        if (!stateMachine.startOutgoing(remoteUserId, isVideo, callId)) {
-            stateMachine.setError("Already in a call")
-            return
-        }
+        processAction(CallAction.StartOutgoingCall(remoteUserId, isVideo))
+        val state = _serviceState.value.callState
+        if (state.status != CallStatus.CALLING) return
 
         if (!audioFocusManager.requestFocus()) {
             Log.w("CallManager", "Audio focus not granted")
         }
-
-        observerRegistry.notifyStarted(remoteUserId, isVideo)
 
         val iceServers = fetchTurnServers()
         peerConnection = webRtcEngine.createPeerConnection(iceServers, createPeerConnectionObserver())
@@ -83,35 +115,30 @@ class DefaultCallManager(
             observerRegistry.notifyOfferSent(remoteUserId, sdp)
         }
 
-        stateMachine.setConnecting()
         startDurationTimer()
     }
 
     fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String, isVideo: Boolean) {
-        if (!stateMachine.receiveIncoming(senderUserId, isVideo, callId)) {
-            callScope.launch(Dispatchers.IO) {
-                signalingClient.sendHangup(senderUserId)
-            }
-            return
+        serviceScope.launch {
+            processAction(CallAction.ReceiveIncomingOffer(senderUserId, sdp, callId, isVideo))
         }
 
-        callScope.launch(Dispatchers.Default) {
+        serviceScope.launch {
             ringtonePlayer.startIncomingRingtone()
             ringtonePlayer.vibrate()
         }
-        observerRegistry.notifyStarted(senderUserId, isVideo)
         notificationManager.showIncomingCall(senderUserId, isVideo, callId)
 
-        callScope.launch(Dispatchers.Default) {
+        serviceScope.launch {
             delay(30_000)
-            if (callState.value.status == CallStatus.RINGING) {
-                handleCallTimeout()
+            if (_serviceState.value.callState.status == CallStatus.RINGING) {
+                processAction(CallAction.IncomingCallTimeout)
             }
         }
     }
 
     suspend fun acceptCall(withVideo: Boolean) {
-        if (!stateMachine.acceptCall()) return
+        processAction(CallAction.AcceptIncomingCall(withVideo))
 
         if (!audioFocusManager.requestFocus()) {
             Log.w("CallManager", "Audio focus not granted")
@@ -130,7 +157,7 @@ class DefaultCallManager(
 
         val sdp = sdpHandler.createAnswer(peerConnection!!)
         if (sdp != null) {
-            val remoteId = callState.value.remoteUserId
+            val remoteId = _serviceState.value.callState.remoteUserId
             if (remoteId != null) {
                 signalingClient.sendAnswer(remoteId, sdp)
                 observerRegistry.notifyAnswerSent(remoteId, sdp)
@@ -141,53 +168,33 @@ class DefaultCallManager(
     }
 
     fun denyCall() {
-        val remoteId = callState.value.remoteUserId ?: return
-        callScope.launch(Dispatchers.IO) {
+        val remoteId = _serviceState.value.callState.remoteUserId ?: return
+        serviceScope.launch(Dispatchers.IO) {
             signalingClient.sendHangup(remoteId)
             observerRegistry.notifyHangup(remoteId)
         }
         ringtonePlayer.stopRingtone()
         ringtonePlayer.cancelVibration()
         notificationManager.cancelIncoming()
-        stateMachine.denyCall()
+        serviceScope.launch {
+            processAction(CallAction.DenyIncomingCall(null))
+        }
     }
 
     fun endCall() {
-        val previousState = stateMachine.endCall()
-        if (previousState.status == CallStatus.IDLE) return
-
-        val remoteId = previousState.remoteUserId
-        if (remoteId != null) {
-            callScope.launch(Dispatchers.IO) {
-                signalingClient.sendHangup(remoteId)
-                observerRegistry.notifyHangup(remoteId)
-            }
+        serviceScope.launch {
+            processAction(CallAction.CallEnded)
         }
-
-        ringtonePlayer.stopRingtone()
-        ringtonePlayer.cancelVibration()
-        notificationManager.cancelAll()
-
-        val summary = if (previousState.durationSeconds > 0) {
-            CallSummary(
-                previousState.durationSeconds,
-                previousState.isVideoCall,
-                previousState.direction == CallDirection.OUTGOING
-            )
-        } else null
-
-        observerRegistry.notifyEnded(CallEndReason.HANGUP_LOCAL, summary)
-        callScope.launch(Dispatchers.IO) { callLogger.insertCallLog(previousState) }
-
         cleanup()
     }
 
     suspend fun handleReceivedAnswer(sdp: String) {
+        processAction(CallAction.ReceiveAnswer(sdp))
+
         val pc = peerConnection ?: return
         val success = sdpHandler.setRemoteDescription(pc, sdp, SessionDescription.Type.ANSWER)
         if (success) {
-            stateMachine.setConnected()
-            observerRegistry.notifyConnected()
+            processAction(CallAction.CallConnected)
         }
     }
 
@@ -201,57 +208,46 @@ class DefaultCallManager(
     }
 
     fun handleReceivedHangup() {
-        val previousState = stateMachine.endCall()
-        if (previousState.status == CallStatus.IDLE) return
-
-        ringtonePlayer.stopRingtone()
-        ringtonePlayer.cancelVibration()
-        notificationManager.cancelAll()
-
-        val summary = if (previousState.durationSeconds > 0) {
-            CallSummary(
-                previousState.durationSeconds,
-                previousState.isVideoCall,
-                previousState.direction == CallDirection.OUTGOING
-            )
-        } else null
-
-        observerRegistry.notifyEnded(CallEndReason.HANGUP_REMOTE, summary)
-        callScope.launch(Dispatchers.IO) { callLogger.insertCallLog(previousState) }
-
+        serviceScope.launch {
+            processAction(CallAction.ReceiveHangup(null))
+        }
         cleanup()
     }
 
     fun toggleMute() {
-        stateMachine.toggleMute()
-        mediaStreamManager.setAudioEnabled(!callState.value.isMuted)
+        serviceScope.launch {
+            processAction(CallAction.ToggleMute)
+        }
     }
 
     fun toggleVideo() {
-        stateMachine.toggleVideo()
-        if (callState.value.isVideoEnabled) {
-            mediaStreamManager.addVideo()
-        } else {
-            mediaStreamManager.removeVideo()
+        serviceScope.launch {
+            processAction(CallAction.ToggleVideo)
         }
     }
 
     fun toggleSpeaker() {
-        stateMachine.toggleSpeaker()
-        audioRouter.setSpeakerphoneOn(callState.value.isSpeakerOn)
+        serviceScope.launch {
+            processAction(CallAction.ToggleSpeaker)
+        }
     }
 
     fun flipCamera() {
-        mediaStreamManager.switchCamera()
+        serviceScope.launch {
+            processAction(CallAction.FlipCamera)
+        }
     }
 
     fun setOnHold(hold: Boolean) {
-        stateMachine.setOnHold(hold)
-        mediaStreamManager.setAudioEnabled(!hold)
+        serviceScope.launch {
+            processAction(CallAction.SetOnHold(hold))
+        }
     }
 
     fun raiseHand(raised: Boolean) {
-        stateMachine.setHandRaised(raised)
+        serviceScope.launch {
+            processAction(CallAction.RaiseHand(raised))
+        }
     }
 
     suspend fun getCallLogs(limit: Int = 100): List<CallLogEntry> =
@@ -266,21 +262,11 @@ class DefaultCallManager(
     }
 
     fun shutdown() {
-        callScope.cancel()
+        serviceScope.cancel()
         cleanup()
         webRtcEngine.release()
         mediaStreamManager.release()
         observerRegistry.clear()
-    }
-
-    private fun handleCallTimeout() {
-        ringtonePlayer.stopRingtone()
-        ringtonePlayer.cancelVibration()
-        notificationManager.cancelIncoming()
-        val previousState = stateMachine.endCall()
-        observerRegistry.notifyEnded(CallEndReason.TIMEOUT, null)
-        callScope.launch(Dispatchers.IO) { callLogger.insertCallLog(previousState) }
-        cleanup()
     }
 
     private suspend fun fetchTurnServers(): List<IceServer> {
@@ -300,10 +286,10 @@ class DefaultCallManager(
 
     private fun startDurationTimer() {
         durationJob?.cancel()
-        durationJob = callScope.launch(Dispatchers.Default) {
+        durationJob = serviceScope.launch(Dispatchers.Default) {
             while (isActive) {
                 delay(1000)
-                val current = callState.value
+                val current = _serviceState.value.callState
                 if (current.status == CallStatus.CONNECTED || current.status == CallStatus.CALLING) {
                     stateMachine.updateDuration(current.durationSeconds + 1)
                 }
@@ -327,9 +313,9 @@ class DefaultCallManager(
     private fun createPeerConnectionObserver(): PeerConnection.Observer {
         return object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate) {
-                val remoteId = callState.value.remoteUserId ?: return
+                val remoteId = _serviceState.value.callState.remoteUserId ?: return
                 val serialized = iceHandler.serialize(candidate)
-                callScope.launch(Dispatchers.IO) {
+                serviceScope.launch(Dispatchers.IO) {
                     signalingClient.sendIceCandidate(remoteId, serialized)
                     observerRegistry.notifyIceSent(remoteId, serialized)
                 }
@@ -338,17 +324,22 @@ class DefaultCallManager(
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
                 when (state) {
                     PeerConnection.IceConnectionState.CONNECTED -> {
-                        stateMachine.setConnected()
-                        observerRegistry.notifyConnected()
+                        serviceScope.launch {
+                            processAction(CallAction.CallConnected)
+                        }
                         iceHandler.drainAndApply(peerConnection!!)
                         startStatsCollection()
                     }
                     PeerConnection.IceConnectionState.DISCONNECTED -> {
-                        stateMachine.setReconnecting()
-                        observerRegistry.notifyReconnecting()
+                        serviceScope.launch {
+                            processAction(CallAction.CallReconnecting)
+                        }
                     }
                     PeerConnection.IceConnectionState.FAILED -> {
-                        endCall()
+                        serviceScope.launch {
+                            processAction(CallAction.CallFailedIce)
+                        }
+                        cleanup()
                     }
                     else -> {}
                 }
@@ -369,11 +360,13 @@ class DefaultCallManager(
     private fun startStatsCollection() {
         val pc = peerConnection ?: return
         statsCollector = StatsCollector(pc).also { collector ->
-            collector.stats
-                .onEach { stats -> observerRegistry.notifyQuality(stats) }
-                .launchIn(callScope)
-            callScope.launch {
-                collector.startCollecting()
+            serviceScope.launch {
+                collector.startCollecting { stats ->
+                    serviceScope.launch {
+                        processAction(CallAction.QualityUpdate(stats))
+                        observerRegistry.notifyQuality(stats)
+                    }
+                }
             }
         }
     }

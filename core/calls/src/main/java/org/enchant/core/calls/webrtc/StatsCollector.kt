@@ -17,12 +17,13 @@ class StatsCollector(
 
     private val isRunning = AtomicBoolean(false)
 
-    suspend fun startCollecting(intervalMs: Long = 2000) {
+    suspend fun startCollecting(intervalMs: Long = 2000, onStats: (CallQualityStats) -> Unit = {}) {
         if (isRunning.getAndSet(true)) return
         try {
             while (isRunning.get()) {
                 delay(intervalMs)
-                collectStats()
+                val currentStats = collectStats()
+                onStats(currentStats)
             }
         } finally {
             isRunning.set(false)
@@ -33,8 +34,8 @@ class StatsCollector(
         isRunning.set(false)
     }
 
-    private suspend fun collectStats() {
-        withContext(kotlinx.coroutines.Dispatchers.IO) {
+    private suspend fun collectStats(): CallQualityStats {
+        return withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 var rttMs = 0L
                 var packetsLost = 0
@@ -65,7 +66,7 @@ class StatsCollector(
                     }
                 }
 
-                _stats.value = CallQualityStats(
+                CallQualityStats(
                     rttMs = rttMs.toLong(),
                     packetsLost = packetsLost,
                     jitterMs = jitterMs.toLong(),
@@ -73,6 +74,7 @@ class StatsCollector(
                     bytesSent = bytesSent
                 )
             } catch (e: Exception) {
+                CallQualityStats()
             }
         }
     }

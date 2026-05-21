@@ -103,7 +103,7 @@ class CallNotificationManager(
         NotificationManagerCompat.from(context).cancel(INCOMING_CALL_ID)
     }
 
-    fun buildForegroundNotification(remoteUserId: String, isVideo: Boolean): Notification {
+    fun buildForegroundNotification(text: String, isVideo: Boolean): Notification {
         val pendingFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
         val endIntent = PendingIntent.getBroadcast(
@@ -114,7 +114,7 @@ class CallNotificationManager(
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(if (isVideo) "Video call" else "Voice call")
-            .setContentText(remoteUserId)
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_call)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
