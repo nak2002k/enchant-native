@@ -60,15 +60,18 @@ class KeyedSerialExecutor<K : Any>(
         return Runnable {
             try {
                 while (!Thread.currentThread().isInterrupted) {
-                    val task = queue.take()
-                    try {
-                        task.run()
-                    } catch (e: Exception) {
-                        android.util.Log.e(TAG, "Task failed for key $key", e)
+                    val task = queue.poll()
+                    if (task != null) {
+                        try {
+                            task.run()
+                        } catch (e: Exception) {
+                            android.util.Log.e(TAG, "Task failed for key $key", e)
+                        }
                     }
                     if (queue.isEmpty()) {
-                        queues.remove(key, queue)
-                        break
+                        if (queues.remove(key, queue)) {
+                            break
+                        }
                     }
                 }
             } catch (e: InterruptedException) {
