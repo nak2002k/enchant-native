@@ -60,19 +60,6 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                                         )
                                     """)
                                     db.execSQL("CREATE INDEX IF NOT EXISTS idx_crashes_timestamp ON crashes(timestamp DESC)")
-                                    db.execSQL("""
-                                        CREATE TABLE IF NOT EXISTS key_value_store (
-                                            key TEXT PRIMARY KEY,
-                                            value_type TEXT NOT NULL,
-                                            value_blob BLOB,
-                                            value_text TEXT,
-                                            value_int INTEGER,
-                                            value_long INTEGER,
-                                            value_float REAL,
-                                            value_boolean INTEGER,
-                                            updated_at INTEGER NOT NULL
-                                        )
-                                    """)
                                     db.execSQL("PRAGMA user_version = 4")
                                 }
                                 else -> android.util.Log.w("AppDatabase", "No migration defined for v$version")
@@ -291,20 +278,6 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 )
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_crashes_timestamp ON crashes(timestamp DESC)")
-
-            db.execSQL("""
-                CREATE TABLE IF NOT EXISTS key_value_store (
-                    key TEXT PRIMARY KEY,
-                    value_type TEXT NOT NULL,
-                    value_blob BLOB,
-                    value_text TEXT,
-                    value_int INTEGER,
-                    value_long INTEGER,
-                    value_float REAL,
-                    value_boolean INTEGER,
-                    updated_at INTEGER NOT NULL
-                )
-            """)
         }
     }
 }
