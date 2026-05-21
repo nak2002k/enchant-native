@@ -1,5 +1,6 @@
 package org.enchant.core.base.logging
 
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -69,7 +70,8 @@ object AndroidLogger : Log.Logger {
     }
 
     override fun blockUntilAllWritesFinished() {
-        logExecutor.execute { }
-        logExecutor.awaitTermination(5, TimeUnit.SECONDS)
+        val latch = CountDownLatch(1)
+        logExecutor.execute { latch.countDown() }
+        latch.await(5, TimeUnit.SECONDS)
     }
 }

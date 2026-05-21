@@ -37,7 +37,7 @@ class LRUCache<K : Any, V : Any>(
 
     @Synchronized
     fun evict(count: Int) {
-        val keys = map.keys.take(count)
+        val keys = map.keys.toList().take(count)
         keys.forEach { map.remove(it) }
     }
 

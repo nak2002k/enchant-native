@@ -29,15 +29,15 @@ object KeyStoreManager {
 
     suspend fun init(context: Context) {
         if (initialized) return
-        val ks = getKeyStore()
         _isHardwareBacked = try {
-            val spec = KeyGenParameterSpec.Builder("__test__", KeyProperties.PURPOSE_SIGN)
+            val spec = KeyGenParameterSpec.Builder("__enchant_hardware_test__", KeyProperties.PURPOSE_SIGN)
                 .setIsStrongBoxBacked(true)
                 .build()
             val kg = KeyPairGenerator.getInstance("EC", ANDROID_KEYSTORE)
             kg.initialize(spec)
             kg.generateKeyPair()
-            ks.deleteEntry("__test__")
+            val ks = getKeyStore()
+            ks.deleteEntry("__enchant_hardware_test__")
             true
         } catch (_: Exception) {
             false
@@ -206,7 +206,10 @@ object KeyStoreManager {
         }
     }
 
-    suspend fun getOrCreateDatabaseKey(): ByteArray {
+    suspend fun getOrCreateDatabaseKey(retryCount: Int = 0): ByteArray {
+        if (retryCount > 2) {
+            throw IllegalStateException("Failed to retrieve database key after 3 attempts")
+        }
         val alias = KEY_ALIAS_DB_ENCRYPTION
         if (!keyExists(alias)) {
             generateKey(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
@@ -220,9 +223,9 @@ object KeyStoreManager {
         }
         val bytes = try {
             android.util.Base64.decode(raw, android.util.Base64.NO_WRAP)
-        } catch (e: Exception) {
+        } catch (e: NumberFormatException) {
             SecurePreferences.remove("db.passphrase")
-            return getOrCreateDatabaseKey()
+            return getOrCreateDatabaseKey(retryCount + 1)
         }
         return decrypt(alias, bytes) ?: throw IllegalStateException("Failed to decrypt DB key")
     }

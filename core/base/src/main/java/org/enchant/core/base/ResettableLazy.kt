@@ -40,7 +40,9 @@ class ResettableLazy<T>(
      * The next access will re-run the initializer.
      */
     fun reset() {
-        value = UNINITIALIZED
+        synchronized(this) {
+            value = UNINITIALIZED
+        }
     }
 
     /**

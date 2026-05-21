@@ -94,7 +94,7 @@ object SecurePreferences {
         return getPrefs()?.getBoolean(key, default) ?: default
     }
 
-    fun getBoolean(key: String, default: Boolean?): Boolean? {
+    fun getBooleanOrNull(key: String, default: Boolean?): Boolean? {
         val p = getPrefs() ?: return default
         return if (p.contains(key)) p.getBoolean(key, default ?: false) else default
     }
