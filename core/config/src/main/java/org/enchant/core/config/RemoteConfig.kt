@@ -1,41 +1,6 @@
 package org.enchant.core.config
 
-object ConfigValues {
-    private const val KEY_REMOTE_CONFIG = "remote_config"
-    private const val KEY_PENDING_CONFIG = "pending_remote_config"
-    private const val KEY_LAST_FETCH_TIME = "remote_config_last_fetch_time"
-    private const val KEY_ETAG = "etag"
-
-    private var store: KeyValueStore? = null
-
-    fun setStore(keyValueStore: KeyValueStore) {
-        store = keyValueStore
-    }
-
-    fun getCurrentConfig(): String? = store?.getString(KEY_REMOTE_CONFIG)
-
-    fun setCurrentConfig(value: String) {
-        store?.beginWrite()?.putString(KEY_REMOTE_CONFIG, value)?.apply()
-    }
-
-    fun getPendingConfig(): String? = store?.getString(KEY_PENDING_CONFIG) ?: getCurrentConfig()
-
-    fun setPendingConfig(value: String) {
-        store?.beginWrite()?.putString(KEY_PENDING_CONFIG, value)?.apply()
-    }
-
-    fun getLastFetchTime(): Long = store?.getLong(KEY_LAST_FETCH_TIME, 0) ?: 0L
-
-    fun setLastFetchTime(time: Long) {
-        store?.beginWrite()?.putLong(KEY_LAST_FETCH_TIME, time)?.apply()
-    }
-
-    fun getETag(): String? = store?.getString(KEY_ETAG) ?: ""
-
-    fun setETag(etag: String) {
-        store?.beginWrite()?.putString(KEY_ETAG, etag)?.apply()
-    }
-}
+import org.enchant.core.store.EnchantStore
 
 object RemoteConfig {
     private val defaults = mapOf(
@@ -51,28 +16,37 @@ object RemoteConfig {
     )
 
     fun getString(key: String, default: String = defaults[key] ?: ""): String {
-        val pending = ConfigValues.getPendingConfig()
-        if (pending != null && pending.isNotEmpty()) {
-            return parseConfigValue(pending, key) ?: defaults[key] ?: default
+        val pending = getPendingConfig()
+        if (!pending.isNullOrEmpty()) {
+            return parseConfigValue(pending, key) ?: default
         }
-        return defaults[key] ?: default
+        return default
     }
 
     fun getInt(key: String, default: Int = 0): Int {
-        val pending = ConfigValues.getPendingConfig()
-        if (pending != null && pending.isNotEmpty()) {
+        val pending = getPendingConfig()
+        if (!pending.isNullOrEmpty()) {
             return parseConfigInt(pending, key) ?: default
         }
         return defaults[key]?.toIntOrNull() ?: default
     }
 
     fun getLong(key: String, default: Long = 0L): Long {
-        val pending = ConfigValues.getPendingConfig()
-        if (pending != null && pending.isNotEmpty()) {
+        val pending = getPendingConfig()
+        if (!pending.isNullOrEmpty()) {
             return parseConfigLong(pending, key) ?: default
         }
         return defaults[key]?.toLongOrNull() ?: default
     }
+
+    fun getCurrentConfig(): String? = try { EnchantStore.RemoteConfig.values } catch (_: Exception) { null }
+    fun setCurrentConfig(value: String) { try { EnchantStore.RemoteConfig.setValues(value) } catch (_: Exception) {} }
+    fun getPendingConfig(): String? = getCurrentConfig()
+    fun setPendingConfig(value: String) { setCurrentConfig(value) }
+    fun getLastFetchTime(): Long = try { EnchantStore.RemoteConfig.lastFetchTs } catch (_: Exception) { 0L }
+    fun setLastFetchTime(time: Long) { try { EnchantStore.RemoteConfig.setLastFetchTs(time) } catch (_: Exception) {} }
+    fun getETag(): String? = try { EnchantStore.RemoteConfig.eTag } catch (_: Exception) { null }
+    fun setETag(etag: String) { try { EnchantStore.RemoteConfig.setETag(etag) } catch (_: Exception) {} }
 
     private fun parseConfigValue(config: String, key: String): String? {
         return try {

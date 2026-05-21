@@ -30,6 +30,9 @@ object EnchantStore {
     private var initialized = false
     internal lateinit var store: KeyValueStorage
         private set
+
+    val storage: KeyValueStorage
+        get() = store
     internal lateinit var delegates: StoreValueDelegates
         private set
 
@@ -55,6 +58,10 @@ object EnchantStore {
         delegates = StoreValueDelegates(storage)
         onFirstEverAppLaunch()
         initialized = true
+    }
+
+    fun flushPendingWrites() {
+        store.flushPendingWrites()
     }
 
     private fun derivePassword(context: Context): String {

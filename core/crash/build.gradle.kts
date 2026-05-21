@@ -22,6 +22,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)
     implementation(project(":core:base"))
+    implementation(project(":core:store"))
     implementation(project(":core:database"))
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)

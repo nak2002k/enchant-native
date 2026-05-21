@@ -2,6 +2,7 @@ package org.enchant.core.crash
 
 import android.content.ContentValues
 import org.enchant.core.database.DatabasePool
+import org.enchant.core.store.EnchantStore
 import java.util.concurrent.atomic.AtomicBoolean
 
 object CrashHandler {
@@ -36,9 +37,19 @@ object CrashHandler {
         val fullStackTrace = getStackTrace(throwable)
         android.util.Log.e(TAG, "uncaught exception: $exceptionName, message: ${throwable.message}", throwable)
         saveCrashLocally(System.currentTimeMillis(), exceptionName, throwable.message, fullStackTrace, isFatal = true)
-        pool?.let { blockUntilWritesFinish(it) }
-        Log.blockUntilAllWritesFinished()
+        blockUntilWritesFinish()
         originalHandler?.uncaughtException(thread, throwable)
+    }
+
+    private fun blockUntilWritesFinish() {
+        try {
+            EnchantStore.storage.flushPendingWrites()
+        } catch (_: Exception) {}
+        pool?.write { db ->
+            try {
+                db.execSQL("SELECT 1")
+            } catch (_: Exception) {}
+        }
     }
 
     private fun resetFtsIndex() {
@@ -89,14 +100,6 @@ object CrashHandler {
                 android.util.Log.e(TAG, "Failed to save crash locally", e)
             }
         }
-    }
-
-    private fun blockUntilWritesFinish(db: DatabasePool) {
-        try {
-            db.write { database ->
-                database.execSQL("SELECT 1")
-            }
-        } catch (_: Exception) {}
     }
 
     fun recordException(t: Throwable) {
