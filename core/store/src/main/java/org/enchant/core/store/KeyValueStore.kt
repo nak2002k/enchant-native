@@ -73,16 +73,16 @@ class KeyValueStore(
         }
     }
 
-    override fun contains(key: String): Boolean = cache.containsKey(key) || dbHelper.contains(key)
+    override fun contains(key: String): Boolean = cache.containsKey(key)
 
-    override fun putString(key: String, value: String?) { cache[key] = value; enqueueWrite(WriteOperation.PutString(key, value)) }
-    override fun putInt(key: String, value: Int) { cache[key] = value; enqueueWrite(WriteOperation.PutInt(key, value)) }
-    override fun putLong(key: String, value: Long) { cache[key] = value; enqueueWrite(WriteOperation.PutLong(key, value)) }
-    override fun putBoolean(key: String, value: Boolean) { cache[key] = value; enqueueWrite(WriteOperation.PutBoolean(key, value)) }
-    override fun putFloat(key: String, value: Float) { cache[key] = value; enqueueWrite(WriteOperation.PutFloat(key, value)) }
-    override fun putBlob(key: String, value: ByteArray?) { cache[key] = value; enqueueWrite(WriteOperation.PutBlob(key, value)) }
+    override fun putString(key: String, value: String?) { enqueueWrite(WriteOperation.PutString(key, value)); cache[key] = value }
+    override fun putInt(key: String, value: Int) { enqueueWrite(WriteOperation.PutInt(key, value)); cache[key] = value }
+    override fun putLong(key: String, value: Long) { enqueueWrite(WriteOperation.PutLong(key, value)); cache[key] = value }
+    override fun putBoolean(key: String, value: Boolean) { enqueueWrite(WriteOperation.PutBoolean(key, value)); cache[key] = value }
+    override fun putFloat(key: String, value: Float) { enqueueWrite(WriteOperation.PutFloat(key, value)); cache[key] = value }
+    override fun putBlob(key: String, value: ByteArray?) { enqueueWrite(WriteOperation.PutBlob(key, value)); cache[key] = value }
 
-    override fun remove(key: String) { cache.remove(key); enqueueWrite(WriteOperation.Remove(key)) }
+    override fun remove(key: String) { enqueueWrite(WriteOperation.Remove(key)); cache.remove(key) }
 
     override fun beginWrite(): KeyValueStorage.WriteBatch = WriteBatch(this)
 
@@ -146,7 +146,7 @@ class KeyValueStore(
         }
     }
 
-    private fun registerShutdownHook() { Runtime.getRuntime().addShutdownHook(Thread { flushPendingWrites() }) }
+    private fun registerShutdownHook() { }
 
     override fun flushPendingWrites() {
         val pending = mutableListOf<WriteOperation>()
