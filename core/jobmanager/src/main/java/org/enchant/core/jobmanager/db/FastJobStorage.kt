@@ -278,6 +278,45 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
     fun getAllJobs(): List<JobSpec> = fullSpecCache.values.toList()
 
     fun getJobCount(): Int = fullSpecCache.size
+
+    override fun transformJobs(transform: (JobSpec) -> JobSpec) {
+        runBlocking {
+            val updated = fullSpecCache.mapValues { (_, spec) -> transform(spec) }
+            val entities = updated.values.map { spec ->
+                JobSpecEntity(
+                    id = spec.id,
+                    factoryKey = spec.factoryKey,
+                    queueKey = spec.queueKey,
+                    createTime = spec.createTime,
+                    lastRunAttemptTime = spec.lastRunAttemptTime,
+                    nextBackoffInterval = spec.nextBackoffInterval,
+                    runAttempt = spec.runAttempt,
+                    maxAttempts = spec.maxAttempts,
+                    lifespan = spec.lifespan,
+                    serializedData = spec.serializedData,
+                    serializedInputData = spec.serializedInputData,
+                    isRunning = spec.isRunning,
+                    isMemoryOnly = spec.isMemoryOnly,
+                    globalPriority = spec.globalPriority,
+                    queuePriority = spec.queuePriority,
+                    initialDelay = spec.initialDelay
+                )
+            }
+            jobDao.insertJobs(entities)
+
+            fullSpecCache.clear()
+            fullSpecCache.putAll(updated)
+            minimalJobs.clear()
+            eligibleJobs.clear()
+            fullSpecCache.values.forEach { spec ->
+                val minimal = spec.toMinimal()
+                minimalJobs[spec.id] = minimal
+                if (isEligible(spec)) {
+                    eligibleJobs.add(minimal)
+                }
+            }
+        }
+    }
 }
 
 private fun JobSpecEntity.toJobSpec() = JobSpec(

@@ -21,4 +21,5 @@ interface JobStorage {
     fun deleteAll()
     fun getConstraintSpecs(jobId: String): List<ConstraintSpec>
     fun getDependencySpecsThatDependOnJob(jobId: String): List<DependencySpec>
+    fun transformJobs(transform: (JobSpec) -> JobSpec)
 }

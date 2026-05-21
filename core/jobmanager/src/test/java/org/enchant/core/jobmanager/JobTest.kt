@@ -153,6 +153,7 @@ class JobTest {
         }
         val backoff = job.testBackoff(30, 1000)
         assertTrue(backoff <= 1000)
+        assertTrue(backoff > 0)
     }
 
     @Test

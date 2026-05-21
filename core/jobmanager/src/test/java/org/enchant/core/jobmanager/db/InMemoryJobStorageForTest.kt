@@ -181,6 +181,18 @@ class InMemoryJobStorageForTest : JobStorage {
     fun getAllJobs(): List<JobSpec> = jobs.values.toList()
 
     fun getJobCount(): Int = jobs.size
+
+    override fun transformJobs(transform: (JobSpec) -> JobSpec) {
+        val updated = jobs.mapValues { (_, spec) -> transform(spec) }
+        jobs.clear()
+        jobs.putAll(updated)
+        eligibleJobs.clear()
+        jobs.values.forEach { spec ->
+            if (isEligible(spec)) {
+                eligibleJobs.add(spec.toMinimal())
+            }
+        }
+    }
 }
 
 private fun FullSpec.toJobSpec() = JobSpec(
