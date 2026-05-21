@@ -215,8 +215,85 @@ private fun setupStatsCollector(pc: PeerConnection) {
 Signal's pattern uses:
 1. **Immutable State** (`WebRtcServiceState`) — holds all call state
 2. **Action Processor** (`WebRtcActionProcessor`) — state machine that handles all actions for current state
-3. **Single-threaded execution** — all actions processed on single executor
+3. **Single-threaded execution** — all actions processed on single executor (NOT aspirational — MUST be implemented)
 4. **Delegation** — shared logic extracted to delegate classes
+
+### Threading Model (Signal-Style — CRITICAL)
+
+Signal uses `HandlerThread` ("signal-web-rtc-service") with Handler.post() to serialize ALL state mutations on a single thread. This prevents race conditions.
+
+**Our implementation MUST use single-threaded dispatcher:**
+
+```kotlin
+// In DefaultCallManager
+private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+
+// All state changes go through this single-threaded entry point
+private suspend fun processAction(action: CallAction) {
+    serviceScope.launch {
+        _serviceState.value = _serviceState.value.actionProcessor.process(_serviceState.value, action)
+    }
+}
+```
+
+**Why this matters:**
+- `Dispatchers.Default` with unlimited parallelism allows concurrent state mutations
+- Multiple coroutines modifying `_serviceState` simultaneously can cause race conditions
+- Using `limitedParallelism(1)` ensures ALL actions are processed sequentially
+- This matches Signal's HandlerThread + Handler.post() guarantees
+
+**Rules:**
+- ALL state changes MUST go through the single-threaded `serviceScope`
+- No direct `_serviceState.value = ...` outside of `processAction()`
+- PeerConnection callbacks MUST dispatch actions, not modify state directly
+- The single-threaded guarantee ensures `process()` is atomic
+
+### Exhaustive Compilation (Signal-Style)
+
+Signal's `WebRtcActionProcessor` base class has ~60 protected methods. Adding a new action to the base class causes compiler to warn which processors don't override it.
+
+**Our interface approach requires manual `when` matching. To make it exhaustive:**
+
+```kotlin
+interface ActionProcessor {
+    fun process(state: CallServiceState, action: CallAction): CallServiceState {
+        // Default implementation logs and returns unchanged state
+        Log.w(tag, "Unhandled action: ${action::class.simpleName}")
+        return state
+    }
+    // ...
+}
+```
+
+**Better: Abstract base class with default no-op:**
+
+```kotlin
+abstract class BaseActionProcessor : ActionProcessor {
+    override fun process(state: CallServiceState, action: CallAction): CallServiceState {
+        return when (action) {
+            is CallAction.StartOutgoingCall -> handleStartOutgoingCall(state, action)
+            is CallAction.ReceiveIncomingOffer -> handleReceiveIncomingOffer(state, action)
+            is CallAction.ReceiveAnswer -> handleReceiveAnswer(state, action)
+            is CallAction.CallConnected -> handleCallConnected(state)
+            is CallAction.CallEnded -> handleCallEnded(state)
+            is CallAction.CallFailedTimeout -> handleCallFailedTimeout(state)
+            is CallAction.CallFailedBusy -> handleCallFailedBusy(state)
+            // etc... compiler will warn if we miss one
+            else -> state
+        }
+    }
+
+    protected abstract fun handleStartOutgoingCall(state: CallServiceState, action: CallAction.StartOutgoingCall): CallServiceState
+    protected abstract fun handleReceiveIncomingOffer(state: CallServiceState, action: CallAction.ReceiveIncomingOffer): CallServiceState
+    // etc...
+}
+```
+
+**Rules:**
+- Use abstract base class with protected methods for exhaustive compilation
+- Each processor ONLY overrides the handlers it cares about
+- Unhandled actions return unchanged state (no-op)
+- Add new handler methods to base class — compiler tells you which processors need updating
 
 ### New File Structure
 
@@ -296,17 +373,37 @@ sealed class CallAction {
     data class SetOnHold(val hold: Boolean) : CallAction()
     data class RaiseHand(val raised: Boolean) : CallAction()
 
+    // ── Granular Error Reasons (Signal-style) ──
+    // These map to proper UI states (busy tone, declined elsewhere, etc.)
+    data object CallFailedTimeout : CallAction()           // Signaling timed out
+    data object CallFailedIce : CallAction()              // ICE connection failed
+    data object CallFailedDeclinedElsewhere : CallAction() // Call accepted on another device
+    data object CallFailedBusy : CallAction()             // Remote user is busy
+    data object CallFailedEndedElsewhere : CallAction()   // Call ended on another device
+    data class CallFailedWithReason(val reason: CallEndReason) : CallAction() // Generic failure with reason
+
     // ── System Actions ──
     data object CallConnected : CallAction()
     data object CallReconnecting : CallAction()
     data object CallReconnected : CallAction()
     data object CallEnded : CallAction()
-    data class CallFailed(val error: String) : CallAction()
     data class QualityUpdate(val stats: CallQualityStats) : CallAction()
 
     // ── Timeout Actions ──
     data object IncomingCallTimeout : CallAction()
     data object SignalingTimeout : CallAction()
+}
+
+enum class CallEndReason {
+    HANGUP_LOCAL,
+    HANGUP_REMOTE,
+    ANSWERED_ELSEWHERE,
+    BUSY,
+    TIMEOUT,
+    ERROR,
+    NETWORK_LOST,
+    DECLINED_ELSEWHERE,
+    ENDED_ELSEWHERE
 }
 ```
 
@@ -644,6 +741,36 @@ class OutgoingCallActionProcessor(
             .callSetupData(null)
             .build()
     }
+
+    private fun handleCallFailedTimeout(state: CallServiceState): CallServiceState {
+        Log.e(tag, "handleCallFailedTimeout: signaling timed out")
+        observerRegistry?.notifyEnded(CallEndReason.TIMEOUT, null)
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "Signaling timed out"))
+            .callSetupData(null)
+            .build()
+    }
+
+    private fun handleCallFailedBusy(state: CallServiceState): CallServiceState {
+        Log.d(tag, "handleCallFailedBusy: remote user is busy")
+        observerRegistry?.notifyEnded(CallEndReason.BUSY, null)
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "User is busy"))
+            .callSetupData(null)
+            .build()
+    }
+
+    private fun handleCallFailedIce(state: CallServiceState): CallServiceState {
+        Log.e(tag, "handleCallFailedIce: ICE connection failed")
+        observerRegistry?.notifyEnded(CallEndReason.ERROR, null)
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "Connection failed"))
+            .callSetupData(null)
+            .build()
+    }
 }
 ```
 
@@ -907,6 +1034,52 @@ class ConnectedCallActionProcessor(
     private fun handleQualityUpdate(state: CallServiceState, action: CallAction.QualityUpdate): CallServiceState {
         return state.builder()
             .qualityStats(action.stats)
+            .build()
+    }
+
+    // ── Granular Error Handling (Signal-Style) ──
+
+    private fun handleCallFailedTimeout(state: CallServiceState): CallServiceState {
+        Log.e(tag, "handleCallFailedTimeout: signaling timed out")
+
+        observerRegistry?.notifyEnded(CallEndReason.TIMEOUT, null)
+
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "Signaling timed out"))
+            .build()
+    }
+
+    private fun handleCallFailedBusy(state: CallServiceState): CallServiceState {
+        Log.d(tag, "handleCallFailedBusy: remote user is busy")
+
+        observerRegistry?.notifyEnded(CallEndReason.BUSY, null)
+
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "User is busy"))
+            .build()
+    }
+
+    private fun handleCallFailedDeclinedElsewhere(state: CallServiceState): CallServiceState {
+        Log.d(tag, "handleCallFailedDeclinedElsewhere: call accepted on another device")
+
+        observerRegistry?.notifyEnded(CallEndReason.DECLINED_ELSEWHERE, null)
+
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "Call answered elsewhere"))
+            .build()
+    }
+
+    private fun handleCallFailedEndedElsewhere(state: CallServiceState): CallServiceState {
+        Log.d(tag, "handleCallFailedEndedElsewhere: call ended on another device")
+
+        observerRegistry?.notifyEnded(CallEndReason.ENDED_ELSEWHERE, null)
+
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "Call ended elsewhere"))
             .build()
     }
 }
@@ -1465,12 +1638,76 @@ class CallLogViewModel : ViewModel() {
 }
 ```
 
+**Signal-Style Enhancements (Beyond Basic):**
+
+Signal's `CallLogRepository` and `CallEventCache` add these production features:
+
+1. **Paging** — Load 20 items at a time instead of all 100:
+```kotlin
+// PagedCallLogSource.kt
+class PagedCallLogSource(
+    private val callLogger: CallLogger,
+    private val pageSize: Int = 20
+) {
+    suspend fun loadPage(offset: Int): List<CallLogEntry> {
+        return callLogger.getCallLogs(limit = pageSize, offset = offset)
+    }
+}
+```
+
+2. **4-Hour Clustering** — Group consecutive calls to same peer within 4 hours:
+```kotlin
+// CallEventCluster.kt
+data class CallEventCluster(
+    val parentCallId: String,
+    val childCallIds: Set<String>,
+    val peerId: String,
+    val direction: CallDirection,
+    val callCount: Int,
+    val latestTimestamp: Long
+) {
+    fun isWithinTimeout(other: CallLogEntry): Boolean {
+        val fourHours = 4 * 60 * 60 * 1000L
+        return (latestTimestamp - other.timestamp) < fourHours
+    }
+}
+
+fun clusterCallLogs(entries: List<CallLogEntry>): List<CallEventCluster> {
+    // Group by peer + direction + event type within 4-hour windows
+    // Returns single cluster with children for display
+}
+```
+
+3. **Includes/Excludes Deletion** — Efficient "delete all except" SQL:
+```kotlin
+sealed class CallLogSelectionState {
+    data class Includes(val ids: Set<String>) : CallLogSelectionState()
+    data class Excludes(val ids: Set<String>) : CallLogSelectionState()
+    object All : CallLogSelectionState()
+
+    fun isExclusionary(): Boolean = this is Excludes || this is All
+}
+
+fun buildDeletionQuery(state: CallLogSelectionState, filter: CallLogFilter): String {
+    return when {
+        state is CallLogSelectionState.All -> 
+            "DELETE FROM call_logs WHERE filter = ?"
+        state is CallLogSelectionState.Excludes -> 
+            "DELETE FROM call_logs WHERE call_id NOT IN (?) AND filter = ?"
+        state is CallLogSelectionState.Includes -> 
+            "DELETE FROM call_logs WHERE call_id IN (?)"
+    }
+}
+```
+
 **Rules (Signal Pattern):**
 - Use `viewModelScope.launch` for all async operations
 - Apply filter in `applyFilter()` method, not in database query
 - `isMissedCall()` checks direction INCOMING + status BUSY/TIMEOUT
-- Selection state tracks `Set<String>` of call IDs
+- Selection state tracks `Set<String>` of call IDs — includes/excludes/all pattern
 - Always reload logs after deletion
+- Consider adding paging for large call histories (100+ entries)
+- Consider adding clustering for repeated calls to same peer
 
 ---
 
@@ -1947,16 +2184,46 @@ class DefaultCallManagerActionProcessorTest {
 
 ## Complete Acceptance Criteria
 
+### Core Functionality
 - [ ] All 228 tests pass (107 feature:calls + 121 core:calls)
 - [ ] CallForegroundService starts with START_STICKY and proper foreground service type
 - [ ] Active call notification updates every second with current duration
 - [ ] StatsCollector emits quality stats to observers
+
+### Action Processor (Signal-Style)
 - [ ] All action processors (Idle, Outgoing, Incoming, Connected) handle all relevant actions
+- [ ] Granular error reasons (Timeout, Busy, DeclinedElsewhere, EndedElsewhere, IceFailed)
 - [ ] State transitions are deterministic and testable
 - [ ] No direct state mutation outside of action processors
 - [ ] All handlers log entrance with tag
+
+### Threading (Signal-Style)
+- [ ] Single-threaded dispatcher via `limitedParallelism(1)` — NOT aspirational
+- [ ] ALL state changes go through `processAction()` on single thread
+- [ ] PeerConnection callbacks dispatch actions, not modify state directly
+
+### Exhaustive Compilation (Signal-Style)
+- [ ] Abstract base class with protected methods for each action
+- [ ] Adding new action causes compiler to warn which processors need updating
+
+### Call Log (Signal-Style)
 - [ ] CallLogViewModel supports all filters (ALL, MISSED, OUTGOING, INCOMING)
 - [ ] CallLogViewModel supports staged deletion
-- [ ] End-to-end tests verify full call lifecycle
+- [ ] Paging support for large call histories (20 items per page)
+- [ ] 4-hour clustering for repeated calls to same peer
+
+### Selection/Deletion (Signal-Style)
+- [ ] Includes/Excludes/All selection states
+- [ ] Efficient SQL for "delete all except" (Excludes pattern)
+- [ ] `CallLogSelectionState.isExclusionary()` determines deletion strategy
+
+### Reconnection Handling (Signal-Style)
+- [ ] CONNECTED → RECONNECTING → CONNECTED properly handled
+- [ ] `CallReconnecting` and `CallReconnected` actions processed correctly
+- [ ] Quality stats updated during reconnection
+
+### End-to-End
+- [ ] End-to-end tests verify full call lifecycle (outgoing + incoming)
 - [ ] All new code follows SOLID principles
 - [ ] No duplication between action processors (use ActiveCallDelegate)
+- [ ] DefaultCallManager integration tests pass
