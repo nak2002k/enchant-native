@@ -22,4 +22,26 @@ object CallManager {
     suspend fun acceptCall(withVideo: Boolean) {
         CallsModule.getCallManager().acceptCall(withVideo)
     }
+
+    suspend fun startOutgoingCall(remoteUserId: String, isVideo: Boolean) {
+        CallsModule.getCallManager().startOutgoingCall(remoteUserId, isVideo)
+    }
+
+    fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String, isVideo: Boolean) {
+        CallsModule.getCallManager().handleReceivedOffer(senderUserId, sdp, callId, isVideo)
+    }
+
+    fun handleReceivedHangup() {
+        CallsModule.getCallManager().handleReceivedHangup()
+    }
+
+    fun toggleVideo() {
+        CallsModule.getCallManager().toggleVideo()
+    }
+
+    suspend fun getCallLogs(limit: Int = 100): List<org.enchant.core.calls.model.CallLogEntry> =
+        CallsModule.getCallManager().getCallLogs(limit)
+
+    fun setOnHold(hold: Boolean) = CallsModule.getCallManager().setOnHold(hold)
+    fun raiseHand(raised: Boolean) = CallsModule.getCallManager().raiseHand(raised)
 }

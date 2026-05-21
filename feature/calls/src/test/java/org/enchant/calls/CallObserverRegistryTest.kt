@@ -4,7 +4,7 @@ import org.enchant.core.calls.CallEndReason
 import org.enchant.core.calls.CallObserver
 import org.enchant.core.calls.CallObserverRegistry
 import org.enchant.core.calls.CallSummary
-import org.enchant.core.calls.RingUpdate
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -23,13 +23,13 @@ class CallObserverRegistryTest {
     @DisplayName("registration")
     inner class Registration {
         @Test
-        fun `registerObserver adds observer`() {
+        fun `register adds observer`() {
             var called = false
             val observer = object : CallObserver {
                 override fun onCallStarted(remoteUserId: String, isVideoCall: Boolean) { called = true }
             }
-            registry.registerObserver(observer)
-            registry.notifyCallStarted("user_1", true)
+            registry.register(observer)
+            registry.notifyStarted("user_1", true)
             assert(called)
         }
 
@@ -39,9 +39,9 @@ class CallObserverRegistryTest {
             val observer = object : CallObserver {
                 override fun onCallStarted(remoteUserId: String, isVideoCall: Boolean) { called = true }
             }
-            registry.registerObserver(observer)
-            registry.unregisterObserver(observer)
-            registry.notifyCallStarted("user_1", true)
+            registry.register(observer)
+            registry.unregister(observer)
+            registry.notifyStarted("user_1", true)
             assert(!called)
         }
 
@@ -54,9 +54,9 @@ class CallObserverRegistryTest {
             val observer2 = object : CallObserver {
                 override fun onCallEnded(reason: CallEndReason, summary: CallSummary?) { count++ }
             }
-            registry.registerObserver(observer1)
-            registry.registerObserver(observer2)
-            registry.notifyCallEnded(CallEndReason.HANGUP_LOCAL, null)
+            registry.register(observer1)
+            registry.register(observer2)
+            registry.notifyEnded(CallEndReason.HANGUP_LOCAL, null)
             assert(count == 2)
         }
     }
@@ -65,24 +65,24 @@ class CallObserverRegistryTest {
     @DisplayName("notifications")
     inner class Notifications {
         @Test
-        fun `notifyCallStarted fires onCallStarted`() {
+        fun `notifyStarted fires onCallStarted`() {
             var userId = ""
             val observer = object : CallObserver {
                 override fun onCallStarted(remoteUserId: String, isVideoCall: Boolean) { userId = remoteUserId }
             }
-            registry.registerObserver(observer)
-            registry.notifyCallStarted("alice", true)
+            registry.register(observer)
+            registry.notifyStarted("alice", true)
             assert(userId == "alice")
         }
 
         @Test
-        fun `notifyCallEnded fires onCallEnded`() {
+        fun `notifyEnded fires onCallEnded`() {
             var reason: CallEndReason? = null
             val observer = object : CallObserver {
                 override fun onCallEnded(r: CallEndReason, summary: CallSummary?) { reason = r }
             }
-            registry.registerObserver(observer)
-            registry.notifyCallEnded(CallEndReason.HANGUP_REMOTE, null)
+            registry.register(observer)
+            registry.notifyEnded(CallEndReason.HANGUP_REMOTE, null)
             assert(reason == CallEndReason.HANGUP_REMOTE)
         }
 
@@ -92,7 +92,7 @@ class CallObserverRegistryTest {
             val observer = object : CallObserver {
                 override fun onOfferSent(remoteUserId: String, sdp: String) { capturedSdp = sdp }
             }
-            registry.registerObserver(observer)
+            registry.register(observer)
             registry.notifyOfferSent("bob", "sdp_offer")
             assert(capturedSdp == "sdp_offer")
         }
@@ -103,42 +103,31 @@ class CallObserverRegistryTest {
             val observer = object : CallObserver {
                 override fun onAnswerSent(remoteUserId: String, sdp: String) { capturedSdp = sdp }
             }
-            registry.registerObserver(observer)
+            registry.register(observer)
             registry.notifyAnswerSent("bob", "sdp_answer")
             assert(capturedSdp == "sdp_answer")
         }
 
         @Test
-        fun `notifyHangupSent fires onHangupSent`() {
-            var userId = ""
+        fun `notifyHangup fires onHangupSent`() {
+            var capturedUserId = ""
             val observer = object : CallObserver {
-                override fun onHangupSent(remoteUserId: String) { userId = remoteUserId }
+                override fun onHangupSent(remoteUserId: String) { capturedUserId = remoteUserId }
             }
-            registry.registerObserver(observer)
-            registry.notifyHangupSent("alice")
-            assert(userId == "alice")
+            registry.register(observer)
+            registry.notifyHangup("alice")
+            assert(capturedUserId == "alice")
         }
 
         @Test
-        fun `notifyGroupCallRingUpdate fires onGroupCallRingUpdate`() {
-            var update: RingUpdate? = null
+        fun `notifyError fires onError`() {
+            var errorMsg = ""
             val observer = object : CallObserver {
-                override fun onGroupCallRingUpdate(groupId: String, ringUpdate: RingUpdate) { update = ringUpdate }
+                override fun onError(error: String) { errorMsg = error }
             }
-            registry.registerObserver(observer)
-            registry.notifyGroupCallRingUpdate("group_1", RingUpdate.JOINED)
-            assert(update == RingUpdate.JOINED)
-        }
-
-        @Test
-        fun `notifyMessageSentError fires onMessageSentError`() {
-            var error: Exception? = null
-            val observer = object : CallObserver {
-                override fun onMessageSentError(exception: Exception) { error = exception }
-            }
-            registry.registerObserver(observer)
-            registry.notifyMessageSentError(Exception("test error"))
-            assert(error?.message == "test error")
+            registry.register(observer)
+            registry.notifyError("test error")
+            assert(errorMsg == "test error")
         }
     }
 
@@ -147,14 +136,17 @@ class CallObserverRegistryTest {
     inner class EdgeCases {
         @Test
         fun `notify with no observers does not throw`() {
-            registry.notifyCallStarted("user", true)
-            registry.notifyCallEnded(CallEndReason.HANGUP_LOCAL, null)
-            registry.notifyOfferSent("user", "sdp")
+            assertDoesNotThrow { registry.notifyStarted("user", true) }
+            assertDoesNotThrow { registry.notifyEnded(CallEndReason.HANGUP_LOCAL, null) }
+            assertDoesNotThrow { registry.notifyOfferSent("user", "sdp") }
+            assertDoesNotThrow { registry.notifyError("error") }
         }
 
         @Test
         fun `unregister non-existent observer does not throw`() {
-            registry.unregisterObserver(object : CallObserver {})
+            assertDoesNotThrow {
+                registry.unregister(object : CallObserver {})
+            }
         }
 
         @Test
@@ -163,10 +155,44 @@ class CallObserverRegistryTest {
             val observer = object : CallObserver {
                 override fun onCallStarted(remoteUserId: String, isVideoCall: Boolean) { count++ }
             }
-            registry.registerObserver(observer)
-            registry.registerObserver(observer)
-            registry.notifyCallStarted("user", true)
+            registry.register(observer)
+            registry.register(observer)
+            registry.notifyStarted("user", true)
             assert(count == 1)
+        }
+
+        @Test
+        fun `clear removes all observers`() {
+            var count = 0
+            val observer = object : CallObserver {
+                override fun onCallStarted(remoteUserId: String, isVideoCall: Boolean) { count++ }
+            }
+            registry.register(observer)
+            registry.clear()
+            registry.notifyStarted("user", true)
+            assert(count == 0)
+        }
+
+        @Test
+        fun `notifyConnected fires onCallConnected`() {
+            var connected = false
+            val observer = object : CallObserver {
+                override fun onCallConnected() { connected = true }
+            }
+            registry.register(observer)
+            registry.notifyConnected()
+            assert(connected)
+        }
+
+        @Test
+        fun `notifyReconnecting fires onCallReconnecting`() {
+            var reconnecting = false
+            val observer = object : CallObserver {
+                override fun onCallReconnecting() { reconnecting = true }
+            }
+            registry.register(observer)
+            registry.notifyReconnecting()
+            assert(reconnecting)
         }
     }
 }

@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.enchant.core.calls.CallManager
 import org.enchant.core.calls.CallState
-import org.enchant.core.calls.CallStatusEnum
+import org.enchant.core.calls.CallStatus
 
 data class CallUiState(
     val callState: CallState = CallState(),
@@ -25,18 +25,17 @@ class CallViewModel : ViewModel() {
             CallManager.callState.collect { state ->
                 _uiState.value = _uiState.value.copy(callState = state)
                 when (state.status) {
-                    CallStatusEnum.IDLE -> {
+                    CallStatus.IDLE -> {
                         _uiState.value = _uiState.value.copy(isCallScreenVisible = false)
                     }
-                    CallStatusEnum.RINGING, CallStatusEnum.CALLING,
-                    CallStatusEnum.CONNECTING, CallStatusEnum.CONNECTED,
-                    CallStatusEnum.RECONNECTING -> {
+                    CallStatus.RINGING, CallStatus.CALLING,
+                    CallStatus.CONNECTING, CallStatus.CONNECTED,
+                    CallStatus.RECONNECTING -> {
                         _uiState.value = _uiState.value.copy(isCallScreenVisible = true)
                     }
-                    CallStatusEnum.ENDED -> {
+                    CallStatus.ENDED -> {
                         _uiState.value = _uiState.value.copy(isCallScreenVisible = false)
                     }
-                    CallStatusEnum.PRE_JOIN -> {}
                 }
             }
         }
@@ -49,14 +48,13 @@ class CallViewModel : ViewModel() {
     }
 
     fun acceptCall(withVideo: Boolean) {
-        val callId = _uiState.value.callState.callId ?: return
         val currentState = _uiState.value.callState.status
-        if (currentState != org.enchant.core.calls.CallStatusEnum.RINGING) {
+        if (currentState != CallStatus.RINGING) {
             android.util.Log.w("CallViewModel", "acceptCall called in state $currentState, expected RINGING")
             return
         }
         viewModelScope.launch {
-            CallManager.acceptCall(callId, withVideo)
+            CallManager.acceptCall(withVideo)
         }
     }
 
@@ -77,7 +75,7 @@ class CallViewModel : ViewModel() {
     }
 
     fun toggleVideo() {
-        CallManager.toggleVideo()
+        org.enchant.core.calls.CallsModule.getCallManager().toggleVideo()
     }
 
     fun flipCamera() {
@@ -90,10 +88,6 @@ class CallViewModel : ViewModel() {
 
     fun raiseHand(raised: Boolean) {
         CallManager.raiseHand(raised)
-    }
-
-    fun react(emoji: String) {
-        CallManager.react(emoji)
     }
 
     fun navigateToConversation(conversationId: String) {

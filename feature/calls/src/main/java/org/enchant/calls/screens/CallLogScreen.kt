@@ -15,20 +15,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.enchant.core.calls.CallDirection
+import org.enchant.core.calls.CallEndReason
 import org.enchant.core.calls.CallLogEntry
 import org.enchant.core.calls.CallLogFilter
-import org.enchant.core.calls.CallStatus
 import org.enchant.core.calls.CallType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallLogScreen(
     entries: List<CallLogEntry>,
-    filter: CallLogFilter,
+    filter: org.enchant.core.calls.CallLogFilter,
     isLoading: Boolean,
     isSelectionMode: Boolean,
     selectedIds: Set<String>,
-    onFilterChange: (CallLogFilter) -> Unit,
+    onFilterChange: (org.enchant.core.calls.CallLogFilter) -> Unit,
     onEntryClick: (String) -> Unit,
     onStartSelection: () -> Unit,
     onEndSelection: () -> Unit,
@@ -93,9 +93,9 @@ fun CallLogScreen(
 }
 
 @Composable
-private fun FilterChipsRow(filter: CallLogFilter, onFilterChange: (CallLogFilter) -> Unit) {
+private fun FilterChipsRow(filter: org.enchant.core.calls.CallLogFilter, onFilterChange: (org.enchant.core.calls.CallLogFilter) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CallLogFilter.entries.forEach { f ->
+        org.enchant.core.calls.CallLogFilter.entries.forEach { f ->
             FilterChip(
                 selected = filter == f,
                 onClick = { onFilterChange(f) },
@@ -114,7 +114,7 @@ private fun CallLogRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    val isMissed = entry.status == CallStatus.MISSED
+    val isMissed = entry.status == CallEndReason.BUSY
     val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         else Color.Transparent
 
@@ -148,10 +148,12 @@ private fun CallLogRow(
                     Spacer(Modifier.width(4.dp))
                     Text(
                         when (entry.status) {
-                            CallStatus.MISSED -> "Missed call"
-                            CallStatus.ANSWERED -> "Answered"
-                            CallStatus.CANCELLED -> "Cancelled"
-                            CallStatus.OUTGOING -> "Outgoing"
+                            CallEndReason.BUSY -> "Missed call"
+                            CallEndReason.HANGUP_LOCAL, CallEndReason.HANGUP_REMOTE -> if (entry.durationSeconds > 0) "Answered" else "Cancelled"
+                            CallEndReason.TIMEOUT -> "No answer"
+                            CallEndReason.ERROR -> "Failed"
+                            CallEndReason.NETWORK_LOST -> "Connection lost"
+                            CallEndReason.ANSWERED_ELSEWHERE -> "Answered elsewhere"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isMissed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant

@@ -35,10 +35,9 @@ class CallLogViewModel : ViewModel() {
     fun loadCallLogs() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            CallManager.getCallLogs().collect { logs ->
-                _uiState.value = _uiState.value.copy(entries = logs, isLoading = false)
-                applyFilter(_uiState.value.filter)
-            }
+            val logs = CallManager.getCallLogs()
+            _uiState.value = _uiState.value.copy(entries = logs, isLoading = false)
+            applyFilter(_uiState.value.filter)
         }
     }
 
@@ -105,13 +104,13 @@ class CallLogViewModel : ViewModel() {
         }
     }
 
-    private fun applyFilter(filter: CallLogFilter) {
+    private fun applyFilter(filter: org.enchant.core.calls.CallLogFilter) {
         val all = _uiState.value.entries
         val filtered = when (filter) {
-            CallLogFilter.ALL -> all
-            CallLogFilter.MISSED -> all.filter { it.status == CallStatus.MISSED }
-            CallLogFilter.OUTGOING -> all.filter { it.direction == CallDirection.OUTGOING }
-            CallLogFilter.INCOMING -> all.filter { it.direction == CallDirection.INCOMING }
+            org.enchant.core.calls.CallLogFilter.ALL -> all
+            org.enchant.core.calls.CallLogFilter.MISSED -> all.filter { it.status == org.enchant.core.calls.CallEndReason.BUSY }
+            org.enchant.core.calls.CallLogFilter.OUTGOING -> all.filter { it.direction == org.enchant.core.calls.CallDirection.OUTGOING }
+            org.enchant.core.calls.CallLogFilter.INCOMING -> all.filter { it.direction == org.enchant.core.calls.CallDirection.INCOMING }
         }
         _uiState.value = _uiState.value.copy(filteredEntries = filtered)
     }

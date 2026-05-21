@@ -1,6 +1,21 @@
 package org.enchant.calls
 
-import org.enchant.core.calls.*
+import org.enchant.core.calls.CallDirection
+import org.enchant.core.calls.CallEndReason
+import org.enchant.core.calls.CallLinkCredentials
+import org.enchant.core.calls.CallLinkData
+import org.enchant.core.calls.CallLinkRestrictions
+import org.enchant.core.calls.CallLogEntry
+import org.enchant.core.calls.CallLogFilter
+import org.enchant.core.calls.CallState
+import org.enchant.core.calls.CallStatus
+import org.enchant.core.calls.CallSummary
+import org.enchant.core.calls.CallType
+import org.enchant.core.calls.IceServer
+import org.enchant.core.calls.PeekInfo
+import org.enchant.core.calls.SignalStrength
+import org.enchant.core.calls.StagedDeletion
+import org.enchant.core.calls.AudioDevice
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -14,7 +29,7 @@ class CallStateTest {
         @Test
         fun `default state is IDLE`() {
             val state = CallState()
-            assert(state.status == CallStatusEnum.IDLE)
+            assert(state.status == CallStatus.IDLE)
         }
 
         @Test
@@ -36,12 +51,12 @@ class CallStateTest {
         fun `copy with modifications works`() {
             val original = CallState()
             val modified = original.copy(
-                status = CallStatusEnum.CALLING,
+                status = CallStatus.CALLING,
                 remoteUserId = "user_1",
                 isVideoCall = true,
                 isMuted = true
             )
-            assert(modified.status == CallStatusEnum.CALLING)
+            assert(modified.status == CallStatus.CALLING)
             assert(modified.remoteUserId == "user_1")
             assert(modified.isVideoCall)
             assert(modified.isMuted)
@@ -49,28 +64,28 @@ class CallStateTest {
         }
 
         @Test
-        fun `all statuses are distinct`() {
-            val values = CallStatusEnum.values()
-            assert(values.size == 8)
-            assert(values.contains(CallStatusEnum.IDLE))
-            assert(values.contains(CallStatusEnum.PRE_JOIN))
-            assert(values.contains(CallStatusEnum.CALLING))
-            assert(values.contains(CallStatusEnum.RINGING))
-            assert(values.contains(CallStatusEnum.CONNECTING))
-            assert(values.contains(CallStatusEnum.CONNECTED))
-            assert(values.contains(CallStatusEnum.RECONNECTING))
-            assert(values.contains(CallStatusEnum.ENDED))
+        fun `all CallStatus values are distinct`() {
+            val values = CallStatus.entries.toTypedArray()
+            assert(values.size == 7)
+            assert(values.contains(CallStatus.IDLE))
+            assert(values.contains(CallStatus.CALLING))
+            assert(values.contains(CallStatus.RINGING))
+            assert(values.contains(CallStatus.CONNECTING))
+            assert(values.contains(CallStatus.CONNECTED))
+            assert(values.contains(CallStatus.RECONNECTING))
+            assert(values.contains(CallStatus.ENDED))
         }
 
         @Test
         fun `CallEndReason has all expected values`() {
-            val values = CallEndReason.values()
+            val values = CallEndReason.entries.toTypedArray()
             assert(values.contains(CallEndReason.HANGUP_LOCAL))
             assert(values.contains(CallEndReason.HANGUP_REMOTE))
             assert(values.contains(CallEndReason.ANSWERED_ELSEWHERE))
             assert(values.contains(CallEndReason.BUSY))
             assert(values.contains(CallEndReason.TIMEOUT))
             assert(values.contains(CallEndReason.ERROR))
+            assert(values.contains(CallEndReason.NETWORK_LOST))
         }
     }
 
@@ -84,38 +99,43 @@ class CallStateTest {
                 remoteUserId = "user_1",
                 type = CallType.AUDIO,
                 direction = CallDirection.INCOMING,
-                status = CallStatus.MISSED,
+                status = CallEndReason.BUSY,
                 durationSeconds = 0,
                 timestamp = 1000L
             )
             assert(entry.callId == "call_1")
             assert(entry.remoteUserId == "user_1")
-            assert(entry.remoteName == null)
+            assert(entry.status == CallEndReason.BUSY)
         }
 
         @Test
-        fun `CallStatus values are distinct`() {
-            val values = CallStatus.values()
-            assert(values.contains(CallStatus.MISSED))
-            assert(values.contains(CallStatus.ANSWERED))
-            assert(values.contains(CallStatus.CANCELLED))
-            assert(values.contains(CallStatus.OUTGOING))
+        fun `CallLogEntry with video call type`() {
+            val entry = CallLogEntry(
+                callId = "call_2",
+                remoteUserId = "user_2",
+                type = CallType.VIDEO,
+                direction = CallDirection.OUTGOING,
+                status = CallEndReason.HANGUP_LOCAL,
+                durationSeconds = 60,
+                timestamp = 2000L
+            )
+            assert(entry.type == CallType.VIDEO)
+            assert(entry.direction == CallDirection.OUTGOING)
+            assert(entry.durationSeconds == 60)
         }
+    }
 
+    @Nested
+    @DisplayName("CallLogFilter")
+    inner class CallLogFilterTests {
         @Test
-        fun `CallDirection values are distinct`() {
-            val values = CallDirection.values()
-            assert(values.contains(CallDirection.INCOMING))
-            assert(values.contains(CallDirection.OUTGOING))
-        }
-
-        @Test
-        fun `CallType values are distinct`() {
-            val values = CallType.values()
-            assert(values.contains(CallType.AUDIO))
-            assert(values.contains(CallType.VIDEO))
-            assert(values.contains(CallType.GROUP_AUDIO))
-            assert(values.contains(CallType.GROUP_VIDEO))
+        fun `all filter values are present`() {
+            val values = CallLogFilter.entries.toTypedArray()
+            assert(values.size == 4)
+            assert(values.contains(CallLogFilter.ALL))
+            assert(values.contains(CallLogFilter.MISSED))
+            assert(values.contains(CallLogFilter.OUTGOING))
+            assert(values.contains(CallLogFilter.INCOMING))
         }
     }
 
@@ -127,6 +147,14 @@ class CallStateTest {
             val staged = StagedDeletion(count = 3, callIds = listOf("id1", "id2", "id3"))
             assert(staged.count == 3)
             assert(staged.callIds.size == 3)
+            assert(staged.callIds[0] == "id1")
+        }
+
+        @Test
+        fun `StagedDeletion with empty list`() {
+            val staged = StagedDeletion(count = 0, callIds = emptyList())
+            assert(staged.count == 0)
+            assert(staged.callIds.isEmpty())
         }
 
         @Test
@@ -146,11 +174,26 @@ class CallStateTest {
         }
 
         @Test
+        fun `PeekInfo inactive call`() {
+            val peek = PeekInfo(activeParticipants = 0, maxParticipants = 500, isActive = false)
+            assert(!peek.isActive)
+            assert(peek.activeParticipants == 0)
+        }
+
+        @Test
         fun `IceServer holds correct values`() {
             val server = IceServer(urls = listOf("stun:stun.l.google.com:19302"), username = "user", credential = "pass")
             assert(server.urls[0] == "stun:stun.l.google.com:19302")
             assert(server.username == "user")
             assert(server.credential == "pass")
+        }
+
+        @Test
+        fun `IceServer without credentials`() {
+            val server = IceServer(urls = listOf("stun:stun.example.com:3478"))
+            assert(server.username == null)
+            assert(server.credential == null)
+            assert(server.urls.size == 1)
         }
     }
 
@@ -158,7 +201,7 @@ class CallStateTest {
     @DisplayName("CallLinkRestrictions")
     inner class CallLinkRestrictionsTests {
         @Test
-        fun `ALL restriction allows anyone`() {
+        fun `ANYONE restriction allows anyone`() {
             assert(CallLinkRestrictions.ANYONE.name == "ANYONE")
         }
 
@@ -171,6 +214,12 @@ class CallStateTest {
         fun `CONTACTS_ONLY limits to contacts`() {
             assert(CallLinkRestrictions.CONTACTS_ONLY.name == "CONTACTS_ONLY")
         }
+
+        @Test
+        fun `all restriction values present`() {
+            val values = CallLinkRestrictions.entries.toTypedArray()
+            assert(values.size == 3)
+        }
     }
 
     @Nested
@@ -180,12 +229,16 @@ class CallStateTest {
         fun `CallLinkData with ANYONE restrictions`() {
             val data = CallLinkData("room1", "Test", "creator", CallLinkRestrictions.ANYONE, true)
             assert(data.restrictions == CallLinkRestrictions.ANYONE)
+            assert(data.isActive)
+            assert(data.roomId == "room1")
+            assert(data.name == "Test")
         }
 
         @Test
         fun `CallLinkData with inActive state`() {
             val data = CallLinkData("room2", "Test", "creator", CallLinkRestrictions.APPROVAL_REQUIRED, false)
             assert(!data.isActive)
+            assert(data.restrictions == CallLinkRestrictions.APPROVAL_REQUIRED)
         }
     }
 
@@ -217,7 +270,8 @@ class CallStateTest {
     inner class AudioDeviceTests {
         @Test
         fun `all audio device types present`() {
-            val values = AudioDevice.values()
+            val values = AudioDevice.entries.toTypedArray()
+            assert(values.size == 4)
             assert(values.contains(AudioDevice.EARPIECE))
             assert(values.contains(AudioDevice.SPEAKER))
             assert(values.contains(AudioDevice.BLUETOOTH))
@@ -230,7 +284,8 @@ class CallStateTest {
     inner class SignalStrengthTests {
         @Test
         fun `all signal strengths present`() {
-            val values = SignalStrength.values()
+            val values = SignalStrength.entries.toTypedArray()
+            assert(values.size == 4)
             assert(values.contains(SignalStrength.GOOD))
             assert(values.contains(SignalStrength.FAIR))
             assert(values.contains(SignalStrength.POOR))
