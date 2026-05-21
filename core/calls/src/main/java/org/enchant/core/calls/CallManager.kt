@@ -63,6 +63,8 @@ class DefaultCallManager(
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
     private var peerConnection: PeerConnection? = null
     private var durationJob: Job? = null
+    private var incomingTimeoutJob: Job? = null
+    private var signalingTimeoutJob: Job? = null
     private var turnServers: List<IceServer> = emptyList()
     private var turnServersFetchedAt: Long = 0
     private var statsCollector: StatsCollector? = null
@@ -92,6 +94,8 @@ class DefaultCallManager(
     }
 
     suspend fun startOutgoingCall(remoteUserId: String, isVideo: Boolean) {
+        incomingTimeoutJob?.cancel()
+        signalingTimeoutJob?.cancel()
         processAction(CallAction.StartOutgoingCall(remoteUserId, isVideo))
         val state = _serviceState.value.callState
         if (state.status != CallStatus.CALLING) return
@@ -116,9 +120,18 @@ class DefaultCallManager(
         }
 
         startDurationTimer()
+
+        signalingTimeoutJob = serviceScope.launch {
+            delay(30_000)
+            val current = _serviceState.value.callState
+            if (current.status == CallStatus.CALLING || current.status == CallStatus.CONNECTING) {
+                processAction(CallAction.SignalingTimeout)
+            }
+        }
     }
 
     fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String, isVideo: Boolean) {
+        incomingTimeoutJob?.cancel()
         serviceScope.launch {
             processAction(CallAction.ReceiveIncomingOffer(senderUserId, sdp, callId, isVideo))
         }
@@ -129,7 +142,7 @@ class DefaultCallManager(
         }
         notificationManager.showIncomingCall(senderUserId, isVideo, callId)
 
-        serviceScope.launch {
+        incomingTimeoutJob = serviceScope.launch {
             delay(30_000)
             if (_serviceState.value.callState.status == CallStatus.RINGING) {
                 processAction(CallAction.IncomingCallTimeout)
@@ -138,6 +151,8 @@ class DefaultCallManager(
     }
 
     suspend fun acceptCall(withVideo: Boolean) {
+        incomingTimeoutJob?.cancel()
+        signalingTimeoutJob?.cancel()
         processAction(CallAction.AcceptIncomingCall(withVideo))
 
         if (!audioFocusManager.requestFocus()) {
@@ -169,6 +184,7 @@ class DefaultCallManager(
 
     fun denyCall() {
         val remoteId = _serviceState.value.callState.remoteUserId ?: return
+        incomingTimeoutJob?.cancel()
         serviceScope.launch(Dispatchers.IO) {
             signalingClient.sendHangup(remoteId)
             observerRegistry.notifyHangup(remoteId)
@@ -300,6 +316,10 @@ class DefaultCallManager(
     private fun cleanup() {
         durationJob?.cancel()
         durationJob = null
+        incomingTimeoutJob?.cancel()
+        incomingTimeoutJob = null
+        signalingTimeoutJob?.cancel()
+        signalingTimeoutJob = null
         statsCollector?.stopCollecting()
         statsCollector = null
         peerConnection?.close()

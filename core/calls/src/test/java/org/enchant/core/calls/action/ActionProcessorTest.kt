@@ -13,11 +13,17 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.enchant.core.calls.CallLogger
 import org.enchant.core.calls.CallObserverRegistry
+import org.enchant.core.calls.action.CallPhase
 import org.enchant.core.calls.action.processors.IdleActionProcessor
+import org.enchant.core.calls.action.processors.GroupCallActionProcessor
 import org.enchant.core.calls.model.CallDirection
 import org.enchant.core.calls.model.CallState
 import org.enchant.core.calls.model.CallStatus
+import org.enchant.core.calls.model.GroupCallState
+import org.enchant.core.calls.model.GroupCallParticipant
+import org.enchant.core.calls.model.CallParticipant
 import org.enchant.core.calls.state.CallServiceState
+import org.enchant.core.calls.state.LocalDeviceState
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -245,6 +251,299 @@ class ActionProcessorTest {
             val idleState = createIdleState()
             val action = CallAction.StartOutgoingCall("user1", false)
             return idleState.actionProcessor.process(idleState, action)
+        }
+    }
+
+    @Nested @DisplayName("IncomingCallActionProcessor")
+    inner class IncomingCallActionProcessorTest {
+        @Test @DisplayName("handleAcceptIncomingCall sets isVideoCall from action")
+        fun `accept incoming sets video from action`() = runTest {
+            val state = createIncomingState(false)
+            val action = CallAction.AcceptIncomingCall(true)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertTrue(result.callState.isVideoCall)
+        }
+
+        @Test @DisplayName("handleDenyIncomingCall transitions to IDLE")
+        fun `deny incoming returns to idle`() = runTest {
+            val state = createIncomingState(false)
+            val action = CallAction.DenyIncomingCall(null)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertEquals(CallStatus.IDLE, result.callState.status)
+        }
+
+        @Test @DisplayName("CallConnected transitions to CONNECTED and switches processor")
+        fun `call connected switches processor`() = runTest {
+            val state = createIncomingState(false)
+            val action = CallAction.CallConnected
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertEquals(CallStatus.CONNECTED, result.callState.status)
+            assertEquals(CallPhase.CONNECTED, result.phase)
+        }
+
+        @Test @DisplayName("ReceiveHangup transitions to IDLE")
+        fun `receive hangup returns to idle`() = runTest {
+            val state = createIncomingState(false)
+            val action = CallAction.ReceiveHangup(null)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertEquals(CallStatus.IDLE, result.callState.status)
+        }
+
+        private fun createIncomingState(isVideo: Boolean): CallServiceState {
+            val idleState = createIdleState()
+            val action = CallAction.ReceiveIncomingOffer("user1", "sdp-content", "call-123", isVideo)
+            return idleState.actionProcessor.process(idleState, action)
+        }
+    }
+
+    @Nested @DisplayName("ConnectedCallActionProcessor")
+    inner class ConnectedCallActionProcessorTest {
+        @Test @DisplayName("handleToggleMute flips muted state")
+        fun `toggle mute flips state`() = runTest {
+            val state = createConnectedState()
+            val initialMuted = state.localDeviceState.isMuted
+
+            val result = state.actionProcessor.process(state, CallAction.ToggleMute)
+
+            assertEquals(!initialMuted, result.localDeviceState.isMuted)
+        }
+
+        @Test @DisplayName("handleToggleSpeaker flips speaker state")
+        fun `toggle speaker flips state`() = runTest {
+            val state = createConnectedState()
+            val initialSpeaker = state.localDeviceState.isSpeakerOn
+
+            val result = state.actionProcessor.process(state, CallAction.ToggleSpeaker)
+
+            assertEquals(!initialSpeaker, result.localDeviceState.isSpeakerOn)
+        }
+
+        @Test @DisplayName("handleToggleVideo flips video state")
+        fun `toggle video flips state`() = runTest {
+            val state = createConnectedState()
+            val initialVideo = state.localDeviceState.isVideoEnabled
+
+            val result = state.actionProcessor.process(state, CallAction.ToggleVideo)
+
+            assertEquals(!initialVideo, result.localDeviceState.isVideoEnabled)
+        }
+
+        @Test @DisplayName("handleFlipCamera flips camera flipped state")
+        fun `flip camera flips state`() = runTest {
+            val state = createConnectedState()
+            val initialFlipped = state.localDeviceState.isCameraFlipped
+
+            val result = state.actionProcessor.process(state, CallAction.FlipCamera)
+
+            assertEquals(!initialFlipped, result.localDeviceState.isCameraFlipped)
+        }
+
+        @Test @DisplayName("handleSetOnHold sets hold state")
+        fun `set on hold sets hold`() = runTest {
+            val state = createConnectedState()
+            val action = CallAction.SetOnHold(true)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertTrue(result.localDeviceState.isOnHold)
+        }
+
+        @Test @DisplayName("handleRaiseHand sets isHandRaised and timestamp")
+        fun `raise hand sets raised and timestamp`() = runTest {
+            val state = createConnectedState()
+            val action = CallAction.RaiseHand(true)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertTrue(result.localDeviceState.isHandRaised)
+            assertTrue(result.localDeviceState.handRaisedTimestamp > 0)
+        }
+
+        @Test @DisplayName("handleRaiseHand clears hand when lowered")
+        fun `raise hand clears when lowered`() = runTest {
+            val state = createConnectedState()
+            val raiseAction = CallAction.RaiseHand(true)
+            val raisedState = state.actionProcessor.process(state, raiseAction)
+            val lowerAction = CallAction.RaiseHand(false)
+
+            val result = raisedState.actionProcessor.process(raisedState, lowerAction)
+
+            assertFalse(result.localDeviceState.isHandRaised)
+            assertEquals(0, result.localDeviceState.handRaisedTimestamp)
+        }
+
+        @Test @DisplayName("handleCallEnded transitions to IDLE")
+        fun `call ended returns to idle`() = runTest {
+            val state = createConnectedState()
+
+            val result = state.actionProcessor.process(state, CallAction.CallEnded)
+
+            assertEquals(CallStatus.IDLE, result.callState.status)
+            assertEquals(CallPhase.IDLE, result.phase)
+        }
+
+        @Test @DisplayName("handleCallReconnecting sets RECONNECTING status")
+        fun `call reconnecting sets status`() = runTest {
+            val state = createConnectedState()
+
+            val result = state.actionProcessor.process(state, CallAction.CallReconnecting)
+
+            assertEquals(CallStatus.RECONNECTING, result.callState.status)
+        }
+
+        @Test @DisplayName("handleCallReconnected sets CONNECTED status")
+        fun `call reconnected sets status`() = runTest {
+            val state = createConnectedState()
+
+            val result = state.actionProcessor.process(state, CallAction.CallReconnected)
+
+            assertEquals(CallStatus.CONNECTED, result.callState.status)
+        }
+
+        @Test @DisplayName("handleCallFailedIce transitions to ENDED with error")
+        fun `call failed ice sets ended`() = runTest {
+            val state = createConnectedState()
+
+            val result = state.actionProcessor.process(state, CallAction.CallFailedIce)
+
+            assertEquals(CallStatus.ENDED, result.callState.status)
+            assertNotNull(result.callState.error)
+        }
+
+        @Test @DisplayName("QualityUpdate updates quality stats")
+        fun `quality update sets stats`() = runTest {
+            val state = createConnectedState()
+            val stats = org.enchant.core.calls.model.CallQualityStats(rttMs = 50)
+            val action = CallAction.QualityUpdate(stats)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertEquals(50, result.qualityStats.rttMs)
+        }
+
+        private fun createConnectedState(): CallServiceState {
+            val idleState = createIdleState()
+            val startAction = CallAction.StartOutgoingCall("user1", false)
+            val outgoingState = idleState.actionProcessor.process(idleState, startAction)
+            val connectedAction = CallAction.CallConnected
+            return outgoingState.actionProcessor.process(outgoingState, connectedAction)
+        }
+    }
+
+    @Nested @DisplayName("GroupCallActionProcessor")
+    inner class GroupCallActionProcessorTest {
+        @Test @DisplayName("handleJoinGroupCall sets CONNECTING state")
+        fun `join group call sets connecting`() = runTest {
+            val state = createGroupConnectedState()
+            val action = CallAction.JoinGroupCall("group1")
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertEquals(org.enchant.core.calls.model.GroupCallState.CONNECTING, result.groupCallState)
+        }
+
+        @Test @DisplayName("handleLeaveGroupCall transitions to IDLE")
+        fun `leave group call returns to idle`() = runTest {
+            val state = createGroupConnectedState()
+
+            val result = state.actionProcessor.process(state, CallAction.LeaveGroupCall)
+
+            assertEquals(CallStatus.IDLE, result.callState.status)
+            assertEquals(org.enchant.core.calls.model.GroupCallState.IDLE, result.groupCallState)
+        }
+
+        @Test @DisplayName("handleToggleMute flips muted state")
+        fun `toggle mute flips state`() = runTest {
+            val state = createGroupConnectedState()
+            val initialMuted = state.localDeviceState.isMuted
+
+            val result = state.actionProcessor.process(state, CallAction.ToggleMute)
+
+            assertEquals(!initialMuted, result.localDeviceState.isMuted)
+        }
+
+        @Test @DisplayName("handleRaiseHand sets isHandRaised and timestamp")
+        fun `raise hand sets raised and timestamp`() = runTest {
+            val state = createGroupConnectedState()
+            val action = CallAction.RaiseHand(true)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertTrue(result.localDeviceState.isHandRaised)
+            assertTrue(result.localDeviceState.handRaisedTimestamp > 0)
+        }
+
+        @Test @DisplayName("handleGroupMembersUpdated updates participants")
+        fun `group members updated sets participants`() = runTest {
+            val state = createGroupConnectedState()
+            val participants = listOf(
+                org.enchant.core.calls.model.CallParticipant("user1", "User One", true, true, false),
+                org.enchant.core.calls.model.CallParticipant("user2", "User Two", false, false, true)
+            )
+            val action = CallAction.GroupMembersUpdated(participants)
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertEquals(2, result.groupCallParticipants.size)
+        }
+
+        @Test @DisplayName("handleRemoveParticipant filters out target")
+        fun `remove participant filters out`() = runTest {
+            val state = createGroupConnectedStateWithParticipants()
+            val action = CallAction.RemoveParticipant("user1")
+
+            val result = state.actionProcessor.process(state, action)
+
+            assertTrue(result.groupCallParticipants.none { it.userId == "user1" })
+        }
+
+        @Test @DisplayName("handleCallReconnecting sets both reconnecting states")
+        fun `call reconnecting sets both states`() = runTest {
+            val state = createGroupConnectedState()
+
+            val result = state.actionProcessor.process(state, CallAction.CallReconnecting)
+
+            assertEquals(CallStatus.RECONNECTING, result.callState.status)
+            assertEquals(org.enchant.core.calls.model.GroupCallState.RECONNECTING, result.groupCallState)
+        }
+
+        private fun createGroupConnectedState(): CallServiceState {
+            return CallServiceState(
+                callState = CallState(
+                    status = CallStatus.CONNECTED,
+                    remoteUserId = "group1",
+                    isVideoCall = false,
+                    direction = CallDirection.OUTGOING
+                ),
+                actionProcessor = GroupCallActionProcessor(mockCallLogger, mockObserverRegistry, "group1"),
+                localDeviceState = org.enchant.core.calls.state.LocalDeviceState()
+            )
+        }
+
+        private fun createGroupConnectedStateWithParticipants(): CallServiceState {
+            val participants = listOf(
+                org.enchant.core.calls.model.GroupCallParticipant("user1", 1, false, false, false, 0),
+                org.enchant.core.calls.model.GroupCallParticipant("user2", 2, false, false, false, 0)
+            )
+            return CallServiceState(
+                callState = CallState(
+                    status = CallStatus.CONNECTED,
+                    remoteUserId = "group1",
+                    isVideoCall = false,
+                    direction = CallDirection.OUTGOING
+                ),
+                actionProcessor = GroupCallActionProcessor(mockCallLogger, mockObserverRegistry, "group1"),
+                localDeviceState = org.enchant.core.calls.state.LocalDeviceState(),
+                groupCallParticipants = participants
+            )
         }
     }
 

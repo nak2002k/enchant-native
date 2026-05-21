@@ -184,6 +184,7 @@ class GroupCallActionProcessor(
     override fun handleRaiseHand(state: CallServiceState, action: CallAction.RaiseHand): CallServiceState {
         Log.d(tag, "handleRaiseHand: raised=${action.raised}")
         val newDeviceState = state.localDeviceState.copy(
+            isHandRaised = action.raised,
             handRaisedTimestamp = if (action.raised) System.currentTimeMillis() else 0
         )
         return state.builder()
