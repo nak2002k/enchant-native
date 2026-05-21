@@ -174,7 +174,10 @@ class KeyValueStore(
 
     private class StoreOpenHelper(context: Context, private val password: String) :
         SQLiteOpenHelper(context, "enchant_store.db", null, 1, object : net.sqlcipher.database.SQLiteDatabaseHook {
-            override fun preKey(db: net.sqlcipher.database.SQLiteDatabase) { db.execSQL("PRAGMA key = '$password'") }
+            override fun preKey(db: net.sqlcipher.database.SQLiteDatabase) {
+                val hexPassword = password.toByteArray(Charsets.UTF_8).joinToString("") { "%02x".format(it) }
+                db.rawExecSQL("PRAGMA key = \"x'$hexPassword'\"")
+            }
             override fun postKey(db: net.sqlcipher.database.SQLiteDatabase) {}
         }) {
 
