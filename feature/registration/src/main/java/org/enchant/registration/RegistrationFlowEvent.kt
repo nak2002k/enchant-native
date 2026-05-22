@@ -1,5 +1,7 @@
 package org.enchant.registration
 
+import org.enchant.core.model.AccountEntropyPool
+
 sealed interface RegistrationFlowEvent : DebugLoggable {
 
     data class NavigateToScreen(val route: RegistrationNavKey) : RegistrationFlowEvent {
@@ -22,7 +24,7 @@ sealed interface RegistrationFlowEvent : DebugLoggable {
         override val debugDescription: String get() = "E164Chosen(e164=$e164)"
     }
 
-    data class Registered(val aep: String) : RegistrationFlowEvent {
+    data class Registered(val accountEntropyPool: AccountEntropyPool) : RegistrationFlowEvent {
         override val debugDescription: String get() = "Registered"
     }
 
@@ -38,11 +40,11 @@ sealed interface RegistrationFlowEvent : DebugLoggable {
         override val debugDescription: String get() = "PendingRestoreOptionSelected(option=$option)"
     }
 
-    data class UserSuppliedAepSubmitted(val aep: String) : RegistrationFlowEvent {
+    data class UserSuppliedAepSubmitted(val aep: AccountEntropyPool) : RegistrationFlowEvent {
         override val debugDescription: String get() = "UserSuppliedAepSubmitted"
     }
 
-    data class UserSuppliedAepVerified(val aep: String) : RegistrationFlowEvent {
+    data class UserSuppliedAepVerified(val aep: AccountEntropyPool) : RegistrationFlowEvent {
         override val debugDescription: String get() = "UserSuppliedAepVerified"
     }
 

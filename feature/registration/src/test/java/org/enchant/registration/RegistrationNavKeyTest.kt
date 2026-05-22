@@ -1,5 +1,6 @@
 package org.enchant.registration
 
+import org.enchant.core.model.AccountEntropyPool
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -120,9 +121,10 @@ class RegistrationNavKeyTest {
     @DisplayName("RemoteRestore")
     inner class RemoteRestore {
         @Test
-        fun `contains aep as String`() {
-            val key = RegistrationNavKey.RemoteRestore(aep = "test-aep-value")
-            assertEquals("test-aep-value", key.aep)
+        fun `contains AccountEntropyPool`() {
+            val aep = AccountEntropyPool("test-aep-value")
+            val key = RegistrationNavKey.RemoteRestore(aep = aep)
+            assertEquals(aep, key.aep)
         }
     }
 

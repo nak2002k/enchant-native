@@ -2,6 +2,7 @@ package org.enchant.registration.screens
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import org.enchant.core.model.AccountEntropyPool
 import org.enchant.registration.ArchiveRestoreOption
 
 @Composable
@@ -107,7 +108,7 @@ fun EnterAepScreen(
 
 @Composable
 fun RemoteBackupRestoreScreen(
-    aep: String,
+    aep: AccountEntropyPool,
     onEvent: (RemoteBackupRestoreScreenEvents) -> Unit,
     modifier: Modifier = Modifier
 ) {

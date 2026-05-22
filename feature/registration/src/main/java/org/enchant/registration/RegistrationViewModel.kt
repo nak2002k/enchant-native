@@ -42,7 +42,7 @@ class RegistrationViewModel(
         }
         is RegistrationFlowEvent.SessionUpdated -> state.copy(sessionMetadata = event.session)
         is RegistrationFlowEvent.E164Chosen -> state.copy(sessionE164 = event.e164)
-        is RegistrationFlowEvent.Registered -> state.copy(accountEntropyPool = event.aep)
+        is RegistrationFlowEvent.Registered -> state.copy(accountEntropyPool = event.accountEntropyPool)
         is RegistrationFlowEvent.MasterKeyRestoredFromSvr -> state.copy(temporaryMasterKey = event.masterKey)
         is RegistrationFlowEvent.RegistrationComplete -> {
             _finishRequests.tryEmit(Unit)

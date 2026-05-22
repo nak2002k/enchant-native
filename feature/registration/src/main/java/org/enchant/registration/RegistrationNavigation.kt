@@ -25,6 +25,7 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import kotlinx.serialization.Serializable
+import org.enchant.core.model.AccountEntropyPool
 import org.enchant.core.ui.navigation.LocalResultEventBus
 import org.enchant.core.ui.navigation.ResultEffect
 import org.enchant.core.ui.navigation.TransitionSpecs
@@ -61,6 +62,7 @@ import org.enchant.registration.screens.WelcomeScreen
 import org.enchant.registration.screens.WelcomeScreenEvents
 import org.enchant.registration.screens.util.navigateBack
 import org.enchant.registration.screens.util.navigateTo
+import org.enchant.registration.util.AccountEntropyPoolSerializer
 
 @Serializable
 sealed interface RegistrationNavKey : NavKey {
@@ -148,7 +150,8 @@ sealed interface RegistrationNavKey : NavKey {
 
     @Serializable
     data class RemoteRestore(
-        val aep: String
+        @Serializable(with = AccountEntropyPoolSerializer::class)
+        val aep: AccountEntropyPool
     ) : RegistrationNavKey
 
     @Serializable data object QuickRestoreQrScan : RegistrationNavKey
@@ -485,7 +488,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                     is EnterAepEvents.BackupKeyChanged -> {}
                     EnterAepEvents.Submit -> {
                         parentEventEmitter(
-                            RegistrationFlowEvent.UserSuppliedAepSubmitted("stub_aep")
+                            RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
                         )
                     }
                     EnterAepEvents.Cancel -> parentEventEmitter.navigateBack()
@@ -503,7 +506,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                     is EnterAepEvents.BackupKeyChanged -> {}
                     EnterAepEvents.Submit -> {
                         parentEventEmitter(
-                            RegistrationFlowEvent.UserSuppliedAepSubmitted("stub_aep")
+                            RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
                         )
                     }
                     EnterAepEvents.Cancel -> parentEventEmitter.navigateBack()
@@ -520,7 +523,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                     is EnterAepEvents.BackupKeyChanged -> {}
                     EnterAepEvents.Submit -> {
                         parentEventEmitter(
-                            RegistrationFlowEvent.UserSuppliedAepSubmitted("stub_aep")
+                            RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
                         )
                     }
                     EnterAepEvents.Cancel -> parentEventEmitter.navigateBack()
