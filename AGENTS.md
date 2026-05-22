@@ -14,14 +14,6 @@ Before doing anything, read these files in this exact order:
 5. PRODUCTION_REFERENCE.md      ← Production rules (10 categories, Signal-proven)
 6. SCALABILITY_ANDROID.md       ← Android performance & scalability targets
 7. SECURITY_ANDROID_PRACTICES.md  ← Android-specific security best practices
-8. BUILD_PHASES/00_project_setup.md
-9. BUILD_PHASES/01_foundation.md
-10. BUILD_PHASES/02_auth_onboarding.md
-11. BUILD_PHASES/03_core_chat.md
-12. BUILD_PHASES/04_calls.md
-13. BUILD_PHASES/05_social.md
-14. BUILD_PHASES/06_extended.md
-15. BUILD_PHASES/07_polish_ship.md
 ```
 
 ## Commit & Push Rule

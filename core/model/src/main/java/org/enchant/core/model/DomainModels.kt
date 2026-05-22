@@ -88,3 +88,6 @@ data class User(val userId: String, val username: String, val displayName: Strin
 data class BodyRange(val start: Int, val length: Int, val type: BodyRangeType, val value: String? = null)
 enum class BodyRangeType { BOLD, ITALIC, CODE, MENTION, LINK, SPOILER }
 data class LinkPreview(val url: String, val title: String?, val description: String?, val imageUrl: String?)
+
+@JvmInline
+value class AccountEntropyPool(val value: String)
