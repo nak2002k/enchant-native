@@ -6,97 +6,22 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.compose.runtime.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
+import org.enchant.auth.AuthNavDisplay
 import org.enchant.auth.AuthViewModel
-import org.enchant.auth.screens.AppLockScreen
-import org.enchant.auth.screens.KeyGenerationScreen
-import org.enchant.auth.screens.OtpVerifyScreen
-import org.enchant.auth.screens.PermissionsScreen
-import org.enchant.auth.screens.PhoneEntryScreen
-import org.enchant.auth.screens.ProfileSetupScreen
-import org.enchant.auth.screens.RestorePromptScreen
-import org.enchant.auth.screens.TwoStepPinScreen
-import org.enchant.auth.screens.UsernamePickerScreen
-import org.enchant.auth.screens.WelcomeScreen
-import org.enchant.calls.CallViewModel
-import org.enchant.ui.theme.NotionTheme
-import org.enchant.core.calls.CallLogFilter
-import org.enchant.calls.SafetyNumberDialog
-import org.enchant.calls.screens.ActiveVideoCallScreen
-import org.enchant.calls.screens.ActiveVoiceCallScreen
-import org.enchant.calls.screens.GroupCallScreen
-import org.enchant.calls.screens.IncomingCallScreen
-import org.enchant.calls.screens.OutgoingCallScreen
-
-import org.enchant.chat.ConversationScreen
-import org.enchant.chatlist.ConversationListScreen
-import org.enchant.chatlist.ConversationListViewModel
-import org.enchant.contacts.screens.ContactListScreen
-import org.enchant.core.calls.CallManager
-import org.enchant.core.calls.CallStatusEnum
-import org.enchant.core.auth.AuthManager
 import org.enchant.core.auth.AuthState
-import org.enchant.core.auth.RegistrationState
-import org.enchant.core.crypto.SessionManager
-import org.enchant.groups.screens.CreateGroupScreen
-import org.enchant.groups.screens.GroupListScreen
-import org.enchant.groups.screens.JoinRequestsScreen
-import org.enchant.settings.screens.SettingsHomeScreen
-import org.enchant.settings.screens.AccountSettingsScreen
-import org.enchant.settings.screens.AppearanceSettingsScreen
-import org.enchant.settings.screens.BackupSettingsScreen
-import org.enchant.settings.screens.BlockedUsersScreen
-import org.enchant.settings.screens.ChatsSettingsScreen
-import org.enchant.settings.screens.NotificationsSettingsScreen
-import org.enchant.settings.screens.PrivacySettingsScreen
-import org.enchant.settings.screens.SecuritySettingsScreen
-import org.enchant.settings.screens.StorageSettingsScreen
-import org.enchant.settings.screens.AboutScreen
-import org.enchant.settings.SettingsViewModel
-import org.enchant.calls.screens.CallLogScreen
-import org.enchant.channels.screens.ChannelFeedScreen
-import org.enchant.location.LocationPickerScreen
-import org.enchant.polls.screens.PollCreateSheet
-import org.enchant.profile.screens.ProfileScreen
-import org.enchant.groups.screens.GroupInfoScreen
-import org.enchant.status.screens.StatusCreateScreen
-import org.enchant.status.screens.StatusFeedScreen
-import org.enchant.status.screens.StatusViewerScreen
-import org.enchant.stickers.screens.StickerStoreScreen
-import org.enchant.contacts.ContactsViewModel
-import org.enchant.groups.GroupsViewModel
-import org.enchant.status.StatusViewModel
-import org.enchant.channels.ChannelViewModel
-import org.enchant.stickers.StickerViewModel
-import org.enchant.calls.CallLogViewModel
-import org.enchant.profile.ProfileViewModel
-import org.enchant.backup.BackupViewModel
+import org.enchant.core.calls.CallManager
+import org.enchant.ui.theme.NotionTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -145,23 +70,22 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation() {
-    val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
-    val callViewModel: CallViewModel = viewModel()
-    val callUiState by callViewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(callUiState.callState.status) {
-        val status = callUiState.callState.status
-        when (status) {
-            CallStatusEnum.RINGING -> navController.navigate("incoming_call/${callUiState.callState.callId}")
-            CallStatusEnum.CALLING -> navController.navigate("outgoing_call/${callUiState.callState.remoteUserId}")
-            CallStatusEnum.CONNECTED -> {
-                if (navController.currentDestination?.route?.startsWith("incoming_") == true) {
-                    navController.popBackStack()
-                }
+    when (authState) {
+        is AuthState.Authenticated -> MainNavDisplay()
+        is AuthState.Unauthenticated -> AuthNavDisplay(
+            viewModel = authViewModel,
+            onAuthComplete = { }
+        )
+        else -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+    }
+}
                 if (callUiState.callState.isVideoCall) {
                     navController.navigate("active_video_call/${callUiState.callState.callId}")
                 } else {

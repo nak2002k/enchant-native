@@ -23,18 +23,16 @@ fun ChatNavDisplay(
         entryProvider = entryProvider {
             entry<ChatNavKey.Conversation> { key ->
                 ConversationScreen(
-                    threadId = key.threadId,
-                    onMediaClick = { messageId, attachmentId ->
-                        backStack.add(ChatNavKey.MediaViewer(messageId = messageId, attachmentId = attachmentId))
-                    },
-                    onBack = { if (backStack.size > 0) backStack.removeAt(backStack.size - 1) }
+                    conversationId = key.threadId.toString(),
+                    onNavigateBack = { if (backStack.size > 0) backStack.removeAt(backStack.size - 1) },
+                    onStartCall = { _, _ -> }
                 )
             }
 
             entry<ChatNavKey.MediaViewer> { key ->
                 MediaViewerScreen(
-                    messageId = key.messageId,
-                    attachmentId = key.attachmentId,
+                    mediaPath = "",
+                    mimeType = "",
                     onDismiss = { if (backStack.size > 0) backStack.removeAt(backStack.size - 1) }
                 )
             }
