@@ -1,8 +1,7 @@
 package org.enchant.core.ui
 
 import android.content.res.Resources
-import androidx.compose.material3.windowsizeclass.WindowSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import android.util.DisplayMetrics
 
 enum class WindowBreakpoint {
     SMALL,
@@ -11,8 +10,7 @@ enum class WindowBreakpoint {
 }
 
 fun Resources.getWindowBreakpoint(): WindowBreakpoint {
-    val metrics = displayMetrics
-    val widthDp = metrics.widthPixels / metrics.density
+    val widthDp = displayMetrics.widthPixels / displayMetrics.density
 
     return when {
         widthDp < 600f -> WindowBreakpoint.SMALL
@@ -27,23 +25,19 @@ fun Resources.isSplitPane(forceSplitPane: Boolean = false): Boolean {
     val breakpoint = getWindowBreakpoint()
     if (breakpoint == WindowBreakpoint.SMALL) return false
 
-    val metrics = displayMetrics
-    if (breakpoint == WindowBreakpoint.LARGE && metrics.widthPixels < metrics.heightPixels) {
+    if (breakpoint == WindowBreakpoint.LARGE && displayMetrics.widthPixels < displayMetrics.heightPixels) {
         return false
     }
 
     return true
 }
 
-fun WindowSizeClass.Companion.horizontalPartitionDefaultSpacerSize(): androidx.compose.ui.unit.Dp {
+fun horizontalPartitionDefaultSpacerSize(widthSizeClass: WindowBreakpoint): Int {
     return when (widthSizeClass) {
-        WindowWidthSizeClass.Compact -> 0.dp
-        WindowWidthSizeClass.Medium -> 8.dp
-        WindowWidthSizeClass.Expanded -> 16.dp
-        else -> 8.dp
+        WindowBreakpoint.SMALL -> 0
+        WindowBreakpoint.MEDIUM -> 8
+        WindowBreakpoint.LARGE -> 16
     }
 }
 
-fun WindowSizeClass.Companion.listPaneDefaultPreferredWidth(): androidx.compose.ui.unit.Dp {
-    return 400.dp
-}
+fun listPaneDefaultPreferredWidth(): Int = 400
