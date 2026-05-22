@@ -6,6 +6,8 @@ coroutines = "1.9.0"
 compose-bom = "2024.12.01"
 lifecycle = "2.8.7"
 navigation = "2.8.5"
+navigation3-core = "1.0.0"
+navigation3-lifecycle = "2.10.0"
 workmanager = "2.10.0"
 activity-compose = "1.9.3"
 okhttp = "4.12.0"
@@ -49,6 +51,12 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material-icons = { module = "androidx.compose.material:material-icons-extended" }
 compose-adaptive = { module = "androidx.compose.material3.adaptive:adaptive" }
 compose-navigation = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3-core" }
+navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3-core" }
+lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "navigation3-lifecycle" }
+adaptive-navigation = { module = "androidx.compose.material3.adaptive:adaptive-navigation" }
+androidx-navigation-fragment-ktx = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "navigation" }
+androidx-navigation-ui-ktx = { module = "androidx.navigation:navigation-ui-ktx", version.ref = "navigation" }
 lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
 lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }

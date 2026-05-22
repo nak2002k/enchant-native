@@ -64,6 +64,7 @@ dependencies {
     implementation(project(":core:navigation"))
     implementation(project(":core:performance"))
     implementation(project(":core:accessibility"))
+    implementation(project(":core:ui"))
     implementation(project(":core:crash"))
     implementation(project(":core:config"))
 
@@ -90,6 +91,10 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.compose.navigation)
+    implementation(libs.navigation3.runtime)
+    implementation(libs.navigation3.ui)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.lifecycle.runtime)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.runtime.compose)

@@ -40,6 +40,7 @@ include(":core:performance")
 include(":core:accessibility")
 include(":core:crash")
 include(":core:config")
+include(":core:ui")
 
 include(":feature:auth")
 include(":feature:chat")
