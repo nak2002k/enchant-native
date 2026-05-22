@@ -1,8 +1,7 @@
 package org.enchant.window
 
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 
 enum class NavigationType {
     BAR,
@@ -11,14 +10,9 @@ enum class NavigationType {
 
 @Composable
 fun rememberNavigationType(): NavigationType {
-    val windowInfo = currentWindowAdaptiveInfo()
-    val widthDp = windowInfo.windowSizeClass.windowBounds.width.value
-    return remember(widthDp) {
-        when {
-            widthDp < 600f -> NavigationType.BAR
-            else -> NavigationType.RAIL
-        }
-    }
+    return NavigationType.BAR
 }
 
 fun NavigationType.isRail(): Boolean = this == NavigationType.RAIL
+
+val LocalNavigationType = staticCompositionLocalOf { NavigationType.BAR }

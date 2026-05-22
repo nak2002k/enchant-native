@@ -5,29 +5,28 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 interface AppScaffoldNavigator<T> {
-    val canNavigateBack: Boolean
-    val currentDetailLocation: T?
+    val canNavigateBack: StateFlow<Boolean>
+    val currentDetail: StateFlow<T?>
     val scaffoldDirective: ScaffoldDirective
 
     fun navigateTo(detail: T)
-    fun navigateBack()
+    fun navigateBack(): Boolean
     fun showList()
 }
 
 data class ScaffoldDirective(
     val maxHorizontalPartitions: Int = 1,
-    val hasFoldable: Boolean = false
+    val hasFoldable: Boolean = false,
+    val defaultPanePreferredWidth: Int = 400
 )
 
-class AppScaffoldNavigatorImpl<T : Any>(
-    initialDetail: T? = null
-) : AppScaffoldNavigator<T> {
+class AppScaffoldNavigatorImpl<T : Any> : AppScaffoldNavigator<T> {
 
-    private val _currentDetail = MutableStateFlow<T?>(initialDetail)
-    val currentDetail: StateFlow<T?> = _currentDetail.asStateFlow()
+    private val _currentDetail = MutableStateFlow<T?>(null)
+    override val currentDetail: StateFlow<T?> = _currentDetail.asStateFlow()
 
     private val _canNavigateBack = MutableStateFlow(false)
-    val canNavigateBack: StateFlow<Boolean> = _canNavigateBack.asStateFlow()
+    override val canNavigateBack: StateFlow<Boolean> = _canNavigateBack.asStateFlow()
 
     override val scaffoldDirective: ScaffoldDirective = ScaffoldDirective(maxHorizontalPartitions = 1)
 
@@ -36,9 +35,10 @@ class AppScaffoldNavigatorImpl<T : Any>(
         _canNavigateBack.value = true
     }
 
-    override fun navigateBack() {
+    override fun navigateBack(): Boolean {
         _currentDetail.value = null
         _canNavigateBack.value = false
+        return true
     }
 
     override fun showList() {
