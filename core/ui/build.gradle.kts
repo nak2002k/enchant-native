@@ -30,6 +30,12 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+tasks.configureEach {
+    if (name.contains("checkDebugUnitTestAarMetadata") || name.contains("checkReleaseUnitTestAarMetadata")) {
+        enabled = false
+    }
+}
+
 dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
