@@ -47,6 +47,7 @@ dependencies {
     implementation(project(":core:crypto"))
     implementation(project(":core:auth"))
     implementation(project(":core:navigation"))
+    implementation(project(":core:ui"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
