@@ -28,6 +28,8 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.adaptive)
     implementation(libs.compose.navigation)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)
