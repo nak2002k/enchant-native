@@ -84,6 +84,7 @@ dependencies {
     implementation(project(":feature:location"))
     implementation(project(":feature:backup"))
     implementation(project(":feature:share"))
+    implementation(project(":feature:registration"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

@@ -14,6 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.enchant.auth.AuthViewModel
 import org.enchant.calls.CallViewModel
+import org.enchant.chatlist.ChatListNavDisplay
+import org.enchant.chatlist.ConversationListViewModel
 import org.enchant.core.calls.CallStatus
 import org.enchant.main.EmptyDetailScreen
 import org.enchant.main.MainNavigationBar
@@ -64,6 +66,9 @@ fun MainNavDisplay(
                 currentListLocation = mainNavState.currentListLocation,
                 onConversationClick = { threadId ->
                     mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(threadId))
+                },
+                onArchiveClick = { threadId ->
+                    mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(threadId))
                 }
             )
         },
@@ -96,21 +101,46 @@ fun MainNavDisplay(
 @Composable
 private fun ListPaneContent(
     currentListLocation: MainNavigationListLocation,
-    onConversationClick: (Long) -> Unit
+    onConversationClick: (Long) -> Unit,
+    onArchiveClick: (Long) -> Unit
 ) {
+    val listViewModel: ConversationListViewModel = viewModel()
+
     Box(modifier = Modifier.fillMaxSize()) {
         when (currentListLocation) {
-            MainNavigationListLocation.CHATS,
+            MainNavigationListLocation.CHATS -> {
+                ChatListNavDisplay(
+                    viewModel = listViewModel,
+                    onNavigateToConversation = onConversationClick
+                )
+            }
             MainNavigationListLocation.ARCHIVE -> {
-                Text("Chat List - ${currentListLocation.name}")
+                ChatListNavDisplay(
+                    viewModel = listViewModel,
+                    onNavigateToConversation = onArchiveClick
+                )
             }
             MainNavigationListLocation.CALLS -> {
-                Text("Call Log - ${currentListLocation.name}")
+                CallsListContent()
             }
             MainNavigationListLocation.STORIES -> {
-                Text("Stories - ${currentListLocation.name}")
+                StoriesListContent()
             }
         }
+    }
+}
+
+@Composable
+private fun CallsListContent() {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Text("Calls List")
+    }
+}
+
+@Composable
+private fun StoriesListContent() {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Text("Stories List")
     }
 }
 
@@ -124,13 +154,29 @@ private fun DetailPaneContent(
         val topDetail = detailStack.last()
         when (topDetail) {
             is MainNavigationDetailLocation.Conversation -> {
-                Text("Conversation ${topDetail.threadId}")
+                ConversationDetailContent(threadId = topDetail.threadId)
             }
             is MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName -> {
-                Text("Call Link: ${topDetail.callLinkRoomId}")
+                CallLinkDetailContent(roomId = topDetail.callLinkRoomId)
             }
             else -> EmptyDetailScreen()
         }
+    }
+}
+
+@Composable
+private fun ConversationDetailContent(threadId: Long) {
+    org.enchant.chat.ConversationScreen(
+        conversationId = threadId.toString(),
+        onNavigateBack = { },
+        onStartCall = { _, _ -> }
+    )
+}
+
+@Composable
+private fun CallLinkDetailContent(roomId: String) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Text("Call Link: $roomId")
     }
 }
 
