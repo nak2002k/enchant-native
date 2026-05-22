@@ -4,9 +4,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -40,9 +40,12 @@ class ResultEventBusTest {
             bus.sendResult<String>(resultKey = "TestResult", result = "third")
             val flow = bus.getResultFlow<String>(resultKey = "TestResult")
             assertNotNull(flow)
-            assertEquals("first", flow!!.first())
-            assertEquals("second", flow!!.first())
-            assertEquals("third", flow!!.first())
+            val allValues = mutableListOf<String>()
+            flow!!.collect { allValues.add(it as String) }
+            assertEquals(3, allValues.size)
+            assertEquals("first", allValues[0])
+            assertEquals("second", allValues[1])
+            assertEquals("third", allValues[2])
         }
 
         @Test

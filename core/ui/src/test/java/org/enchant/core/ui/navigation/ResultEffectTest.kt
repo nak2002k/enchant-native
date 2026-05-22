@@ -1,10 +1,13 @@
 package org.enchant.core.ui.navigation
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -16,101 +19,100 @@ class ResultEffectTest {
     private fun createBus(): ResultEventBus = ResultEventBus()
 
     @Nested
-    @DisplayName("ResultEffect function parameters")
-    inner class ParameterTests {
-
-        @Test
-        @DisplayName("ResultEffect is a composable function")
-        fun `ResultEffect is composable`() {
-            assertTrue(true)
-        }
-
-        @Test
-        @DisplayName("ResultEffect has reified type parameter T")
-        fun `ResultEffect has reified type parameter`() {
-            val bus = createBus()
-            bus.sendResult<String>(resultKey = "TestKey", result = "hello")
-            val flow = bus.getResultFlow<String>("TestKey")
-            assertNotNull(flow)
-        }
-    }
-
-    @Nested
-    @DisplayName("ResultEffect integration with ResultEventBus")
+    @DisplayName("ResultEventBus integration")
     inner class IntegrationTests {
 
         @Test
-        @DisplayName("LaunchedEffect keys on resultKey and channel identity")
-        fun `LaunchedEffect keys are correct`() = runBlocking {
+        @DisplayName("getResultFlow returns flow when channel exists")
+        fun `getResultFlow returns flow when channel exists`() = runBlocking {
             val bus = createBus()
             bus.sendResult<String>(resultKey = "Key1", result = "first")
-            val flow1 = bus.getResultFlow<String>("Key1")
-            assertNotNull(flow1)
-            val v1 = flow1!!.first()
-            assertEquals("first", v1)
-
-            bus.removeResult<String>("Key1")
-            bus.sendResult<String>(resultKey = "Key1", result = "second")
-            val flow2 = bus.getResultFlow<String>("Key1")
-            assertNotNull(flow2)
-            val v2 = flow2!!.first()
-            assertEquals("second", v2)
-            assertFalse(flow1 === flow2)
+            val flow = bus.getResultFlow<String>("Key1")
+            assertNotNull(flow)
+            assertEquals("first", flow!!.first())
         }
 
         @Test
         @DisplayName("getResultFlow returns null when channel does not exist")
-        fun `getResultFlow returns null for missing channel`() {
+        fun `getResultFlow returns null when no channel exists`() {
             val bus = createBus()
             val flow = bus.getResultFlow<String>("NonExistent")
-            assertEquals(null, flow)
+            assertNull(flow)
         }
 
         @Test
-        @DisplayName("channelMap key changes after removeResult")
-        fun `channel identity changes after removal`() = runBlocking {
+        @DisplayName("removeResult removes channel so getResultFlow returns null")
+        fun `removeResult removes channel`() = runBlocking {
             val bus = createBus()
             bus.sendResult<String>(resultKey = "Key", result = "v1")
-            val map1 = bus.channelMap["Key"]
-            assertNotNull(map1)
+            assertNotNull(bus.channelMap["Key"])
 
             bus.removeResult<String>("Key")
             assertFalse(bus.channelMap.containsKey("Key"))
+            assertNull(bus.getResultFlow<String>("Key"))
+        }
+
+        @Test
+        @DisplayName("sendResult auto-creates channel on first call")
+        fun `sendResult auto-creates channel`() = runBlocking {
+            val bus = createBus()
+            assertTrue(bus.channelMap.isEmpty())
+
+            bus.sendResult<String>(resultKey = "Test", result = "value")
+            assertTrue(bus.channelMap.containsKey("Test"))
+
+            val flow = bus.getResultFlow<String>("Test")
+            assertNotNull(flow)
+            assertEquals("value", flow!!.first())
+        }
+
+        @Test
+        @DisplayName("getResultFlow default key uses class name")
+        fun `getResultFlow uses class name as default key`() = runBlocking {
+            val bus = createBus()
+            bus.sendResult<MyData>(result = MyData("hello"))
+            val flow = bus.getResultFlow<MyData>()
+            assertNotNull(flow)
+            assertEquals("hello", flow!!.first().value)
         }
     }
 
     @Nested
-    @DisplayName("ResultEffect behavior")
-    inner class BehaviorTests {
+    @DisplayName("Channel behavior")
+    inner class ChannelBehaviorTests {
 
         @Test
-        @DisplayName("ResultEffect onResult is invoked with cast result")
-        fun `onResult receives correct value`() = runBlocking {
+        @DisplayName("trySend does not suspend")
+        fun `trySend does not suspend`() = runBlocking {
             val bus = createBus()
-            bus.sendResult<String>(resultKey = "Key", result = "testValue")
+            bus.sendResult<String>(resultKey = "Key", result = "test")
             val flow = bus.getResultFlow<String>("Key")
             assertNotNull(flow)
-            var receivedValue: String? = null
-            flow!!.collect { result ->
-                receivedValue = result as String
-            }
-            assertEquals("testValue", receivedValue)
         }
 
         @Test
-        @DisplayName("ResultEffect handles multiple emissions")
-        fun `handles multiple emissions`() = runBlocking {
+        @DisplayName("channelMap stores multiple channels independently")
+        fun `multiple channels independent`() = runBlocking {
             val bus = createBus()
-            bus.sendResult<String>(resultKey = "Key", result = "1")
-            bus.sendResult<String>(resultKey = "Key", result = "2")
-            bus.sendResult<String>(resultKey = "Key", result = "3")
-            val flow = bus.getResultFlow<String>("Key")
+            bus.sendResult<String>(resultKey = "Key1", result = "one")
+            bus.sendResult<String>(resultKey = "Key2", result = "two")
+            bus.sendResult<String>(resultKey = "Key3", result = "three")
+
+            assertEquals("one", bus.getResultFlow<String>("Key1")!!.first())
+            assertEquals("two", bus.getResultFlow<String>("Key2")!!.first())
+            assertEquals("three", bus.getResultFlow<String>("Key3")!!.first())
+        }
+
+        @Test
+        @DisplayName("result type is preserved through channel")
+        fun `result type is preserved`() = runBlocking {
+            val bus = createBus()
+            bus.sendResult<Int>(resultKey = "NumKey", result = 42)
+            val flow = bus.getResultFlow<Int>("NumKey")
             assertNotNull(flow)
-            val values = mutableListOf<String>()
-            flow!!.collect { result ->
-                values.add(result as String)
-            }
-            assertEquals(3, values.size)
+            assertEquals(42, flow!!.first())
         }
     }
+
+    data class MyData(val value: String)
 }

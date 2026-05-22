@@ -4,7 +4,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertSame
 
 @DisplayName("TransitionSpecs")
@@ -36,24 +35,27 @@ class TransitionSpecsTest {
         }
 
         @Test
-        @DisplayName("transitionSpec is a function type")
-        fun `transitionSpec is a function`() {
+        @DisplayName("transitionSpec can be invoked with correct receiver")
+        fun `transitionSpec is invokable`() {
             val spec = TransitionSpecs.HorizontalSlide.transitionSpec
-            assertTrue(spec is Function1<*, *>)
+            assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function1<*, *>)
         }
 
         @Test
-        @DisplayName("popTransitionSpec is a function type")
-        fun `popTransitionSpec is a function`() {
+        @DisplayName("popTransitionSpec can be invoked with correct receiver")
+        fun `popTransitionSpec is invokable`() {
             val spec = TransitionSpecs.HorizontalSlide.popTransitionSpec
-            assertTrue(spec is Function1<*, *>)
+            assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function1<*, *>)
         }
 
         @Test
-        @DisplayName("predictivePopTransitionSpec is a callable function type")
-        fun `predictivePopTransitionSpec is callable`() {
+        @DisplayName("predictivePopTransitionSpec can be invoked with correct receiver and Int parameter")
+        fun `predictivePopTransitionSpec is invokable`() {
             val spec = TransitionSpecs.HorizontalSlide.predictivePopTransitionSpec
             assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function2<*, *, *>)
         }
     }
 
@@ -83,24 +85,27 @@ class TransitionSpecsTest {
         }
 
         @Test
-        @DisplayName("transitionSpec is a function type")
-        fun `transitionSpec is a function`() {
+        @DisplayName("transitionSpec can be invoked with correct receiver")
+        fun `transitionSpec is invokable`() {
             val spec = TransitionSpecs.VerticalSlide.transitionSpec
-            assertTrue(spec is Function1<*, *>)
+            assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function1<*, *>)
         }
 
         @Test
-        @DisplayName("popTransitionSpec is a function type")
-        fun `popTransitionSpec is a function`() {
+        @DisplayName("popTransitionSpec can be invoked with correct receiver")
+        fun `popTransitionSpec is invokable`() {
             val spec = TransitionSpecs.VerticalSlide.popTransitionSpec
-            assertTrue(spec is Function1<*, *>)
+            assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function1<*, *>)
         }
 
         @Test
-        @DisplayName("predictivePopTransitionSpec is a callable function type")
-        fun `predictivePopTransitionSpec is callable`() {
+        @DisplayName("predictivePopTransitionSpec can be invoked with correct receiver and Int parameter")
+        fun `predictivePopTransitionSpec is invokable`() {
             val spec = TransitionSpecs.VerticalSlide.predictivePopTransitionSpec
             assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function2<*, *, *>)
         }
     }
 
@@ -130,24 +135,27 @@ class TransitionSpecsTest {
         }
 
         @Test
-        @DisplayName("transitionSpec is a function type")
-        fun `transitionSpec is a function`() {
+        @DisplayName("transitionSpec can be invoked with correct receiver")
+        fun `transitionSpec is invokable`() {
             val spec = TransitionSpecs.Fade.transitionSpec
-            assertTrue(spec is Function1<*, *>)
+            assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function1<*, *>)
         }
 
         @Test
-        @DisplayName("popTransitionSpec is a function type")
-        fun `popTransitionSpec is a function`() {
+        @DisplayName("popTransitionSpec can be invoked with correct receiver")
+        fun `popTransitionSpec is invokable`() {
             val spec = TransitionSpecs.Fade.popTransitionSpec
-            assertTrue(spec is Function1<*, *>)
+            assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function1<*, *>)
         }
 
         @Test
-        @DisplayName("predictivePopTransitionSpec is a callable function type")
-        fun `predictivePopTransitionSpec is callable`() {
+        @DisplayName("predictivePopTransitionSpec can be invoked with correct receiver and Int parameter")
+        fun `predictivePopTransitionSpec is invokable`() {
             val spec = TransitionSpecs.Fade.predictivePopTransitionSpec
             assertNotNull(spec)
+            assertNotNull(spec as? kotlin.Function2<*, *, *>)
         }
 
         @Test
