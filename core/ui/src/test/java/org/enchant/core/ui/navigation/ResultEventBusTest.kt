@@ -2,6 +2,7 @@ package org.enchant.core.ui.navigation
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -41,7 +42,7 @@ class ResultEventBusTest {
             val flow = bus.getResultFlow<String>(resultKey = "TestResult")
             assertNotNull(flow)
             val allValues = mutableListOf<String>()
-            flow!!.collect { allValues.add(it as String) }
+            flow!!.take(3).collect { allValues.add(it as String) }
             assertEquals(3, allValues.size)
             assertEquals("first", allValues[0])
             assertEquals("second", allValues[1])
