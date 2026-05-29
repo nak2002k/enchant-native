@@ -25,6 +25,7 @@ object OptimizedMessageNotifier {
     private val queue = ConcurrentLinkedQueue<QueuedNotification>()
     @Volatile
     private var flushScheduled = false
+    private var lastContext: Context? = null
     private val _queueSize = MutableStateFlow(0)
     val queueSize: StateFlow<Int> = _queueSize.asStateFlow()
 
@@ -35,6 +36,7 @@ object OptimizedMessageNotifier {
     }
 
     suspend fun flush(context: Context) {
+        lastContext = context
         flushScheduled = false
         val batch = mutableListOf<QueuedNotification>()
         while (true) {
@@ -66,7 +68,7 @@ object OptimizedMessageNotifier {
         flushScheduled = true
         scope.launch {
             delay(50)
-            val ctx = org.enchant.core.base.AppConfig.applicationContext ?: return@launch
+            val ctx = lastContext ?: return@launch
             flush(ctx)
         }
     }

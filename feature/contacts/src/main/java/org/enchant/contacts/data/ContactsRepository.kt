@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.JsonPrimitive
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.entity.RecipientEntity
 import org.enchant.core.database.util.CursorMapper
@@ -230,7 +231,7 @@ class ContactsRepository(
             try {
                 val response = apiClient.postAnonymous("/v1/contacts/match", buildJsonObject {
                     put("phone_hashes", buildJsonArray {
-                        phoneHashes.forEach { add(JsonPrimitive(it)) }
+                        phoneHashes.forEach { hash -> add(JsonPrimitive(hash)) }
                     })
                 })
                 response.fold(
