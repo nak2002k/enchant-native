@@ -16,6 +16,12 @@ import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
 import org.enchant.core.database.DatabasePool
 
+data class ExportInfo(
+    val exportId: String,
+    val status: String,
+    val downloadToken: String? = null
+)
+
 data class BackupInfo(
     val backupId: String,
     val sizeBytes: Long = 0,
@@ -31,7 +37,9 @@ data class BackupUiState(
     val downloadProgress: Float = 0f,
     val isProcessing: Boolean = false,
     val error: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val exportInfo: ExportInfo? = null,
+    val isExporting: Boolean = false
 )
 
 class BackupViewModel : ViewModel() {
@@ -174,5 +182,83 @@ class BackupViewModel : ViewModel() {
 
     fun clearMessages() {
         _uiState.value = _uiState.value.copy(error = null, successMessage = null)
+    }
+
+    fun requestExport(includeMedia: Boolean) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isExporting = true, error = null)
+            val result = withContext(Dispatchers.Default) {
+                ApiClient.getInstance().post("/v1/export/request", buildJsonObject {
+                    put("include_media", includeMedia)
+                })
+            }
+            result.fold(
+                onSuccess = { json ->
+                    val exportInfo = ExportInfo(
+                        exportId = json["export_id"]?.jsonPrimitive?.content ?: "",
+                        status = "PENDING"
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        isExporting = false,
+                        exportInfo = exportInfo,
+                        successMessage = "Export started: ${exportInfo.exportId}"
+                    )
+                    pollExportStatus(exportInfo.exportId)
+                },
+                onFailure = { _uiState.value = _uiState.value.copy(
+                    isExporting = false, error = it.message)
+                }
+            )
+        }
+    }
+
+    private fun pollExportStatus(exportId: String) {
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(2000)
+            val result = withContext(Dispatchers.Default) {
+                ApiClient.getInstance().get("/v1/export/$exportId")
+            }
+            result.fold(
+                onSuccess = { json ->
+                    val status = json["status"]?.jsonPrimitive?.content ?: "PENDING"
+                    val downloadToken = json["download_token"]?.jsonPrimitive?.content
+                    val currentInfo = _uiState.value.exportInfo
+                    val updated = currentInfo?.copy(status = status, downloadToken = downloadToken)
+                    _uiState.value = _uiState.value.copy(exportInfo = updated)
+                    if (status == "PENDING" || status == "PROCESSING") {
+                        pollExportStatus(exportId)
+                    } else if (status == "COMPLETED" && downloadToken != null) {
+                        _uiState.value = _uiState.value.copy(
+                            successMessage = "Export ready for download"
+                        )
+                    } else if (status == "FAILED") {
+                        _uiState.value = _uiState.value.copy(
+                            error = "Export failed"
+                        )
+                    }
+                },
+                onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
+            )
+        }
+    }
+
+    fun downloadExport(exportId: String, downloadToken: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
+            val result = withContext(Dispatchers.Default) {
+                ApiClient.getInstance().getBinary("/v1/export/$exportId/download?token=$downloadToken")
+            }
+            result.fold(
+                onSuccess = { bytes ->
+                    _uiState.value = _uiState.value.copy(
+                        isProcessing = false,
+                        successMessage = "Export downloaded: ${bytes.size} bytes"
+                    )
+                },
+                onFailure = { _uiState.value = _uiState.value.copy(
+                    isProcessing = false, error = it.message)
+                }
+            )
+        }
     }
 }

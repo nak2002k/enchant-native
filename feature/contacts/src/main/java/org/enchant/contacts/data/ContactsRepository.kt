@@ -6,6 +6,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -24,7 +25,15 @@ data class Contact(
     val avatarMediaId: String? = null,
     val customName: String? = null,
     val isBlocked: Boolean = false,
-    val addedTs: String? = null
+    val addedTs: String? = null,
+    val phoneHash: String? = null
+)
+
+data class PhoneMatch(
+    val userId: String,
+    val username: String?,
+    val displayName: String?,
+    val phoneHash: String
 )
 
 sealed class ContactResult {
@@ -214,4 +223,30 @@ class ContactsRepository(
             )
         } catch (_: Exception) { emptyList() }
     }
+
+    suspend fun matchPhoneContacts(phoneHashes: List<String>): List<PhoneMatch> =
+        withContext(Dispatchers.Default) {
+            if (phoneHashes.isEmpty() || phoneHashes.size > 1000) return@withContext emptyList()
+            try {
+                val response = apiClient.postAnonymous("/v1/contacts/match", buildJsonObject {
+                    put("phone_hashes", buildJsonArray {
+                        phoneHashes.forEach { add(JsonPrimitive(it)) }
+                    })
+                })
+                response.fold(
+                    onSuccess = { json ->
+                        json["matches"]?.jsonArray?.map { item ->
+                            val obj = item.jsonObject
+                            PhoneMatch(
+                                userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
+                                username = obj["username"]?.jsonPrimitive?.content,
+                                displayName = obj["display_name"]?.jsonPrimitive?.content,
+                                phoneHash = obj["phone_hash"]?.jsonPrimitive?.content ?: ""
+                            )
+                        } ?: emptyList()
+                    },
+                    onFailure = { emptyList() }
+                )
+            } catch (_: Exception) { emptyList() }
+        }
 }

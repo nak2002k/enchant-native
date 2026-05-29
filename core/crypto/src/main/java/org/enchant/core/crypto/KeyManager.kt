@@ -263,7 +263,12 @@ object KeyManager {
                     val spkData = device["signed_prekey"]?.jsonObject ?: return@let null
                     val spkPubStr = spkData["public_key"]?.jsonPrimitive?.content ?: return@let null
                     val spkSigStr = spkData["signature"]?.jsonPrimitive?.content ?: return@let null
-                    val opkStr = device["one_time_prekey"]?.jsonPrimitive?.content
+                    val opkData = device["one_time_prekey"]?.jsonObject
+                    val opkBytes = opkData?.let {
+                        it["public_key"]?.jsonPrimitive?.content?.let { keyStr ->
+                            CryptoPrimitives.base64UrlDecode(keyStr)
+                        }
+                    }
 
                     KeyBundle(
                         deviceId = device["device_id"]?.jsonPrimitive?.content ?: "",
@@ -272,7 +277,7 @@ object KeyManager {
                             publicKey = CryptoPrimitives.base64UrlDecode(spkPubStr),
                             signature = CryptoPrimitives.base64UrlDecode(spkSigStr)
                         ),
-                        oneTimePrekey = if (opkStr != null) CryptoPrimitives.base64UrlDecode(opkStr) else null
+                        oneTimePrekey = opkBytes
                     )
                 }
             } catch (_: Exception) { null }
@@ -294,7 +299,7 @@ object KeyManager {
         try {
             val countResponse = client.get("/v1/keys/opk-count")
             val remaining = countResponse.getOrNull()?.let { json ->
-                json["count"]?.jsonPrimitive?.int ?: 100
+                json["opk_count"]?.jsonPrimitive?.int ?: 100
             } ?: return
 
             if (remaining < 10) {
