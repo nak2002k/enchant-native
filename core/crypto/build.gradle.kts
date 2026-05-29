@@ -25,7 +25,6 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.protobuf.javalite)
-    implementation(libs.bouncycastle)
     implementation(libs.workmanager)
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
