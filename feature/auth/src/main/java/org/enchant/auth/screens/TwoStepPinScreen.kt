@@ -6,7 +6,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import android.view.WindowManager
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -25,6 +28,13 @@ object TwoStepPinScreen {
         onPinCreated: (String) -> Unit = {},
         isLoading: Boolean = false
     ) {
+        val context = LocalContext.current
+        DisposableEffect(Unit) {
+            (context as? Activity)?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            onDispose {
+                (context as? Activity)?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+        }
         val scope = rememberCoroutineScope()
         var pin by remember { mutableStateOf("") }
         var confirmPin by remember { mutableStateOf("") }

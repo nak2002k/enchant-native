@@ -9,6 +9,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import android.app.Activity
+import android.view.WindowManager
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -175,6 +181,13 @@ private fun EnterBackupKeyScreen(
     enterBackupKeyState: EnterBackupKeyState,
     onNoKey: () -> Unit
 ) {
+    val context = LocalContext.current
+    DisposableEffect(Unit) {
+        (context as? Activity)?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            (context as? Activity)?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
 }
 
 @Composable

@@ -7,6 +7,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import android.view.WindowManager
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -25,6 +27,12 @@ fun AppLockScreen(
     onDismiss: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    DisposableEffect(Unit) {
+        (context as? Activity)?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            (context as? Activity)?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
     val alreadyEnabled = SecurePreferences.getBoolean("applock.enabled", false)
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
