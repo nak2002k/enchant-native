@@ -8,9 +8,12 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import android.content.Context
 import android.util.Log
+import androidx.work.WorkManager
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.KeyManager
+import org.enchant.core.crypto.PreKeyWorker
 import org.enchant.core.model.User
 import org.enchant.core.network.ApiClient
 import org.enchant.core.network.models.OtpResponse
@@ -62,6 +65,12 @@ object AuthManager {
             else -> AuthState.Unauthenticated
         }
         initialized = true
+    }
+
+    suspend fun schedulePreKeyRotation(context: Context) {
+        val ctx = context.applicationContext ?: context
+        PreKeyWorker.schedule(ctx)
+        Log.d("AuthManager", "PreKeyRotationWorker scheduled")
     }
 
     fun resetForTesting() {

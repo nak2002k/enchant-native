@@ -17,9 +17,19 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
 
+private const val SECONDS_PER_HOUR = 3600
+private const val MIN_CLOSE_SECONDS = 60
+private const val MAX_CLOSE_SECONDS = 604800
+
 data class PollOption(
     val id: String,
     val text: String
+)
+
+data class Voter(
+    val oderId: String,
+    val displayName: String = "",
+    val username: String = ""
 )
 
 data class PollData(
@@ -33,14 +43,17 @@ data class PollData(
     val isClosed: Boolean = false,
     val allowMultiple: Boolean = false,
     val anonymous: Boolean = false,
-    val closesInSeconds: Int? = null
+    val closeInSeconds: Int? = null,
+    val creatorId: String = ""
 )
 
 data class PollUiState(
     val currentPoll: PollData? = null,
     val isSubmitting: Boolean = false,
     val error: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val voters: Map<String, List<Voter>> = emptyMap(),
+    val isLoadingVoters: Boolean = false
 )
 
 class PollViewModel(
@@ -55,7 +68,7 @@ class PollViewModel(
         options: List<String>,
         allowMultiple: Boolean,
         anonymous: Boolean,
-        closesInSeconds: Int?
+        closeInSeconds: Int?
     ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, error = null)
@@ -65,7 +78,7 @@ class PollViewModel(
                 put("options", JsonArray(options.map { buildJsonObject { put("text", it) } }))
                 put("allow_multiple", allowMultiple)
                 put("anonymous", anonymous)
-                if (closesInSeconds != null) put("close_in_seconds", closesInSeconds)
+                if (closeInSeconds != null) put("close_in_seconds", closeInSeconds)
             }
             val result = withContext(Dispatchers.IO) {
                 apiClient.post("/v1/polls", body)
@@ -89,7 +102,7 @@ class PollViewModel(
                         isClosed = false,
                         allowMultiple = allowMultiple,
                         anonymous = anonymous,
-                        closesInSeconds = closesInSeconds
+                        closeInSeconds = closeInSeconds
                     )
                     _uiState.value = _uiState.value.copy(
                         currentPoll = poll, isSubmitting = false,
@@ -150,7 +163,8 @@ class PollViewModel(
                         isClosed = json["is_closed"]?.jsonPrimitive?.content?.toBoolean() ?: false,
                         allowMultiple = json["allow_multiple"]?.jsonPrimitive?.content?.toBoolean() ?: false,
                         anonymous = json["anonymous"]?.jsonPrimitive?.content?.toBoolean() ?: false,
-                        closesInSeconds = json["closes_in_seconds"]?.jsonPrimitive?.content?.toIntOrNull()
+                        closeInSeconds = json["closes_in_seconds"]?.jsonPrimitive?.content?.toIntOrNull(),
+                        creatorId = json["creator_id"]?.jsonPrimitive?.content ?: ""
                     )
                     _uiState.value = _uiState.value.copy(currentPoll = poll, isSubmitting = false)
                 },
@@ -182,5 +196,53 @@ class PollViewModel(
 
     fun clearMessages() {
         _uiState.value = _uiState.value.copy(error = null, successMessage = null)
+    }
+
+    fun loadVoters(pollId: String, optionId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingVoters = true, error = null)
+            val result = withContext(Dispatchers.IO) {
+                apiClient.get("/v1/polls/$pollId/voters/$optionId")
+            }
+            result.fold(
+                onSuccess = { json ->
+                    val votersList = json["voters"]?.jsonArray?.map { voterJson ->
+                        Voter(
+                            oderId = voterJson.jsonObject["user_id"]?.jsonPrimitive?.content ?: "",
+                            displayName = voterJson.jsonObject["display_name"]?.jsonPrimitive?.content ?: "",
+                            username = voterJson.jsonObject["username"]?.jsonPrimitive?.content ?: ""
+                        )
+                    } ?: emptyList()
+                    val updatedVoters = _uiState.value.voters.toMutableMap()
+                    updatedVoters[optionId] = votersList
+                    _uiState.value = _uiState.value.copy(
+                        voters = updatedVoters,
+                        isLoadingVoters = false
+                    )
+                },
+                onFailure = {
+                    val updatedVoters = _uiState.value.voters.toMutableMap()
+                    updatedVoters[optionId] = emptyList()
+                    _uiState.value = _uiState.value.copy(
+                        voters = updatedVoters,
+                        isLoadingVoters = false
+                    )
+                }
+            )
+        }
+    }
+
+    suspend fun getVoters(pollId: String, optionId: String): Result<List<Voter>> {
+        return withContext(Dispatchers.IO) {
+            apiClient.get("/v1/polls/$pollId/voters/$optionId").map { json ->
+                json["voters"]?.jsonArray?.map { voterJson ->
+                    Voter(
+                        oderId = voterJson.jsonObject["user_id"]?.jsonPrimitive?.content ?: "",
+                        displayName = voterJson.jsonObject["display_name"]?.jsonPrimitive?.content ?: "",
+                        username = voterJson.jsonObject["username"]?.jsonPrimitive?.content ?: ""
+                    )
+                } ?: emptyList()
+            }
+        }
     }
 }

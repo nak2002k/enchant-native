@@ -23,7 +23,9 @@ data class GroupsUiState(
     val error: String? = null,
     val successMessage: String? = null,
     val inviteLink: String? = null,
-    val invitePreview: GroupResult.Preview? = null
+    val invitePreview: GroupResult.Preview? = null,
+    val disappearingMessagesEnabled: Boolean = false,
+    val disappearingMessagesDurationSeconds: Int = 0
 )
 
 class GroupsViewModel(
@@ -302,6 +304,27 @@ class GroupsViewModel(
                 }
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(error = result.error)
                 else -> _uiState.value = _uiState.value.copy(error = "Unexpected result")
+            }
+        }
+    }
+
+    fun updateDisappearingMessages(groupId: String, enabled: Boolean, durationSeconds: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val result = repository.updateDisappearingMessages(groupId, enabled, durationSeconds)
+            when (result) {
+                is GroupResult.Updated -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    disappearingMessagesEnabled = enabled,
+                    disappearingMessagesDurationSeconds = durationSeconds,
+                    successMessage = "Disappearing messages updated"
+                )
+                is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = result.error
+                )
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
             }
         }
     }

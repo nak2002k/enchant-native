@@ -186,10 +186,12 @@ GET /v1/keys/proof/{user_id}[/{device_id}]   (public)
 
 ### 3.1 WebSocket Connection (port 8003)
 ```
-wss://host:8003/v1/ws?token={jwt}
+wss://host:8003/v1/ws
 ```
-Authenticate by sending the JWT as a query param on connect.
+Authenticate via WebSocket frame: POST `/v1/auth` with JWT as body bytes.
 The WS protocol uses a custom binary envelope format (Protobuf).
+
+**IMPORTANT:** JWT must NOT be passed as a URL query parameter — it would leak to proxy and access logs (see `SECURITY_ANDROID_PRACTICES.md` section 4.2).
 
 **Message Types:**
 - `SIGNAL_MESSAGE` — encrypted text
@@ -1110,7 +1112,7 @@ Key operations your Android client must perform:
 4. **Sync contacts:** POST `/v1/contacts/match` with phone hashes
 5. **Fetch contacts:** GET `/v1/contacts`
 6. **Fetch profiles:** GET `/v1/profile/{user_id}` for each contact
-7. **Connect WebSocket:** `ws://host:8003/v1/ws?token={jwt}`
+7. **Connect WebSocket:** `ws://host:8003/v1/ws` (send JWT via POST /v1/auth frame)
 8. **Fetch pending:** GET `/v1/messages/pending`
 9. **Load preferences:** GET `/v1/notifications/preferences`
 10. **Ready:** Send/receive messages via WebSocket

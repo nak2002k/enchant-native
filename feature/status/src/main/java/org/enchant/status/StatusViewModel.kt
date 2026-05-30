@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -45,6 +46,7 @@ data class StatusFeedEntry(
 data class StatusUiState(
     val feed: List<StatusFeedEntry> = emptyList(),
     val myStatus: StatusFeedEntry? = null,
+    val singleStatus: StatusFeedEntry? = null,
     val viewers: List<StatusViewer> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -192,6 +194,36 @@ class StatusViewModel(
         }
     }
 
+    fun loadSingleStatus(statusId: String) {
+        launchTracked {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val response = apiClient.get("/v1/status/$statusId")
+                response.fold(
+                    onSuccess = { json ->
+                        val entry = (json as? JsonObject)?.toStatusFeedEntry()
+                        _uiState.value = _uiState.value.copy(
+                            singleStatus = entry,
+                            isLoading = false
+                        )
+                    },
+                    onFailure = {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false, error = it.message
+                        )
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "loadSingleStatus failed", e)
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            }
+        }
+    }
+
+    fun clearSingleStatus() {
+        _uiState.value = _uiState.value.copy(singleStatus = null)
+    }
+
     fun getViewers(statusId: String) {
         launchTracked {
             _uiState.value = _uiState.value.copy(isLoading = true)
@@ -264,6 +296,21 @@ class StatusViewModel(
             userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
             username = obj["username"]?.jsonPrimitive?.content ?: "",
             viewedAt = obj["viewed_at"]?.jsonPrimitive?.content ?: ""
+        )
+    }
+
+    private fun JsonObject.toStatusFeedEntry(): StatusFeedEntry {
+        return StatusFeedEntry(
+            statusId = this["status_id"]?.jsonPrimitive?.content ?: "",
+            userId = this["author_user_id"]?.jsonPrimitive?.content ?: "",
+            username = "",
+            type = this["status_type"]?.jsonPrimitive?.content ?: "text",
+            text = this["text_content"]?.jsonPrimitive?.content,
+            mediaId = this["media_id"]?.jsonPrimitive?.content,
+            backgroundColor = this["text_background"]?.jsonPrimitive?.content,
+            createdAt = this["created_ts"]?.jsonPrimitive?.content ?: "",
+            isViewed = this["already_viewed"]?.jsonPrimitive?.content?.toBoolean() ?: false,
+            isMine = false
         )
     }
 

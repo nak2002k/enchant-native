@@ -63,6 +63,9 @@ class ConversationViewModel(
     private val _searchResults = MutableStateFlow<List<Message>>(emptyList())
     val searchResults: StateFlow<List<Message>> = _searchResults.asStateFlow()
 
+    private val _translatedMessage = MutableStateFlow<Pair<String, String>?>(null)
+    val translatedMessage: StateFlow<Pair<String, String>?> = _translatedMessage.asStateFlow()
+
     private var conversationId: String = ""
     private var recipientUserId: String = ""
     private var pagingSource: ChatPagingSource? = null
@@ -309,6 +312,21 @@ class ConversationViewModel(
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
             repo.pinMessage(msg.envelopeId ?: msg.localId.toString(), false)
         }
+    }
+
+    fun translateMessage(envelopeId: String, targetLanguage: String = "en") {
+        viewModelScope.launch {
+            val result = repo.translateMessage(envelopeId, targetLanguage)
+            result.onSuccess { translatedText ->
+                _translatedMessage.value = envelopeId to translatedText
+            }.onFailure {
+                android.util.Log.w("Enchant", "Translation failed: ${it.message}")
+            }
+        }
+    }
+
+    fun clearTranslation() {
+        _translatedMessage.value = null
     }
 
     fun copyToClipboard(text: String) {

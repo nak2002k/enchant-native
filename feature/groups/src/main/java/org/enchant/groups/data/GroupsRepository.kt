@@ -459,4 +459,21 @@ class GroupsRepository(
             }
         }
     }
+
+    suspend fun updateDisappearingMessages(groupId: String, enabled: Boolean, durationSeconds: Int): GroupResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val body = buildJsonObject {
+                    put("disappear_timer_seconds", if (enabled) durationSeconds else 0)
+                }
+                val response = apiClient.put("/v1/groups/$groupId/settings", body)
+                response.fold(
+                    onSuccess = { GroupResult.Updated(true) },
+                    onFailure = { GroupResult.Failed(it.message ?: "Failed to update disappearing messages") }
+                )
+            } catch (e: Exception) {
+                GroupResult.Failed(e.message ?: "Network error")
+            }
+        }
+    }
 }

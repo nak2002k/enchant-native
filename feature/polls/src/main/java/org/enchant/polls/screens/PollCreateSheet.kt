@@ -11,6 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+private const val DEFAULT_CLOSE_SECONDS = 3600
+private const val MIN_CLOSE_SECONDS = 60
+private const val MAX_CLOSE_SECONDS = 604800
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PollCreateSheet(
@@ -25,7 +29,7 @@ fun PollCreateSheet(
     var allowMultiple by remember { mutableStateOf(false) }
     var anonymous by remember { mutableStateOf(false) }
     var enableCloseTimer by remember { mutableStateOf(false) }
-    var closeInSeconds by remember { mutableStateOf("3600") }
+    var closeInSeconds by remember { mutableStateOf(DEFAULT_CLOSE_SECONDS.toString()) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -126,7 +130,7 @@ fun PollCreateSheet(
                 onClick = {
                     val validOptions = options.filter { it.isNotBlank() }
                     val closeSecs = if (enableCloseTimer) closeInSeconds.toIntOrNull()
-                        ?.coerceIn(60, 604800) else null
+                        ?.coerceIn(MIN_CLOSE_SECONDS, MAX_CLOSE_SECONDS) else null
                     onCreate(conversationId, question, validOptions, allowMultiple, anonymous, closeSecs)
                 },
                 enabled = question.isNotBlank() && options.count { it.isNotBlank() } >= 2 && !isCreating,

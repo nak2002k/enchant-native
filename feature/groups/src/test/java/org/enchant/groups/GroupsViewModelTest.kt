@@ -139,6 +139,23 @@ class GroupsViewModelTest {
         }
     }
 
+    @Nested @DisplayName("Update Disappearing Messages")
+    inner class UpdateDisappearingMessagesTest {
+        @Test @DisplayName("updateDisappearingMessages updates disappearing messages settings")
+        fun `update disappearing messages`() = runTest {
+            coEvery { repo.updateDisappearingMessages(any(), any(), any()) } returns GroupResult.Updated(true)
+            viewModel.updateDisappearingMessages("group-1", true, 86400)
+            coVerify { repo.updateDisappearingMessages("group-1", true, 86400) }
+        }
+
+        @Test @DisplayName("updateDisappearingMessages disables disappearing messages when off")
+        fun `disable disappearing messages`() = runTest {
+            coEvery { repo.updateDisappearingMessages(any(), any(), any()) } returns GroupResult.Updated(true)
+            viewModel.updateDisappearingMessages("group-1", false, 0)
+            coVerify { repo.updateDisappearingMessages("group-1", false, 0) }
+        }
+    }
+
     @Nested @DisplayName("Update Group")
     inner class UpdateGroupTest {
         @Test @DisplayName("updateGroup updates group details")

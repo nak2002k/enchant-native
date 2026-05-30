@@ -13,6 +13,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.enchant.core.auth.AuthConstants
+import org.enchant.core.base.SecurePreferences
 import org.enchant.core.network.ApiClient
 
 data class ProfileData(
@@ -76,7 +78,12 @@ class ProfileViewModel(
     }
 
     fun loadMyProfile() {
-        loadProfile("me")
+        val userId = SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: ""
+        if (userId.isNotEmpty()) {
+            loadProfile(userId)
+        } else {
+            _uiState.value = _uiState.value.copy(isLoading = false, error = "User not authenticated")
+        }
     }
 
     fun updateProfile(displayName: String?, about: String?) {

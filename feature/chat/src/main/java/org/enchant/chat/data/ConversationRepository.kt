@@ -12,11 +12,13 @@ import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.entity.ConversationEntity
 import org.enchant.core.database.entity.MessageEntity
-import org.enchant.core.database.entity.RecipientEntity
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.ConversationType
 import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
+import org.enchant.core.network.ApiClient
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 data class MessagePage(
     val messages: List<Message>,
@@ -31,7 +33,8 @@ class ConversationRepository(
     private val conversationDao: ConversationDao,
     private val recipientDao: RecipientDao,
     private val pool: DatabasePool,
-    private val mediaCacheDao: MediaCacheDao = MediaCacheDao(pool)
+    private val mediaCacheDao: MediaCacheDao = MediaCacheDao(pool),
+    private val apiClient: ApiClient? = null
 ) {
     fun getConversations(filter: ConversationFilter = ConversationFilter.ALL): Flow<List<Conversation>> = callbackFlow {
         val allConversations = conversationDao.getAll()
@@ -323,6 +326,40 @@ class ConversationRepository(
                 }
                 map
             }
+        }
+    }
+
+    suspend fun getReplyPreview(envelopeId: String): Result<Message> {
+        val client = apiClient ?: return Result.failure(Exception("ApiClient not available"))
+        return try {
+            val response = client.get("/v1/messages/$envelopeId/reply")
+            response.map { json ->
+                Message(
+                    localId = 0,
+                    envelopeId = json["envelope_id"]?.jsonPrimitive?.content,
+                    conversationId = "",
+                    senderId = json["sender_id"]?.jsonPrimitive?.content ?: "",
+                    content = "",
+                    status = MessageStatus.SENT,
+                    timestamp = System.currentTimeMillis()
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun translateMessage(envelopeId: String, targetLanguage: String): Result<String> {
+        val client = apiClient ?: return Result.failure(Exception("ApiClient not available"))
+        return try {
+            val response = client.post("/v1/messages/$envelopeId/translate", buildJsonObject {
+                put("target_language", targetLanguage)
+            })
+            response.map { json ->
+                json["translated_text"]?.jsonPrimitive?.content ?: ""
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

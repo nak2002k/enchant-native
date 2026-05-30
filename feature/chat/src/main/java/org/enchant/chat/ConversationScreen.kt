@@ -80,6 +80,8 @@ fun ConversationScreen(
     var showDisappearDialog by remember { mutableStateOf(false) }
     var viewOnceMode by remember { mutableStateOf(false) }
     var forwardDialogMessageId by remember { mutableStateOf<String?>(null) }
+    var translateDialogEnvelopeId by remember { mutableStateOf<String?>(null) }
+    val translatedMessage by viewModel.translatedMessage.collectAsState()
 
     LaunchedEffect(searchQuery) {
         if (showSearch) viewModel.searchInConversation(searchQuery)
@@ -539,7 +541,8 @@ fun MessageBubble(
     onForward: (String) -> Unit,
     onCopy: (String) -> Unit,
     onReact: (String) -> Unit,
-    onReport: (String) -> Unit = {}
+    onReport: (String) -> Unit = {},
+    onTranslate: (String) -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val bubbleColor = if (isOutgoing) MaterialTheme.colorScheme.primaryContainer
@@ -655,6 +658,7 @@ fun MessageBubble(
                 DropdownMenuItem(text = { Text("Delete for everyone") }, onClick = { onDeleteEveryone(message.envelopeId ?: ""); showMenu = false })
             }
             DropdownMenuItem(text = { Text("Report") }, onClick = { onReport(message.envelopeId ?: ""); showMenu = false })
+            DropdownMenuItem(text = { Text("Translate") }, onClick = { onTranslate(message.envelopeId ?: ""); showMenu = false })
             DropdownMenuItem(text = { Text("Delete") }, onClick = { onDelete(message.envelopeId ?: ""); showMenu = false })
         }
     }
