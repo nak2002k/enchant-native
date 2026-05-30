@@ -2,6 +2,11 @@ package org.enchant.core.ui
 
 import android.content.res.Resources
 import android.util.DisplayMetrics
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 
 enum class WindowBreakpoint {
     SMALL,
@@ -30,6 +35,13 @@ fun Resources.isSplitPane(forceSplitPane: Boolean = false): Boolean {
     }
 
     return true
+}
+
+@Composable
+fun Resources.rememberIsSplitPane(forceSplitPane: Boolean = false): Boolean {
+    return remember(this, forceSplitPane) {
+        isSplitPane(forceSplitPane)
+    }
 }
 
 fun horizontalPartitionDefaultSpacerSize(widthSizeClass: WindowBreakpoint): Int {

@@ -1,5 +1,7 @@
 package org.enchant.window
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +22,23 @@ data class ScaffoldDirective(
     val defaultPanePreferredWidth: Int = 400
 )
 
-class AppScaffoldNavigatorImpl<T : Any> : AppScaffoldNavigator<T> {
+@Composable
+fun rememberAppScaffoldNavigator(
+    defaultPanePreferredWidth: Int = 400
+): AppScaffoldNavigator<Any> {
+    val isSplitPane = true
+    return remember(isSplitPane) {
+        AppScaffoldNavigatorImpl(
+            maxHorizontalPartitions = if (isSplitPane) 2 else 1,
+            defaultPanePreferredWidth = defaultPanePreferredWidth
+        )
+    }
+}
+
+class AppScaffoldNavigatorImpl<T : Any> @JvmOverloads constructor(
+    maxHorizontalPartitions: Int = 1,
+    defaultPanePreferredWidth: Int = 400
+) : AppScaffoldNavigator<T> {
 
     private val _currentDetail = MutableStateFlow<T?>(null)
     override val currentDetail: StateFlow<T?> = _currentDetail.asStateFlow()
@@ -28,7 +46,10 @@ class AppScaffoldNavigatorImpl<T : Any> : AppScaffoldNavigator<T> {
     private val _canNavigateBack = MutableStateFlow(false)
     override val canNavigateBack: StateFlow<Boolean> = _canNavigateBack.asStateFlow()
 
-    override val scaffoldDirective: ScaffoldDirective = ScaffoldDirective(maxHorizontalPartitions = 1)
+    override val scaffoldDirective: ScaffoldDirective = ScaffoldDirective(
+        maxHorizontalPartitions = maxHorizontalPartitions,
+        defaultPanePreferredWidth = defaultPanePreferredWidth
+    )
 
     override fun navigateTo(detail: T) {
         _currentDetail.value = detail

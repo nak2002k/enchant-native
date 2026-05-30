@@ -25,7 +25,7 @@ import org.enchant.MainNavigationViewModel
 import org.enchant.main.MainFloatingActionButtons
 import org.enchant.main.MainFloatingActionButtonsCallback
 import org.enchant.window.AppScaffold
-import org.enchant.window.AppScaffoldNavigatorImpl
+import org.enchant.window.rememberAppScaffoldNavigator
 
 @Composable
 fun MainNavDisplay(
@@ -37,7 +37,7 @@ fun MainNavDisplay(
     val callUiState by callViewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    val navigator = remember { AppScaffoldNavigatorImpl<Any>() }
+    val navigator = rememberAppScaffoldNavigator()
 
     LaunchedEffect(Unit) {
         mainNavViewModel.wrapNavigator(scope, navigator)
