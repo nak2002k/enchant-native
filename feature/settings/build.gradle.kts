@@ -44,6 +44,7 @@ dependencies {
     implementation(project(":core:network"))
     implementation(project(":core:store"))
     implementation(project(":core:database"))
+    implementation(project(":core:push"))
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
     testImplementation(libs.junit5.api)

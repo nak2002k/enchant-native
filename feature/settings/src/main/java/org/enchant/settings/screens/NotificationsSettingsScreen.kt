@@ -161,7 +161,8 @@ fun NotificationsSettingsScreen(
                 }
             }
 
-            if (!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(LocalContext.current)) {
+            val context = LocalContext.current
+    if (!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -187,16 +188,16 @@ fun NotificationsSettingsScreen(
                                     if (BatteryOptimizationHelper.isXiaomi() ||
                                         BatteryOptimizationHelper.isHuawei() ||
                                         BatteryOptimizationHelper.isOnePlus()) {
-                                        BatteryOptimizationHelper.showAutoStartSettings(LocalContext.current)
+                                        BatteryOptimizationHelper.showAutoStartSettings(context)
                                     } else {
-                                        BatteryOptimizationHelper.requestDisableBatteryOptimization(LocalContext.current)
+                                        BatteryOptimizationHelper.requestDisableBatteryOptimization(context)
                                     }
                                 }
                             ) {
                                 Text("Open Settings")
                             }
                             OutlinedButton(
-                                onClick = { BatteryOptimizationHelper.requestDisableBatteryOptimization(LocalContext.current) }
+                                onClick = { BatteryOptimizationHelper.requestDisableBatteryOptimization(context) }
                             ) {
                                 Text("Disable Optimization")
                             }

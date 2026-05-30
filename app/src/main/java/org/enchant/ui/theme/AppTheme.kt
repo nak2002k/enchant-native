@@ -73,7 +73,6 @@ object AppThemeManager {
     }
 
     fun loadTheme() {
-        EnchantStore.settings.theme
     }
 }
 
@@ -81,7 +80,11 @@ object AppThemeManager {
 fun NotionTheme(
     content: @Composable () -> Unit
 ) {
-    val theme = AppThemeManager.currentTheme()
+    val theme = try {
+        AppThemeManager.currentTheme()
+    } catch (e: Exception) {
+        "system"
+    }
     val isDark = when (theme) {
         "dark" -> true
         "light" -> false

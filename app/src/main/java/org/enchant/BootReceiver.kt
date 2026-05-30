@@ -3,19 +3,17 @@ package org.enchant
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import org.enchant.core.network.WebSocketService
+import org.enchant.core.network.WebSocketForegroundService
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action == Intent.ACTION_BOOT_COMPLETED || intent?.action == "android.intent.action.QUICKBOOT_POWERON") {
             val jwt = org.enchant.core.base.SecurePreferences.getString("auth.jwt")
             if (jwt == null) {
-                android.util.Log.d("BootReceiver", "No auth token, skipping WebSocketService")
+                android.util.Log.d("BootReceiver", "No auth token, skipping WebSocketForegroundService")
                 return
             }
-            val wsIntent = Intent(context, WebSocketService::class.java).apply {
-                action = WebSocketService.ACTION_CONNECT
-            }
+            val wsIntent = Intent(context, WebSocketForegroundService::class.java)
             try {
                 context.startForegroundService(wsIntent)
             } catch (e: IllegalStateException) {

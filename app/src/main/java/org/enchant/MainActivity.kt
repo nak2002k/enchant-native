@@ -7,20 +7,30 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import org.enchant.auth.AuthNavDisplay
 import org.enchant.auth.AuthViewModel
 import org.enchant.core.auth.AuthState
-import org.enchant.core.calls.CallManager
 import org.enchant.ui.theme.NotionTheme
 
 class MainActivity : ComponentActivity() {
@@ -61,7 +71,6 @@ class MainActivity : ComponentActivity() {
                 val roomId = data.pathSegments.firstOrNull()
                 if (roomId != null) {
                     // Launch call link join screen
-                    // Navigate handled reactively via CallViewModel
                 }
             }
         }
@@ -70,12 +79,45 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation() {
+    var diReady by remember { mutableStateOf(false) }
+    var initFailed by remember { mutableStateOf(false) }
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
 
-    when (authState) {
-        is AuthState.Authenticated -> MainNavDisplay()
-        is AuthState.Unauthenticated -> AuthNavDisplay(
+    LaunchedEffect(Unit) {
+        var attempts = 0
+        while (!DI.isInitialized && attempts < 100) {
+            delay(100)
+            attempts++
+        }
+        if (!DI.isInitialized) {
+            initFailed = true
+        } else {
+            diReady = true
+        }
+    }
+
+    when {
+        initFailed -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Initialization failed")
+                    Spacer(Modifier.height(8.dp))
+                    Text("Check logs for details")
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { initFailed = false }) {
+                        Text("Retry")
+                    }
+                }
+            }
+        }
+        !diReady -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        authState is AuthState.Authenticated -> MainNavDisplay()
+        authState is AuthState.Unauthenticated -> AuthNavDisplay(
             viewModel = authViewModel,
             onAuthComplete = { }
         )

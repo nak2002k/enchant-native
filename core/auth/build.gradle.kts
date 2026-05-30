@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.workmanager)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
     implementation(project(":core:crypto"))

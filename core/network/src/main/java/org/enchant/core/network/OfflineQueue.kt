@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.enchant.core.base.SecurePreferences
 import java.util.UUID
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.LinkedList
 
 data class QueuedMessage(
     val id: String = UUID.randomUUID().toString(),
@@ -20,7 +20,7 @@ data class QueuedMessage(
 )
 
 object OfflineQueue {
-    private val queue = ConcurrentLinkedQueue<QueuedMessage>()
+    private val queue = LinkedList<QueuedMessage>()
     @Volatile
     private var maxEntries = 1000
     private val _pendingCount = MutableStateFlow(0)
@@ -87,8 +87,8 @@ object OfflineQueue {
         persistToDisk()
     }
 
-    suspend fun drain(): List<Result<QueuedMessage>> {
-        val results = mutableListOf<Result<QueuedMessage>>()
+    suspend fun drain(): List<Result<Unit>> {
+        val results = mutableListOf<Result<Unit>>()
         while (true) {
             val msg = queue.poll() ?: break
             try {
@@ -104,23 +104,25 @@ object OfflineQueue {
                 if (result.isFailure) {
                     val retried = msg.copy(retryCount = msg.retryCount + 1)
                     if (retried.retryCount < 5) {
-                        queue.offer(retried)
+                        queue.addFirst(retried)
                         _pendingCount.value = queue.size
                         persistToDisk()
                     }
                     results.add(Result.failure(Exception("Send failed for msg ${msg.id}")))
+                    break
                 } else {
-                    results.add(Result.success(msg))
+                    results.add(Result.success(Unit))
                 }
             } catch (e: Exception) {
                 Log.w("OfflineQueue", "Drain failed for msg ${msg.id}: ${e.message}, re-enqueue")
                 val retried = msg.copy(retryCount = msg.retryCount + 1)
                 if (retried.retryCount < 5) {
-                    queue.offer(retried)
+                    queue.addFirst(retried)
                     _pendingCount.value = queue.size
                     persistToDisk()
                 }
                 results.add(Result.failure(e))
+                break
             }
         }
         _pendingCount.value = queue.size

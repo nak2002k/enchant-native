@@ -43,7 +43,7 @@ fun MainNavigationDetailLocationEffect(
 
     LaunchedEffect(Unit) {
         mainNavigationViewModel.detailLocation.collect { location ->
-            if (state == location) {
+            if (state != location) {
                 mainNavigationViewModel.setFocusedPane(
                     if (location == MainNavigationDetailLocation.Empty) {
                         "Secondary"
@@ -54,8 +54,8 @@ fun MainNavigationDetailLocationEffect(
                         "Primary"
                     }
                 )
+                state = location
             }
-            state = location
         }
     }
 }

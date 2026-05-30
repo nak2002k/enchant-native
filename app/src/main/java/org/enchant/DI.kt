@@ -86,6 +86,8 @@ object DI {
                 SecurePreferences.init(context)
                 _securePreferences = SecurePreferences
 
+                EnchantStore.init(context)
+
                 val client = ApiClient()
                 client.init()
                 ApiClient.setInstance(client)

@@ -69,6 +69,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:crash"))
     implementation(project(":core:config"))
+    implementation(libs.timber)
 
     implementation(project(":feature:auth"))
     implementation(project(":feature:chat"))

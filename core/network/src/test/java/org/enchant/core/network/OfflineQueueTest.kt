@@ -1,5 +1,6 @@
 package org.enchant.core.network
 
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
@@ -208,9 +209,10 @@ class OfflineQueueTest {
             every { SecurePreferences.putInt(any(), any()) } returns Unit
             every { SecurePreferences.putString(any(), any()) } returns Unit
             mockkObject(WebSocketManager)
-            io.mockk.coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.success(Unit)
+            coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.success(Unit)
 
-            OfflineQueue.enqueue(QueuedMessage(id = "drain-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
+            val msg = QueuedMessage(id = "drain-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
+            OfflineQueue.enqueue(msg)
             assertEquals(1, OfflineQueue.pendingCount.value)
 
             val results = OfflineQueue.drain()
@@ -221,16 +223,17 @@ class OfflineQueueTest {
             unmockkObject(SecurePreferences)
         }
 
-        @Test @DisplayName("drain re-enqueues failed messages for retry")
+        @Test @DisplayName("drain re-enqueues and returns failure when send fails")
         fun `drain re-enqueues on failure`() = runTest {
             mockkObject(SecurePreferences)
             every { SecurePreferences.getString(any(), any()) } returns null
             every { SecurePreferences.putInt(any(), any()) } returns Unit
             every { SecurePreferences.putString(any(), any()) } returns Unit
             mockkObject(WebSocketManager)
-            io.mockk.coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.failure(Exception("Network error"))
+            coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.failure(Exception("Network error"))
 
-            OfflineQueue.enqueue(QueuedMessage(id = "fail-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
+            val msg = QueuedMessage(id = "fail-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
+            OfflineQueue.enqueue(msg)
 
             val results = OfflineQueue.drain()
             assertEquals(1, results.size)
