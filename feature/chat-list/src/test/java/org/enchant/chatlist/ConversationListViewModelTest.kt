@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.enchant.chat.data.ConversationRepository
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.ConversationType
+import org.enchant.core.network.ApiClient
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -18,14 +19,16 @@ import org.junit.jupiter.api.Test
 class ConversationListViewModelTest {
 
     private lateinit var repo: ConversationRepository
+    private lateinit var apiClient: ApiClient
     private lateinit var viewModel: ConversationListViewModel
 
     @BeforeEach
     fun setUp() {
         repo = mockk(relaxed = true)
+        apiClient = mockk(relaxed = true)
         coEvery { repo.getConversations(any()) } returns flowOf(emptyList())
         coEvery { repo.getUnreadCount() } returns flowOf(0)
-        viewModel = ConversationListViewModel(repo)
+        viewModel = ConversationListViewModel(repo, apiClient)
     }
 
     @Nested @DisplayName("Init")
@@ -34,8 +37,8 @@ class ConversationListViewModelTest {
         fun `init loads`() = runTest {
             coEvery { repo.getConversations(any()) } returns flowOf(
                 listOf(
-                    Conversation(id = "conv-1", type = ConversationType.DIRECT, lastMessage = "Hello", unreadCount = 1, timestamp = 1000),
-                    Conversation(id = "conv-2", type = ConversationType.GROUP, lastMessage = "Hi", unreadCount = 0, timestamp = 2000)
+                    Conversation(id = "conv-1", type = ConversationType.DIRECT, lastMessage = "Hello", unreadCount = 1, lastMessageTimestamp = 1000),
+                    Conversation(id = "conv-2", type = ConversationType.GROUP, lastMessage = "Hi", unreadCount = 0, lastMessageTimestamp = 2000)
                 )
             )
             viewModel.init()
@@ -63,7 +66,7 @@ class ConversationListViewModelTest {
         @Test @DisplayName("selectFilter changes conversation filter")
         fun `select filter`() = runTest {
             viewModel.selectFilter(org.enchant.chat.data.ConversationFilter.UNREAD)
-            assertEquals(org.enchant.chat.data.ConversationFilter.UNREAD, viewModel.currentFilter.value)
+            assertEquals(org.enchant.chat.data.ConversationFilter.UNREAD, viewModel.filter.value)
         }
     }
 
@@ -96,7 +99,7 @@ class ConversationListViewModelTest {
         @Test @DisplayName("muteConversation mutes a conversation")
         fun `mute conversation`() = runTest {
             viewModel.muteConversation("conv-1", 86400)
-            coVerify { repo.setMuted("conv-1", 86400) }
+            coVerify { repo.setMuted("conv-1", true, 86400) }
         }
     }
 

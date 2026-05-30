@@ -3,9 +3,14 @@ package org.enchant.groups
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.enchant.groups.data.GroupResult
 import org.enchant.groups.data.GroupsRepository
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -15,16 +20,23 @@ import org.junit.jupiter.api.Test
 @DisplayName("GroupsViewModel — Full Coverage")
 class GroupsViewModelTest {
 
+    private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var repo: GroupsRepository
     private lateinit var viewModel: GroupsViewModel
 
     @BeforeEach
     fun setUp() {
+        Dispatchers.setMain(testDispatcher)
         repo = mockk(relaxed = true)
         coEvery { repo.getGroups() } returns emptyList()
         coEvery { repo.getGroupInfo(any()) } returns GroupResult.Failed("not found")
         coEvery { repo.getMembers(any()) } returns emptyList()
         viewModel = GroupsViewModel(repo)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        Dispatchers.resetMain()
     }
 
     @Nested @DisplayName("Load Groups")
@@ -137,6 +149,7 @@ class GroupsViewModelTest {
     }
 
     @Nested @DisplayName("UI State")
+    inner class UiStateTest {
         @Test @DisplayName("uiState has default values")
         fun `ui state defaults`() = runTest {
             val state = viewModel.uiState.value

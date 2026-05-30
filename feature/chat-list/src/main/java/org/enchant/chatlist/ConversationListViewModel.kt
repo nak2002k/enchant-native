@@ -178,6 +178,10 @@ class ConversationListViewModel(
         _navigationEvent.value = null
     }
 
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     override fun onCleared() {
         super.onCleared()
         collectJob?.cancel()

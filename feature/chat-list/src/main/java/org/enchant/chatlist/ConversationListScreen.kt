@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import org.enchant.chat.data.ConversationFilter
 import org.enchant.core.model.Conversation
@@ -101,6 +103,9 @@ fun ConversationListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.refresh() }) {
+                        Icon(Icons.Default.Refresh, "Refresh")
+                    }
                     IconButton(onClick = { showSearch = !showSearch; if (!showSearch) viewModel.search("") }) {
                         Icon(if (showSearch) Icons.Default.Close else Icons.Default.Search, "Search")
                     }
@@ -255,6 +260,7 @@ private fun ConversationTile(
     conversation: Conversation,
     onClick: () -> Unit,
     onArchive: () -> Unit,
+    onMute: () -> Unit,
     onPin: () -> Unit,
     onMarkRead: () -> Unit,
     onDelete: () -> Unit
@@ -281,8 +287,9 @@ private fun ConversationTile(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = conversation.id.take(2).uppercase(),
-                            style = MaterialTheme.typography.titleMedium
+                            text = (conversation.lastMessage?.take(2)?.uppercase() ?: conversation.type.name.take(1)),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.semantics { contentDescription = "Avatar" }
                         )
                     }
                 }
@@ -335,17 +342,23 @@ private fun ConversationTile(
                         modifier = Modifier.weight(1f)
                     )
 
-                    if (conversation.unreadCount > 0) {
+        DropdownMenuItem(
+            text = { Text(if (conversation.isMuted) "Unmute" else "Mute") },
+            onClick = { onMute(); showMenu = false },
+            leadingIcon = { Icon(if (conversation.isMuted) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null) }
+        )
+        if (conversation.unreadCount > 0) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primary
                         ) {
                             Text(
-                                text = if (conversation.unreadCount > 99) "99+" else conversation.unreadCount.toString(),
+                                text = if (conversation.unreadCount >= 100) "99+" else conversation.unreadCount.toString(),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .semantics { contentDescription = "${conversation.unreadCount} unread messages" }
                             )
                         }
                     }
@@ -425,7 +438,10 @@ private fun formatTimestamp(timestamp: Long?): String {
     return when {
         diff < 60_000 -> "now"
         diff < 3600_000 -> "${diff / 60_000}m"
-        diff < 86400_000 -> "${diff / 3600_000}h"
+        diff < 86400_000 -> {
+            val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+            "${cal.get(java.util.Calendar.HOUR_OF_DAY).toString().padStart(2, '0')}:${cal.get(java.util.Calendar.MINUTE).toString().padStart(2, '0')}"
+        }
         diff < 604800_000 -> "${diff / 86400_000}d"
         else -> {
             val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
