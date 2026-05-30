@@ -31,7 +31,7 @@ object NotificationBuilder {
     private val requestCodeCounter = java.util.concurrent.atomic.AtomicInteger(0)
 
     private fun uniqueRequestCode(base: Int): Int {
-        return base xor requestCodeCounter.incrementAndGet()
+        return base + requestCodeCounter.incrementAndGet()
     }
 
     fun buildMessageNotification(
@@ -63,10 +63,11 @@ object NotificationBuilder {
             .addAction(markReadAction)
             .setAutoCancel(true)
             .setNumber(messageCount)
-            .setGroup(conversationId)
+            .setGroup(SUMMARY_GROUP)
             .setGroupSummary(messageCount > 1)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
     }
 
@@ -82,13 +83,17 @@ object NotificationBuilder {
             .setBigContentTitle("${conversationList.size} conversations")
             .setSummaryText("Tap to open")
 
-        conversationList.take(10).forEach { conv ->
+        conversationList.take(7).forEach { conv ->
             val line = if (conv.displayName.length > 20) {
                 "${conv.displayName.take(20)}… ${conv.snippet.take(40)}"
             } else {
                 "${conv.displayName} ${conv.snippet.take(50)}"
             }
             inboxStyle.addLine(line)
+        }
+
+        if (conversationList.size > 7) {
+            inboxStyle.addLine("+${conversationList.size - 7} more")
         }
 
         return NotificationCompat.Builder(context, channelId)
@@ -101,6 +106,7 @@ object NotificationBuilder {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setGroupSummary(true)
             .setGroup(SUMMARY_GROUP)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
     }
 
@@ -151,6 +157,7 @@ object NotificationBuilder {
             .setFullScreenIntent(answerIntent, true)
             .setOngoing(true)
             .setAutoCancel(false)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
     }
 

@@ -50,8 +50,9 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                         )
                     )
                 ))
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
-            finally { pendingResult.finish() }
+            } catch (e: Exception) {
+                android.util.Log.e("Enchant", "Reply failed: ${e.message}", e)
+            } finally { pendingResult.finish() }
         }
     }
 
@@ -62,8 +63,9 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                 apiClient.post("/v1/messages/read", kotlinx.serialization.json.JsonObject(
                     mapOf("conversation_id" to kotlinx.serialization.json.JsonPrimitive(conversationId))
                 ))
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
-            finally { pendingResult.finish() }
+            } catch (e: Exception) {
+                android.util.Log.e("Enchant", "Mark read failed: ${e.message}", e)
+            } finally { pendingResult.finish() }
         }
     }
 
