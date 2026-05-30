@@ -1,0 +1,145 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+package org.whispersystems.textsecuregcm.auth;
+
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Response;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
+import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
+import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
+import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import javax.annotation.Nullable;
+
+public class PhoneVerificationTokenManager {
+
+  private static final Logger logger = LoggerFactory.getLogger(PhoneVerificationTokenManager.class);
+  private static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
+  private static final long VERIFICATION_TIMEOUT_SECONDS = REGISTRATION_RPC_TIMEOUT.plusSeconds(1).getSeconds();
+
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers;
+
+  private final RegistrationServiceClient registrationServiceClient;
+  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final RegistrationRecoveryChecker registrationRecoveryChecker;
+
+  public PhoneVerificationTokenManager(final PhoneNumberIdentifiers phoneNumberIdentifiers,
+      final RegistrationServiceClient registrationServiceClient,
+      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final RegistrationRecoveryChecker registrationRecoveryChecker) {
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
+    this.registrationServiceClient = registrationServiceClient;
+    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.registrationRecoveryChecker = registrationRecoveryChecker;
+  }
+
+  /**
+   * Checks if a {@link PhoneVerificationRequest} has a token that verifies the caller has confirmed access to the e164
+   * number
+   *
+   * @param requestContext the container request context
+   * @param number  the e164 presented for verification
+   * @param sessionId a verification session ID; exactly one of {@code sessionId} or {@code recoveryPassword} must be
+   *                  non-null
+   * @param recoveryPassword a registration recovery password; exactly one of {@code sessionId} or
+   *                         {@code recoveryPassword} must be non-null
+   * @return if verification was successful, returns the verification type
+   * @throws BadRequestException    if the number does not match the sessionId’s number, or the remote service rejects
+   *                                the session ID as invalid
+   * @throws NotAuthorizedException if the session is not verified
+   * @throws ForbiddenException     if the recovery password is not valid
+   * @throws InterruptedException   if verification did not complete before a timeout
+   */
+  public PhoneVerificationRequest.VerificationType verify(final ContainerRequestContext requestContext,
+      final String number,
+      @Nullable final byte[] sessionId,
+      @Nullable final byte[] recoveryPassword) throws InterruptedException {
+
+    if ((sessionId == null) == (recoveryPassword == null)) {
+      throw new IllegalArgumentException("Exactly one of session ID or recovery password must non-null");
+    }
+
+    final PhoneVerificationRequest.VerificationType verificationType = sessionId != null
+        ? PhoneVerificationRequest.VerificationType.SESSION
+        : PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD;
+
+    switch (verificationType) {
+      case SESSION -> verifyBySessionId(number, sessionId);
+      case RECOVERY_PASSWORD -> verifyByRecoveryPassword(requestContext, number, recoveryPassword);
+    }
+
+    return verificationType;
+  }
+
+  private void verifyBySessionId(final String number, final byte[] sessionId) throws InterruptedException {
+    try {
+      final RegistrationServiceSession session = registrationServiceClient
+          .getSession(sessionId, REGISTRATION_RPC_TIMEOUT)
+          .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+          .orElseThrow(() -> new NotAuthorizedException("session not verified"));
+
+      if (!MessageDigest.isEqual(number.getBytes(), session.number().getBytes())) {
+        throw new BadRequestException("number does not match session");
+      }
+      if (!session.verified()) {
+        throw new NotAuthorizedException("session not verified");
+      }
+    } catch (final ExecutionException e) {
+
+      if (e.getCause() instanceof StatusRuntimeException grpcRuntimeException) {
+        if (grpcRuntimeException.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
+          throw new BadRequestException();
+        }
+      }
+
+      logger.error("Registration service failure", e);
+      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
+
+    } catch (final CancellationException | TimeoutException e) {
+
+      logger.error("Registration service failure", e);
+      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
+    }
+  }
+
+  private void verifyByRecoveryPassword(final ContainerRequestContext requestContext,
+      final String number,
+      final byte[] recoveryPassword) throws InterruptedException {
+
+    if (!registrationRecoveryChecker.checkRegistrationRecoveryAttempt(requestContext, number)) {
+      throw new ForbiddenException("recoveryPassword couldn't be verified");
+    }
+
+    try {
+      final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number)
+          .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+      final boolean verified = registrationRecoveryPasswordsManager.verify(phoneNumberIdentifier, recoveryPassword);
+
+      if (!verified) {
+        throw new ForbiddenException("recoveryPassword couldn't be verified");
+      }
+    } catch (final ExecutionException | TimeoutException e) {
+      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
+    }
+  }
+}

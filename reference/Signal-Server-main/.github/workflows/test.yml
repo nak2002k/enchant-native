@@ -1,0 +1,67 @@
+name: Service CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - gh-pages
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    timeout-minutes: 20
+
+    services:
+      foundationdb0:
+        # Note: this should generally match the version of the FoundationDB SERVER deployed in production; it's okay if
+        # it's a little behind the CLIENT version.
+        image: foundationdb/foundationdb:7.3.62
+        options: --name foundationdb0
+      foundationdb1:
+        # Note: this should generally match the version of the FoundationDB SERVER deployed in production; it's okay if
+        # it's a little behind the CLIENT version.
+        image: foundationdb/foundationdb:7.3.62
+        options: --name foundationdb1
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: 'temurin'
+          java-version-file: .java-version
+          cache: 'maven'
+        env:
+          # work around an issue with actions/runner setting an incorrect HOME in containers, which breaks maven caching
+          # https://github.com/actions/setup-java/issues/356
+          HOME: /root
+      - name: Install APT packages
+        # ca-certificates: required for AWS CRT client
+        run: |
+          # Add Docker's official GPG key:
+          apt update
+          apt install -y ca-certificates curl
+          install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          chmod a+r /etc/apt/keyrings/docker.asc
+
+          # Add Docker repository to apt sources:
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+            tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+          # ca-certificates: required for AWS CRT client
+          apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin ca-certificates
+      - name: Configure FoundationDB0 database
+        run: docker exec foundationdb0 /usr/bin/fdbcli --exec 'configure new single memory'
+      - name: Configure FoundationDB1 database
+        run: docker exec foundationdb1 /usr/bin/fdbcli --exec 'configure new single memory'
+      - name: Download and install FoundationDB client
+        run: |
+          ./mvnw -e -B -Pexclude-spam-filter clean prepare-package -DskipTests=true
+          cp service/target/jib-extra/usr/lib/libfdb_c.x86_64.so /usr/lib/libfdb_c.x86_64.so
+          ldconfig
+      - name: Build with Maven
+        run: ./mvnw -e -B clean verify -DfoundationDb.serviceContainerNamePrefix=foundationdb

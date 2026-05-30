@@ -1,0 +1,926 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+package org.whispersystems.textsecuregcm.controllers;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.Invocation;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.Response;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.http.HttpStatus;
+import org.glassfish.jersey.server.ServerProperties;
+import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.ArgumentSets;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.AccountCreationResponse;
+import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
+import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
+import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import org.whispersystems.textsecuregcm.storage.DeviceSpec;
+import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.MockUtils;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+
+@ExtendWith(DropwizardExtensionsSupport.class)
+class RegistrationControllerTest {
+
+  private static final String NUMBER = PhoneNumberUtil.getInstance().format(
+      PhoneNumberUtil.getInstance().getExampleNumber("US"),
+      PhoneNumberUtil.PhoneNumberFormat.E164);
+  private static final String PASSWORD = "password";
+  private static final String REGLOCK = RandomStringUtils.insecure().nextAlphanumeric(64);
+
+  private final AccountsManager accountsManager = mock(AccountsManager.class);
+  private final RegistrationLockVerificationManager registrationLockVerificationManager
+      = mock(RegistrationLockVerificationManager.class);
+  private final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private final RegistrationFraudChecker registrationFraudChecker = mock(RegistrationFraudChecker.class);
+  private final PhoneVerificationTokenManager phoneVerificationTokenManager = mock(PhoneVerificationTokenManager.class);
+
+  private final RateLimiter registrationLimiter = mock(RateLimiter.class);
+
+  private final ResourceExtension resources = ResourceExtension.builder()
+      .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
+      .addProvider(new RateLimitExceededExceptionMapper())
+      .addProvider(new ImpossiblePhoneNumberExceptionMapper())
+      .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
+      .setMapper(SystemMapper.jsonMapper())
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new RegistrationController(accountsManager, phoneVerificationTokenManager,
+          registrationLockVerificationManager, rateLimiters, registrationFraudChecker))
+      .build();
+
+  @BeforeEach
+  void setUp() throws InterruptedException {
+    when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
+
+    when(accountsManager.update(any(UUID.class), any())).thenAnswer(invocation -> {
+      final Account account = invocation.getArgument(0);
+      final Consumer<Account> accountUpdater = invocation.getArgument(1);
+
+      accountUpdater.accept(account);
+
+      return invocation.getArgument(0);
+    });
+
+    reset(registrationFraudChecker);
+    reset(phoneVerificationTokenManager);
+
+    when(phoneVerificationTokenManager.verify(any(), any(), any(), any())).thenAnswer(invocation -> {
+      final byte[] sessionId = invocation.getArgument(2);
+
+      return sessionId != null
+          ? PhoneVerificationRequest.VerificationType.SESSION
+          : PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD;
+    });
+  }
+
+  @Test
+  void unprocessableRequestJson() {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request();
+    try (Response response = request.post(Entity.json(unprocessableJson()))) {
+      assertEquals(400, response.getStatus());
+    }
+  }
+
+  static Stream<Arguments> invalidRegistrationId() {
+    return Stream.of(
+        Arguments.of(Optional.of(1), Optional.of(1), 200),
+        Arguments.of(Optional.of(1), Optional.empty(), 422),
+        Arguments.of(Optional.of(0x3FFF), Optional.empty(), 422),
+        Arguments.of(Optional.empty(), Optional.of(1), 422),
+        Arguments.of(Optional.of(Integer.MAX_VALUE), Optional.empty(), 422),
+        Arguments.of(Optional.of(0x3FFF + 1), Optional.empty(), 422),
+        Arguments.of(Optional.of(1), Optional.of(0x3FFF + 1), 422)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void invalidRegistrationId(Optional<Integer> registrationId, Optional<Integer> pniRegistrationId, int statusCode) throws InterruptedException, JsonProcessingException {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId.orElse(0));
+
+    try (Response response = request.post(Entity.json(json))) {
+      assertEquals(statusCode, response.getStatus());
+    }
+  }
+
+  @Test
+  void missingBasicAuthorization() {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request();
+    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(400, response.getStatus());
+    }
+  }
+
+  @Test
+  void invalidBasicAuthorization() {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, "Basic but-invalid");
+    try (Response response = request.post(Entity.json(invalidRequestJson()))) {
+      assertEquals(401, response.getStatus());
+    }
+  }
+
+  @Test
+  void invalidRequestBody() {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    try (Response response = request.post(Entity.json(invalidRequestJson()))) {
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  @Test
+  void rateLimitedNumber() throws Exception {
+    doThrow(RateLimitExceededException.class)
+        .when(registrationLimiter).validate(NUMBER);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(429, response.getStatus());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void phoneVerificationException(final Exception exception, final int expectedStatus) throws InterruptedException {
+    doThrow(exception)
+        .when(phoneVerificationTokenManager).verify(any(), any(), any(), any());
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(expectedStatus, response.getStatus());
+    }
+  }
+
+  private static List<Arguments> phoneVerificationException() {
+    return List.of(
+        Arguments.argumentSet("Bad request", new BadRequestException(), HttpStatus.SC_BAD_REQUEST),
+        Arguments.argumentSet("Not authorized", new NotAuthorizedException("test"), HttpStatus.SC_UNAUTHORIZED),
+        Arguments.argumentSet("Forbidden", new ForbiddenException(), HttpStatus.SC_FORBIDDEN),
+        Arguments.argumentSet("Unexpected exception", new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE), HttpStatus.SC_SERVICE_UNAVAILABLE)
+    );
+  }
+
+  @CartesianTest
+  @CartesianTest.MethodFactory("registrationLockAndDeviceTransfer")
+  void registrationLockAndDeviceTransfer(
+      final boolean deviceTransferSupported,
+      @Nullable final RegistrationLockError error) throws Exception {
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByE164(any())).thenReturn(Optional.of(account));
+    when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(deviceTransferSupported);
+
+    final int expectedStatus;
+    if (deviceTransferSupported) {
+      expectedStatus = 409;
+    } else if (error != null) {
+      final Exception e = switch (error) {
+        case MISMATCH -> new WebApplicationException(error.getExpectedStatus());
+        case RATE_LIMITED -> new RateLimitExceededException(null);
+      };
+      doThrow(e)
+          .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());
+      expectedStatus = error.getExpectedStatus();
+    } else {
+      final Account createdAccount = mock(Account.class);
+      when(createdAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+      when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+          .thenReturn(createdAccount);
+
+      expectedStatus = 200;
+    }
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(expectedStatus, response.getStatus());
+    }
+  }
+
+  @SuppressWarnings("unused")
+  static ArgumentSets registrationLockAndDeviceTransfer() {
+    final Set<RegistrationLockError> registrationLockErrors = new HashSet<>(EnumSet.allOf(RegistrationLockError.class));
+    registrationLockErrors.add(null);
+
+    return ArgumentSets.argumentsForFirstParameter(true, false)
+        .argumentsForNextParameter(registrationLockErrors);
+  }
+
+  @Test
+  void registrationLockOnAlternatePhoneNumberForm() throws Exception {
+    final String newFormatBeninNumber = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final String oldFormatBeninNumber = newFormatBeninNumber.replaceFirst("01", "");
+
+    assertNotEquals(newFormatBeninNumber, oldFormatBeninNumber);
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByE164(oldFormatBeninNumber)).thenReturn(Optional.of(account));
+    when(accountsManager.getByE164(newFormatBeninNumber)).thenReturn(Optional.empty());
+
+    doThrow(new WebApplicationException(RegistrationLockError.MISMATCH.getExpectedStatus()))
+        .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(newFormatBeninNumber, PASSWORD));
+
+    try (final Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(RegistrationLockError.MISMATCH.getExpectedStatus(), response.getStatus());
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "false, false, false, 200",
+      "true, false, false, 200",
+      "true, false, true, 200",
+      "true, true, false, 409",
+      "true, true, true, 200"
+  })
+  void deviceTransferAvailable(final boolean existingAccount, final boolean transferSupported,
+      final boolean skipDeviceTransfer, final int expectedStatus) throws Exception {
+
+    final Optional<Account> maybeAccount;
+    if (existingAccount) {
+      final Account account = mock(Account.class);
+      when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(transferSupported);
+      maybeAccount = Optional.of(account);
+    } else {
+      maybeAccount = Optional.empty();
+    }
+    when(accountsManager.getByE164(any())).thenReturn(maybeAccount);
+
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    try (Response response = request.post(Entity.json(requestJson("sessionId", new byte[0], skipDeviceTransfer, 1, 2)))) {
+      assertEquals(expectedStatus, response.getStatus());
+    }
+  }
+
+  // this is functionally the same as deviceTransferAvailable(existingAccount=false)
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void registrationSuccess(final boolean useSessionVerification) throws Exception {
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    final String requestJson = useSessionVerification
+        ? requestJson("sessionId")
+        : requestJsonRecoveryPassword("recovery-password".getBytes(StandardCharsets.UTF_8));
+
+    try (Response response = request.post(Entity.json(requestJson))) {
+      assertEquals(200, response.getStatus());
+    }
+
+    if (useSessionVerification) {
+      verify(registrationFraudChecker)
+          .handleVerificationCompleted(Base64.getEncoder().encodeToString("sessionId".getBytes(StandardCharsets.UTF_8)),
+              account);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void atomicAccountCreationConflictingChannel(final RegistrationRequest conflictingChannelRequest) {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD))
+        .post(Entity.json(conflictingChannelRequest))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  static List<Arguments> atomicAccountCreationConflictingChannel() {
+    final IdentityKey aciIdentityKey;
+    final IdentityKey pniIdentityKey;
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+    {
+      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+
+      aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+      pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+      aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+      pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+      aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+      pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+    }
+
+    final AccountAttributes fetchesMessagesAccountAttributes =
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+
+    final AccountAttributes pushAccountAttributes =
+        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+
+    return List.of(
+        Arguments.argumentSet("\"Fetches messages\" is true, but an APNs token is provided",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                fetchesMessagesAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.of(new ApnRegistrationId("apns-token")),
+                    Optional.empty()))),
+
+        Arguments.argumentSet("\"Fetches messages\" is true, but an FCM (GCM) token is provided",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                fetchesMessagesAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.of(new GcmRegistrationId("gcm-token"))))),
+
+        Arguments.argumentSet("\"Fetches messages\" is false, but multiple types of push tokens are provided",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                pushAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.of(new ApnRegistrationId("apns-token")),
+                    Optional.of(new GcmRegistrationId("gcm-token")))))
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void atomicAccountCreationPartialSignedPreKeys(final RegistrationRequest partialSignedPreKeyRequest) {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    try (final Response response = request.post(Entity.json(partialSignedPreKeyRequest))) {
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  static List<Arguments> atomicAccountCreationPartialSignedPreKeys() {
+    final IdentityKey aciIdentityKey;
+    final IdentityKey pniIdentityKey;
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+    {
+      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+
+      aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+      pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+      aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+      pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+      aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+      pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+    }
+
+    final AccountAttributes accountAttributes =
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+
+    return List.of(
+        Arguments.argumentSet("Signed PNI EC pre-key is missing",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                accountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    null,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.empty()))),
+
+        Arguments.argumentSet("Signed ACI EC pre-key is missing",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                accountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(null,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.empty()))),
+
+        Arguments.argumentSet("Signed PNI KEM pre-key is missing",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                accountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    null,
+                    Optional.empty(),
+                    Optional.empty()))),
+
+        Arguments.argumentSet("Signed ACI KEM pre-key is missing",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                accountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    null,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.empty()))),
+
+        Arguments.argumentSet("All signed pre-keys are present, but ACI identity key is missing",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                accountAttributes,
+                true,
+                null,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.empty()))),
+
+        Arguments.argumentSet("All signed pre-keys are present, but PNI identity key is missing",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                accountAttributes,
+                true,
+                aciIdentityKey,
+                null,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.empty())))
+    );
+  }
+
+
+  @ParameterizedTest
+  @MethodSource
+  void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
+      final IdentityKey expectedAciIdentityKey,
+      final IdentityKey expectedPniIdentityKey,
+      final DeviceSpec expectedDeviceSpec) throws InterruptedException {
+
+    final UUID accountIdentifier = UUID.randomUUID();
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
+    final Device device = mock(Device.class);
+
+    final Account account = MockUtils.buildMock(Account.class, a -> {
+      when(a.getUuid()).thenReturn(accountIdentifier);
+      when(a.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
+      when(a.getPrimaryDevice()).thenReturn(device);
+    });
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    try (Response response = request.post(Entity.json(registrationRequest))) {
+      assertEquals(200, response.getStatus());
+      final AccountIdentityResponse identityResponse = response.readEntity(AccountIdentityResponse.class);
+      assertEquals(accountIdentifier, identityResponse.uuid());
+    }
+
+    verify(accountsManager).create(
+        eq(NUMBER),
+        argThat(attributes -> accountAttributesEqual(attributes, registrationRequest.accountAttributes())),
+        eq(Collections.emptyList()),
+        eq(expectedAciIdentityKey),
+        eq(expectedPniIdentityKey),
+        eq(expectedDeviceSpec),
+        any());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void reregistrationFlag(final boolean existingAccount) throws InterruptedException {
+    final Optional<Account> maybeAccount = Optional.ofNullable(existingAccount ? mock(Account.class) : null);
+    when(accountsManager.getByE164(any())).thenReturn(maybeAccount);
+
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(200, response.getStatus());
+      final AccountCreationResponse creationResponse = response.readEntity(AccountCreationResponse.class);
+      assertEquals(existingAccount, creationResponse.reregistration());
+    }
+  }
+
+  @Test
+  void registrationMissingSpqrCapability() throws Exception {
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    final RegistrationRequest requestObj = request("sessionId", new byte[0], false, 1, 2, Collections.emptySet());
+    try (final Response response = request.post(Entity.json(requestToJson(requestObj)))) {
+      assertEquals(499, response.getStatus());
+    }
+  }
+
+  private static boolean accountAttributesEqual(final AccountAttributes a, final AccountAttributes b) {
+    return a.getFetchesMessages() == b.getFetchesMessages()
+        && a.getRegistrationId() == b.getRegistrationId()
+        && a.isUnrestrictedUnidentifiedAccess() == b.isUnrestrictedUnidentifiedAccess()
+        && a.isDiscoverableByPhoneNumber() == b.isDiscoverableByPhoneNumber()
+        && Objects.equals(a.getPhoneNumberIdentityRegistrationId(), b.getPhoneNumberIdentityRegistrationId())
+        && Arrays.equals(a.getName(), b.getName())
+        && Objects.equals(a.getRegistrationLock(), b.getRegistrationLock())
+        && Arrays.equals(a.getUnidentifiedAccessKey(), b.getUnidentifiedAccessKey())
+        && Objects.equals(a.getCapabilities(), b.getCapabilities())
+        && Objects.equals(a.recoveryPassword(), b.recoveryPassword());
+  }
+
+  private static List<Arguments> atomicAccountCreationSuccess() {
+    final IdentityKey aciIdentityKey;
+    final IdentityKey pniIdentityKey;
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+    {
+      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+
+      aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+      pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+      aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+      pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+      aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+      pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+    }
+
+    final byte[] deviceName = "test".getBytes(StandardCharsets.UTF_8);
+    final int registrationId = 1;
+    final int pniRegistrationId = 2;
+
+    final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES;
+
+    final AccountAttributes fetchesMessagesAccountAttributes =
+        new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities)
+            .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
+
+    final AccountAttributes pushAccountAttributes =
+        new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities)
+            .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
+
+    final String apnsToken = "apns-token";
+    final String gcmToken = "gcm-token";
+
+    return List.of(
+        Arguments.argumentSet("Fetches messages; no push tokens",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                fetchesMessagesAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.empty())),
+            aciIdentityKey,
+            pniIdentityKey,
+            new DeviceSpec(
+                deviceName,
+                PASSWORD,
+                null,
+                deviceCapabilities,
+                registrationId,
+                pniRegistrationId,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey)),
+
+        Arguments.argumentSet("Has APNs tokens",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                pushAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.of(new ApnRegistrationId(apnsToken)),
+                    Optional.empty())),
+            aciIdentityKey,
+            pniIdentityKey,
+            new DeviceSpec(
+                deviceName,
+                PASSWORD,
+                null,
+                deviceCapabilities,
+                registrationId,
+                pniRegistrationId,
+                false,
+                Optional.of(new ApnRegistrationId(apnsToken)),
+                Optional.empty(),
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey)),
+
+        Arguments.argumentSet("Has GCM token",
+            new RegistrationRequest("session-id",
+                new byte[0],
+                pushAccountAttributes,
+                true,
+                aciIdentityKey,
+                pniIdentityKey,
+                new DeviceActivationRequest(aciSignedPreKey,
+                    pniSignedPreKey,
+                    aciPqLastResortPreKey,
+                    pniPqLastResortPreKey,
+                    Optional.empty(),
+                    Optional.of(new GcmRegistrationId(gcmToken)))),
+            aciIdentityKey,
+            pniIdentityKey,
+            new DeviceSpec(
+                deviceName,
+                PASSWORD,
+                null,
+                deviceCapabilities,
+                registrationId,
+                pniRegistrationId,
+                false,
+                Optional.empty(),
+                Optional.of(new GcmRegistrationId(gcmToken)),
+                aciSignedPreKey,
+                pniSignedPreKey,
+                aciPqLastResortPreKey,
+                pniPqLastResortPreKey))
+    );
+  }
+
+  private static RegistrationRequest request(
+      final String sessionId,
+      final byte[] recoveryPassword,
+      final boolean skipDeviceTransfer,
+      final int registrationId,
+      int pniRegistrationId,
+      Set<DeviceCapability> deviceCapabilities) {
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+
+    final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+
+    final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId,
+        "name".getBytes(StandardCharsets.UTF_8), REGLOCK,
+        true, deviceCapabilities)
+        .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
+
+    return new RegistrationRequest(
+        Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8)),
+        recoveryPassword,
+        accountAttributes,
+        skipDeviceTransfer,
+        aciIdentityKey,
+        pniIdentityKey,
+        new DeviceActivationRequest(
+            KeysHelper.signedECPreKey(1, aciIdentityKeyPair),
+            KeysHelper.signedECPreKey(2, pniIdentityKeyPair),
+            KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair),
+            KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair),
+            Optional.empty(),
+            Optional.empty()));
+  }
+
+  private static String requestToJson(RegistrationRequest request) {
+    try {
+      return SystemMapper.jsonMapper().writerWithDefaultPrettyPrinter().writeValueAsString(request);
+    } catch (final JsonProcessingException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  /**
+   * Valid request JSON with the give session ID and skipDeviceTransfer
+   */
+  private static String requestJson(final String sessionId,
+      final byte[] recoveryPassword,
+      final boolean skipDeviceTransfer,
+      final int registrationId,
+      final int pniRegistrationId) {
+      return requestToJson(request(sessionId, recoveryPassword, skipDeviceTransfer, registrationId, pniRegistrationId, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES));
+  }
+
+  /**
+   * Valid request JSON with the given session ID
+   */
+  private static String requestJson(final String sessionId) {
+    return requestJson(sessionId, new byte[0], false, 1, 2);
+  }
+
+  /**
+   * Valid request JSON with the given Recovery Password
+   */
+  private static String requestJsonRecoveryPassword(final byte[] recoveryPassword) {
+    return requestJson("", recoveryPassword, false, 1, 2);
+  }
+
+  /**
+   * Request JSON in the shape of {@link org.whispersystems.textsecuregcm.entities.RegistrationRequest}, but that fails
+   * validation
+   */
+  private static String invalidRequestJson() {
+    return """
+        {
+          "sessionId": null,
+          "accountAttributes": {},
+          "skipDeviceTransfer": false
+        }
+        """;
+  }
+
+  /**
+   * Request JSON that cannot be marshalled into {@link org.whispersystems.textsecuregcm.entities.RegistrationRequest}
+   */
+  private static String unprocessableJson() {
+    return """
+        {
+          "sessionId": []
+        }
+        """;
+  }
+}
