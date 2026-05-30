@@ -141,11 +141,10 @@ class ResultEventBusTest {
         }
 
         @Test
-        @DisplayName("channelMap is accessible and starts empty")
-        fun `channelMap is accessible`() {
+        @DisplayName("hasChannel returns false for new bus")
+        fun `hasChannel returns false for new bus`() {
             val bus = createBus()
-            assertNotNull(bus.channelMap)
-            assertTrue(bus.channelMap.isEmpty())
+            assertFalse(bus.hasChannel("any_key"))
         }
     }
 
@@ -161,15 +160,12 @@ class ResultEventBusTest {
         }
 
         @Test
-        @DisplayName("channelMap is a MutableMap")
-        fun `channelMap is MutableMap`() {
+        @DisplayName("sendResult creates channel tracked by hasChannel")
+        fun `sendResult creates channel tracked by hasChannel`() {
             val bus = createBus()
-            @Suppress("UNCHECKED_CAST")
-            bus.channelMap["test"] = kotlinx.coroutines.channels.Channel<Any?>(
-                kotlinx.coroutines.channels.Channel.Factory.BUFFERED
-            )
-            assertEquals(1, bus.channelMap.size)
-            assertTrue(bus.channelMap.containsKey("test"))
+            assertFalse(bus.hasChannel("test"))
+            bus.sendResult<String>(resultKey = "test", result = "value")
+            assertTrue(bus.hasChannel("test"))
         }
     }
 

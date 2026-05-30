@@ -45,10 +45,10 @@ class ResultEffectTest {
         fun `removeResult removes channel`() = runBlocking {
             val bus = createBus()
             bus.sendResult<String>(resultKey = "Key", result = "v1")
-            assertNotNull(bus.channelMap["Key"])
+            assertTrue(bus.hasChannel("Key"))
 
             bus.removeResult<String>("Key")
-            assertFalse(bus.channelMap.containsKey("Key"))
+            assertFalse(bus.hasChannel("Key"))
             assertNull(bus.getResultFlow<String>("Key"))
         }
 
@@ -56,10 +56,10 @@ class ResultEffectTest {
         @DisplayName("sendResult auto-creates channel on first call")
         fun `sendResult auto-creates channel`() = runBlocking {
             val bus = createBus()
-            assertTrue(bus.channelMap.isEmpty())
+            assertFalse(bus.hasChannel("Test"))
 
             bus.sendResult<String>(resultKey = "Test", result = "value")
-            assertTrue(bus.channelMap.containsKey("Test"))
+            assertTrue(bus.hasChannel("Test"))
 
             val flow = bus.getResultFlow<String>("Test")
             assertNotNull(flow)

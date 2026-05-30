@@ -16,7 +16,7 @@ fun NavController.safeNavigate(@IdRes resId: Int) {
     if (currentDestination?.getAction(resId) != null) {
         navigate(resId)
     } else {
-        Log.w(TAG, "No action $resId for $currentDestination")
+        Log.w(TAG, "No action $resId for destination")
     }
 }
 
@@ -24,7 +24,7 @@ fun NavController.safeNavigate(@IdRes resId: Int, arguments: Bundle?) {
     if (currentDestination?.getAction(resId) != null) {
         navigate(resId, arguments)
     } else {
-        Log.w(TAG, "No action $resId for $currentDestination")
+        Log.w(TAG, "No action $resId for destination")
     }
 }
 
@@ -32,7 +32,7 @@ fun NavController.safeNavigate(directions: NavDirections) {
     if (currentDestination?.getAction(directions.actionId) != null) {
         navigate(directions)
     } else {
-        Log.w(TAG, "No ${getDisplayName(directions.actionId)} for $currentDestination")
+        Log.w(TAG, "No ${getDisplayName(directions.actionId)} for destination")
     }
 }
 
@@ -40,10 +40,7 @@ fun NavController.safeNavigate(directions: NavDirections, navOptions: NavOptions
     if (currentDestination?.getAction(directions.actionId) != null) {
         navigate(directions, navOptions)
     } else {
-        Log.w(
-            TAG,
-            "No ${getDisplayName(directions.actionId)} for $currentDestination"
-        )
+        Log.w(TAG, "No ${getDisplayName(directions.actionId)} for destination")
     }
 }
 

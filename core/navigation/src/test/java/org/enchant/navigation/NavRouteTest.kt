@@ -89,18 +89,20 @@ class NavRouteTest {
         fun `conversation route`() {
             val route = NavRoute.Conversation("conv-123")
             assertEquals("conversation/{conversationId}", route.route)
+            assertEquals("conversation/conv-123", route.resolvedRoute)
             assertEquals("conv-123", route.conversationId)
         }
 
         @Test @DisplayName("Search route is 'search'")
         fun `search route`() {
-            assertEquals("search", NavRoute.Search().route)
+            assertEquals("search", NavRoute.Search.route)
         }
 
         @Test @DisplayName("IncomingCall route includes callId")
         fun `incoming call route`() {
             val route = NavRoute.IncomingCall("call-123")
             assertEquals("incoming_call/{callId}", route.route)
+            assertEquals("incoming_call/call-123", route.resolvedRoute)
             assertEquals("call-123", route.callId)
         }
 
@@ -108,6 +110,7 @@ class NavRouteTest {
         fun `outgoing call route`() {
             val route = NavRoute.OutgoingCall("user-123")
             assertEquals("outgoing_call/{userId}", route.route)
+            assertEquals("outgoing_call/user-123", route.resolvedRoute)
             assertEquals("user-123", route.userId)
         }
 
@@ -115,18 +118,21 @@ class NavRouteTest {
         fun `active voice call route`() {
             val route = NavRoute.ActiveVoiceCall("call-123")
             assertEquals("active_voice_call/{callId}", route.route)
+            assertEquals("active_voice_call/call-123", route.resolvedRoute)
         }
 
         @Test @DisplayName("ActiveVideoCall route includes callId")
         fun `active video call route`() {
             val route = NavRoute.ActiveVideoCall("call-123")
             assertEquals("active_video_call/{callId}", route.route)
+            assertEquals("active_video_call/call-123", route.resolvedRoute)
         }
 
         @Test @DisplayName("GroupCall route includes callId")
         fun `group call route`() {
             val route = NavRoute.GroupCall("call-123")
             assertEquals("group_call/{callId}", route.route)
+            assertEquals("group_call/call-123", route.resolvedRoute)
         }
 
         @Test @DisplayName("Groups route is 'groups'")
@@ -138,6 +144,7 @@ class NavRouteTest {
         fun `group info route`() {
             val route = NavRoute.GroupInfo("group-123")
             assertEquals("group_info/{groupId}", route.route)
+            assertEquals("group_info/group-123", route.resolvedRoute)
         }
 
         @Test @DisplayName("CreateGroup route is 'create_group'")
@@ -159,6 +166,7 @@ class NavRouteTest {
         fun `status viewer route`() {
             val route = NavRoute.StatusViewer("status-123")
             assertEquals("status_viewer/{statusId}", route.route)
+            assertEquals("status_viewer/status-123", route.resolvedRoute)
         }
 
         @Test @DisplayName("AccountSettings route is 'account_settings'")
@@ -225,6 +233,7 @@ class NavRouteTest {
         fun `poll create route`() {
             val route = NavRoute.PollCreate("conv-123")
             assertEquals("poll_create/{conversationId}", route.route)
+            assertEquals("poll_create/conv-123", route.resolvedRoute)
         }
 
         @Test @DisplayName("LocationPicker route is 'location_picker'")
@@ -251,29 +260,80 @@ class NavRouteTest {
         fun `media viewer route`() {
             val route = NavRoute.MediaViewer("conv-123")
             assertEquals("media_viewer/{conversationId}", route.route)
+            assertEquals("media_viewer/conv-123", route.resolvedRoute)
+        }
+    }
+
+    @Nested @DisplayName("Resolved Route (URI Encoding)")
+    inner class ResolvedRouteTest {
+        @Test @DisplayName("Conversation route encodes special characters")
+        fun `conversation encodes special chars`() {
+            val route = NavRoute.Conversation("conv/123?query=456")
+            assertEquals("conversation/conv%2F123%3Fquery%3D456", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("IncomingCall route encodes special characters")
+        fun `incoming call encodes special chars`() {
+            val route = NavRoute.IncomingCall("call#123")
+            assertEquals("incoming_call/call%23123", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("OutgoingCall route encodes special characters")
+        fun `outgoing call encodes special chars`() {
+            val route = NavRoute.OutgoingCall("user&123")
+            assertEquals("outgoing_call/user%26123", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("GroupCall route encodes special characters")
+        fun `group call encodes special chars`() {
+            val route = NavRoute.GroupCall("call?info")
+            assertEquals("group_call/call%3Finfo", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("GroupInfo route encodes special characters")
+        fun `group info encodes special chars`() {
+            val route = NavRoute.GroupInfo("group/abc")
+            assertEquals("group_info/group%2Fabc", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("StatusViewer route encodes special characters")
+        fun `status viewer encodes special chars`() {
+            val route = NavRoute.StatusViewer("status&test")
+            assertEquals("status_viewer/status%26test", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("PollCreate route encodes special characters")
+        fun `poll create encodes special chars`() {
+            val route = NavRoute.PollCreate("conv#id")
+            assertEquals("poll_create/conv%23id", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("MediaViewer route encodes special characters")
+        fun `media viewer encodes special chars`() {
+            val route = NavRoute.MediaViewer("conv/123")
+            assertEquals("media_viewer/conv%2F123", route.resolvedRoute)
+        }
+
+        @Test @DisplayName("Simple routes have resolvedRoute equal to route")
+        fun `simple routes use route as resolvedRoute`() {
+            assertEquals(NavRoute.Splash.route, NavRoute.Splash.resolvedRoute)
+            assertEquals(NavRoute.ChatList.route, NavRoute.ChatList.resolvedRoute)
+            assertEquals(NavRoute.Settings.route, NavRoute.Settings.resolvedRoute)
         }
     }
 
     @Nested @DisplayName("Navigate Extension")
     inner class NavigateTest {
-        @Test @DisplayName("navigate builds correct route string for Conversation")
+        @Test @DisplayName("navigate uses resolvedRoute for Conversation")
         fun `navigate conversation`() {
             val route = NavRoute.Conversation("conv-123")
-            val routeString = when (route) {
-                is NavRoute.Conversation -> "conversation/${route.conversationId}"
-                else -> route.route
-            }
-            assertEquals("conversation/conv-123", routeString)
+            assertEquals("conversation/conv-123", route.resolvedRoute)
         }
 
-        @Test @DisplayName("navigate builds correct route string for IncomingCall")
+        @Test @DisplayName("navigate uses resolvedRoute for IncomingCall")
         fun `navigate incoming call`() {
             val route = NavRoute.IncomingCall("call-123")
-            val routeString = when (route) {
-                is NavRoute.IncomingCall -> "incoming_call/${route.callId}"
-                else -> route.route
-            }
-            assertEquals("incoming_call/call-123", routeString)
+            assertEquals("incoming_call/call-123", route.resolvedRoute)
         }
     }
 }

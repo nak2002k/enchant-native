@@ -9,9 +9,9 @@ inline fun <reified T> ResultEffect(
     resultKey: String = T::class.toString(),
     crossinline onResult: suspend (T) -> Unit
 ) {
-    LaunchedEffect(resultKey, resultEventBus.channelMap[resultKey]) {
+    LaunchedEffect(resultKey, resultEventBus.hasChannel(resultKey)) {
         resultEventBus.getResultFlow<T>(resultKey)?.collect { result ->
-            onResult.invoke(result as T)
+            onResult(result)
         }
     }
 }

@@ -25,7 +25,10 @@ object LocalResultEventBus {
 }
 
 class ResultEventBus {
-    val channelMap: MutableMap<String, Channel<Any?>> = mutableMapOf()
+    @PublishedApi
+    internal val channelMap: MutableMap<String, Channel<Any?>> = mutableMapOf()
+
+    fun hasChannel(resultKey: String): Boolean = channelMap.containsKey(resultKey)
 
     @Suppress("UNCHECKED_CAST")
     inline fun <reified T> getResultFlow(

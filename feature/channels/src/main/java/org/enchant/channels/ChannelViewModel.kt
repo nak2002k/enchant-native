@@ -2,10 +2,12 @@ package org.enchant.channels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -53,27 +55,33 @@ class ChannelViewModel(
     constructor() : this(org.enchant.core.network.ApiClient.getInstance())
     private val _uiState = MutableStateFlow(ChannelUiState())
     val uiState: StateFlow<ChannelUiState> = _uiState.asStateFlow()
+    private var feedJob: Job? = null
+
+    private fun parsePosts(json: JsonObject): List<ChannelPost> {
+        return json["posts"]?.jsonArray?.map { item ->
+            val obj = item.jsonObject
+            ChannelPost(
+                postId = obj["post_id"]?.jsonPrimitive?.content ?: "",
+                channelId = obj["channel_id"]?.jsonPrimitive?.content ?: "",
+                authorId = obj["author_id"]?.jsonPrimitive?.content ?: "",
+                content = obj["content"]?.jsonPrimitive?.content ?: "",
+                isPinned = obj["is_pinned"]?.jsonPrimitive?.content?.toBoolean() ?: false,
+                createdAt = obj["created_at"]?.jsonPrimitive?.content ?: ""
+            )
+        } ?: emptyList()
+    }
 
     fun loadFeed(channelId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        feedJob?.cancel()
+        feedJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, cursor = null)
             try {
                 val response = apiClient.get("/v1/channels/$channelId/feed", mapOf(
                     "limit" to "20"
                 ))
                 response.fold(
                     onSuccess = { json ->
-                        val posts = json["posts"]?.jsonArray?.map { item ->
-                            val obj = item.jsonObject
-                            ChannelPost(
-                                postId = obj["post_id"]?.jsonPrimitive?.content ?: "",
-                                channelId = obj["channel_id"]?.jsonPrimitive?.content ?: "",
-                                authorId = obj["author_id"]?.jsonPrimitive?.content ?: "",
-                                content = obj["content"]?.jsonPrimitive?.content ?: "",
-                                isPinned = obj["is_pinned"]?.jsonPrimitive?.content?.toBoolean() ?: false,
-                                createdAt = obj["created_at"]?.jsonPrimitive?.content ?: ""
-                            )
-                        } ?: emptyList()
+                        val posts = parsePosts(json)
                         val pinned = posts.find { it.isPinned }
                         val cursor = json["cursor"]?.jsonPrimitive?.content
                         _uiState.value = _uiState.value.copy(
@@ -105,46 +113,46 @@ class ChannelViewModel(
                 ))
                 response.fold(
                     onSuccess = { json ->
-                        val posts = json["posts"]?.jsonArray?.map { item ->
-                            val obj = item.jsonObject
-                            ChannelPost(
-                                postId = obj["post_id"]?.jsonPrimitive?.content ?: "",
-                                channelId = obj["channel_id"]?.jsonPrimitive?.content ?: "",
-                                authorId = obj["author_id"]?.jsonPrimitive?.content ?: "",
-                                content = obj["content"]?.jsonPrimitive?.content ?: "",
-                                isPinned = obj["is_pinned"]?.jsonPrimitive?.content?.toBoolean() ?: false,
-                                createdAt = obj["created_at"]?.jsonPrimitive?.content ?: ""
-                            )
-                        } ?: emptyList()
+                        val posts = parsePosts(json)
                         val newCursor = json["cursor"]?.jsonPrimitive?.content
+                        val existingIds = _uiState.value.feed.map { it.postId }.toSet()
+                        val newPosts = posts.filter { !it.isPinned && it.postId !in existingIds }
                         _uiState.value = _uiState.value.copy(
-                            feed = _uiState.value.feed + posts.filter { !it.isPinned },
+                            feed = _uiState.value.feed + newPosts,
                             cursor = newCursor,
                             isLoadingMore = false
                         )
                     },
                     onFailure = {
-                        android.util.Log.w("ChannelVM", "loadMore failed: ${it.message}")
                         _uiState.value = _uiState.value.copy(isLoadingMore = false, error = it.message)
                     }
                 )
             } catch (e: Exception) {
-                android.util.Log.w("ChannelVM", "loadMore exception: ${e.message}")
                 _uiState.value = _uiState.value.copy(isLoadingMore = false, error = e.message)
             }
         }
+    }
+
+    private fun updateChannelSubscription(channelId: String, subscribed: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            channels = _uiState.value.channels.map {
+                if (it.channelId == channelId) it.copy(isSubscribed = subscribed) else it
+            },
+            discoverResults = _uiState.value.discoverResults.map {
+                if (it.channelId == channelId) it.copy(isSubscribed = subscribed) else it
+            },
+            searchResults = _uiState.value.searchResults.map {
+                if (it.channelId == channelId) it.copy(isSubscribed = subscribed) else it
+            }
+        )
     }
 
     fun subscribe(channelId: String) {
         viewModelScope.launch {
             try {
                 apiClient.post("/v1/channels/$channelId/subscribe")
-                _uiState.value = _uiState.value.copy(
-                    successMessage = "Subscribed",
-                    channels = _uiState.value.channels.map {
-                        if (it.channelId == channelId) it.copy(isSubscribed = true) else it
-                    }
-                )
+                updateChannelSubscription(channelId, true)
+                _uiState.value = _uiState.value.copy(successMessage = "Subscribed")
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)
             }
@@ -155,12 +163,8 @@ class ChannelViewModel(
         viewModelScope.launch {
             try {
                 apiClient.del("/v1/channels/$channelId/subscribe")
-                _uiState.value = _uiState.value.copy(
-                    successMessage = "Unsubscribed",
-                    channels = _uiState.value.channels.map {
-                        if (it.channelId == channelId) it.copy(isSubscribed = false) else it
-                    }
-                )
+                updateChannelSubscription(channelId, false)
+                _uiState.value = _uiState.value.copy(successMessage = "Unsubscribed")
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)
             }
@@ -279,11 +283,11 @@ class ChannelViewModel(
                         _uiState.value = _uiState.value.copy(searchResults = results)
                     },
                     onFailure = {
-                        _uiState.value = _uiState.value.copy(searchResults = emptyList())
+                        _uiState.value = _uiState.value.copy(searchResults = emptyList(), error = it.message)
                     }
                 )
-            } catch (_: Exception) {
-                _uiState.value = _uiState.value.copy(searchResults = emptyList())
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(searchResults = emptyList(), error = e.message)
             }
         }
     }
