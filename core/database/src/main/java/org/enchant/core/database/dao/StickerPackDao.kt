@@ -1,13 +1,12 @@
 package org.enchant.core.database.dao
 
 import org.enchant.core.database.DatabasePool
-
-data class StickerPackEntity(val packId: String, val title: String? = null, val cover: String? = null, val author: String? = null, val installedAt: Long = System.currentTimeMillis())
+import org.enchant.core.database.entity.StickerPackEntity
 
 class StickerPackDao(private val pool: DatabasePool) {
     suspend fun install(pack: StickerPackEntity) = pool.write { db ->
         db.execSQL("INSERT OR REPLACE INTO sticker_packs (pack_id, title, cover, author, installed_at) VALUES (?, ?, ?, ?, ?)",
-            arrayOf(pack.packId, pack.title, pack.cover, pack.author, pack.installedAt.toString()))
+            arrayOf(pack.packId, pack.title, pack.cover, pack.author, pack.installedAt?.toString()))
     }
 
     suspend fun uninstall(packId: String) = pool.write { db ->

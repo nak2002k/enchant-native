@@ -2,12 +2,13 @@ package org.enchant.core.push
 
 import android.app.ActivityManager
 import android.content.Context
+import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import org.enchant.core.base.SecurePreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class FcmReceiveService : FirebaseMessagingService() {
@@ -15,6 +16,10 @@ class FcmReceiveService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         scope.launch {
+            val data = message.data
+            if (data.isNotEmpty()) {
+                FcmFetchManager.notifyFcmRetryReceived()
+            }
             if (isAppInForeground()) {
                 FcmFetchManager.scheduleFetch()
             } else {
@@ -22,10 +27,14 @@ class FcmReceiveService : FirebaseMessagingService() {
                 try {
                     startForegroundService(intent)
                 } catch (e: IllegalStateException) {
-                    android.util.Log.w("FcmReceive", "Foreground service start failed: ${e.message}")
-                    try { startService(intent) } catch (_: Exception) {}
+                    Log.w("FcmReceive", "Foreground service start failed: ${e.message}")
+                    try {
+                        startService(intent)
+                    } catch (e2: Exception) {
+                        Log.e("FcmReceive", "Fallback service start failed: ${e2.message}")
+                    }
                 } catch (e: Exception) {
-                    android.util.Log.w("FcmReceive", "Service start failed: ${e.message}")
+                    Log.w("FcmReceive", "Service start failed: ${e.message}")
                 }
             }
         }
@@ -33,7 +42,6 @@ class FcmReceiveService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         scope.launch {
-            SecurePreferences.putString("push.fcm_token", token)
             PushTokenRegistrar.registerWithBackend(token)
         }
     }
@@ -42,6 +50,11 @@ class FcmReceiveService : FirebaseMessagingService() {
         scope.launch {
             FcmFetchManager.scheduleFetch()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
     }
 
     private fun isAppInForeground(): Boolean {

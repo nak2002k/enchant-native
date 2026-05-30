@@ -4,10 +4,16 @@ import org.enchant.core.database.DatabasePool
 
 class SessionDao(private val pool: DatabasePool) {
     suspend fun store(userId: String, deviceId: String, session: ByteArray) = pool.write { db ->
-        db.execSQL("""
+        val stmt = db.compileStatement("""
             INSERT OR REPLACE INTO signal_sessions (user_id, device_id, serialized_session, created_at, last_used_at)
             VALUES (?, ?, ?, ?, ?)
-        """, arrayOf(userId, deviceId, session, System.currentTimeMillis().toString(), System.currentTimeMillis().toString()))
+        """)
+        stmt.bindString(1, userId)
+        stmt.bindString(2, deviceId)
+        stmt.bindBlob(3, session)
+        stmt.bindLong(4, System.currentTimeMillis())
+        stmt.bindLong(5, System.currentTimeMillis())
+        stmt.executeInsert()
     }
 
     suspend fun load(userId: String, deviceId: String): ByteArray? = pool.readWith { db ->

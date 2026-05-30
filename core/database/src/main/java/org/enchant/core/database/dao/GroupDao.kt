@@ -1,12 +1,7 @@
 package org.enchant.core.database.dao
 
 import org.enchant.core.database.DatabasePool
-
-data class GroupEntity(
-    val groupId: String, val name: String, val description: String? = null,
-    val avatarMediaId: String? = null, val myRole: String = "member", val memberCount: Int = 0,
-    val revision: String = "0"
-)
+import org.enchant.core.database.entity.GroupEntity
 
 class GroupDao(private val pool: DatabasePool) {
     suspend fun insert(group: GroupEntity) = pool.write { db ->

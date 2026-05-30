@@ -1,11 +1,7 @@
 package org.enchant.core.database.dao
 
 import org.enchant.core.database.DatabasePool
-
-data class CallLogEntity(
-    val callId: String, val remoteUserId: String, val type: String, val direction: String,
-    val durationSeconds: Int = 0, val status: String, val endedAt: Long
-)
+import org.enchant.core.database.entity.CallLogEntity
 
 class CallLogDao(private val pool: DatabasePool) {
     suspend fun insert(entry: CallLogEntity) = pool.write { db ->

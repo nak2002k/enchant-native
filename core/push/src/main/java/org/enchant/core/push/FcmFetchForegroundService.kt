@@ -2,15 +2,15 @@ package org.enchant.core.push
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class FcmFetchForegroundService : android.app.Service() {
@@ -18,6 +18,10 @@ class FcmFetchForegroundService : android.app.Service() {
         private const val CHANNEL_ID = "fcm_fetch"
         private const val NOTIFICATION_ID = 1001
     }
+
+    private val scope = CoroutineScope(Dispatchers.IO)
+    private var fetchObserver: Job? = null
+    private var fetchStarted = MutableStateFlow(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -35,16 +39,24 @@ class FcmFetchForegroundService : android.app.Service() {
 
         startForeground(NOTIFICATION_ID, notification)
 
-        CoroutineScope(Dispatchers.IO).launch {
-            delay(2000)
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+        fetchObserver = scope.launch {
+            FcmFetchManager.isFetchScheduled.collect { scheduled ->
+                if (fetchStarted.value && !scheduled) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+            }
         }
 
-        return START_STICKY
+        fetchStarted.value = true
+        FcmFetchManager.scheduleFetch()
+
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        fetchObserver?.cancel()
+        scope.cancel()
         super.onDestroy()
     }
 

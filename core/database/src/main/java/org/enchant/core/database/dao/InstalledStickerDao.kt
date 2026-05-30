@@ -1,8 +1,7 @@
 package org.enchant.core.database.dao
 
 import org.enchant.core.database.DatabasePool
-
-data class InstalledStickerEntity(val packId: String, val stickerId: String, val emoji: String? = null, val position: Int = 0)
+import org.enchant.core.database.entity.InstalledStickerEntity
 
 class InstalledStickerDao(private val pool: DatabasePool) {
     suspend fun addSticker(sticker: InstalledStickerEntity) = pool.write { db ->

@@ -1,11 +1,7 @@
 package org.enchant.core.database.dao
 
 import org.enchant.core.database.DatabasePool
-
-data class StatusCacheEntity(
-    val statusId: String, val authorId: String, val statusType: String, val textContent: String? = null,
-    val mediaId: String? = null, val backgroundColor: String? = null, val timestamp: Long? = null, val viewed: Boolean = false
-)
+import org.enchant.core.database.entity.StatusCacheEntity
 
 class StatusCacheDao(private val pool: DatabasePool) {
     suspend fun insert(status: StatusCacheEntity) = pool.write { db ->

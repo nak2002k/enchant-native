@@ -4,10 +4,17 @@ import org.enchant.core.database.DatabasePool
 
 class KeyMaterialDao(private val pool: DatabasePool) {
     suspend fun store(keyType: String, keyId: Int, publicKey: ByteArray, privateKey: ByteArray, signature: ByteArray? = null, createdAt: Long = System.currentTimeMillis()) = pool.write { db ->
-        db.execSQL("""
+        val stmt = db.compileStatement("""
             INSERT OR REPLACE INTO key_material (key_type, key_id, public_key, private_key, signature, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, arrayOf(keyType, keyId.toString(), publicKey, privateKey, signature, createdAt.toString()))
+        """)
+        stmt.bindString(1, keyType)
+        stmt.bindLong(2, keyId.toLong())
+        stmt.bindBlob(3, publicKey)
+        stmt.bindBlob(4, privateKey)
+        signature?.let { stmt.bindBlob(5, it) } ?: stmt.bindNull(5)
+        stmt.bindLong(6, createdAt)
+        stmt.executeInsert()
     }
 
     suspend fun load(keyType: String, keyId: Int): Triple<ByteArray, ByteArray, ByteArray?>? = pool.readWith { db ->

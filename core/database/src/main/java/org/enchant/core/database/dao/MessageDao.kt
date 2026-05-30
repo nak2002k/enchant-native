@@ -50,39 +50,39 @@ class MessageDao(private val pool: DatabasePool) {
     suspend fun insertBatch(messages: List<MessageEntity>) = pool.write { db ->
         db.beginTransaction()
         try {
+            val stmt = db.compileStatement("""
+                INSERT OR REPLACE INTO messages
+                    (conversation_id, sender_id, sender_device_id, envelope_id, message_type,
+                     content, media_key, media_iv, media_mime_type, media_size,
+                     media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
+                     status, timestamp, server_ts, is_edited, edit_envelope_id,
+                     is_starred, is_deleted, disappear_at, gif_url)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """)
             messages.forEach { msg ->
-                db.execSQL("""
-                    INSERT OR REPLACE INTO messages
-                        (conversation_id, sender_id, sender_device_id, envelope_id, message_type,
-                         content, media_key, media_iv, media_mime_type, media_size,
-                         media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
-                         status, timestamp, server_ts, is_edited, edit_envelope_id,
-                         is_starred, is_deleted, disappear_at, gif_url)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, arrayOf(
-                    msg.conversationId,
-                    msg.senderId,
-                    msg.senderDeviceId,
-                    msg.envelopeId,
-                    msg.messageType,
-                    msg.content,
-                    msg.mediaKey,
-                    msg.mediaIv,
-                    msg.mediaMimeType,
-                    msg.mediaSize?.toString(),
-                    msg.mediaThumbnailPath,
-                    msg.replyToEnvelopeId,
-                    msg.forwardedFromUserId,
-                    msg.status,
-                    msg.timestamp.toString(),
-                    msg.serverTs?.toString(),
-                    if (msg.isEdited) "1" else "0",
-                    msg.editEnvelopeId,
-                    if (msg.isStarred) "1" else "0",
-                    if (msg.isDeleted) "1" else "0",
-                    msg.disappearAt?.toString(),
-                    msg.gifUrl
-                ))
+                stmt.bindString(1, msg.conversationId)
+                stmt.bindString(2, msg.senderId)
+                msg.senderDeviceId?.let { stmt.bindString(3, it) } ?: stmt.bindNull(3)
+                msg.envelopeId?.let { stmt.bindString(4, it) } ?: stmt.bindNull(4)
+                stmt.bindString(5, msg.messageType)
+                stmt.bindString(6, msg.content)
+                msg.mediaKey?.let { stmt.bindString(7, it) } ?: stmt.bindNull(7)
+                msg.mediaIv?.let { stmt.bindString(8, it) } ?: stmt.bindNull(8)
+                msg.mediaMimeType?.let { stmt.bindString(9, it) } ?: stmt.bindNull(9)
+                msg.mediaSize?.let { stmt.bindLong(10, it) } ?: stmt.bindNull(10)
+                msg.mediaThumbnailPath?.let { stmt.bindString(11, it) } ?: stmt.bindNull(11)
+                msg.replyToEnvelopeId?.let { stmt.bindString(12, it) } ?: stmt.bindNull(12)
+                msg.forwardedFromUserId?.let { stmt.bindString(13, it) } ?: stmt.bindNull(13)
+                stmt.bindString(14, msg.status)
+                stmt.bindLong(15, msg.timestamp)
+                msg.serverTs?.let { stmt.bindLong(16, it) } ?: stmt.bindNull(16)
+                stmt.bindLong(17, if (msg.isEdited) 1 else 0)
+                msg.editEnvelopeId?.let { stmt.bindString(18, it) } ?: stmt.bindNull(18)
+                stmt.bindLong(19, if (msg.isStarred) 1 else 0)
+                stmt.bindLong(20, if (msg.isDeleted) 1 else 0)
+                msg.disappearAt?.let { stmt.bindLong(21, it) } ?: stmt.bindNull(21)
+                msg.gifUrl?.let { stmt.bindString(22, it) } ?: stmt.bindNull(22)
+                stmt.executeInsert()
             }
             db.setTransactionSuccessful()
         } finally {

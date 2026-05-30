@@ -15,7 +15,8 @@ object PushTokenRegistrar {
     private const val TAG = "PushTokenRegistrar"
 
     suspend fun registerWithBackend(token: String) {
-        if (token == SecurePreferences.getString(PUSH_TOKEN_KEY)) return
+        val currentToken = SecurePreferences.getString(PUSH_TOKEN_KEY)
+        if (token == currentToken) return
         withContext(Dispatchers.IO) {
             try {
                 val apiClient = ApiClient()

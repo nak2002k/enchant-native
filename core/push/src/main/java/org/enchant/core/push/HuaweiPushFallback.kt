@@ -14,9 +14,13 @@ import kotlinx.serialization.json.JsonObject
 import org.enchant.core.network.ApiClient
 
 object HuaweiPushFallback {
+    private const val TAG = "HuaweiPush"
+    private const val BASE_POLL_INTERVAL_MS = 30_000L
+    private const val MAX_POLL_INTERVAL_MS = 300_000L
     private var pollingJob: Job? = null
     private var scope: CoroutineScope? = null
     private var onMessagesReceived: ((List<JsonObject>) -> Unit)? = null
+    private var consecutiveFailures = 0
 
     fun setOnMessagesReceived(callback: (List<JsonObject>) -> Unit) {
         onMessagesReceived = callback
@@ -28,29 +32,35 @@ object HuaweiPushFallback {
 
     fun startPollingFallback(apiClient: ApiClient) {
         stopPollingFallback()
+        consecutiveFailures = 0
         scope = CoroutineScope(Dispatchers.IO)
         pollingJob = scope?.launch {
             while (isActive) {
-                delay(30000)
+                val backoff = BASE_POLL_INTERVAL_MS * (1L shl minOf(consecutiveFailures, 3))
+                val interval = minOf(backoff, MAX_POLL_INTERVAL_MS)
+                delay(interval)
                 try {
                     val result = apiClient.get("/v1/messages/pending")
                     result.fold(
                         onSuccess = { response ->
+                            consecutiveFailures = 0
                             val messages = response["messages"]?.let { arr ->
                                 @Suppress("UNCHECKED_CAST")
                                 (arr as? kotlinx.serialization.json.JsonArray)?.mapNotNull { it as? JsonObject }
                             } ?: emptyList()
                             if (messages.isNotEmpty()) {
-                                Log.d("HuaweiPush", "Received ${messages.size} pending messages")
+                                Log.d(TAG, "Received ${messages.size} pending messages")
                                 onMessagesReceived?.invoke(messages)
                             }
                         },
                         onFailure = { e ->
-                            Log.w("HuaweiPush", "Poll failed: ${e.message}")
+                            consecutiveFailures++
+                            Log.w(TAG, "Poll failed: ${e.message}")
                         }
                     )
                 } catch (e: Exception) {
-                    Log.w("HuaweiPush", "Poll exception: ${e.message}")
+                    consecutiveFailures++
+                    Log.w(TAG, "Poll exception: ${e.message}")
                 }
             }
         }
@@ -61,5 +71,6 @@ object HuaweiPushFallback {
         pollingJob = null
         scope?.cancel()
         scope = null
+        consecutiveFailures = 0
     }
 }

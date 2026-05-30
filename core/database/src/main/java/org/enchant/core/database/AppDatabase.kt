@@ -15,9 +15,9 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     private val hook = object : SQLiteDatabaseHook {
         override fun preKey(db: SQLiteDatabase) {
             db.execSQL("PRAGMA cipher_page_size = 1024")
-            db.execSQL("PRAGMA kdf_iter = 256000")
-            db.execSQL("PRAGMA cipher_hmac_algorithm = HMAC_SHA512")
-            db.execSQL("PRAGMA cipher_kdf_algorithm = PBKDF2_HMAC_SHA512")
+            db.execSQL("PRAGMA cipher_compatibility = 3")
+            db.execSQL("PRAGMA cipher_default_kdf_iter = 1")
+            db.execSQL("PRAGMA kdf_iter = 1")
             db.execSQL("PRAGMA cipher_memory_security = ON")
         }
         override fun postKey(db: SQLiteDatabase) {}
@@ -32,7 +32,6 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 createTables(db)
             }
             override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-                android.util.Log.w("AppDatabase", "DB upgrade from v$oldVersion to v$newVersion - applying migrations")
                 if (newVersion > oldVersion) {
                     for (version in (oldVersion + 1)..newVersion) {
                             when (version) {
@@ -62,7 +61,6 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                                     db.execSQL("CREATE INDEX IF NOT EXISTS idx_crashes_timestamp ON crashes(timestamp DESC)")
                                     db.execSQL("PRAGMA user_version = 4")
                                 }
-                                else -> android.util.Log.w("AppDatabase", "No migration defined for v$version")
                             }
                     }
                 }
@@ -146,6 +144,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 )
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversations_pinned ON conversations(is_pinned DESC, last_message_timestamp DESC)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversations_last_message_ts ON conversations(last_message_timestamp DESC)")
 
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS signal_sessions (
