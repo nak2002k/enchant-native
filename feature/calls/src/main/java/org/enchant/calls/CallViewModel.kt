@@ -75,7 +75,7 @@ class CallViewModel : ViewModel() {
     }
 
     fun toggleVideo() {
-        org.enchant.core.calls.CallsModule.getCallManager().toggleVideo()
+        CallManager.toggleVideo()
     }
 
     fun flipCamera() {

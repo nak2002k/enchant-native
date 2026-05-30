@@ -126,6 +126,25 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 | Split pane | `isSplitPane` density concern | Not a bug — pixel comparison valid for orientation detection |
 | A11y semantics | Missing accessibility semantics | Feature enhancement |
 
+## feature:auth
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| S-1 | PIN stored as SHA256 only (no key derivation) | Security enhancement — requires Argon2id/scrypt integration |
+| S-2 | PIN transmitted to server as hash | Backend needs to accept hashed PINs with proper KDF |
+| S-3 | Biometric authentication with no fallback limit | Feature request — needs lockout policy decision |
+| S-4 | No rate limiting on OTP requests visible in UI | Needs backend rate limit support and UI |
+| C-5 | SMS OTP auto-read without user confirmation | UX design decision — auto-submit vs manual confirm |
+| C-6 | No secure text field for PIN entry | Custom secure view needed — architectural change |
+| C-7 | No actual biometric enrollment check | Needs `BIOMETRIC_STRONG` enrollment check |
+| C-8 | No username availability check wired up | Backend API for username check not implemented |
+| C-9 | No key generation progress feedback wired | Feature request — progress tracking needs ViewModel integration |
+| C-10 | No TwoStepPin flow in navigation | Navigation entry exists but not connected in flow |
+| C-11 | AuthNavDisplay is a 150-line God Composable | Refactor — large extraction effort |
+| C-12 | No tests for any screen or viewmodel | Test infrastructure needs setup |
+| C-13 | Hardcoded delay values (30s, 60s, 300ms) | Refactor — extract to constants |
+| C-14 | Silent exception swallowing | Code quality — needs consistent error handling |
+
 ## feature:channels
 
 | ID | Issue | Reason Deferred |
@@ -243,6 +262,37 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 
 ---
 
+## core:calls
+
+| ID | Severity | Issue | Reason Deferred |
+|----|----------|-------|-----------------|
+| S-1 | Critical | SignalingClient Interface - No Encryption Specified | TLS/WSS enforcement is backend transport concern — interface contract alone insufficient |
+| S-2 | Critical | TURN Credentials Stored in Memory as Plain Text | Secure storage (AndroidKeyStore) requires architectural change — high risk refactor |
+| S-3 | High | ICE Candidate Serialization Leaks Potentially Sensitive Data | SDP normalization requires WebRTC-level modification — complex change |
+| S-4 | Medium | CallNotificationReceiver Broadcast Vulnerability | `checkCallingPermission` requires permission declaration coordination — cross-module |
+| S-5 | Medium | No TLS Certificate Pinning in WebRTC Engine | Certificate pinning config needs server trust store setup — backend-dependent |
+| B-1 | High | Double Processing of Answer in `handleReceivedAnswer` | Fragile but not broken — would require action processor redesign |
+| B-2 | High | `handleAcceptIncomingCall` Race Window | Would require unifying CallState/CallSetupData — architectural change |
+| B-3 | Low | `IncomingGroupCallActionProcessor` uses `==` on enum | Low risk — Kotlin enums are singletons, breaks only if changed to class-based |
+| G-1 | High | `peekGroupCall` Always Returns Null | Stub implementation — backend group peek API not available |
+| G-2 | High | SignalingClient Interface Lacks Group Call Signaling | Feature request — no group call signaling methods defined |
+| G-3 | High | No Call Link (Room-Based) Signaling Support | CallLinkModels exist but no signaling API — needs backend design |
+| G-4 | High | TURN Credential Fetch Has No Retry Logic | Retry/exponential backoff requires coroutine infrastructure — lower priority |
+| G-5 | Medium | No Video Quality Adaptation | Hardcoded resolution — network adaptation requires significant new code |
+| G-6 | Low | No Call Recording Support | Feature request — no CallAction recording types defined |
+| G-7 | Low | No Call Transfer / Call Swap Support | Feature request — no transfer API specified |
+| Q-1 | Medium | Singleton Pattern in `CallsModule` Is Thread-Unsafe | Fixed — added synchronized block |
+| Q-2 | Medium | Action Processors Accept Nullable Logger/Registry | Large refactor — null-object pattern or default implementations needed |
+| Q-3 | Medium | State Machine and Action Processor Are Redundant | CallStateMachine only used for duration — would need consolidation design |
+| Q-4 | Medium | Duration Timer Counts CALLING State | Fixed — now only counts CONNECTED |
+| Q-5 | Low | No Backpressure on ICE Candidate Queue | Fixed — added bounds to pendingCandidates |
+| Q-6 | Low | `handleReceiveIceCandidate` in `BaseActionProcessor` Is Empty Stub | By design — ICE candidates handled directly in CallManager |
+| Q-7 | Medium | Inconsistent Use of `CallPhase` vs `CallStatus` | Large refactor — two enum systems need unification design |
+| Q-8 | Low | `StatsCollector` Only Collects From Single `candidate-pair` | Stats collection inconsistency — would need to aggregate all pairs |
+| Q-9 | Low | `DatabaseCallLogDao.mapStatus` Always Returns HANGUP_LOCAL for Unknown Status | Fixed — "cancelled" now maps to TIMEOUT |
+
+---
+
 ## feature:location
 
 | ID | Issue | Reason Deferred |
@@ -277,5 +327,25 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 | C-4 | Low | Message trim stub-only | Feature request — needs server-side support |
 | C-5 | Medium | Backup encryption password not handled | Feature request — encryption design needed |
 | C-6 | Medium | Two-step setup flow placeholder | Feature request — needs 2FA flow UI |
+
+---
+
+## feature:calls
+
+| ID | Severity | Issue | Reason Deferred |
+|----|----------|-------|-----------------|
+| 2.5 | Medium | ActiveVideoCallScreen shows placeholder instead of real video | WebRTC video rendering not integrated — missing feature |
+| 2.6 | Low | CallLogScreen does not use clusteredEntries | Clustering logic exists but UI renders flat entries — would need UI redesign |
+| 2.7 | Medium | GroupCallScreen receives empty participants list | No call group participant data passed from CallViewModel — backend-dependent |
+| 3.1 | Low | CallLogScreen entry click navigates backward instead of to conversation | Needs navigation to conversation screen — cross-module dependency |
+| 3.2 | Low | CallLinkScreen Edit Name dialog stub | Dialog implementation missing — needs design |
+| 3.3 | Low | ActiveVoiceCallScreen onShowKeypad empty | DTMF keypad not implemented — feature request |
+| 3.4 | Low | ActiveVoiceCallScreen onShowSafetyNumber empty | Safety number dialog exists but not wired — needs callback integration |
+| 3.5 | Low | GroupCallScreen onSendReaction empty | Reactions not sent to any handler — backend-dependent |
+| 4.2 | Low | Navigation inconsistency (incoming calls always add, outgoing deduplicate) | Design inconsistency — behavior differs by call direction |
+| 4.3 | Low | CallsNavDisplay creates ViewModels inline in composable params | DI anti-pattern — would require DI framework |
+| 4.4 | Low | DatabasePool singleton direct usage in CallLogViewModel | Couples to global state — would require DI |
+| 4.5 | Low | CallLinkManager error handling asymmetry (write ops return Unit, swallow exceptions) | Design issue — write ops should return Result like read ops |
+| 4.7 | Low | CallsNavKey Long vs String for IDs | Design choice — room IDs are strings but user IDs are Longs |
 
 *Last updated: 2026-05-30*

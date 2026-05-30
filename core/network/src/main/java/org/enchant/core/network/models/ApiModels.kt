@@ -184,3 +184,6 @@ data class JoinRequestAction(val approve: Boolean = true)
 
 @Serializable
 data class ApiError(val error: String, val code: String? = null, val retryAfter: Int? = null)
+
+@Serializable
+data class BackupRestoreResponse(val success: Boolean, val restoredKeys: Int)

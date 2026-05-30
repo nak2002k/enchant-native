@@ -20,7 +20,10 @@ internal fun NavBackStack<NavKey>.goToProfileSetup() {
 }
 
 internal fun NavBackStack<NavKey>.popToPhoneEntry() {
-    while (size > 1 && get(size - 1) !is AuthNavKey.PhoneEntry) {
-        removeAt(size - 1)
+    val phoneEntryIndex = indices.firstOrNull { get(it) is AuthNavKey.PhoneEntry }
+    if (phoneEntryIndex != null) {
+        while (size - 1 > phoneEntryIndex) {
+            removeAt(size - 1)
+        }
     }
 }

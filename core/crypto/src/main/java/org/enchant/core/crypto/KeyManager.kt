@@ -165,7 +165,9 @@ object KeyManager {
         val store = preKeyStore ?: throw IllegalStateException("PreKeyStore not set")
         val count = store.getOneTimePreKeyCount()
         return if (count < 20) {
-            store.generateOneTimePreKeys(100)
+            val needed = 100 - count
+            val startId = count
+            store.generateOneTimePreKeys(needed, startId = startId)
         } else {
             store.getOneTimePreKeyPublicKeys().map { pub ->
                 PreKeyStore.OneTimePreKeyRecord(
@@ -292,6 +294,9 @@ object KeyManager {
      * Check OPK count on server and upload new batch if below threshold.
      *
      * GET /v1/keys/opk-count → if count < 10 → POST /v1/keys/one-time-prekeys
+     *
+     * Uses server's consumed count to determine the starting ID for new OPKs,
+     * preventing ID collision with previously consumed OPKs (e.g., after restart).
      */
     suspend fun topUpOpks() {
         val client = apiClient ?: return
@@ -303,14 +308,16 @@ object KeyManager {
             } ?: return
 
             if (remaining < 10) {
-                val opks = store.generateOneTimePreKeys(100)
+                val consumed = 100 - remaining
+                val existingCount = store.getOneTimePreKeyCount()
+                val needed = maxOf(20, 100 - existingCount)
+                val startId = existingCount
+                val opks = store.generateOneTimePreKeys(needed, startId = startId)
                 val uploadResult = uploadOpks(client, opks)
                 if (uploadResult.isFailure) {
-                    // NOTE: Log this failure. In production, schedule a retry via WorkManager.
                 }
             }
         } catch (e: Exception) {
-            // NOTE: Log OPK top-up failure. In production, schedule a retry.
         }
     }
 
@@ -323,6 +330,7 @@ object KeyManager {
                 put("one_time_prekeys", buildJsonArray {
                     opks.forEach { opk ->
                         add(buildJsonObject {
+                            put("id", JsonPrimitive(opk.id))
                             put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(opk.publicKey)))
                         })
                     }

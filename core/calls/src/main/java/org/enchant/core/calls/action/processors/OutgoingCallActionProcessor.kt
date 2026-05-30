@@ -68,6 +68,16 @@ class OutgoingCallActionProcessor(
             .build()
     }
 
+    override fun handleSignalingTimeout(state: CallServiceState): CallServiceState {
+        Log.e(tag, "handleSignalingTimeout: signaling timed out")
+        observerRegistry?.notifyEnded(CallEndReason.TIMEOUT, null)
+        return state.builder()
+            .actionProcessor(IdleActionProcessor(callLogger, observerRegistry))
+            .callState(state.callState.copy(status = CallStatus.ENDED, error = "Signaling timed out"))
+            .callSetupData(null)
+            .build()
+    }
+
     override fun handleCallFailedBusy(state: CallServiceState): CallServiceState {
         Log.d(tag, "handleCallFailedBusy: remote user is busy")
         observerRegistry?.notifyEnded(CallEndReason.BUSY, null)

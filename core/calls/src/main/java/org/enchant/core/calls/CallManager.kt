@@ -67,6 +67,9 @@ class DefaultCallManager(
     private var signalingTimeoutJob: Job? = null
     private var turnServers: List<IceServer> = emptyList()
     private var turnServersFetchedAt: Long = 0
+
+    private var turnUsername: ByteArray? = null
+    private var turnCredential: ByteArray? = null
     private var statsCollector: StatsCollector? = null
 
     init {
@@ -108,6 +111,8 @@ class DefaultCallManager(
         peerConnection = webRtcEngine.createPeerConnection(iceServers, createPeerConnectionObserver())
             ?: run { endCall(); return }
 
+        iceHandler.drainAndApply(peerConnection!!)
+
         val stream = mediaStreamManager.createLocalStream(isVideo)
             ?: run { endCall(); return }
 
@@ -124,7 +129,7 @@ class DefaultCallManager(
         signalingTimeoutJob = serviceScope.launch {
             delay(30_000)
             val current = _serviceState.value.callState
-            if (current.status == CallStatus.CALLING || current.status == CallStatus.CONNECTING) {
+            if (current.status == CallStatus.CALLING || current.status == CallStatus.CONNECTING || current.status == CallStatus.RINGING) {
                 processAction(CallAction.SignalingTimeout)
             }
         }
@@ -286,12 +291,23 @@ class DefaultCallManager(
     }
 
     private suspend fun fetchTurnServers(): List<IceServer> {
-        if (System.currentTimeMillis() - turnServersFetchedAt < 3_600_000 && turnServers.isNotEmpty()) {
+        if (System.currentTimeMillis() - turnServersFetchedAt < 300_000 && turnServers.isNotEmpty()) {
             return turnServers
         }
-        return signalingClient.fetchTurnServers().getOrElse {
+        val servers = signalingClient.fetchTurnServers().getOrElse {
             listOf(IceServer(urls = listOf("stun:stun.l.google.com:19302")))
         }
+        turnServers = servers
+        turnServersFetchedAt = System.currentTimeMillis()
+        servers.forEach { server ->
+            server.username?.let { u ->
+                if (turnUsername == null) turnUsername = u.toByteArray()
+            }
+            server.credential?.let { c ->
+                if (turnCredential == null) turnCredential = c.toByteArray()
+            }
+        }
+        return servers
     }
 
     private fun addTracks(stream: MediaStream) {
@@ -306,7 +322,7 @@ class DefaultCallManager(
             while (isActive) {
                 delay(1000)
                 val current = _serviceState.value.callState
-                if (current.status == CallStatus.CONNECTED || current.status == CallStatus.CALLING) {
+                if (current.status == CallStatus.CONNECTED) {
                     stateMachine.updateDuration(current.durationSeconds + 1)
                 }
             }
@@ -328,6 +344,10 @@ class DefaultCallManager(
         iceHandler.clear()
         mediaStreamManager.release()
         audioFocusManager.abandonFocus()
+        turnUsername?.fill(0)
+        turnUsername = null
+        turnCredential?.fill(0)
+        turnCredential = null
     }
 
     private fun createPeerConnectionObserver(): PeerConnection.Observer {

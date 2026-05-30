@@ -112,12 +112,18 @@ class PreKeyStore {
      * Generate a batch of one-time prekeys.
      *
      * @param count number of prekeys to generate (default 100)
+     * @param startId the starting ID for the batch; if null, uses next available ID from counter
      * @return list of generated prekey records
      */
-    suspend fun generateOneTimePreKeys(count: Int = OPK_BATCH_SIZE): List<OneTimePreKeyRecord> {
+    suspend fun generateOneTimePreKeys(count: Int = OPK_BATCH_SIZE, startId: Int? = null): List<OneTimePreKeyRecord> {
         return mutex.withLock {
-            val records = (1..count).map {
-                val id = nextId.incrementAndGet()
+            val firstId = if (startId != null) {
+                nextId.updateAndGet { maxOf(it, startId) }
+            } else {
+                nextId.incrementAndGet()
+            }
+            val records = (0 until count).map { offset ->
+                val id = firstId + offset
                 val keyPair = CryptoPrimitives.generateX25519KeyPair()
                 val record = OneTimePreKeyRecord(
                     id = id,

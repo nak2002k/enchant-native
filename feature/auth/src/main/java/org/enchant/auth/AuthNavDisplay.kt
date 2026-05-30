@@ -1,11 +1,15 @@
 package org.enchant.auth
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import kotlinx.coroutines.flow.collectLatest
 import org.enchant.auth.screens.AppLockScreen
 import org.enchant.auth.screens.CountryCodePickerScreen
 import org.enchant.auth.screens.KeyGenerationScreen
@@ -17,6 +21,8 @@ import org.enchant.auth.screens.RestorePromptScreen
 import org.enchant.auth.screens.TwoStepPinScreen
 import org.enchant.auth.screens.UsernamePickerScreen
 import org.enchant.auth.screens.WelcomeScreen
+import org.enchant.core.auth.AuthState
+import org.enchant.core.auth.RegistrationState
 import org.enchant.core.ui.navigation.TransitionSpecs
 
 @Composable
@@ -26,6 +32,49 @@ fun AuthNavDisplay(
     modifier: Modifier = Modifier,
     onAuthComplete: () -> Unit = {}
 ) {
+    val registrationState by viewModel.registrationState.collectAsState()
+    val authState by viewModel.authState.collectAsState()
+
+    LaunchedEffect(registrationState) {
+        val state = registrationState
+        when (state) {
+            is RegistrationState.OtpVerification -> {
+                if (backStack.lastOrNull() !is AuthNavKey.OtpVerify) {
+                    backStack.add(AuthNavKey.OtpVerify(identifier = state.identifier))
+                }
+            }
+            is RegistrationState.KeyGeneration -> {
+                if (backStack.lastOrNull() !is AuthNavKey.ProfileSetup) {
+                    backStack.add(AuthNavKey.ProfileSetup)
+                }
+            }
+            is RegistrationState.Permissions -> {
+                if (backStack.lastOrNull() !is AuthNavKey.KeyGeneration) {
+                    backStack.add(AuthNavKey.KeyGeneration)
+                }
+            }
+            is RegistrationState.UsernamePicker -> {
+                if (backStack.lastOrNull() !is AuthNavKey.AppLock) {
+                    backStack.add(AuthNavKey.AppLock)
+                }
+            }
+            is RegistrationState.Complete -> {
+                if (backStack.lastOrNull() !is AuthNavKey.AppLock) {
+                    backStack.add(AuthNavKey.AppLock)
+                }
+            }
+            is RegistrationState.Error -> {}
+            is RegistrationState.Loading -> {}
+            else -> {}
+        }
+    }
+
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Authenticated) {
+            onAuthComplete()
+        }
+    }
+
     NavDisplay(
         backStack = backStack,
         modifier = modifier,
@@ -70,6 +119,7 @@ fun AuthNavDisplay(
                     onCountrySelected = { backStack.add(AuthNavKey.CountryCodePicker) },
                     onPhoneNumberChanged = {},
                     onPhoneNumberSubmitted = { phone ->
+                        viewModel.requestOtp(phone)
                         backStack.add(AuthNavKey.OtpVerify(identifier = phone))
                     },
                     onNavigateBack = { if (backStack.size > 1) backStack.removeAt(backStack.size - 1) }
@@ -111,8 +161,8 @@ fun AuthNavDisplay(
 
             entry<AuthNavKey.ProfileSetup> {
                 ProfileSetupScreen(
-                    onProfileDataEntered = { _, _, _ ->
-                        viewModel.updateProfile("", "", null)
+                    onProfileDataEntered = { displayName, about, avatarUri ->
+                        viewModel.updateProfile(username = displayName, displayName = displayName, about = about)
                         backStack.add(AuthNavKey.UsernamePicker)
                     }
                 )
@@ -120,15 +170,21 @@ fun AuthNavDisplay(
 
             entry<AuthNavKey.UsernamePicker> {
                 UsernamePickerScreen(
-                    onUsernameEntered = { backStack.add(AuthNavKey.AppLock) },
+                    onUsernameEntered = { username ->
+                        viewModel.updateProfile(username = username, displayName = username, about = null)
+                        backStack.add(AuthNavKey.AppLock)
+                    },
                     onSkip = { backStack.add(AuthNavKey.AppLock) },
-                    onCheckAvailability = { true }
+                    onCheckAvailability = { username -> viewModel.checkUsernameAvailability(username) }
                 )
             }
 
             entry<AuthNavKey.AppLock> {
                 AppLockScreen(
-                    onVerified = onAuthComplete,
+                    onVerified = {
+                        viewModel.enableBiometric()
+                        onAuthComplete()
+                    },
                     onDismiss = {}
                 )
             }
@@ -136,7 +192,7 @@ fun AuthNavDisplay(
             entry<AuthNavKey.RestorePrompt> { key ->
                 RestorePromptScreen(
                     hasBackup = key.hasBackup,
-                    onRestore = { },
+                    onRestore = { viewModel.restoreFromBackup() },
                     onStartFresh = {
                         while (backStack.size > 1 && backStack.get(backStack.size - 1) !is AuthNavKey.Welcome) {
                             backStack.removeAt(backStack.size - 1)

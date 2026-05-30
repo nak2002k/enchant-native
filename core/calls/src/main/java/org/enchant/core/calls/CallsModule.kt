@@ -14,6 +14,7 @@ import org.enchant.core.calls.webrtc.WebRtcEngine
 object CallsModule {
     private var context: Context? = null
     private var _callManager: DefaultCallManager? = null
+    private val lock = Any()
 
     fun initialize(appContext: Context) {
         context = appContext
@@ -54,10 +55,13 @@ object CallsModule {
         )
     }
 
-    fun getCallManager(): DefaultCallManager = _callManager
-        ?: throw IllegalStateException("CallManager not set. Call setCallManager() first.")
+    fun getCallManager(): DefaultCallManager = synchronized(lock) {
+        _callManager ?: throw IllegalStateException("CallManager not set. Call setCallManager() first.")
+    }
 
     fun setCallManager(manager: DefaultCallManager) {
-        _callManager = manager
+        synchronized(lock) {
+            _callManager = manager
+        }
     }
 }

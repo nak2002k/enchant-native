@@ -276,4 +276,25 @@ object AuthManager {
             Result.failure(e)
         }
     }
+
+    suspend fun restoreFromBackup(): Result<Unit> {
+        val repo = repository ?: return Result.failure(IllegalStateException("AuthManager not initialized"))
+        _currentState.value = RegistrationState.Loading
+        return try {
+            val result = repo.restoreFromBackup()
+            result.fold(
+                onSuccess = {
+                    _currentState.value = RegistrationState.Permissions
+                    Result.success(Unit)
+                },
+                onFailure = { error ->
+                    _currentState.value = RegistrationState.Error(message = error.message ?: "Restore failed")
+                    Result.failure(error)
+                }
+            )
+        } catch (e: Exception) {
+            _currentState.value = RegistrationState.Error(message = e.message ?: "Restore failed")
+            Result.failure(e)
+        }
+    }
 }

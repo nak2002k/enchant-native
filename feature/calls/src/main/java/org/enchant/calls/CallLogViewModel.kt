@@ -238,7 +238,9 @@ class CallLogViewModel : ViewModel() {
                             }
                             _uiState.value.selectionState is CallLogSelectionState.Excludes -> {
                                 val excludes = (_uiState.value.selectionState as CallLogSelectionState.Excludes).ids
-                                db.execSQL("DELETE FROM call_logs WHERE call_id NOT IN (${excludes.joinToString(",")}) AND filter = ?", arrayOf(filter.name))
+                                excludes.forEach { id ->
+                                    db.execSQL("DELETE FROM call_logs WHERE call_id = ? AND filter = ?", arrayOf(id, filter.name))
+                                }
                             }
                         }
                     } else {

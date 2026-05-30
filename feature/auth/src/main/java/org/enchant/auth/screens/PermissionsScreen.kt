@@ -1,10 +1,10 @@
 package org.enchant.auth.screens
 
 import android.Manifest
-import android.content.Intent
-import android.net.Uri
+import android.content.pm.PackageManager
 import android.os.Build
-import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 
 @Composable
 fun PermissionsScreen(
@@ -19,6 +20,28 @@ fun PermissionsScreen(
     onSkip: () -> Unit
 ) {
     val context = LocalContext.current
+    var permissionsGranted by remember {
+        mutableStateOf(
+            REQUIRED_PERMISSIONS.all {
+                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        permissionsGranted = results.values.all { it }
+        if (permissionsGranted) {
+            onPermissionsGranted()
+        }
+    }
+
+    val allGranted = remember(permissionsGranted) {
+        REQUIRED_PERMISSIONS.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -68,11 +91,20 @@ fun PermissionsScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = onPermissionsGranted,
-                modifier = Modifier.fillMaxWidth().height(52.dp)
-            ) {
-                Text("Continue")
+            if (allGranted) {
+                Button(
+                    onClick = onPermissionsGranted,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Text("Continue")
+                }
+            } else {
+                Button(
+                    onClick = { permissionLauncher.launch(REQUIRED_PERMISSIONS) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Text("Grant Permissions")
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -82,6 +114,21 @@ fun PermissionsScreen(
             }
         }
     }
+}
+
+private val REQUIRED_PERMISSIONS = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    arrayOf(
+        Manifest.permission.POST_NOTIFICATIONS,
+        Manifest.permission.RECORD_AUDIO,
+        Manifest.permission.CAMERA,
+        Manifest.permission.READ_CONTACTS
+    )
+} else {
+    arrayOf(
+        Manifest.permission.RECORD_AUDIO,
+        Manifest.permission.CAMERA,
+        Manifest.permission.READ_CONTACTS
+    )
 }
 
 @Composable

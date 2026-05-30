@@ -90,7 +90,7 @@ class MediaStreamManager(
             return false
         }
 
-        return try {
+        val capturer = try {
             val enumerator = Camera2Enumerator(context)
             val cameraName = enumerator.deviceNames.firstOrNull {
                 enumerator.isFrontFacing(it)
@@ -98,9 +98,15 @@ class MediaStreamManager(
                 enumerator.isBackFacing(it)
             } ?: return false
 
-            val capturer = enumerator.createCapturer(cameraName, null)
-            currentCapturer = capturer
+            enumerator.createCapturer(cameraName, null)
+        } catch (e: Exception) {
+            Log.e("MediaStreamManager", "Failed to create capturer: ${e.message}")
+            return false
+        }
 
+        currentCapturer = capturer
+
+        return try {
             val videoSource = factory.createVideoSource(capturer.isScreencast == true)
             currentVideoSource = videoSource
             capturer.startCapture(1280, 720, 30)
@@ -110,6 +116,10 @@ class MediaStreamManager(
             true
         } catch (e: Exception) {
             Log.e("MediaStreamManager", "Failed to add video: ${e.message}")
+            capturer.stopCapture()
+            capturer.dispose()
+            currentCapturer = null
+            currentVideoSource = null
             false
         }
     }

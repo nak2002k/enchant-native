@@ -114,7 +114,7 @@ private fun CallLogRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    val isMissed = entry.status == CallEndReason.BUSY
+    val isMissed = entry.status == CallEndReason.BUSY || entry.status == CallEndReason.TIMEOUT
     val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         else Color.Transparent
 

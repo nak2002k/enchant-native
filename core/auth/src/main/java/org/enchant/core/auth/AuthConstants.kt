@@ -20,5 +20,6 @@ object AuthConstants {
     const val PATH_KEYS_SPK = "/v1/keys/signed-prekey"
     const val PATH_KEYS_OPK = "/v1/keys/one-time-prekeys"
     const val PATH_KEYS_OPK_COUNT = "/v1/keys/opk-count"
+    const val PATH_RESTORE_BACKUP = "/v1/backup/restore"
     const val PATH_WHOAMI = "/v1/accounts/whoami"
 }

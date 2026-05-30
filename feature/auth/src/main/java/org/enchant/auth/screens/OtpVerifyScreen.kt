@@ -31,6 +31,7 @@ fun OtpVerifyScreen(
     val context = LocalContext.current
     var code by remember { mutableStateOf("") }
     var countdown by remember { mutableStateOf(30) }
+    var userEditedCode by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     DisposableEffect(Unit) {
@@ -45,7 +46,7 @@ fun OtpVerifyScreen(
                             val matcher = Pattern.compile("\\b(\\d{6})\\b").matcher(message)
                             if (matcher.find()) {
                                 val otp = matcher.group(1)
-                                if (code.length < 6) {
+                                if (code.length < 6 && !userEditedCode) {
                                     code = otp
                                     onCodeSubmitted(otp)
                                 }
@@ -96,6 +97,7 @@ fun OtpVerifyScreen(
                 onValueChange = { newValue: String ->
                     if (newValue.length <= 6 && newValue.all { it.isDigit() }) {
                         code = newValue
+                        userEditedCode = true
                         if (newValue.length == 6) {
                             onCodeSubmitted(newValue)
                         }

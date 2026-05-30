@@ -22,10 +22,17 @@ fun OutgoingCallScreen(
     isVideoCall: Boolean,
     onEndCall: () -> Unit,
     onToggleSpeaker: () -> Unit,
-    onSwitchToVideo: () -> Unit
+    onSwitchToVideo: () -> Unit,
+    callStatus: String = "CALLING"
 ) {
     var timeLeft by remember { mutableIntStateOf(45) }
     var isSpeakerOn by remember { mutableStateOf(false) }
+
+    LaunchedEffect(callStatus) {
+        if (callStatus == "CONNECTED" || callStatus == "RECONNECTING" || callStatus == "ENDED") {
+            timeLeft = 0
+        }
+    }
 
     LaunchedEffect(Unit) {
         while (timeLeft > 0) {

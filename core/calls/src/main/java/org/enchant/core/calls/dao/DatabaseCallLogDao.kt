@@ -122,7 +122,7 @@ class DatabaseCallLogDao(
     private fun mapStatus(raw: String): CallEndReason = when (raw) {
         "missed" -> CallEndReason.BUSY
         "answered" -> CallEndReason.HANGUP_LOCAL
-        "cancelled" -> CallEndReason.HANGUP_LOCAL
+        "cancelled" -> CallEndReason.TIMEOUT
         else -> CallEndReason.HANGUP_LOCAL
     }
 }

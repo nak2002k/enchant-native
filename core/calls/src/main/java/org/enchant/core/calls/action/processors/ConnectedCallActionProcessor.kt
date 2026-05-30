@@ -60,7 +60,7 @@ class ConnectedCallActionProcessor(
             .build()
     }
 
-override fun handleRaiseHand(state: CallServiceState, action: CallAction.RaiseHand): CallServiceState {
+    override fun handleRaiseHand(state: CallServiceState, action: CallAction.RaiseHand): CallServiceState {
         Log.d(tag, "handleRaiseHand: raised=${action.raised}")
         val newDeviceState = state.localDeviceState.copy(
             isHandRaised = action.raised,

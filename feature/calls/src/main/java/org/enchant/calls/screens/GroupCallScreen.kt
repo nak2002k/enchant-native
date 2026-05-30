@@ -1,6 +1,7 @@
 package org.enchant.calls.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
 data class CallParticipant(val userId: String, val displayName: String, val isMuted: Boolean, val isVideoOn: Boolean, val hasRaisedHand: Boolean)
@@ -79,7 +81,14 @@ private fun ParticipantTile(participant: CallParticipant, isAdmin: Boolean, onMu
     val bg = if (participant.hasRaisedHand) Color(0xFF4CAF50).copy(alpha = 0.3f) else Color.DarkGray.copy(alpha = 0.7f)
 
     Box(
-        modifier = Modifier.fillMaxWidth().aspectRatio(1f).background(bg, MaterialTheme.shapes.medium),
+        modifier = Modifier.fillMaxWidth().aspectRatio(1f).background(bg, MaterialTheme.shapes.medium)
+            .pointerInput(isAdmin) {
+                if (isAdmin) {
+                    detectTapGestures(
+                        onLongPress = { showMenu = true }
+                    )
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -95,13 +104,11 @@ private fun ParticipantTile(participant: CallParticipant, isAdmin: Boolean, onMu
             }
         }
 
-        if (isAdmin && showMenu) {
-            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                if (participant.isMuted.not()) {
-                    DropdownMenuItem(text = { Text("Mute") }, onClick = { onMute(participant.userId); showMenu = false })
-                }
-                DropdownMenuItem(text = { Text("Remove") }, onClick = { onRemove(participant.userId); showMenu = false })
+        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            if (participant.isMuted.not()) {
+                DropdownMenuItem(text = { Text("Mute") }, onClick = { onMute(participant.userId); showMenu = false })
             }
+            DropdownMenuItem(text = { Text("Remove") }, onClick = { onRemove(participant.userId); showMenu = false })
         }
     }
 }

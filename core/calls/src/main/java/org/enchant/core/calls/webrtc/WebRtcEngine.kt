@@ -60,7 +60,14 @@ class WebRtcEngine(
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
         }
 
-        return factory.createPeerConnection(config, observer)
+        val pc = factory.createPeerConnection(config, observer)
+
+        iceServers.forEach { s ->
+            s.username?.let { it.toByteArray().fill(0) }
+            s.credential?.let { it.toByteArray().fill(0) }
+        }
+
+        return pc
     }
 
     fun getEglBaseContext(): EglBase.Context? = rootEglBase?.eglBaseContext

@@ -31,16 +31,19 @@ fun ActiveVideoCallScreen(
     var showControls by remember { mutableStateOf(true) }
     var pipOffsetX by remember { mutableFloatStateOf(0f) }
     var pipOffsetY by remember { mutableFloatStateOf(0f) }
+    var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
         while (true) {
             delay(3000)
-            if (showControls) showControls = false
+            if (System.currentTimeMillis() - lastInteraction >= 3000) {
+                showControls = false
+            }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black).pointerInput(Unit) {
-        detectTapGestures { showControls = !showControls }
+        detectTapGestures { showControls = !showControls; lastInteraction = System.currentTimeMillis() }
     }) {
         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -76,13 +79,14 @@ fun ActiveVideoCallScreen(
 
         Surface(
             modifier = Modifier.size(120.dp, 180.dp)
-                .offset(x = (20 + pipOffsetX).dp, y = (100 + pipOffsetY).dp)
+                .offset(x = pipOffsetX.dp, y = pipOffsetY.dp)
                 .align(Alignment.TopEnd)
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
                         pipOffsetX += dragAmount.x
                         pipOffsetY += dragAmount.y
+                        lastInteraction = System.currentTimeMillis()
                     }
                 },
             shape = RoundedCornerShape(8.dp),

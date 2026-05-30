@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.setMain
 import org.enchant.core.auth.AuthManager
 import org.enchant.core.auth.AuthState
 import org.enchant.core.auth.RegistrationState
+import org.enchant.core.network.models.OtpResponse
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -43,7 +44,7 @@ class AuthViewModelTest {
         @Test @DisplayName("requestOtp calls AuthManager.requestOtp")
         fun `request otp`() = runTest {
             val viewModel = AuthViewModel()
-            coEvery { AuthManager.requestOtp(any()) } returns kotlin.Result.success(Unit)
+            coEvery { AuthManager.requestOtp(any()) } returns kotlin.Result.success(OtpResponse("challenge123", 600))
             viewModel.requestOtp("+15551234567")
             testDispatcher.scheduler.advanceUntilIdle()
             coVerify { AuthManager.requestOtp("+15551234567") }

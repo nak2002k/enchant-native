@@ -41,7 +41,9 @@ fun CallsNavDisplay(
                     isSelectionMode = state.isSelectionMode,
                     selectedIds = state.selectedIds,
                     onFilterChange = callLogViewModel::setFilter,
-                    onEntryClick = { if (backStack.size > 0) backStack.removeAt(backStack.size - 1) },
+                    onEntryClick = { entryId ->
+                        callViewModel.navigateToConversation(entryId)
+                    },
                     onStartSelection = callLogViewModel::startSelection,
                     onEndSelection = callLogViewModel::endSelection,
                     onToggleSelected = callLogViewModel::toggleSelected,
@@ -55,6 +57,7 @@ fun CallsNavDisplay(
                 OutgoingCallScreen(
                     remoteName = state.callState.remoteName ?: "User ${key.recipientId}",
                     isVideoCall = state.callState.isVideoCall,
+                    callStatus = state.callState.status.name,
                     onEndCall = {
                         callViewModel.endCall()
                         if (backStack.size > 0) backStack.removeAt(backStack.size - 1)
@@ -70,6 +73,7 @@ fun CallsNavDisplay(
                     callerName = state.callState.remoteName ?: "User ${key.callerId}",
                     callerId = key.callerId.toString(),
                     isVideoCall = state.callState.isVideoCall,
+                    callStatus = state.callState.status.name,
                     onAcceptAudio = { callViewModel.acceptCall(false) },
                     onAcceptVideo = { callViewModel.acceptCall(true) },
                     onDecline = {

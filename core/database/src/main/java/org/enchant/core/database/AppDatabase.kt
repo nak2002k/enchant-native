@@ -5,6 +5,7 @@ import android.database.Cursor
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SQLiteDatabaseHook
 import net.sqlcipher.database.SQLiteOpenHelper
+import org.enchant.core.base.SecurePreferences
 
 interface Migration {
     val version: Int
@@ -12,15 +13,28 @@ interface Migration {
 }
 
 class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Migration>) {
+    private var _dbCreatedWithWeakKdf = false
+
     private val hook = object : SQLiteDatabaseHook {
         override fun preKey(db: SQLiteDatabase) {
             db.execSQL("PRAGMA cipher_page_size = 1024")
             db.execSQL("PRAGMA cipher_compatibility = 3")
-            db.execSQL("PRAGMA cipher_default_kdf_iter = 1")
-            db.execSQL("PRAGMA kdf_iter = 1")
+            db.execSQL("PRAGMA cipher_default_kdf_iter = 256000")
+            db.execSQL("PRAGMA kdf_iter = 256000")
+            db.execSQL("PRAGMA kdf_algorithm = PBKDF2_HMAC_SHA512")
+            db.execSQL("PRAGMA hmac_algorithm = HMAC_SHA512")
             db.execSQL("PRAGMA cipher_memory_security = ON")
         }
-        override fun postKey(db: SQLiteDatabase) {}
+        override fun postKey(db: SQLiteDatabase) {
+            if (_dbCreatedWithWeakKdf) {
+                db.execSQL("PRAGMA cipher_default_kdf_iter = 1")
+                db.execSQL("PRAGMA kdf_iter = 1")
+            }
+        }
+    }
+
+    init {
+        _dbCreatedWithWeakKdf = SecurePreferences.getBoolean("db_weak_kdf", false)
     }
 
     private val openHelper: SQLiteOpenHelper by lazy {

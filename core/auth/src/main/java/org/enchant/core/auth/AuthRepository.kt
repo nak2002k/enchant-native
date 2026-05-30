@@ -211,4 +211,18 @@ class AuthRepository(private val apiClient: ApiClient) {
             Result.failure(e)
         }
     }
+
+    suspend fun restoreFromBackup(): Result<BackupRestoreResponse> {
+        return try {
+            val response = apiClient.get(AuthConstants.PATH_RESTORE_BACKUP)
+            response.map { json ->
+                BackupRestoreResponse(
+                    success = json["success"]?.jsonPrimitive?.boolean ?: true,
+                    restoredKeys = json["restored_keys"]?.jsonPrimitive?.int ?: 0
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

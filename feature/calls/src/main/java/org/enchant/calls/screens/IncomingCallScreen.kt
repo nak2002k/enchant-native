@@ -21,9 +21,16 @@ fun IncomingCallScreen(
     isVideoCall: Boolean,
     onAcceptAudio: () -> Unit,
     onAcceptVideo: () -> Unit,
-    onDecline: () -> Unit
+    onDecline: () -> Unit,
+    callStatus: String = "RINGING"
 ) {
     var timeLeft by remember { mutableIntStateOf(30) }
+
+    LaunchedEffect(callStatus) {
+        if (callStatus == "CONNECTED" || callStatus == "RECONNECTING" || callStatus == "ENDED") {
+            timeLeft = 0
+        }
+    }
 
     LaunchedEffect(Unit) {
         while (timeLeft > 0) {
