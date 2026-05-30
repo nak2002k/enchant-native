@@ -139,6 +139,73 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 | hasMore | `hasMore` flag for pagination | Backend needs to provide it |
 | Error sealed class | Sealed class for UI errors | Architecture change |
 
+## feature:chat
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Message types | Structured message types (Location/Sticker/ContactCard) | Needs backend schema |
+| Reactions | Reaction toggle UI | Feature request |
+| Reply chain | Reply chain display | Feature request |
+| Edit | Edit isolation | Feature request |
+| SecurePreferences DI | DI for SecurePreferences | Significant refactor |
+| Clipboard | Clipboard auto-clear | Feature request |
+| Circuit breaker | Circuit breaker pattern | Feature request |
+
+## feature:contacts
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Phone hash salt | No phone hash salt/HKDF | Requires backend API change for salt protocol |
+| Delta sync | No contact discovery interval/delta sync | Feature request, needs backend delta endpoint |
+| Reverse search | No reverse contact search | Feature request, needs new endpoint |
+| Room caching | No Room for caching | Larger refactor beyond audit scope |
+| SavedStateHandle | No SavedStateHandle | UI architecture change |
+| Test coverage | Comprehensive test coverage | Feature request |
+
+## feature:groups
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Encryption | Group message encryption | Backend responsibility |
+| Role enforcement | Server-side role enforcement | Backend responsibility |
+| Ban checks | Ban permission checks | Backend responsibility |
+| Rate limiting | Rate limiting on approve/deny | Backend rate limiting needed |
+| Revision conflicts | Optimistic locking on reads | Backend revision protocol |
+| Concurrent modification | Race in GroupStateProcessor | Backend revision protocol |
+| Preview link | Preview link leaks metadata | Backend endpoint behavior |
+| QR code | QR code for group invite | Feature request |
+| Avatar upload | Group avatar upload | Feature request |
+| Search | Group search | Feature request |
+| Revoke link | Revoke invite link | Feature request |
+| Block+remove | Block and remove member | Feature request |
+| God object | ViewModel too large | Large refactor |
+| Pagination | No pagination | Backend/infrastructure |
+| WebSocket | No WebSocket updates | Backend/infrastructure |
+| Raw SQL | Raw SQL queries | Large refactor |
+| Naming | Inconsistent naming conventions | Large refactor |
+
+## feature:chatlist
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Encryption indicator | Encryption indicator for offline queue | Feature request |
+| Pin sync | Pin not synced to server | No backend API endpoint found |
+| Pagination | No pagination | Needs backend support |
+| Swipe gestures | No swipe gestures | Feature request |
+| Search names | Search doesn't cover participant names | Needs DAO changes |
+| Empty state | No search-specific empty state | UI feature request |
+
+## feature:profile
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| E2E encryption | E2E encryption of profile fields | Requires SealedSender integration + backend profile key exchange |
+| Search debounce | Search debounce | Feature request (UX optimization) |
+| Avatar download | Avatar download | Requires MediaService.getBinary() from chat module (cross-module dependency) |
+| Edit form UI | Edit form UI | Feature request (no EditProfileScreen exists) |
+| Architecture | ViewModel architecture / state management refactor | Code quality improvements requiring broader changes |
+| DI refactor | Remove ApiClient.getInstance() | Requires Hilt/Koin setup |
+
 ---
 
 *Last updated: 2026-05-30*
