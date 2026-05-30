@@ -4,6 +4,8 @@ import android.content.ContentResolver
 import android.database.Cursor
 import android.provider.ContactsContract
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -11,7 +13,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
-import java.security.MessageDigest
+import org.enchant.core.crypto.CryptoPrimitives
+import java.security.SecureRandom
+import java.util.Base64
 
 data class PhoneContact(
     val name: String,
@@ -38,6 +42,23 @@ class ContactSyncService(
 ) {
     companion object {
         private const val BATCH_SIZE = 1000
+        private const val DEBOUNCE_MS = 2000L
+    }
+
+    private val _syncTrigger = MutableStateFlow(0L)
+
+    suspend fun debouncedSyncContacts(): Result<List<MatchedContact>> {
+        _syncTrigger.value = System.currentTimeMillis()
+        return debouncedSyncInternal()
+    }
+
+    private suspend fun debouncedSyncInternal(): Result<List<MatchedContact>> {
+        val triggerTime = _syncTrigger.value
+        delay(DEBOUNCE_MS)
+        if (_syncTrigger.value != triggerTime) {
+            return debouncedSyncInternal()
+        }
+        return syncContacts()
     }
 
     suspend fun syncContacts(): Result<List<MatchedContact>> = withContext(Dispatchers.Default) {
@@ -82,9 +103,21 @@ class ContactSyncService(
         }
     }
 
-    fun hashPhoneNumber(e164: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(e164.encodeToByteArray()).joinToString("") { "%02x".format(it) }
+    /**
+     * Phone hash uses Argon2id for privacy-preserving contact discovery.
+     * Previously used raw SHA-256. Existing contacts need re-discovery after update.
+     */
+    fun hashPhoneNumber(phone: String): String {
+        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        val hash = CryptoPrimitives.argon2idHashWithParams(
+            phone.toByteArray(Charsets.UTF_8),
+            salt,
+            3,
+            65536,
+            4,
+            32
+        )
+        return Base64.getEncoder().encodeToString(salt) + ":" + Base64.getEncoder().encodeToString(hash)
     }
 
     suspend fun readDeviceContacts(): List<PhoneContact> = withContext(Dispatchers.IO) {

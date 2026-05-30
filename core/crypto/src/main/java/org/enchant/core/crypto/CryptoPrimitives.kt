@@ -272,6 +272,17 @@ object CryptoPrimitives {
 
     fun sha512(data: ByteArray): ByteArray = MessageDigest.getInstance("SHA-512").digest(data)
 
+    fun argon2idHashWithParams(plaintext: ByteArray, salt: ByteArray, iterations: Int, memory_kb: Int, parallelism: Int, outputLen: Int): ByteArray {
+        val output = ByteArray(outputLen)
+        val rc = EnchantCrypto.enchant_argon2id_hash_with_params(
+            plaintext, plaintext.size,
+            salt, iterations, memory_kb, parallelism,
+            output, outputLen
+        )
+        if (rc != 0) throw RuntimeException("argon2id_hash_with_params failed: $rc")
+        return output
+    }
+
     // ──────────────────────────────────────────────
     // Constant-Time Comparison
     // ──────────────────────────────────────────────

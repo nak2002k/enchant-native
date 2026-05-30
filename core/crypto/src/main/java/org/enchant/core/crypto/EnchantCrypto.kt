@@ -56,6 +56,7 @@ object EnchantCrypto {
     external fun enchant_base64_encode(data: ByteArray, len: Int, output: ByteArray, output_len: Int): Int
     external fun enchant_base64_decode(input: String, output: ByteArray, output_len: Int): Int
     external fun enchant_argon2id_hash(plaintext: String, plaintext_len: Int, output: ByteArray, output_len: Int): Int
+    external fun enchant_argon2id_hash_with_params(plaintext: ByteArray, plaintext_len: Int, salt: ByteArray, iterations: Int, memory_kb: Int, parallelism: Int, output: ByteArray, output_len: Int): Int
     external fun enchant_argon2id_verify(hash: String, hash_len: Int, plaintext: String, plaintext_len: Int): Int
     external fun enchant_secure_zero(ptr: Long, len: Int)
     external fun enchant_secure_alloc(len: Int): Long
