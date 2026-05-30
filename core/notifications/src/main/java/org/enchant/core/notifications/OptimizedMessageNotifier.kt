@@ -36,7 +36,7 @@ object OptimizedMessageNotifier {
     }
 
     suspend fun flush(context: Context) {
-        lastContext = context
+        lastContext = context.applicationContext
         flushScheduled = false
         val batch = mutableListOf<QueuedNotification>()
         while (true) {

@@ -6,6 +6,7 @@ import android.content.Intent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import android.content.BroadcastReceiver.PendingResult
 import org.enchant.core.crypto.SessionManager
@@ -17,6 +18,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         val conversationId = NotificationBuilder.getConversationId(intent) ?: run {
+            scope.cancel()
             pendingResult.finish()
             return
         }
@@ -24,13 +26,17 @@ class NotificationReplyReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_REPLY -> handleReply(context, intent, conversationId, scope, pendingResult)
             ACTION_MARK_READ -> handleMarkRead(context, conversationId, scope, pendingResult)
-            else -> pendingResult.finish()
+            else -> {
+                scope.cancel()
+                pendingResult.finish()
+            }
         }
     }
 
     private fun handleReply(context: Context, intent: Intent, conversationId: String, scope: CoroutineScope, pendingResult: PendingResult) {
         val replyText = NotificationBuilder.getReplyText(intent)
         if (replyText.isNullOrBlank()) {
+            scope.cancel()
             pendingResult.finish()
             return
         }
@@ -52,7 +58,10 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                 ))
             } catch (e: Exception) {
                 android.util.Log.e("Enchant", "Reply failed: ${e.message}", e)
-            } finally { pendingResult.finish() }
+            } finally {
+                scope.cancel()
+                pendingResult.finish()
+            }
         }
     }
 
@@ -65,7 +74,10 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                 ))
             } catch (e: Exception) {
                 android.util.Log.e("Enchant", "Mark read failed: ${e.message}", e)
-            } finally { pendingResult.finish() }
+            } finally {
+                scope.cancel()
+                pendingResult.finish()
+            }
         }
     }
 

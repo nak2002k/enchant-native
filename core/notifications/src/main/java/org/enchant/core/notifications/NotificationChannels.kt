@@ -8,6 +8,8 @@ import android.os.Build
 object NotificationChannels {
     const val CHANNEL_MESSAGES = "messages"
     const val CHANNEL_MESSAGES_SILENT = "messages_silent"
+    const val CHANNEL_GROUP_MESSAGES = "group_messages"
+    const val CHANNEL_MENTIONS = "mentions"
     const val CHANNEL_CALLS = "calls"
     const val CHANNEL_VOICE = "voice"
     const val CHANNEL_OTHER = "other"
@@ -17,12 +19,23 @@ object NotificationChannels {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_MESSAGES, "Messages", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Message notifications"
+                description = "Direct message notifications"
             }
         )
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_MESSAGES_SILENT, "Messages (Silent)", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Silent message notifications"
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_GROUP_MESSAGES, "Group Messages", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Group conversation notifications"
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_MENTIONS, "Mentions", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "When someone mentions you in a group"
+                enableVibration(true)
             }
         )
         nm.createNotificationChannel(
