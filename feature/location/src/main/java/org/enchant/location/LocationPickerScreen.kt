@@ -106,7 +106,15 @@ fun LocationPickerScreen(
         }
     }
 
-    DisposableEffect(onBack) { onDispose { } }
+    DisposableEffect(onBack) {
+        onDispose {
+            latitude = 0.0
+            longitude = 0.0
+            address = ""
+            searchQuery = ""
+            locationError = null
+        }
+    }
 
     Scaffold(
         topBar = {

@@ -243,4 +243,15 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 
 ---
 
+## feature:location
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| C-1 | Message integration (LocationMessage data class, ChatService wiring, message envelope with location payload) | Requires cross-module coordination with :core:network and existing chat infrastructure — large feature, not a bug fix |
+| C-2 | Location message UI in conversation (render location in message bubble) | Feature request — no existing UI component to extend |
+| C-3 | Location persistence/history | Feature request — would need local storage design |
+| C-4 | Unsend/delete location message | Feature request — needs revocation capability design |
+| Q-1 | ViewModel extraction | Refactor — single 298-line composable with inline logic should be separated into ViewModel for testability |
+| Q-2 | GlobalScope replacement in reverseGeocodeAddress | Should use structured concurrency with proper lifecycle scope — currently uses GlobalScope as workaround |
+
 *Last updated: 2026-05-30*
