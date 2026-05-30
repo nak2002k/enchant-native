@@ -55,9 +55,7 @@ data class SettingsUiState(
 class SettingsViewModel(
     private val apiClient: ApiClient
 ) : ViewModel() {
-    constructor() : this(
-        ApiClient().also { it.init() }
-    )
+    constructor() : this(ApiClient.getInstance())
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -83,7 +81,7 @@ class SettingsViewModel(
                         blockedUsers = json["blocked_users"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
                     )
                 },
-                onFailure = {}
+                onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
             )
         }
     }
@@ -92,39 +90,41 @@ class SettingsViewModel(
         EnchantStore.settings.theme = theme
         _uiState.value = _uiState.value.copy(theme = theme)
         viewModelScope.launch {
-            withContext(Dispatchers.Default) {
+            val result = withContext(Dispatchers.Default) {
                 apiClient.put("/v1/settings/theme", buildJsonObject { put("theme", theme) })
             }
+            result.onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
         }
     }
 
     fun updateFontSize(size: Float) {
         _uiState.value = _uiState.value.copy(fontSize = size)
         viewModelScope.launch {
-            withContext(Dispatchers.Default) {
+            val result = withContext(Dispatchers.Default) {
                 apiClient.put("/v1/settings/font-size", buildJsonObject { put("font_size", size) })
             }
+            result.onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
         }
     }
 
-    fun updateNotificationPrefs(enabled: Boolean, messageNotif: Boolean, preview: Boolean) {
+    fun updateNotificationPrefs(notificationEnabled: Boolean, messageNotifications: Boolean, showPreview: Boolean) {
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
                 apiClient.put("/v1/settings/notifications", buildJsonObject {
-                    put("notifications_enabled", enabled)
-                    put("message_notifications", messageNotif)
-                    put("show_preview", preview)
+                    put("notifications_enabled", notificationEnabled)
+                    put("message_notifications", messageNotifications)
+                    put("show_preview", showPreview)
                 })
             }
             result.fold(
                 onSuccess = {
                     _uiState.value = _uiState.value.copy(
-                        notificationEnabled = enabled,
-                        messageNotifications = messageNotif,
-                        showPreview = preview
+                        notificationEnabled = notificationEnabled,
+                        messageNotifications = messageNotifications,
+                        showPreview = showPreview
                     )
                 },
-                onFailure = {}
+                onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
             )
         }
     }
@@ -151,7 +151,7 @@ class SettingsViewModel(
                         readReceipts = readReceipts
                     )
                 },
-                onFailure = {}
+                onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
             )
         }
     }
@@ -185,14 +185,17 @@ class SettingsViewModel(
                     } ?: emptyList()
                     _uiState.value = _uiState.value.copy(devices = devices)
                 },
-                onFailure = {}
+                onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
             )
         }
     }
 
     fun revokeDevice(deviceId: String) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isProcessing = true, error = null,
+                devices = _uiState.value.devices.filter { it.deviceId != deviceId }
+            )
             val result = withContext(Dispatchers.Default) {
                 apiClient.del("/v1/devices/$deviceId")
             }
@@ -224,7 +227,7 @@ class SettingsViewModel(
                     )
                     _uiState.value = _uiState.value.copy(storageInfo = info)
                 },
-                onFailure = {}
+                onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
             )
         }
     }
@@ -248,6 +251,7 @@ class SettingsViewModel(
     }
 
     fun deleteAccount() {
+        if (_uiState.value.isProcessing) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
             val result = withContext(Dispatchers.Default) {

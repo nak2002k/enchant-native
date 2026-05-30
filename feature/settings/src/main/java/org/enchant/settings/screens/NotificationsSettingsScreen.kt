@@ -19,13 +19,13 @@ fun NotificationsSettingsScreen(
     showPreview: Boolean,
     dndStartTime: String,
     dndEndTime: String,
-    dndDaysOfWeek: List<Int>,
+    dndDaysOfWeek: Set<Int>,
     onMasterToggle: (Boolean) -> Unit,
     onMessageNotificationsChange: (Boolean) -> Unit,
     onShowPreviewChange: (Boolean) -> Unit,
     onDndStartTimeChange: (String) -> Unit,
     onDndEndTimeChange: (String) -> Unit,
-    onDndDaysChange: (List<Int>) -> Unit,
+    onDndDaysChange: (Set<Int>) -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(

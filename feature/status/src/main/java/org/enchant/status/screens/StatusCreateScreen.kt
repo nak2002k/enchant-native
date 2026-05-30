@@ -18,7 +18,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.enchant.status.StatusPrivacy
-import java.util.UUID
 
 private val presetColors = listOf(
     "#FF6B6B", "#FFA94D", "#FFD43B", "#69DB7C",
@@ -50,7 +49,7 @@ fun StatusCreateScreen(
                 actions = {
                     TextButton(
                         onClick = { onCreateText(text, selectedColor, selectedPrivacy) },
-                        enabled = text.isNotBlank()
+                        enabled = text.isNotBlank() && text.length <= 700
                     ) {
                         Text("Share")
                     }
@@ -92,7 +91,14 @@ fun StatusCreateScreen(
                 label = { Text("Status text") },
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 5,
-                supportingText = { Text("${text.length}/700") }
+                supportingText = {
+                    Text(
+                        "${text.length}/700",
+                        color = if (text.length > 700) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                isError = text.length > 700
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -127,30 +133,6 @@ fun StatusCreateScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { onCreateMedia(UUID.randomUUID().toString(), selectedPrivacy) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Gif, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add GIF")
-                }
-                OutlinedButton(
-                    onClick = { onCreateMedia(UUID.randomUUID().toString(), selectedPrivacy) },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Image, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add Image")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
             Text("Privacy", style = MaterialTheme.typography.titleSmall)
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -164,7 +146,7 @@ fun StatusCreateScreen(
                     Text(
                         when (selectedPrivacy) {
                             StatusPrivacy.AllContacts -> "All Contacts"
-                            StatusPrivacy.Selected -> "Selected Contacts"
+                            is StatusPrivacy.Selected -> "Selected Contacts"
                             StatusPrivacy.CloseFriends -> "Close Friends"
                         },
                         modifier = Modifier.weight(1f)
@@ -180,8 +162,8 @@ fun StatusCreateScreen(
                         onClick = { selectedPrivacy = StatusPrivacy.AllContacts; showPrivacyDropdown = false }
                     )
                     DropdownMenuItem(
-                        text = { Text("Selected Contacts") },
-                        onClick = { selectedPrivacy = StatusPrivacy.Selected; showPrivacyDropdown = false }
+                        text = { Text("Selected Contacts (coming soon)") },
+                        onClick = { showPrivacyDropdown = false }
                     )
                     DropdownMenuItem(
                         text = { Text("Close Friends") },

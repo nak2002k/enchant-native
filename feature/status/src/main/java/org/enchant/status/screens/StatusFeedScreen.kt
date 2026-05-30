@@ -24,13 +24,16 @@ import org.enchant.status.StatusFeedEntry
 @Composable
 fun StatusFeedScreen(
     myStatus: StatusFeedEntry?,
-    feed: Map<String, List<StatusFeedEntry>>,
+    feed: List<StatusFeedEntry>,
     onStatusTap: (String) -> Unit,
     onCreateStatus: () -> Unit
 ) {
-    val sortedUsers = remember(feed) {
-        feed.entries.sortedBy { (_, statuses) ->
-            statuses.any { !it.isViewed }  // unviewed first
+    val groupedFeed = remember(feed) {
+        feed.groupBy { it.userId }
+    }
+    val sortedUsers = remember(groupedFeed) {
+        groupedFeed.entries.sortedBy { (_, statuses) ->
+            statuses.any { !it.isViewed }
         }
     }
 

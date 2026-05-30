@@ -21,7 +21,8 @@ class StatusFeedScreenTest {
             backgroundColor = "#FF0000",
             createdAt = "2025-01-01T00:00:00Z",
             viewedBy = listOf(viewer),
-            isViewed = false
+            isViewed = false,
+            isMine = true
         )
         assertEquals("s1", entry.statusId)
         assertEquals("u1", entry.userId)
@@ -33,6 +34,7 @@ class StatusFeedScreenTest {
         assertEquals("2025-01-01T00:00:00Z", entry.createdAt)
         assertEquals(1, entry.viewedBy.size)
         assertEquals(false, entry.isViewed)
+        assertTrue(entry.isMine)
     }
 
     @Test
@@ -48,5 +50,26 @@ class StatusFeedScreenTest {
         assertEquals("", entry.createdAt)
         assertTrue(entry.viewedBy.isEmpty())
         assertEquals(false, entry.isViewed)
+        assertEquals(false, entry.isMine)
+    }
+
+    @Test
+    fun `feed grouping by userId`() {
+        val entries = listOf(
+            StatusFeedEntry(statusId = "s1", userId = "u1", username = "alice"),
+            StatusFeedEntry(statusId = "s2", userId = "u1", username = "alice"),
+            StatusFeedEntry(statusId = "s3", userId = "u2", username = "bob")
+        )
+        val grouped = entries.groupBy { it.userId }
+        assertEquals(2, grouped.size)
+        assertEquals(2, grouped["u1"]?.size)
+        assertEquals(1, grouped["u2"]?.size)
+    }
+
+    @Test
+    fun `StatusPrivacy Selected holds userIds`() {
+        val selected = org.enchant.status.StatusPrivacy.Selected(userIds = listOf("u1", "u2"))
+        assertEquals(2, selected.userIds.size)
+        assertEquals("u1", selected.userIds[0])
     }
 }

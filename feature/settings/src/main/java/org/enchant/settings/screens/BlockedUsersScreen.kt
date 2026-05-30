@@ -18,12 +18,11 @@ import org.enchant.core.network.ApiClient
 @Composable
 fun BlockedUsersScreen(onNavigateBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val client = remember { ApiClient() }
+    val client = remember { ApiClient.getInstance() }
     var blockedUsers by remember { mutableStateOf<List<BlockedUser>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        client.init()
         val response = client.get("/v1/blocks")
         response.fold(
             onSuccess = { json ->

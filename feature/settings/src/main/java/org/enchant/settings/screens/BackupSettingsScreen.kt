@@ -18,13 +18,12 @@ import org.enchant.core.network.ApiClient
 @Composable
 fun BackupSettingsScreen(onNavigateBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val client = remember { ApiClient() }
+    val client = remember { ApiClient.getInstance() }
     var lastBackup by remember { mutableStateOf<BackupInfo?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isBackingUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        client.init()
         val response = client.get("/v1/backup/latest")
         response.fold(
             onSuccess = { json ->
