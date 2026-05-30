@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)
+    implementation(libs.timber)
     implementation(project(":core:base"))
     implementation(project(":core:store"))
     implementation(project(":core:database"))

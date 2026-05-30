@@ -7,9 +7,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import org.enchant.core.base.SecurePreferences
+import org.enchant.core.base.logging.Scrubber
 import org.enchant.core.crash.CrashHandler
+import org.enchant.core.crash.ScrubbedCrashlyticsTree
 import org.enchant.core.notifications.NotificationChannels
 import org.enchant.core.performance.ImagePipeline
+import timber.log.Timber
 
 class EnchantApp : Application() {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -18,10 +22,16 @@ class EnchantApp : Application() {
         super.onCreate()
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            android.util.Log.e("EnchantApp", "Uncaught crash on ${thread.name}", throwable)
+            try {
+                SecurePreferences.clearAll()
+            } catch (_: Exception) {
+            }
+            val scrubbed = Scrubber.scrub(throwable.message)
+            android.util.Log.e("EnchantApp", "Uncaught crash on ${thread.name}: $scrubbed", throwable)
             CrashHandler.recordException(throwable)
             defaultHandler?.uncaughtException(thread, throwable)
         }
+        Timber.plant(ScrubbedCrashlyticsTree())
         appScope.launch {
             initDi()
             initCrashReporting()
