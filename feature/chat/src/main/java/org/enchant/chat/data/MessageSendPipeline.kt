@@ -235,7 +235,14 @@ object MessageSendPipeline {
                     mediaMimeType = mimeType, mediaSize = fileBytes.size.toLong()
                 ))
 
-                val mediaPayload = "$mediaId:${CryptoHelper.base64UrlEncode(mediaKey)}"
+                val encryptedMediaKey = SessionManager.encryptWithSessionKey(recipientUserId, mediaKey)
+                if (encryptedMediaKey == null) {
+                    repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
+                    return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
+                }
+                Arrays.fill(mediaKey, 0)
+
+                val mediaPayload = "$mediaId:${CryptoHelper.base64UrlEncode(encryptedMediaKey)}"
                 val encrypted = SessionManager.encryptMessage(recipientUserId, mediaPayload.encodeToByteArray())
                 if (encrypted == null) {
                     repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)

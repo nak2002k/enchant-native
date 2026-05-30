@@ -132,6 +132,30 @@ object SessionManager {
         }
     }
 
+    suspend fun encryptWithSessionKey(recipientUserId: String, plaintext: ByteArray): ByteArray? {
+        return withContext(Dispatchers.Default) {
+            sessionLock.withLock {
+                val sKey = makeSessionKey(recipientUserId)
+                val state = sessions[sKey] ?: return@withLock null
+
+                val chainKey = state.sendingChainKey
+                    ?: return@withLock null
+
+                val (msgKeySeed, _) = KdfChain.deriveMessageKeyAndNextChain(chainKey)
+                val (encKey, nonce) = KdfChain.deriveMessageKeyAndNonce(msgKeySeed)
+                CryptoPrimitives.zeroBytes(msgKeySeed)
+
+                val ciphertext = CryptoPrimitives.encryptXChaCha20Poly1305Raw(plaintext, encKey, nonce)
+                CryptoPrimitives.zeroBytes(encKey)
+
+                ByteArray(nonce.size + ciphertext.size).apply {
+                    nonce.copyInto(this, 0)
+                    ciphertext.copyInto(this, nonce.size)
+                }
+            }
+        }
+    }
+
     // ──────────────────────────────────────────────
     // Decryption
     // ──────────────────────────────────────────────
