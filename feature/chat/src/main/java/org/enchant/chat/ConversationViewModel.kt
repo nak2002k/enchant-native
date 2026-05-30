@@ -286,7 +286,7 @@ class ConversationViewModel(
     fun setReaction(messageId: Long, emoji: String) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            pipeline.sendReaction(msg.envelopeId ?: msg.localId.toString(), emoji)
+            pipeline.sendReaction(msg.envelopeId ?: msg.localId.toString(), emoji, msg.conversationId)
         }
     }
 

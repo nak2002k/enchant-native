@@ -255,12 +255,15 @@ object MessageSendPipeline {
         }
     }
 
-    suspend fun sendReaction(messageId: String, emoji: String): Result<Unit> {
+    suspend fun sendReaction(messageId: String, emoji: String, conversationId: String): Result<Unit> {
         checkInit()
         val client = apiClient!!
         return withContext(Dispatchers.Default) {
             try {
-                client.put("/v1/reactions/$messageId", buildJsonObject { put("emoji", emoji) })
+                client.put("/v1/reactions/$messageId", buildJsonObject {
+                    put("emoji", emoji)
+                    put("conversation_id", conversationId)
+                })
                     .fold(onSuccess = { Result.success(Unit) }, onFailure = { Result.failure(it) })
             } catch (e: Exception) { Result.failure(e) }
         }

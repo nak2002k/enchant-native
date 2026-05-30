@@ -241,7 +241,7 @@ class MessageSendPipelineTest {
                     put("reacted", kotlinx.serialization.json.JsonPrimitive(true))
                 })
             }
-            val result = MessageSendPipeline.sendReaction("msg-1", "\uD83D\uDC4D")
+            val result = MessageSendPipeline.sendReaction("msg-1", "\uD83D\uDC4D", "conv-1")
             assertTrue(result.isSuccess)
         }
 
@@ -250,7 +250,7 @@ class MessageSendPipelineTest {
             coEvery { apiClient.put(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.failure(Exception("Network error"))
             }
-            val result = MessageSendPipeline.sendReaction("msg-1", "\uD83D\uDC4D")
+            val result = MessageSendPipeline.sendReaction("msg-1", "\uD83D\uDC4D", "conv-1")
             assertTrue(result.isFailure)
         }
     }

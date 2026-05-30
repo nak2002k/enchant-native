@@ -241,7 +241,7 @@ class ConversationViewModelTest {
                 content = "msg", status = MessageStatus.SENT, timestamp = 1000,
                 envelopeId = "env-1"
             )
-            coEvery { pipeline.sendReaction(any(), any()) } returns kotlinx.coroutines.runBlocking { kotlin.Result.success(Unit) }
+            coEvery { pipeline.sendReaction(any(), any(), any()) } returns kotlinx.coroutines.runBlocking { kotlin.Result.success(Unit) }
             viewModel.setReaction(1, "\uD83D\uDC4D")
         }
 
