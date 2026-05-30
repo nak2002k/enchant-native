@@ -254,4 +254,28 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 | Q-1 | ViewModel extraction | Refactor — single 298-line composable with inline logic should be separated into ViewModel for testability |
 | Q-2 | GlobalScope replacement in reverseGeocodeAddress | Should use structured concurrency with proper lifecycle scope — currently uses GlobalScope as workaround |
 
+## feature:settings
+
+| ID | Severity | Issue | Reason Deferred |
+|----|----------|-------|-----------------|
+| S-1 | Medium | Privacy settings sent to server unverified encrypted | Server-side enforcement check needed |
+| S-2 | Low | `onlineVisibility` is Boolean vs String for other visibility | Server API investigation needed |
+| S-3 | Low | Security settings device-local only, unverified safety number | Intentional device-local design; server fetch not implemented |
+| S-5 | Medium | `BlockedUsersScreen` uses ApiClient.getInstance() not injected | Would require refactoring screens to accept ApiClient |
+| CQ-2 | Medium | Inconsistent error handling across methods | Large refactor — standardized error wrapper needed |
+| CQ-3 | Medium | Screens create own ApiClient | Would require DI framework setup |
+| CQ-4 | Medium | SettingsViewModel default constructor anti-pattern | Would require DI framework setup |
+| CQ-5 | High | Tests shallow — no coVerify assertions | Test infra limitations with UnconfinedTestDispatcher |
+| CQ-6 | High | Tests reference non-existent enum types | Enums never existed; tests passed string coercion |
+| CQ-7 | Low | ChatsSettingsScreen callbacks wired but untested | ViewModel handlers exist but coroutine test issues |
+| B-2 | Medium | updateFontSize/updateTheme no saving feedback | Missing isSaving state in SettingsUiState |
+| B-3 | Medium | Same as B-2 | Same as B-2 |
+| B-5 | Medium | DND day selector — audit wrong | Parameter is already Set<Int>, not List |
+| C-1 | Low | Missing notification sound/vibration | Feature request |
+| C-2 | Low | Missing language/locale setting | Feature request |
+| C-3 | Low | Missing auto-download size threshold | Feature request |
+| C-4 | Low | Message trim stub-only | Feature request — needs server-side support |
+| C-5 | Medium | Backup encryption password not handled | Feature request — encryption design needed |
+| C-6 | Medium | Two-step setup flow placeholder | Feature request — needs 2FA flow UI |
+
 *Last updated: 2026-05-30*
