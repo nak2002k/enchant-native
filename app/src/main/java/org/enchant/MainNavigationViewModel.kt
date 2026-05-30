@@ -125,7 +125,6 @@ class MainNavigationViewModel(
         earlyNavigationDetailLocationRequested?.let { detail ->
             lockPaneToSecondary = false
             updateDetailLocation(detail)
-            clearEarlyDetailLocation()
         }
 
         return this.navigator!!

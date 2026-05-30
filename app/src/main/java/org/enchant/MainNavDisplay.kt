@@ -41,6 +41,7 @@ fun MainNavDisplay(
 
     LaunchedEffect(Unit) {
         mainNavViewModel.wrapNavigator(scope, navigator)
+        mainNavViewModel.clearEarlyDetailLocation()
     }
 
     LaunchedEffect(callUiState.callState.status) {
