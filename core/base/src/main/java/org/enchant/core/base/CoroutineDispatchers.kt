@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 
 object CoroutineDispatchers {
 
+    @Volatile
     private var provider: DispatcherProvider = DefaultDispatcherProvider
 
     fun setProvider(provider: DispatcherProvider = DefaultDispatcherProvider) {

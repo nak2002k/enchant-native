@@ -8,6 +8,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,8 +48,10 @@ class KeyStoreManagerTest {
     }
 
     @Test
-    fun `isHardwareBacked returns false before init`() {
-        assertFalse(KeyStoreManager.isHardwareBacked())
+    fun `isHardwareBacked throws before init`() {
+        assertThrows(IllegalStateException::class.java) {
+            KeyStoreManager.isHardwareBacked()
+        }
     }
 
     @Test

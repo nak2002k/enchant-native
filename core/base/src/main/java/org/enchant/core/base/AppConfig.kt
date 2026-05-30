@@ -73,10 +73,10 @@ object AppConfig {
 
             _gatewayUrl = resolveGatewayUrl(context, prefs, overrideUrl)
             _wsUrl = deriveWsUrl(_gatewayUrl)
-            _turnUrl = prefs.getString("turn_url", null)
-            _turnUsername = prefs.getString("turn_username", null)
-            _turnPassword = prefs.getString("turn_password", null)
-            _jwtPublicKey = prefs.getString("jwt_public_key", null)
+            _turnUrl = SecurePreferences.getString("turn_url") ?: prefs.getString("turn_url", null)
+            _turnUsername = SecurePreferences.getString("turn_username") ?: prefs.getString("turn_username", null)
+            _turnPassword = SecurePreferences.getString("turn_password") ?: prefs.getString("turn_password", null)
+            _jwtPublicKey = SecurePreferences.getString("jwt_public_key") ?: prefs.getString("jwt_public_key", null)
             _appVersion = resolveAppVersion(context)
             _userAgent = "Enchant-Android/$_appVersion"
             _applicationContext = context.applicationContext

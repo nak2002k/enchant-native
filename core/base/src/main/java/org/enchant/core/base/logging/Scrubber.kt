@@ -30,6 +30,7 @@ object Scrubber {
         if (stored != null) {
             stored
         } else {
+            Log.w(TAG, "SecurePreferences not initialized before Scrubber.SALT access; generating ephemeral salt")
             val bytes = ByteArray(16)
             java.security.SecureRandom().nextBytes(bytes)
             val hex = bytes.joinToString("") { "%02x".format(it) }

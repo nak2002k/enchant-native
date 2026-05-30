@@ -230,7 +230,10 @@ object KeyStoreManager {
         return decrypt(alias, bytes) ?: throw IllegalStateException("Failed to decrypt DB key")
     }
 
-    fun isHardwareBacked(): Boolean = _isHardwareBacked
+    fun isHardwareBacked(): Boolean {
+        check(initialized) { "KeyStoreManager not initialized. Call KeyStoreManager.init(context) first." }
+        return _isHardwareBacked
+    }
 
     private fun getKeyStore(): KeyStore {
         val ks = KeyStore.getInstance(ANDROID_KEYSTORE)
