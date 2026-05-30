@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.enchant.core.base.AppConfig
 
-class WebSocketService : Service() {
+class WebSocketForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile
     private var isConnected = false
@@ -45,10 +45,6 @@ class WebSocketService : Service() {
 
         scope.launch {
             try {
-                WebSocketManager.init()
-                WebSocketManager.connect()
-                updateNotification("Connected")
-
                 WebSocketManager.connectionState.collect { state ->
                     when (state) {
                         ConnectionState.CONNECTED -> {
@@ -65,7 +61,7 @@ class WebSocketService : Service() {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("WebSocketService", "Connection failed", e)
+                android.util.Log.e("WebSocketService", "State collection failed", e)
                 stopSelf()
             }
         }
@@ -74,7 +70,6 @@ class WebSocketService : Service() {
     override fun onDestroy() {
         scope.cancel()
         disconnect()
-        try { WebSocketManager.disconnect() } catch (_: Exception) {}
         super.onDestroy()
     }
 

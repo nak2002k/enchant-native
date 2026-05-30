@@ -145,7 +145,7 @@ DatabasePool.instance = it
                 )
                 PreKeyWorker.schedule(context)
 
-                WebSocketManager.init()
+                WebSocketManager.init(context)
                 _webSocketManager = WebSocketManager
 
                 if (_conversationRepository != null) {

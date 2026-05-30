@@ -69,7 +69,7 @@
         </activity>
 
         <service
-            android:name=".core.network.WebSocketService"
+            android:name=".core.network.WebSocketForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
 

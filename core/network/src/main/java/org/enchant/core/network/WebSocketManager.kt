@@ -1,5 +1,9 @@
 package org.enchant.core.network
 
+import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.*
@@ -71,6 +75,7 @@ object WebSocketManager {
     private var keepAliveJob: Job? = null
 
     private var apiClient: ApiClient? = null
+    private var applicationContext: Context? = null
 
     private val wsClient = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.SECONDS)
@@ -86,8 +91,9 @@ object WebSocketManager {
     val incomingMessages: SharedFlow<IncomingEnvelope> = _incomingMessages.asSharedFlow()
     val connectionErrors: SharedFlow<ConnectionError> = _connectionErrors.asSharedFlow()
 
-    fun init() {
+    fun init(context: Context) {
         if (initialized) return
+        applicationContext = context.applicationContext
         apiClient = ApiClient.getInstance()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         initialized = true
@@ -97,6 +103,8 @@ object WebSocketManager {
         if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) return
         _connectionState.value = ConnectionState.CONNECTING
         retryCount = 0
+
+        startForegroundService()
 
         var jwt = SecurePreferences.getString("auth.jwt")
         if (jwt != null && isJwtExpired(jwt)) {
@@ -165,6 +173,7 @@ object WebSocketManager {
         webSocket?.close(1000, "Client disconnect")
         webSocket = null
         _connectionState.value = ConnectionState.DISCONNECTED
+        stopForegroundService()
     }
 
     suspend fun sendMessage(
@@ -494,6 +503,34 @@ object WebSocketManager {
         } catch (e: Exception) { Log.e("WS", "JWT refresh failed"); null }
     }
 
+    private fun startForegroundService() {
+        val ctx = applicationContext ?: return
+        try {
+            val intent = Intent(ctx, WebSocketForegroundService::class.java).apply {
+                action = WebSocketForegroundService.ACTION_CONNECT
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ctx.startForegroundService(intent)
+            } else {
+                ctx.startService(intent)
+            }
+        } catch (e: Exception) {
+            Log.e("WS", "Failed to start foreground service", e)
+        }
+    }
+
+    private fun stopForegroundService() {
+        val ctx = applicationContext ?: return
+        try {
+            val intent = Intent(ctx, WebSocketForegroundService::class.java).apply {
+                action = WebSocketForegroundService.ACTION_DISCONNECT
+            }
+            ctx.startService(intent)
+        } catch (e: Exception) {
+            Log.e("WS", "Failed to stop foreground service", e)
+        }
+    }
+
     @VisibleForTesting
     fun resetForTesting() {
         initialized = false
@@ -508,5 +545,6 @@ object WebSocketManager {
         keepAliveJob = null
         _connectionState.value = ConnectionState.DISCONNECTED
         apiClient = null
+        applicationContext = null
     }
 }
