@@ -24,10 +24,12 @@ fun MainNavigationRail(
 ) {
     val entries = remember(state.isStoriesFeatureEnabled) {
         if (state.isStoriesFeatureEnabled) {
-            MainNavigationListLocation.entries.toList()
+            MainNavigationListLocation.entries.filterNot {
+                it == MainNavigationListLocation.ARCHIVE
+            }
         } else {
             MainNavigationListLocation.entries.filterNot {
-                it == MainNavigationListLocation.STORIES
+                it == MainNavigationListLocation.STORIES || it == MainNavigationListLocation.ARCHIVE
             }
         }
     }
@@ -41,9 +43,9 @@ fun MainNavigationRail(
         containerColor = MaterialTheme.colorScheme.surface,
         modifier = modifier
     ) {
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(40.dp).weight(1f, fill = false))
         mainFloatingActionButtons()
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(40.dp).weight(1f, fill = false))
 
         entries.forEachIndexed { idx, destination ->
             val selected = selectedDestination == destination

@@ -25,10 +25,12 @@ fun MainNavigationBar(
     ) {
         val entries = remember(state.isStoriesFeatureEnabled) {
             if (state.isStoriesFeatureEnabled) {
-                MainNavigationListLocation.entries.toList()
+                MainNavigationListLocation.entries.filterNot {
+                    it == MainNavigationListLocation.ARCHIVE
+                }
             } else {
                 MainNavigationListLocation.entries.filterNot {
-                    it == MainNavigationListLocation.STORIES
+                    it == MainNavigationListLocation.STORIES || it == MainNavigationListLocation.ARCHIVE
                 }
             }
         }

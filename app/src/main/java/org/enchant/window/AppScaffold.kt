@@ -42,5 +42,9 @@ fun AppScaffold(
                 bottomNavContent()
             }
         }
+
+        Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+            primaryContent()
+        }
     }
 }
