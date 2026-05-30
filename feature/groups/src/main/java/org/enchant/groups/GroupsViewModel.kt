@@ -29,7 +29,7 @@ data class GroupsUiState(
 class GroupsViewModel(
     private val repository: GroupsRepository
 ) : ViewModel() {
-    constructor() : this(GroupsRepository(org.enchant.core.network.ApiClient.getInstance(), org.enchant.core.database.DatabasePool.instance ?: throw IllegalStateException("DatabasePool not initialized")))
+    constructor() : this(GroupsRepository(org.enchant.core.network.ApiClient.getInstance(), org.enchant.core.database.DatabasePool.instance ?: error("DatabasePool not initialized")))
     private val _uiState = MutableStateFlow(GroupsUiState())
     val uiState: StateFlow<GroupsUiState> = _uiState.asStateFlow()
 
@@ -115,7 +115,9 @@ class GroupsViewModel(
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.error
                 )
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
             }
         }
     }
@@ -172,7 +174,7 @@ class GroupsViewModel(
                     successMessage = "Ownership transferred"
                 )
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(error = result.error)
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(error = "Unexpected result")
             }
         }
     }
@@ -230,7 +232,9 @@ class GroupsViewModel(
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.error
                 )
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
             }
         }
     }
@@ -249,7 +253,9 @@ class GroupsViewModel(
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.error
                 )
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
             }
         }
     }
@@ -265,7 +271,9 @@ class GroupsViewModel(
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.error
                 )
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
             }
         }
     }
@@ -293,7 +301,7 @@ class GroupsViewModel(
                     )
                 }
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(error = result.error)
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(error = "Unexpected result")
             }
         }
     }

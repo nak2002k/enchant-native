@@ -17,6 +17,10 @@ class ConversationListViewModel(
     private val repo: ConversationRepository,
     private val apiClient: ApiClient
 ) : ViewModel() {
+    companion object {
+        private const val SEARCH_DEBOUNCE_MS = 300L
+    }
+
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
 
@@ -34,6 +38,9 @@ class ConversationListViewModel(
 
     private val _navigationEvent = MutableStateFlow<String?>(null)
     val navigationEvent: StateFlow<String?> = _navigationEvent.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private var collectJob: Job? = null
     private var searchJob: Job? = null
@@ -75,7 +82,7 @@ class ConversationListViewModel(
             return
         }
         searchJob = viewModelScope.launch {
-            delay(300)
+            delay(SEARCH_DEBOUNCE_MS)
             repo.searchConversations(query).collect { list ->
                 _conversations.value = list
             }
@@ -87,7 +94,10 @@ class ConversationListViewModel(
             repo.setArchived(conversationId, true)
             try {
                 apiClient.post("/v1/chats/$conversationId/archive", null)
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            } catch (e: Exception) {
+                android.util.Log.e("Enchant", "archive failed for $conversationId", e)
+                _errorMessage.value = "Archive failed"
+            }
         }
     }
 
@@ -96,7 +106,10 @@ class ConversationListViewModel(
             repo.setArchived(conversationId, false)
             try {
                 apiClient.del("/v1/chats/$conversationId/archive")
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            } catch (e: Exception) {
+                android.util.Log.e("Enchant", "unarchive failed for $conversationId", e)
+                _errorMessage.value = "Unarchive failed"
+            }
         }
     }
 
@@ -117,7 +130,10 @@ class ConversationListViewModel(
                         if (until != null) put("mute_duration_seconds", kotlinx.serialization.json.JsonPrimitive((until - System.currentTimeMillis()) / 1000))
                     }
                 )
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            } catch (e: Exception) {
+                android.util.Log.e("Enchant", "mute failed for $conversationId", e)
+                _errorMessage.value = "Mute failed"
+            }
         }
     }
 
@@ -134,7 +150,10 @@ class ConversationListViewModel(
                 apiClient.post("/v1/messages/read", kotlinx.serialization.json.buildJsonObject {
                     put("conversation_id", kotlinx.serialization.json.JsonPrimitive(conversationId))
                 })
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            } catch (e: Exception) {
+                android.util.Log.e("Enchant", "markRead failed for $conversationId", e)
+                _errorMessage.value = "Mark read failed"
+            }
         }
     }
 
@@ -142,20 +161,10 @@ class ConversationListViewModel(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                val response = apiClient.get("/v1/messages/pending")
-                response.fold(
-                    onSuccess = {
-                        collectJob?.cancel()
-                        collectJob = viewModelScope.launch {
-                            repo.getConversations(_filter.value).collect { list ->
-                                _conversations.value = list
-                            }
-                        }
-                    },
-                    onFailure = {}
-                )
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
-            finally {
+                apiClient.get("/v1/messages/pending")
+            } catch (e: Exception) {
+                android.util.Log.e("Enchant", "refresh failed", e)
+            } finally {
                 _isRefreshing.value = false
             }
         }

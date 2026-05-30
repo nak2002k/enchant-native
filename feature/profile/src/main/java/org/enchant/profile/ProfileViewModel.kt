@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -40,8 +42,10 @@ class ProfileViewModel(
     private val apiClient: ApiClient
 ) : ViewModel() {
     constructor() : this(org.enchant.core.network.ApiClient.getInstance())
+
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    private val profileRefreshMutex = Mutex()
 
     fun loadProfile(userId: String) {
         viewModelScope.launch {
@@ -76,12 +80,20 @@ class ProfileViewModel(
     }
 
     fun updateProfile(displayName: String?, about: String?) {
+        val trimmedName = displayName?.trim()
+        val clampedAbout = about?.take(MAX_ABOUT_LENGTH)
+
+        if (trimmedName != null && trimmedName.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Display name cannot be empty")
+            return
+        }
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val body = buildJsonObject {
-                    if (displayName != null) put("display_name", displayName)
-                    if (about != null) put("about", about)
+                    if (trimmedName != null) put("display_name", trimmedName)
+                    if (clampedAbout != null) put("about", clampedAbout)
                 }
                 val response = apiClient.put("/v1/profile", body)
                 response.fold(
@@ -89,7 +101,7 @@ class ProfileViewModel(
                         _uiState.value = _uiState.value.copy(
                             isLoading = false, successMessage = "Profile updated"
                         )
-                        loadMyProfile()
+                        refreshProfileSafely()
                     },
                     onFailure = {
                         _uiState.value = _uiState.value.copy(isLoading = false, error = it.message)
@@ -102,6 +114,10 @@ class ProfileViewModel(
     }
 
     fun updateAvatar(mediaId: String) {
+        if (mediaId.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Invalid avatar media ID")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
@@ -114,7 +130,7 @@ class ProfileViewModel(
                         _uiState.value = _uiState.value.copy(
                             isLoading = false, successMessage = "Avatar updated"
                         )
-                        loadMyProfile()
+                        refreshProfileSafely()
                     },
                     onFailure = {
                         _uiState.value = _uiState.value.copy(isLoading = false, error = it.message)
@@ -149,11 +165,17 @@ class ProfileViewModel(
                         _uiState.value = _uiState.value.copy(searchResults = results)
                     },
                     onFailure = {
-                        _uiState.value = _uiState.value.copy(searchResults = emptyList())
+                        _uiState.value = _uiState.value.copy(
+                            searchResults = emptyList(),
+                            error = it.message
+                        )
                     }
                 )
-            } catch (_: Exception) {
-                _uiState.value = _uiState.value.copy(searchResults = emptyList())
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    searchResults = emptyList(),
+                    error = e.message
+                )
             }
         }
     }
@@ -215,6 +237,16 @@ class ProfileViewModel(
     }
 
     fun clearMessages() {
-        _uiState.value = _uiState.value.copy(error = null, successMessage = null)
+        _uiState.value = _uiState.value.copy(error = null, successMessage = null, isEditing = false)
+    }
+
+    private suspend fun refreshProfileSafely() {
+        profileRefreshMutex.withLock {
+            loadMyProfile()
+        }
+    }
+
+    companion object {
+        private const val MAX_ABOUT_LENGTH = 500
     }
 }

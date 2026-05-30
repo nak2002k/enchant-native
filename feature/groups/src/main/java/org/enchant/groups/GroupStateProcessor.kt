@@ -83,10 +83,13 @@ class GroupStateProcessor(
                         )
                     } ?: emptyList()
                 },
-                onFailure = { emptyList() }
+                onFailure = {
+                    android.util.Log.w("GroupStateProcessor", "API failure fetching changelog for $groupId: ${it.message}")
+                    emptyList()
+                }
             )
         } catch (e: Exception) {
-            android.util.Log.w("GroupStateProcessor", "Failed to fetch changelog for $groupId", e)
+            android.util.Log.e("GroupStateProcessor", "Failed to fetch changelog for $groupId", e)
             emptyList()
         }
     }

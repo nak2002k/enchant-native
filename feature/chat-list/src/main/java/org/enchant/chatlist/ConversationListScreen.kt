@@ -59,12 +59,20 @@ fun ConversationListScreen(
         }
     }
 
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
     LaunchedEffect(Unit) {
         WebSocketManager.incomingMessages.collect { envelope ->
             if (!envelope.ephemeral && envelope.senderUserId != null) {
-                val senderId = envelope.senderUserId ?: "unknown"
-                snackbarHostState.showSnackbar("New message from ${senderId.take(8)}...")
+                snackbarHostState.showSnackbar("New message")
             }
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
         }
     }
 
@@ -185,8 +193,12 @@ fun ConversationListScreen(
                             ConversationTile(
                                 conversation = conversation,
                                 onClick = { viewModel.selectConversation(conversation.id) },
-                                onArchive = { viewModel.archiveConversation(conversation.id) },
-                                onPin = { viewModel.pinConversation(conversation.id) },
+                        onArchive = {
+                            if (conversation.isArchived) viewModel.unarchiveConversation(conversation.id)
+                            else viewModel.archiveConversation(conversation.id)
+                        },
+                        onMute = { viewModel.muteConversation(conversation.id) },
+                        onPin = { viewModel.pinConversation(conversation.id) },
                                 onMarkRead = { viewModel.markRead(conversation.id) },
                                 onDelete = { viewModel.deleteConversation(conversation.id) }
                             )

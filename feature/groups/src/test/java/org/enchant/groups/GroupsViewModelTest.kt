@@ -118,8 +118,25 @@ class GroupsViewModelTest {
         }
     }
 
+    @Nested @DisplayName("Transfer Ownership")
+    inner class TransferOwnershipTest {
+        @Test @DisplayName("transferOwnership transfers group ownership")
+        fun `transfer ownership`() = runTest {
+            viewModel.transferOwnership("group-1", "user-2")
+            coVerify { repo.transferOwnership("group-1", "user-2") }
+        }
+    }
+
+    @Nested @DisplayName("Update Group")
+    inner class UpdateGroupTest {
+        @Test @DisplayName("updateGroup updates group details")
+        fun `update group`() = runTest {
+            viewModel.updateGroup("group-1", "New Name", "New Desc")
+            coVerify { repo.updateGroup("group-1", "New Name", "New Desc") }
+        }
+    }
+
     @Nested @DisplayName("UI State")
-    inner class UiStateTest {
         @Test @DisplayName("uiState has default values")
         fun `ui state defaults`() = runTest {
             val state = viewModel.uiState.value

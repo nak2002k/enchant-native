@@ -229,20 +229,21 @@ private fun MemberRow(member: GroupMember, isOwner: Boolean, onRemove: () -> Uni
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(member.displayName ?: member.username ?: member.userId.take(12), style = MaterialTheme.typography.bodyMedium)
-                Text(member.role, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(member.role.value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             when (member.role) {
-                "owner" -> Icon(Icons.Default.Star, "Owner", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                "admin" -> Icon(Icons.Default.Shield, "Admin", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                MemberRole.OWNER -> Icon(Icons.Default.Star, "Owner", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                MemberRole.ADMIN -> Icon(Icons.Default.Shield, "Admin", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                else -> {}
             }
         }
     }
 
     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-        if (isOwner && member.role == "member") {
+        if (isOwner && member.role == MemberRole.MEMBER) {
             DropdownMenuItem(text = { Text("Make admin") }, onClick = { onMakeAdmin(); showMenu = false })
         }
-        if (isOwner && member.role == "admin") {
+        if (isOwner && member.role == MemberRole.ADMIN) {
             DropdownMenuItem(text = { Text("Make member") }, onClick = { onMakeMember(); showMenu = false })
         }
         DropdownMenuItem(text = { Text("Remove from group") }, onClick = { onRemove(); showMenu = false })

@@ -21,6 +21,7 @@ fun ProfileScreen(
     userId: String,
     isOwnProfile: Boolean,
     profile: ProfileData?,
+    onBack: () -> Unit,
     onEdit: () -> Unit,
     onMessage: () -> Unit,
     onCall: () -> Unit,
@@ -32,7 +33,7 @@ fun ProfileScreen(
             TopAppBar(
                 title = { Text("Profile") },
                 navigationIcon = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
                     }
                 },
