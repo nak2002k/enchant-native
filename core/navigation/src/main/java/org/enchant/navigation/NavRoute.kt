@@ -1,7 +1,5 @@
 package org.enchant.navigation
 
-import android.net.Uri
-
 sealed class NavRoute {
     abstract val route: String
 
@@ -24,40 +22,40 @@ sealed class NavRoute {
     data object Settings : NavRoute() { override val route = "settings" }
     data class Conversation(val conversationId: String) : NavRoute() {
         override val route = "conversation/{conversationId}"
-        override val resolvedRoute = "conversation/${Uri.encode(conversationId)}"
+        override val resolvedRoute = "conversation/${encodeRouteParam(conversationId)}"
     }
     data object Search : NavRoute() { override val route = "search" }
     data class IncomingCall(val callId: String) : NavRoute() {
         override val route = "incoming_call/{callId}"
-        override val resolvedRoute = "incoming_call/${Uri.encode(callId)}"
+        override val resolvedRoute = "incoming_call/${encodeRouteParam(callId)}"
     }
     data class OutgoingCall(val userId: String) : NavRoute() {
         override val route = "outgoing_call/{userId}"
-        override val resolvedRoute = "outgoing_call/${Uri.encode(userId)}"
+        override val resolvedRoute = "outgoing_call/${encodeRouteParam(userId)}"
     }
     data class ActiveVoiceCall(val callId: String) : NavRoute() {
         override val route = "active_voice_call/{callId}"
-        override val resolvedRoute = "active_voice_call/${Uri.encode(callId)}"
+        override val resolvedRoute = "active_voice_call/${encodeRouteParam(callId)}"
     }
     data class ActiveVideoCall(val callId: String) : NavRoute() {
         override val route = "active_video_call/{callId}"
-        override val resolvedRoute = "active_video_call/${Uri.encode(callId)}"
+        override val resolvedRoute = "active_video_call/${encodeRouteParam(callId)}"
     }
     data class GroupCall(val callId: String) : NavRoute() {
         override val route = "group_call/{callId}"
-        override val resolvedRoute = "group_call/${Uri.encode(callId)}"
+        override val resolvedRoute = "group_call/${encodeRouteParam(callId)}"
     }
     data object Groups : NavRoute() { override val route = "groups" }
     data class GroupInfo(val groupId: String) : NavRoute() {
         override val route = "group_info/{groupId}"
-        override val resolvedRoute = "group_info/${Uri.encode(groupId)}"
+        override val resolvedRoute = "group_info/${encodeRouteParam(groupId)}"
     }
     data object CreateGroup : NavRoute() { override val route = "create_group" }
     data object Contacts : NavRoute() { override val route = "contacts" }
     data object StatusCreate : NavRoute() { override val route = "status_create" }
     data class StatusViewer(val statusId: String) : NavRoute() {
         override val route = "status_viewer/{statusId}"
-        override val resolvedRoute = "status_viewer/${Uri.encode(statusId)}"
+        override val resolvedRoute = "status_viewer/${encodeRouteParam(statusId)}"
     }
     data object AccountSettings : NavRoute() { override val route = "account_settings" }
     data object SecuritySettings : NavRoute() { override val route = "security_settings" }
@@ -73,7 +71,7 @@ sealed class NavRoute {
     data object Stickers : NavRoute() { override val route = "stickers" }
     data class PollCreate(val conversationId: String) : NavRoute() {
         override val route = "poll_create/{conversationId}"
-        override val resolvedRoute = "poll_create/${Uri.encode(conversationId)}"
+        override val resolvedRoute = "poll_create/${encodeRouteParam(conversationId)}"
     }
     data object LocationPicker : NavRoute() { override val route = "location_picker" }
     data object ShareTarget : NavRoute() { override val route = "share_target" }
@@ -81,6 +79,6 @@ sealed class NavRoute {
     data object QrScanner : NavRoute() { override val route = "qr_scanner" }
     data class MediaViewer(val conversationId: String) : NavRoute() {
         override val route = "media_viewer/{conversationId}"
-        override val resolvedRoute = "media_viewer/${Uri.encode(conversationId)}"
+        override val resolvedRoute = "media_viewer/${encodeRouteParam(conversationId)}"
     }
 }
