@@ -45,6 +45,8 @@ data class BackupUiState(
 class BackupViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(BackupUiState())
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
+    private val uploadQueue = ArrayDeque<Pair<String, Triple<Int, Int, ByteArray>>>()
+    private var isUploading = false
 
     fun initiateBackup() {
         viewModelScope.launch {
@@ -70,20 +72,36 @@ class BackupViewModel : ViewModel() {
 
     fun uploadChunk(backupId: String, chunkIndex: Int, totalChunks: Int, data: ByteArray) {
         viewModelScope.launch {
+            uploadQueue.add(backupId to Triple(chunkIndex, totalChunks, data))
+            if (!isUploading) {
+                processUploadQueue()
+            }
+        }
+    }
+
+    private suspend fun processUploadQueue() {
+        isUploading = true
+        while (uploadQueue.isNotEmpty()) {
+            val (backupId, triple) = uploadQueue.removeFirst()
+            val (chunkIndex, totalChunks, data) = triple
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
-            val result = withContext(Dispatchers.Default) {
+            val result = withContext(Dispatchers.IO) {
                 ApiClient.getInstance().postRaw("/v1/backup/$backupId/chunks/$chunkIndex", data)
             }
-            result.fold(
-                onSuccess = {
-                    _uiState.value = _uiState.value.copy(isProcessing = false,
-                        uploadProgress = (chunkIndex + 1).toFloat() / totalChunks.toFloat())
-                },
-                onFailure = { _uiState.value = _uiState.value.copy(
-                    isProcessing = false, error = it.message)
-                }
+            if (result.isFailure) {
+                _uiState.value = _uiState.value.copy(
+                    isProcessing = false,
+                    error = result.exceptionOrNull()?.message
+                )
+                isUploading = false
+                return
+            }
+            _uiState.value = _uiState.value.copy(
+                uploadProgress = (chunkIndex + 1).toFloat() / totalChunks.toFloat()
             )
         }
+        _uiState.value = _uiState.value.copy(isProcessing = false)
+        isUploading = false
     }
 
     fun finalizeBackup(backupId: String) {

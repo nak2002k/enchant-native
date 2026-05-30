@@ -16,6 +16,7 @@ import org.enchant.backup.archive.ContactArchiveExporter
 import org.enchant.backup.archive.GroupArchiveExporter
 import org.enchant.core.network.ApiClient
 import org.enchant.core.database.DatabasePool
+import org.enchant.core.crypto.CryptoHelper
 import java.io.File
 import java.io.RandomAccessFile
 import java.security.SecureRandom
@@ -26,7 +27,7 @@ class BackupExporter(
     private val pool: DatabasePool,
     private val context: Context
 ) {
-    private val json = Json { prettyPrint = true }
+    private val json = Json { prettyPrint = false }
 
     suspend fun exportFullBackup(outputPath: String, backupKey: ByteArray): Result<Unit> {
         return try {
@@ -95,15 +96,22 @@ class BackupExporter(
 
             val plaintext = json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), sections)
                 .encodeToByteArray()
-            val nonce = ByteArray(org.enchant.backup.archive.BackupArchive.XCHACHA_NONCE_SIZE).apply { SecureRandom().nextBytes(this) }
+            val nonce = CryptoHelper.generateRandomKey(BackupArchive.XCHACHA_NONCE_SIZE)
             val encrypted = BackupArchive.encryptSection(plaintext, backupKey, nonce)
 
-            RandomAccessFile(outputPath, "rw").use { raf ->
+            val tempFile = File(outputPath + ".tmp")
+            RandomAccessFile(tempFile, "rw").use { raf ->
                 raf.write(BackupArchive.BACKUP_MAGIC)
                 raf.writeInt(BackupArchive.VERSION)
                 raf.write(nonce)
                 raf.write(encrypted)
             }
+            if (!tempFile.renameTo(File(outputPath))) {
+                tempFile.delete()
+                return Result.failure(Exception("Failed to write backup file"))
+            }
+            CryptoHelper.zeroBytes(plaintext)
+            CryptoHelper.zeroBytes(nonce)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -122,7 +130,7 @@ class BackupExporter(
                 return Result.failure(SecurityException("Backup integrity check failed"))
             }
 
-            val nonce = ByteArray(12)
+            val nonce = ByteArray(BackupArchive.XCHACHA_NONCE_SIZE)
             var encryptedBody: ByteArray
             RandomAccessFile(file, "r").use { raf ->
                 raf.skipBytes(BackupArchive.BACKUP_MAGIC.size + 4)
@@ -133,6 +141,8 @@ class BackupExporter(
 
             val decrypted = BackupArchive.decryptSection(encryptedBody, backupKey, nonce)
             val backupJson = json.parseToJsonElement(decrypted.decodeToString()).jsonObject
+            CryptoHelper.zeroBytes(encryptedBody)
+            CryptoHelper.zeroBytes(decrypted)
 
             if (BackupSection.CHATS in sections) {
                 backupJson["chats"]?.jsonArray?.let { chatsJson ->
