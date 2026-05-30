@@ -14,11 +14,16 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import okhttp3.CertificatePinner
+import okhttp3.CipherSuite
+import okhttp3.ConnectionSpec
+import okhttp3.ConnectionSpec.Builder as ConnectionSpecBuilder
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.TlsVersion
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString.Companion.toByteString
@@ -77,12 +82,35 @@ object WebSocketManager {
     private var apiClient: ApiClient? = null
     private var applicationContext: Context? = null
 
-    private val wsClient = OkHttpClient.Builder()
+    private val certificatePinner: CertificatePinner by lazy {
+        CertificatePinner.Builder()
+            .add("api.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .add("api.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
+            .build()
+    }
+
+    private fun buildSecureClient(): OkHttpClient {
+        val spec = ConnectionSpecBuilder(ConnectionSpec.RESTRICTED_TLS)
+            .tlsVersions(TlsVersion.TLS_1_3)
+            .cipherSuites(
+                CipherSuite.TLS_AES_256_GCM_SHA384,
+                CipherSuite.TLS_CHACHA20_POLY1305_SHA256
+            )
+            .build()
+        return OkHttpClient.Builder()
+            .connectionSpecs(listOf(spec))
+            .certificatePinner(certificatePinner)
+            .build()
+    }
+
+    private val wsClient = buildSecureClient()
+        .newBuilder()
         .readTimeout(0, TimeUnit.SECONDS)
         .pingInterval(30, TimeUnit.SECONDS)
         .build()
 
-    private val refreshClient = OkHttpClient.Builder()
+    private val refreshClient = buildSecureClient()
+        .newBuilder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()

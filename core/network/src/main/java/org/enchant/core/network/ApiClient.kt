@@ -5,10 +5,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import okhttp3.CertificatePinner
+import okhttp3.CipherSuite
+import okhttp3.ConnectionSpec
+import okhttp3.ConnectionSpec.Builder as ConnectionSpecBuilder
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.TlsVersion
 import org.enchant.core.base.AppConfig
 import java.util.concurrent.TimeUnit
 
@@ -18,6 +23,27 @@ class ApiClient {
         private var _instance: ApiClient? = null
         fun getInstance(): ApiClient = _instance ?: error("ApiClient not initialized")
         fun setInstance(client: ApiClient) { _instance = client }
+
+        private val certificatePinner: CertificatePinner by lazy {
+            CertificatePinner.Builder()
+                .add("api.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+                .add("api.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
+                .build()
+        }
+
+        private fun buildSecureClient(): OkHttpClient {
+            val spec = ConnectionSpecBuilder(ConnectionSpec.RESTRICTED_TLS)
+                .tlsVersions(TlsVersion.TLS_1_3)
+                .cipherSuites(
+                    CipherSuite.TLS_AES_256_GCM_SHA384,
+                    CipherSuite.TLS_CHACHA20_POLY1305_SHA256
+                )
+                .build()
+            return OkHttpClient.Builder()
+                .connectionSpecs(listOf(spec))
+                .certificatePinner(certificatePinner)
+                .build()
+        }
     }
     private val initLock = Any()
     @Volatile
@@ -29,7 +55,8 @@ class ApiClient {
         if (initialized) return
         synchronized(initLock) {
             if (initialized) return
-            client = OkHttpClient.Builder()
+            client = buildSecureClient()
+                .newBuilder()
                 .addInterceptor(AuthInterceptor)
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
@@ -46,7 +73,8 @@ class ApiClient {
         request("POST", path, body)
 
     private val anonymousClient by lazy {
-        OkHttpClient.Builder()
+        buildSecureClient()
+            .newBuilder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)

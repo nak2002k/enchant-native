@@ -1,8 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network security config for Enchant Android app.
+    Certificate pins MUST be updated with real SHA-256 hashes before production.
+    To obtain certificate hashes:
+    openssl s_client -connect api.enchant.chat:443 </dev/null 2>/dev/null | openssl x509 -fingerprint -sha256 -noout
+
+    This config enforces:
+    - No cleartext traffic (cleartextTrafficPermitted="false")
+    - Certificate pinning for api.enchant.chat (both REST API and WebSocket)
+    - TLS 1.3 only (enforced via OkHttpClient connectionSpecs)
+-->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
-        <trust-anchors>
-            <certificates src="system" />
-        </trust-anchors>
-    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.enchant.chat</domain>
+        <pin-set expiration="2027-01-01">
+            <!-- TODO: Replace with real certificate hash from api.enchant.chat -->
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <!-- TODO: Replace with backup certificate hash -->
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+        </pin-set>
+    </domain-config>
 </network-security-config>
