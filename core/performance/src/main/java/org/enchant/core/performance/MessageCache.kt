@@ -21,10 +21,12 @@ class MessageCache<T : Any>(
 
     fun cacheMessages(conversationId: String, messages: List<T>, idExtractor: (T) -> String) {
         if (messages.isEmpty()) return
-        val conversationCache = cache.getOrPut(conversationId) {
-            object : LinkedHashMap<String, T>(16, 0.75f, true) {
-                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, T>): Boolean {
-                    return size > maxMessagesPerConversation
+        val conversationCache = synchronized(cache) {
+            cache.getOrPut(conversationId) {
+                object : LinkedHashMap<String, T>(16, 0.75f, true) {
+                    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, T>): Boolean {
+                        return size > maxMessagesPerConversation
+                    }
                 }
             }
         }

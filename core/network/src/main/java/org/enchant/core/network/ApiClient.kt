@@ -19,19 +19,24 @@ class ApiClient {
         fun getInstance(): ApiClient = _instance ?: error("ApiClient not initialized")
         fun setInstance(client: ApiClient) { _instance = client }
     }
+    private val initLock = Any()
+    @Volatile
     private var initialized = false
     private lateinit var client: OkHttpClient
     private val json = Json { ignoreUnknownKeys = true }
 
     fun init() {
         if (initialized) return
-        client = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .build()
-        initialized = true
+        synchronized(initLock) {
+            if (initialized) return
+            client = OkHttpClient.Builder()
+                .addInterceptor(AuthInterceptor)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .build()
+            initialized = true
+        }
     }
 
     suspend fun get(path: String, queryParams: Map<String, String>? = null): Result<JsonObject> =
@@ -172,6 +177,7 @@ class ApiClient {
                 }
             } catch (e: Exception) {
                 if (depth < maxRetries) {
+                    RateLimitTracker.waitIfNeeded(path)
                     kotlinx.coroutines.delay(1000L * (depth + 1))
                     request(method, path, body, queryParams, rawBody, mimeType, depth + 1)
                 } else {

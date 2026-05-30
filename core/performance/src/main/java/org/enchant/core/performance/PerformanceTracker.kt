@@ -31,4 +31,8 @@ object PerformanceTracker {
     fun reset() {
         metrics.clear()
     }
+
+    fun removeTrace(name: String) {
+        metrics.remove(name)
+    }
 }

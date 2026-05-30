@@ -62,6 +62,7 @@ object WebSocketManager {
     private var consecutive401s = 0
     @Volatile
     private var retryCount = 0
+    private val maxRetryCount = 10
     private val pendingRequests = ConcurrentHashMap<Long, CompletableDeferred<WebSocketResources.WebSocketResponseMessage>>()
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     private val _incomingMessages = MutableSharedFlow<IncomingEnvelope>(extraBufferCapacity = 100)
@@ -136,6 +137,8 @@ object WebSocketManager {
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                pendingRequests.values.forEach { it.completeExceptionally(Exception("WebSocket connection failed")) }
+                pendingRequests.clear()
                 _connectionState.value = ConnectionState.RECONNECTING
                 scope?.launch { scheduleReconnect() }
             }
@@ -156,8 +159,9 @@ object WebSocketManager {
 
     fun disconnect() {
         keepAliveJob?.cancel()
-        pendingRequests.values.forEach { it.completeExceptionally(Exception("WebSocket disconnected")) }
+        val pending = ArrayList(pendingRequests.values)
         pendingRequests.clear()
+        pending.forEach { it.completeExceptionally(Exception("WebSocket disconnected")) }
         webSocket?.close(1000, "Client disconnect")
         webSocket = null
         _connectionState.value = ConnectionState.DISCONNECTED
@@ -334,7 +338,7 @@ object WebSocketManager {
                                 .build()
                             webSocket?.send(ack.toByteArray().toByteString())
                         } catch (e: Exception) {
-                            Log.w("WS", "Envelope parse failed, sending NACK: ${e.message}")
+                            Log.w("WS", "Envelope parse failed, sending NACK")
                             val nack = WebSocketResources.WebSocketMessage.newBuilder()
                                 .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
                                 .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
@@ -350,7 +354,7 @@ object WebSocketManager {
                 else -> {}
             }
         } catch (e: Exception) {
-            Log.e("Enchant", "handleFrame error: ${e.message}", e)
+            Log.e("Enchant", "handleFrame error", e)
             _connectionErrors.tryEmit(ConnectionError(5000, "Frame processing failed: ${e.message}"))
         }
     }
@@ -376,6 +380,10 @@ object WebSocketManager {
     }
 
     private suspend fun scheduleReconnect() {
+        if (retryCount >= maxRetryCount) {
+            _connectionState.value = ConnectionState.DISCONNECTED
+            return
+        }
         val baseDelay = minOf(1000L * (1 shl retryCount), 30000L)
         val jitter = (baseDelay * 0.25 * Random.nextDouble()).toLong()
         val delay = baseDelay + if (Random.nextBoolean()) jitter else -jitter
@@ -450,7 +458,7 @@ object WebSocketManager {
                 Log.w("WS", "Malformed JWT in isJwtExpired")
                 true
             }
-        } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); true }
+        } catch (e: Exception) { Log.w("WS", "JWT check failed"); true }
     }
 
     private suspend fun tryRefreshJwt(): String? {
@@ -483,12 +491,13 @@ object WebSocketManager {
                     } else null
                 } else null
             } else null
-        } catch (e: Exception) { Log.e("WS", "JWT refresh failed: ${e.message}"); null }
+        } catch (e: Exception) { Log.e("WS", "JWT refresh failed"); null }
     }
 
     @VisibleForTesting
     fun resetForTesting() {
         initialized = false
+        scope?.cancel()
         scope = null
         webSocket = null
         requestIdCounter.set(0)

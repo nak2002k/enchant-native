@@ -10,7 +10,6 @@ import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import coil.request.ErrorResult
 import coil.request.ImageRequest
-import coil.request.SuccessResult
 import coil.size.Size
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -63,7 +62,7 @@ object ImagePipeline {
                 .build()
             val result = Coil.imageLoader(context).execute(request)
             if (result is ErrorResult) {
-                Log.w(TAG, "Prefetch failed for $url: ${result.throwable?.message}")
+                Log.d(TAG, "Prefetch failed for $url: ${result.throwable?.message}")
             }
         }
     }

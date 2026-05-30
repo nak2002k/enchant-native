@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
 
 const val TRIMMER_WORK_NAME = "message_trimmer"
 private const val TAG = "MessageTrimmer"
+private const val DELETE_SQL = "DELETE FROM messages WHERE timestamp < ? AND is_starred = 0 AND disappear_at IS NULL"
 
 class MessageTrimmerWorker(
     context: Context,
@@ -22,14 +23,15 @@ class MessageTrimmerWorker(
 ) : Worker(context, params) {
     override fun doWork(): Result {
         return try {
-            val retentionDays = inputData.getLong("retentionDays", 365L)
+            val retentionDays = inputData.getLong("retentionDays", 365L).coerceIn(1L, 36500L)
             val pool = DatabasePool.instance ?: return Result.failure()
             pool.write { db ->
                 val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(retentionDays)
-                db.execSQL(
-                    "DELETE FROM messages WHERE timestamp < ? AND is_starred = 0 AND disappear_at IS NULL",
-                    arrayOf(cutoff.toString())
-                )
+                val stmt = db.compileStatement(DELETE_SQL)
+                stmt.bindLong(1, cutoff)
+                val deleted = stmt.executeUpdateDelete()
+                stmt.close()
+                Log.d(TAG, "Trimmed $deleted messages older than $retentionDays days")
             }
             Result.success()
         } catch (e: Exception) {
@@ -54,7 +56,7 @@ object MessageTrimmer {
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             TRIMMER_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.REPLACE,
             request
         )
     }
@@ -65,10 +67,11 @@ object MessageTrimmer {
                 val pool = DatabasePool.instance ?: return@withContext
                 pool.write { db ->
                     val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(retentionDays)
-                    db.execSQL(
-                        "DELETE FROM messages WHERE timestamp < ? AND is_starred = 0 AND disappear_at IS NULL",
-                        arrayOf(cutoff.toString())
-                    )
+                    val stmt = db.compileStatement(DELETE_SQL)
+                    stmt.bindLong(1, cutoff)
+                    val deleted = stmt.executeUpdateDelete()
+                    stmt.close()
+                    Log.d(TAG, "Trimmed $deleted messages older than $retentionDays days")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "trimOldMessages failed: ${e.message}")

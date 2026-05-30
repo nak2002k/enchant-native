@@ -1,7 +1,6 @@
 package org.enchant.core.network.models
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerialName
 
 @Serializable
 data class OtpRequest(val identifier: String)
