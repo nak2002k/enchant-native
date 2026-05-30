@@ -11,10 +11,12 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.enchant.core.base.SecurePreferences
+import org.enchant.core.crypto.EnchantCrypto
 import org.enchant.core.network.ApiClient
-import java.security.MessageDigest
+import java.security.SecureRandom
 
 private const val TAG = "TwoStepPinScreen"
+private const val ARGON2_HASH_LEN = 128
 
 object TwoStepPinScreen {
 
@@ -29,9 +31,6 @@ object TwoStepPinScreen {
         var step by remember { mutableStateOf(0) }
         var error by remember { mutableStateOf<String?>(null) }
 
-        fun sha256(input: String): String =
-            MessageDigest.getInstance("SHA-256").digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
-
         fun handleDigit(digit: String) {
             if (step == 0 && pin.length < 6) {
                 pin += digit
@@ -41,14 +40,15 @@ object TwoStepPinScreen {
                 if (confirmPin.length == 6) {
                     if (pin == confirmPin) {
                         try {
-                            SecurePreferences.putString("twostep.pin_hash", sha256(pin))
+                            val hash = hashPinArgon2(pin)
+                            SecurePreferences.putString("twostep.pin_hash", hash)
                             SecurePreferences.putBoolean("twostep.enabled", true)
                             scope.launch {
                                 try {
                                     val client = ApiClient()
                                     client.init()
                                     client.put("/v1/auth/pin", buildJsonObject {
-                                        put("pin", sha256(pin))
+                                        put("pin", hash)
                                     })
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Failed to register PIN with server: ${e.message}")
@@ -162,14 +162,45 @@ object TwoStepPinScreen {
 
     object Helpers {
         fun isPinSet(): Boolean = SecurePreferences.getBoolean("twostep.enabled", false)
+
         fun verifyPin(pin: String): Boolean {
-            val hash = SecurePreferences.getString("twostep.pin_hash") ?: return false
+            val storedHash = SecurePreferences.getString("twostep.pin_hash") ?: return false
             return try {
-                hash == MessageDigest.getInstance("SHA-256").digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
+                if (isLegacySha256Hash(storedHash)) {
+                    val legacyHash = legacySha256Hash(pin)
+                    if (legacyHash == storedHash) {
+                        val newHash = hashPinArgon2(pin)
+                        SecurePreferences.putString("twostep.pin_hash", newHash)
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    verifyPinArgon2(pin, storedHash)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "verifyPin failed", e)
                 false
             }
         }
     }
+}
+
+fun hashPinArgon2(pin: String): String {
+    val output = ByteArray(ARGON2_HASH_LEN)
+    val rc = EnchantCrypto.enchant_argon2id_hash(pin, pin.length, output, output.size)
+    if (rc != 0) throw RuntimeException("enchant_argon2id_hash failed: $rc")
+    return String(output, Charsets.US_ASCII)
+}
+
+fun verifyPinArgon2(pin: String, hash: String): Boolean {
+    val rc = EnchantCrypto.enchant_argon2id_verify(hash, hash.length, pin, pin.length)
+    return rc == 0
+}
+
+fun isLegacySha256Hash(hash: String): Boolean = hash.length == 64 && hash.all { it in '0'..'9' || it in 'a'..'f' }
+
+fun legacySha256Hash(pin: String): String {
+    val md = java.security.MessageDigest.getInstance("SHA-256")
+    return md.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
 }

@@ -13,9 +13,9 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
-import java.security.MessageDigest
 
 private const val PIN_LENGTH = 6
+private const val TAG = "AppLockScreen"
 
 private enum class AppLockStep { Create, Confirm, Verify }
 
@@ -39,12 +39,25 @@ fun AppLockScreen(
         biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
-    fun sha256(input: String): String =
-        MessageDigest.getInstance("SHA-256").digest(input.toByteArray()).joinToString("") { "%02x".format(it) }
-
     fun verifyPin(pin: String): Boolean {
-        val hash = SecurePreferences.getString("applock.pin_hash") ?: return false
-        return hash == sha256(pin)
+        val storedHash = SecurePreferences.getString("applock.pin_hash") ?: return false
+        return try {
+            if (isLegacySha256Hash(storedHash)) {
+                val legacyHash = legacySha256Hash(pin)
+                if (legacyHash == storedHash) {
+                    val newHash = hashPinArgon2(pin)
+                    SecurePreferences.putString("applock.pin_hash", newHash)
+                    true
+                } else {
+                    false
+                }
+            } else {
+                verifyPinArgon2(pin, storedHash)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "verifyPin failed", e)
+            false
+        }
     }
 
     fun authenticateWithBiometric() {
@@ -86,7 +99,8 @@ fun AppLockScreen(
                     confirmPin += digit
                     if (confirmPin.length == PIN_LENGTH) {
                         if (pin == confirmPin) {
-                            SecurePreferences.putString("applock.pin_hash", sha256(pin))
+                            val hash = hashPinArgon2(pin)
+                            SecurePreferences.putString("applock.pin_hash", hash)
                             SecurePreferences.putBoolean("applock.enabled", true)
                             onVerified()
                         } else {
