@@ -46,6 +46,33 @@ coordination. Each item includes the module, audit reference, and why it's defer
 | C-8 | Kyber (post-quantum) prekey support | Needs crypto library integration |
 | C-9 | SVR (Secure Value Recovery) integration | PIN-based backup — needs server support |
 
+## core:base
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Bootstrap | No bootstrap coordinator for init order (SecurePreferences → Log → AppConfig → KeyStoreManager) | Design/feature request — init sequence is caller responsibility |
+
+## core:database
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Passphrase | Database passphrase memory handling | Design decision requiring backend coordination |
+| Cert pinning | Certificate pinning for external storage backup | Feature request for backup services |
+| Schema | Missing tables/DAOs (reactions, mentions, drafts, attachments, pre-keys, sender-keys, etc.) | Feature requests requiring schema design |
+| String literals | Hardcoded table/column name strings | Large refactoring with high risk of regressions |
+| Return types | Inconsistent return types across DAOs | Cosmetic, low priority |
+
+## core:push
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Validation | Payload validation | Needs backend-defined schema |
+| Dedup | Duplicate message detection | Needs message ID cache/dedup service |
+| Group/call | Call/group notification handling | Feature request, not a bug |
+| Encryption | FCM token encryption at rest | Depends on `SecurePreferences` in core:base |
+| Lifecycle | Lifecycle awareness | Needs `ProcessLifecycleOwner` integration |
+| Architecture | Static singleton refactoring | Architecture change |
+
 ---
 
 *Last updated: 2026-05-30*
