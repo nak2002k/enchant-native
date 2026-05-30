@@ -20,7 +20,7 @@ fun PollBubble(
     onVote: (List<String>) -> Unit,
     isVoting: Boolean
 ) {
-    var selectedOptions by remember(poll.pollId) { mutableStateOf(poll.yourVote) }
+    var selectedOptionIds by remember(poll.pollId) { mutableStateOf(poll.yourVote) }
 
     Column(
         modifier = Modifier
@@ -43,8 +43,8 @@ fun PollBubble(
         }
 
         poll.options.forEach { option ->
-            val isSelected = option in selectedOptions
-            val voteCount = poll.results[option] ?: 0
+            val isSelected = option.id in selectedOptionIds
+            val voteCount = poll.results[option.id] ?: 0
             val percentage = if (poll.totalVotes > 0)
                 (voteCount.toFloat() / poll.totalVotes * 100) else 0f
 
@@ -54,11 +54,11 @@ fun PollBubble(
             Surface(
                 onClick = {
                     if (!isClosed && !hasVoted && !isVoting) {
-                        selectedOptions = if (poll.allowMultiple) {
-                            if (isSelected) selectedOptions - option
-                            else selectedOptions + option
+                        selectedOptionIds = if (poll.allowMultiple) {
+                            if (isSelected) selectedOptionIds - option.id
+                            else selectedOptionIds + option.id
                         } else {
-                            listOf(option)
+                            listOf(option.id)
                         }
                     }
                 },
@@ -103,7 +103,7 @@ fun PollBubble(
                             Spacer(Modifier.width(8.dp))
                         }
                         Text(
-                            text = option,
+                            text = option.text,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                             color = if (isClosed && !isSelected)
@@ -146,8 +146,8 @@ fun PollBubble(
         if (poll.yourVote.isEmpty() && !poll.isClosed) {
             Spacer(modifier = Modifier.height(8.dp))
             Button(
-                onClick = { onVote(selectedOptions) },
-                enabled = selectedOptions.isNotEmpty() && !isVoting,
+                onClick = { onVote(selectedOptionIds) },
+                enabled = selectedOptionIds.isNotEmpty() && !isVoting,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp)
             ) {

@@ -17,15 +17,23 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
 
+data class PollOption(
+    val id: String,
+    val text: String
+)
+
 data class PollData(
     val pollId: String,
+    val conversationId: String = "",
     val question: String,
-    val options: List<String> = emptyList(),
+    val options: List<PollOption> = emptyList(),
     val results: Map<String, Int> = emptyMap(),
     val yourVote: List<String> = emptyList(),
     val totalVotes: Int = 0,
     val isClosed: Boolean = false,
-    val allowMultiple: Boolean = false
+    val allowMultiple: Boolean = false,
+    val anonymous: Boolean = false,
+    val closesInSeconds: Int? = null
 )
 
 data class PollUiState(
@@ -41,29 +49,47 @@ class PollViewModel(
     private val _uiState = MutableStateFlow(PollUiState())
     val uiState: StateFlow<PollUiState> = _uiState.asStateFlow()
 
-    fun createPoll(question: String, options: List<String>, allowMultiple: Boolean, closeInSeconds: Int?) {
+    fun createPoll(
+        conversationId: String,
+        question: String,
+        options: List<String>,
+        allowMultiple: Boolean,
+        anonymous: Boolean,
+        closesInSeconds: Int?
+    ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, error = null)
             val body = buildJsonObject {
+                put("conversation_id", conversationId)
                 put("question", question)
-                put("options", JsonArray(options.map { JsonPrimitive(it) }))
+                put("options", JsonArray(options.map { buildJsonObject { put("text", it) } }))
                 put("allow_multiple", allowMultiple)
-                if (closeInSeconds != null) put("close_in_seconds", closeInSeconds)
+                put("anonymous", anonymous)
+                if (closesInSeconds != null) put("close_in_seconds", closesInSeconds)
             }
-            val result = withContext(Dispatchers.Default) {
+            val result = withContext(Dispatchers.IO) {
                 apiClient.post("/v1/polls", body)
             }
             result.fold(
                 onSuccess = { json ->
+                    val serverOptions = json["options"]?.jsonArray?.map { optJson ->
+                        PollOption(
+                            id = optJson.jsonObject["id"]?.jsonPrimitive?.content ?: "",
+                            text = optJson.jsonObject["text"]?.jsonPrimitive?.content ?: ""
+                        )
+                    } ?: emptyList()
                     val poll = PollData(
                         pollId = json["poll_id"]?.jsonPrimitive?.content ?: "",
-                        question = question,
-                        options = options,
-                        results = options.associateWith { 0 },
+                        conversationId = json["conversation_id"]?.jsonPrimitive?.content ?: conversationId,
+                        question = json["question"]?.jsonPrimitive?.content ?: question,
+                        options = serverOptions,
+                        results = serverOptions.associate { it.id to 0 },
                         yourVote = emptyList(),
                         totalVotes = 0,
                         isClosed = false,
-                        allowMultiple = allowMultiple
+                        allowMultiple = allowMultiple,
+                        anonymous = anonymous,
+                        closesInSeconds = closesInSeconds
                     )
                     _uiState.value = _uiState.value.copy(
                         currentPoll = poll, isSubmitting = false,
@@ -71,25 +97,25 @@ class PollViewModel(
                     )
                 },
                 onFailure = { _uiState.value = _uiState.value.copy(
-                    isSubmitting = false, error = it.message)
+                    isSubmitting = false, error = "Failed to create poll")
                 }
             )
         }
     }
 
-    fun vote(pollId: String, selectedOptions: List<String>) {
+    fun vote(pollId: String, selectedOptionIds: List<String>) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, error = null)
             val body = buildJsonObject {
-                put("option_ids", JsonArray(selectedOptions.map { JsonPrimitive(it) }))
+                put("option_ids", JsonArray(selectedOptionIds.map { JsonPrimitive(it) }))
             }
-            val result = withContext(Dispatchers.Default) {
+            val result = withContext(Dispatchers.IO) {
                 apiClient.post("/v1/polls/$pollId/vote", body)
             }
             result.fold(
                 onSuccess = { loadPoll(pollId) },
                 onFailure = { _uiState.value = _uiState.value.copy(
-                    isSubmitting = false, error = it.message)
+                    isSubmitting = false, error = "Failed to vote")
                 }
             )
         }
@@ -98,15 +124,22 @@ class PollViewModel(
     fun loadPoll(pollId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, error = null)
-            val result = withContext(Dispatchers.Default) {
+            val result = withContext(Dispatchers.IO) {
                 apiClient.get("/v1/polls/$pollId")
             }
             result.fold(
                 onSuccess = { json ->
+                    val serverOptions = json["options"]?.jsonArray?.map { optJson ->
+                        PollOption(
+                            id = optJson.jsonObject["id"]?.jsonPrimitive?.content ?: "",
+                            text = optJson.jsonObject["text"]?.jsonPrimitive?.content ?: ""
+                        )
+                    } ?: emptyList()
                     val poll = PollData(
                         pollId = json["poll_id"]?.jsonPrimitive?.content ?: pollId,
+                        conversationId = json["conversation_id"]?.jsonPrimitive?.content ?: "",
                         question = json["question"]?.jsonPrimitive?.content ?: "",
-                        options = json["options"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                        options = serverOptions,
                         results = (json["results"]?.jsonObject)?.let { obj ->
                             obj.keys.associateWith { key ->
                                 obj[key]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
@@ -115,12 +148,14 @@ class PollViewModel(
                         yourVote = json["your_vote"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
                         totalVotes = json["total_votes"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
                         isClosed = json["is_closed"]?.jsonPrimitive?.content?.toBoolean() ?: false,
-                        allowMultiple = json["allow_multiple"]?.jsonPrimitive?.content?.toBoolean() ?: false
+                        allowMultiple = json["allow_multiple"]?.jsonPrimitive?.content?.toBoolean() ?: false,
+                        anonymous = json["anonymous"]?.jsonPrimitive?.content?.toBoolean() ?: false,
+                        closesInSeconds = json["closes_in_seconds"]?.jsonPrimitive?.content?.toIntOrNull()
                     )
                     _uiState.value = _uiState.value.copy(currentPoll = poll, isSubmitting = false)
                 },
                 onFailure = { _uiState.value = _uiState.value.copy(
-                    isSubmitting = false, error = it.message)
+                    isSubmitting = false, error = "Failed to load poll")
                 }
             )
         }
@@ -129,7 +164,7 @@ class PollViewModel(
     fun closePoll(pollId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, error = null)
-            val result = withContext(Dispatchers.Default) {
+            val result = withContext(Dispatchers.IO) {
                 apiClient.put("/v1/polls/$pollId/close")
             }
             result.fold(
@@ -139,7 +174,7 @@ class PollViewModel(
                     loadPoll(pollId)
                 },
                 onFailure = { _uiState.value = _uiState.value.copy(
-                    isSubmitting = false, error = it.message)
+                    isSubmitting = false, error = "Failed to close poll")
                 }
             )
         }

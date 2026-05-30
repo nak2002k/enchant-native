@@ -14,7 +14,8 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PollCreateSheet(
-    onCreate: (question: String, options: List<String>, allowMultiple: Boolean, closeInSeconds: Int?) -> Unit,
+    conversationId: String,
+    onCreate: (conversationId: String, question: String, options: List<String>, allowMultiple: Boolean, anonymous: Boolean, closeInSeconds: Int?) -> Unit,
     onDismiss: () -> Unit,
     isCreating: Boolean = false
 ) {
@@ -22,6 +23,7 @@ fun PollCreateSheet(
     var question by remember { mutableStateOf("") }
     var options by remember { mutableStateOf(listOf("", "")) }
     var allowMultiple by remember { mutableStateOf(false) }
+    var anonymous by remember { mutableStateOf(false) }
     var enableCloseTimer by remember { mutableStateOf(false) }
     var closeInSeconds by remember { mutableStateOf("3600") }
 
@@ -99,6 +101,11 @@ fun PollCreateSheet(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = anonymous, onCheckedChange = { anonymous = it })
+                Text("Anonymous poll", style = MaterialTheme.typography.bodyMedium)
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = enableCloseTimer, onCheckedChange = { enableCloseTimer = it })
                 Text("Auto-close after", style = MaterialTheme.typography.bodyMedium)
                 if (enableCloseTimer) {
@@ -120,7 +127,7 @@ fun PollCreateSheet(
                     val validOptions = options.filter { it.isNotBlank() }
                     val closeSecs = if (enableCloseTimer) closeInSeconds.toIntOrNull()
                         ?.coerceIn(60, 604800) else null
-                    onCreate(question, validOptions, allowMultiple, closeSecs)
+                    onCreate(conversationId, question, validOptions, allowMultiple, anonymous, closeSecs)
                 },
                 enabled = question.isNotBlank() && options.count { it.isNotBlank() } >= 2 && !isCreating,
                 modifier = Modifier.fillMaxWidth()

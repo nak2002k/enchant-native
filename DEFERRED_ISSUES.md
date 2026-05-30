@@ -206,6 +206,26 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 | Architecture | ViewModel architecture / state management refactor | Code quality improvements requiring broader changes |
 | DI refactor | Remove ApiClient.getInstance() | Requires Hilt/Koin setup |
 
+## feature:backup
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| S-1 | AEADBadTagException suppressed - returns false silently | Backend needed to surface tampering to user; current behavior is intentional security design |
+| S-2 | No memory zeroing in BackupArchive | BackupArchive is a utility object with no lifecycle - zeroing would require callers to manage |
+| B-1 | downloadBackup discards downloaded bytes | Backend doesn't provide getBinary endpoint for backup download |
+| B-2 | pollExportStatus infinite polling with no timeout/max retries | Backend poll endpoint behavior unknown; needs design decision |
+| B-3 | backups list never populated (no server-side listing API) | Backend doesn't provide list backups endpoint |
+| B-4 | downloadProgress never updated | Backend doesn't support progress callbacks for backup download |
+| B-5 | uploadProgress stale after first chunk failure | Queue already reset on failure, but progress bar shows partially completed |
+| C-1 | restoreBackup all-or-nothing (no selective restore from server) | Backend restore API is all-or-nothing |
+| C-2 | No media data backup | Media not stored locally - requires backend media backup service |
+| C-3 | existingIds in-memory Set pattern for all exporters | Large DB memory usage concern - INSERT OR IGNORE would require DB schema changes |
+| C-4 | No DB transaction timeout on import | beginTransaction has no timeout - would require DB pool configuration |
+| T-1 | No tests for BackupExporter | Test infrastructure not set up for instrumented tests |
+| T-2 | No tests for BackupArchive | Test infrastructure not set up for instrumented tests |
+| T-3 | No chunk upload/download ordering tests | Requires MockWebServer setup for byte-level verification |
+| T-4 | No integration test (export -> import round-trip) | Requires file system and DB integration test setup |
+
 ---
 
 *Last updated: 2026-05-30*
