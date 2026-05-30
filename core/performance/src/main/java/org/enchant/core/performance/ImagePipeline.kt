@@ -21,6 +21,7 @@ object ImagePipeline {
     @Volatile
     private var initialized = false
 
+    @Synchronized
     fun init(context: Context) {
         if (initialized) return
         val memoryCacheSize = (Runtime.getRuntime().maxMemory() / 4).toLong()
@@ -45,12 +46,7 @@ object ImagePipeline {
     fun loadImage(context: Context, url: String, target: ImageView) {
         val request = ImageRequest.Builder(context)
             .data(url)
-            .target(
-                onSuccess = { /* default target handles this */ },
-                onError = { drawable ->
-                    Log.w(TAG, "Image load failed for $url: ${drawable?.toString()}")
-                }
-            )
+            .target(target)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .build()

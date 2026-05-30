@@ -73,7 +73,7 @@ class KeyValueStore(
         }
     }
 
-    override fun contains(key: String): Boolean = cache.containsKey(key)
+    override fun contains(key: String): Boolean = cache.containsKey(key) || dbHelper.contains(key)
 
     override fun putString(key: String, value: String?) { enqueueWrite(WriteOperation.PutString(key, value)); cache[key] = value }
     override fun putInt(key: String, value: Int) { enqueueWrite(WriteOperation.PutInt(key, value)); cache[key] = value }
@@ -188,7 +188,7 @@ class KeyValueStore(
     }
 
     private class StoreOpenHelper(context: Context, private val password: String) :
-        SQLiteOpenHelper(context, "enchant_store.db", null, 1, object : net.sqlcipher.database.SQLiteDatabaseHook {
+        SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION, object : net.sqlcipher.database.SQLiteDatabaseHook {
             override fun preKey(db: net.sqlcipher.database.SQLiteDatabase) {
                 val hexPassword = password.toByteArray(Charsets.UTF_8).joinToString("") { "%02x".format(it) }
                 db.rawExecSQL("PRAGMA key = \"x'$hexPassword'\"")
@@ -197,6 +197,8 @@ class KeyValueStore(
         }) {
 
         companion object {
+            private const val DB_NAME = "enchant_store.db"
+            private const val DB_VERSION = 1
             private const val TABLE = "key_value"
             private const val COL_KEY = "key"; private const val COL_TYPE = "type"
             private const val COL_STRING = "string_value"; private const val COL_INT = "int_value"

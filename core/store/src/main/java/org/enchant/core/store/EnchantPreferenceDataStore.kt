@@ -57,13 +57,13 @@ class EnchantPreferenceDataStore(
     override fun getStringSet(key: String, defValues: MutableSet<String>?): MutableSet<String>? {
         val raw = store.getString(key)
         return if (raw != null) {
-            raw.split("|").toMutableSet()
+            raw.split("|||").toMutableSet()
         } else {
             defValues
         }
     }
 
     override fun putStringSet(key: String, values: MutableSet<String>?) {
-        store.putString(key, values?.joinToString("|"))
+        store.putString(key, values?.joinToString("|||"))
     }
 }
