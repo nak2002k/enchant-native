@@ -6,7 +6,7 @@ import org.enchant.core.database.entity.InstalledStickerEntity
 class InstalledStickerDao(private val pool: DatabasePool) {
     suspend fun addSticker(sticker: InstalledStickerEntity) = pool.write { db ->
         db.execSQL("INSERT OR REPLACE INTO installed_stickers (pack_id, sticker_id, emoji, position) VALUES (?, ?, ?, ?)",
-            arrayOf(sticker.packId, sticker.stickerId, sticker.emoji, sticker.position.toString()))
+            arrayOf(sticker.packId, sticker.stickerId, sticker.emoji, sticker.position?.toString()))
     }
 
     suspend fun removeSticker(packId: String, stickerId: String) = pool.write { db ->

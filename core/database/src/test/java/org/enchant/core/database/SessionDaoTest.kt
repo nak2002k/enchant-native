@@ -29,7 +29,7 @@ class SessionDaoTest {
     @Test @DisplayName("store inserts into signal_sessions")
     fun `store`() = runTest {
         dao.store("user1", "dev1", ByteArray(10))
-        verify { mockDb.execSQL(match { it.contains("signal_sessions") }, any()) }
+        verify { mockDb.compileStatement(match { it.contains("signal_sessions") }) }
     }
 
     @Test @DisplayName("load selects from signal_sessions")

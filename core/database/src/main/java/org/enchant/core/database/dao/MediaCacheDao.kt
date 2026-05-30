@@ -1,8 +1,7 @@
 package org.enchant.core.database.dao
 
 import org.enchant.core.database.DatabasePool
-
-data class MediaCacheEntity(val mediaId: String, val localPath: String, val fileSize: Long? = null, val lastAccessedAt: Long? = null)
+import org.enchant.core.database.entity.MediaCacheEntity
 
 class MediaCacheDao(private val pool: DatabasePool) {
     suspend fun put(mediaId: String, localPath: String, fileSize: Long? = null) = pool.write { db ->

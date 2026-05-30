@@ -1,11 +1,7 @@
 package org.enchant.core.database.dao
 
 import org.enchant.core.database.DatabasePool
-
-data class ProfileCacheEntity(
-    val userId: String, val displayName: String? = null, val username: String? = null,
-    val about: String? = null, val avatarMediaId: String? = null
-)
+import org.enchant.core.database.entity.ProfileCacheEntity
 
 class ProfileCacheDao(private val pool: DatabasePool) {
     suspend fun upsert(profile: ProfileCacheEntity) = pool.write { db ->
@@ -15,7 +11,7 @@ class ProfileCacheDao(private val pool: DatabasePool) {
 
     suspend fun getByUserId(userId: String): ProfileCacheEntity? = pool.readWith { db ->
         db.rawQuery("SELECT * FROM profile_cache WHERE user_id = ?", arrayOf(userId)).use { c ->
-            if (c.moveToFirst()) ProfileCacheEntity(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4)) else null
+            if (c.moveToFirst()) ProfileCacheEntity(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5)) else null
         }
     }
 
@@ -26,7 +22,7 @@ class ProfileCacheDao(private val pool: DatabasePool) {
     suspend fun search(query: String): List<ProfileCacheEntity> = pool.readWith { db ->
         db.rawQuery("SELECT * FROM profile_cache WHERE username LIKE ? OR display_name LIKE ? LIMIT 20", arrayOf("%$query%", "%$query%")).use { c ->
             val r = mutableListOf<ProfileCacheEntity>()
-            while (c.moveToNext()) r.add(ProfileCacheEntity(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4)))
+            while (c.moveToNext()) r.add(ProfileCacheEntity(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5)))
             r
         }
     }

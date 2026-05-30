@@ -5,7 +5,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.database.dao.GroupDao
-import org.enchant.core.database.dao.GroupEntity
+import org.enchant.core.database.entity.GroupEntity
 import org.enchant.core.network.ApiClient
 
 data class GroupUpdateResult(
