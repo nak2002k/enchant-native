@@ -268,16 +268,6 @@ class AuthStateMachineTest {
         }
     }
 
-    @Nested @DisplayName("transition() delegates to applyEvent()")
-    inner class TransitionTest {
-        @Test @DisplayName("transition returns same result as applyEvent")
-        fun `transition delegates`() {
-            val r1 = AuthStateMachine.applyEvent(RegistrationState.Welcome, RegistrationEvent.TermsAccepted)
-            val r2 = AuthStateMachine.transition(RegistrationState.Welcome, RegistrationEvent.TermsAccepted)
-            assertEquals(r1::class, r2::class)
-        }
-    }
-
     @Nested @DisplayName("getRequiredPermissions()")
     inner class RequiredPermissionsTest {
         @Test @DisplayName("returns non-empty list")

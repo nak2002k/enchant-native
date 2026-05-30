@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
+    implementation(project(":core:store"))
     implementation(project(":core:database"))
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)

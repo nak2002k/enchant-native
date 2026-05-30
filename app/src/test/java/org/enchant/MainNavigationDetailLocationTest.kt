@@ -29,7 +29,7 @@ class MainNavigationDetailLocationTest {
         @Test
         @DisplayName("Conversation serializes with threadId")
         fun `Conversation serializes with threadId`() {
-            val location = MainNavigationDetailLocation.Conversation(123L)
+            val location = MainNavigationDetailLocation.Conversation("123")
             val encoded = json.encodeToString(MainNavigationDetailLocation.serializer(), location)
             val decoded = json.decodeFromString(MainNavigationDetailLocation.serializer(), encoded)
             assertEquals(location, decoded)
@@ -82,7 +82,7 @@ class MainNavigationDetailLocationTest {
         @Test
         @DisplayName("Conversation is not content root")
         fun `Conversation is not content root`() {
-            assertFalse(MainNavigationDetailLocation.Conversation(1L).isContentRoot)
+            assertFalse(MainNavigationDetailLocation.Conversation("1").isContentRoot)
         }
 
         @Test

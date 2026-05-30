@@ -1,10 +1,13 @@
 package org.enchant.core.auth
 
+import android.util.Log
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -28,6 +31,10 @@ class AuthManagerTest {
 
     @BeforeEach
     fun setUp() {
+        mockkStatic(Log::class)
+        every { Log.w(any<String>(), any<String>()) } returns 0
+        every { Log.e(any<String>(), any<String>()) } returns 0
+        every { Log.w(any<String>(), any<String>(), any<Throwable>()) } returns 0
         mockkObject(SecurePreferences)
         AuthManager.resetForTesting()
         every { SecurePreferences.getString(any(), any()) } returns null
@@ -41,6 +48,7 @@ class AuthManagerTest {
 
     @AfterEach
     fun tearDown() {
+        unmockkStatic(Log::class)
         unmockkObject(SecurePreferences)
     }
 

@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 sealed interface MainNavigationDetailLocation : NavKey {
     @Serializable data object Empty : MainNavigationDetailLocation
     @Serializable data object ConversationList : MainNavigationDetailLocation
-    @Serializable data class Conversation(val threadId: Long) : MainNavigationDetailLocation
+    @Serializable data class Conversation(val conversationId: String) : MainNavigationDetailLocation
     @Serializable data object Groups : MainNavigationDetailLocation
     @Serializable data object Settings : MainNavigationDetailLocation
     @Serializable data object Status : MainNavigationDetailLocation

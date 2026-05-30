@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.sqlite)
     implementation(project(":core:model"))
     implementation(project(":core:protos"))
+    implementation(project(":core:ui"))
     implementation(project(":feature:chat"))
     implementation(libs.navigation3.runtime)
     implementation(libs.navigation3.ui)

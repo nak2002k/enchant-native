@@ -63,10 +63,10 @@ class AppScaffoldAnimationState {
     }
 
     fun applyChildValues(): GraphicsLayerScope.() -> Unit = {
-        val alphaVal = alpha.value
-        val offsetXVal = offsetX.value
-        val offsetYVal = offsetY.value
-        val scaleVal = scale.value
+        val alphaVal = this@AppScaffoldAnimationState.alpha.value
+        val offsetXVal = this@AppScaffoldAnimationState.offsetX.value
+        val offsetYVal = this@AppScaffoldAnimationState.offsetY.value
+        val scaleVal = this@AppScaffoldAnimationState.scale.value
         this.alpha = alphaVal
         this.translationX = offsetXVal
         this.translationY = offsetYVal

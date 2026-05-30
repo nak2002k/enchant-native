@@ -6,11 +6,9 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.base.SecurePreferences
-import org.enchant.core.network.ApiClient
 
 sealed class RegistrationEvent {
     data object ResetState : RegistrationEvent()
@@ -130,10 +128,6 @@ object AuthStateMachine {
         }
     }
 
-    fun transition(current: RegistrationState, event: RegistrationEvent): RegistrationState {
-        return applyEvent(current, event)
-    }
-
     fun getRequiredPermissions(): List<String> {
         val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -145,16 +139,16 @@ object AuthStateMachine {
         return permissions
     }
 
-    suspend fun validateRestoredState(apiClient: ApiClient): RegistrationState {
-        val jwt = SecurePreferences.getString("auth.jwt")
-        val refreshToken = SecurePreferences.getString("auth.refresh_token")
+    suspend fun validateRestoredState(repo: AuthRepository): RegistrationState {
+        val jwt = SecurePreferences.getString(AuthConstants.JWT_KEY)
+        val refreshToken = SecurePreferences.getString(AuthConstants.REFRESH_TOKEN_KEY)
 
         if (jwt == null && refreshToken == null) return RegistrationState.Welcome
 
         if (jwt != null) {
             try {
                 val parts = jwt.split(".")
-                if (parts.size == 3) {
+                if (parts.size == 3 && parts.none { it.isEmpty() }) {
                     val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
                     val payloadStr = payload.decodeToString()
                     val json = kotlinx.serialization.json.Json.parseToJsonElement(payloadStr).jsonObject
@@ -163,22 +157,24 @@ object AuthStateMachine {
                         return RegistrationState.Complete
                     }
                 }
-            } catch (e: Exception) { Log.w("AuthSM", "JWT validation failed: ${e.message}") }
+            } catch (e: Exception) {
+                Log.w("AuthSM", "JWT validation failed: ${e.message}")
+            }
         }
 
         return if (refreshToken != null) {
             try {
-                val repo = AuthRepository(apiClient)
                 val result = repo.refreshToken(refreshToken)
                 if (result.isSuccess) {
                     val response = result.getOrThrow()
-                    SecurePreferences.putString("auth.jwt", response.accessToken)
-                    SecurePreferences.putString("auth.refresh_token", response.refreshToken)
+                    SecurePreferences.putString(AuthConstants.JWT_KEY, response.accessToken)
+                    SecurePreferences.putString(AuthConstants.REFRESH_TOKEN_KEY, response.refreshToken)
                     RegistrationState.Complete
                 } else {
                     RegistrationState.Welcome
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w("AuthSM", "Token refresh failed: ${e.message}")
                 RegistrationState.Welcome
             }
         } else {

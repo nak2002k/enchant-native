@@ -1,11 +1,14 @@
 package org.enchant.core.auth
 
+import android.util.Log
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkObject
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -31,6 +34,10 @@ class AuthRepositoryTest {
     @BeforeEach
     fun setUp() {
         server.start()
+        mockkStatic(Log::class)
+        every { Log.w(any<String>(), any<String>()) } returns 0
+        every { Log.e(any<String>(), any<String>()) } returns 0
+        every { Log.w(any<String>(), any<String>(), any<Throwable>()) } returns 0
         mockkObject(AppConfig)
         every { AppConfig.gatewayUrl } returns server.url("").toString().trimEnd('/')
         every { AppConfig.appVersion } returns "1.0.0"
@@ -50,6 +57,7 @@ class AuthRepositoryTest {
     @AfterEach
     fun tearDown() {
         server.shutdown()
+        unmockkStatic(Log::class)
         unmockkObject(AppConfig)
         unmockkObject(SecurePreferences)
     }
@@ -166,12 +174,12 @@ class AuthRepositoryTest {
             assertTrue(result.isSuccess)
         }
 
-        @Test @DisplayName("logout returns success even on network error")
+        @Test @DisplayName("logout returns failure on network error")
         fun `logout network error`() = runTest {
             server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             val result = repo.logout()
-            assertTrue(result.isSuccess)
+            assertTrue(result.isFailure)
         }
     }
 
@@ -216,12 +224,12 @@ class AuthRepositoryTest {
             assertTrue(result.isSuccess)
         }
 
-        @Test @DisplayName("deleteAccount returns success even on network error")
+        @Test @DisplayName("deleteAccount returns failure on network error")
         fun `delete account network error`() = runTest {
             server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             val result = repo.deleteAccount()
-            assertTrue(result.isSuccess)
+            assertTrue(result.isFailure)
         }
     }
 
@@ -263,7 +271,7 @@ class AuthRepositoryTest {
 
         @Test @DisplayName("getOpkCount returns count")
         fun `get opk count`() = runTest {
-            server.enqueue(MockResponse().setBody("""{"count": 42}"""))
+            server.enqueue(MockResponse().setBody("""{"opk_count": 42}"""))
             val result = repo.getOpkCount()
             assertTrue(result.isSuccess)
             assertEquals(42, result.getOrThrow())
@@ -285,13 +293,12 @@ class AuthRepositoryTest {
             assertEquals("x-base64", keys["key-1"])
         }
 
-        @Test @DisplayName("fetchJwks returns empty map on network error")
+        @Test @DisplayName("fetchJwks returns failure on network error")
         fun `fetch jwks network error`() = runTest {
             server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error": "server error"}"""))
             val result = repo.fetchJwks()
-            assertTrue(result.isSuccess)
-            assertTrue(result.getOrThrow().isEmpty())
+            assertTrue(result.isFailure)
         }
     }
 

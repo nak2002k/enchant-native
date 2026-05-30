@@ -289,7 +289,10 @@ object WebSocketManager {
             return withTimeoutOrNull(10000L) {
                 val response = deferred.await()
                 response.status == 200
-            } ?: false
+            } ?: run {
+                deferred.completeExceptionally(java.util.concurrent.TimeoutException("Auth timed out"))
+                false
+            }
         } finally {
             pendingRequests.remove(id)
         }
@@ -437,14 +440,17 @@ object WebSocketManager {
     private fun isJwtExpired(jwt: String): Boolean {
         return try {
             val parts = jwt.split(".")
-            if (parts.size == 3) {
+            if (parts.size == 3 && parts.none { it.isEmpty() }) {
                 val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
                 val payloadStr = payload.decodeToString()
                 val json = kotlinx.serialization.json.Json.parseToJsonElement(payloadStr).jsonObject
                 val exp = json["exp"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
                 System.currentTimeMillis() / 1000 >= exp
-            } else false
-        } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); false }
+            } else {
+                Log.w("WS", "Malformed JWT in isJwtExpired")
+                true
+            }
+        } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); true }
     }
 
     private suspend fun tryRefreshJwt(): String? {
@@ -477,7 +483,7 @@ object WebSocketManager {
                     } else null
                 } else null
             } else null
-        } catch (e: Exception) { Log.w("WS", "JWT check failed: ${e.message}"); null }
+        } catch (e: Exception) { Log.e("WS", "JWT refresh failed: ${e.message}"); null }
     }
 
     @VisibleForTesting

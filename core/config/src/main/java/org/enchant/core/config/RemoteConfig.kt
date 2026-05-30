@@ -39,14 +39,14 @@ object RemoteConfig {
         return defaults[key]?.toLongOrNull() ?: default
     }
 
-    fun getCurrentConfig(): String? = try { EnchantStore.RemoteConfig.values } catch (_: Exception) { null }
-    fun setCurrentConfig(value: String) { try { EnchantStore.RemoteConfig.setValues(value) } catch (_: Exception) {} }
+    fun getCurrentConfig(): String? = try { EnchantStore.remoteConfig.values } catch (_: Exception) { null }
+    fun setCurrentConfig(value: String) { try { EnchantStore.remoteConfig.values = value } catch (_: Exception) {} }
     fun getPendingConfig(): String? = getCurrentConfig()
     fun setPendingConfig(value: String) { setCurrentConfig(value) }
-    fun getLastFetchTime(): Long = try { EnchantStore.RemoteConfig.lastFetchTs } catch (_: Exception) { 0L }
-    fun setLastFetchTime(time: Long) { try { EnchantStore.RemoteConfig.setLastFetchTs(time) } catch (_: Exception) {} }
-    fun getETag(): String? = try { EnchantStore.RemoteConfig.eTag } catch (_: Exception) { null }
-    fun setETag(etag: String) { try { EnchantStore.RemoteConfig.setETag(etag) } catch (_: Exception) {} }
+    fun getLastFetchTime(): Long = try { EnchantStore.remoteConfig.lastFetchTs } catch (_: Exception) { 0L }
+    fun setLastFetchTime(time: Long) { try { EnchantStore.remoteConfig.lastFetchTs = time } catch (_: Exception) {} }
+    fun getETag(): String? = try { EnchantStore.remoteConfig.eTag } catch (_: Exception) { null }
+    fun setETag(etag: String) { try { EnchantStore.remoteConfig.eTag = etag } catch (_: Exception) {} }
 
     private fun parseConfigValue(config: String, key: String): String? {
         return try {

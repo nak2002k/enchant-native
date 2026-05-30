@@ -31,8 +31,8 @@ class E2EEMessagingIntegrationTest {
         var refreshToken: String = "",
         var userId: String = "",
         var deviceId: String = "",
-        var ikPair: CryptoHelper.KeyPair? = null,
-        var spkPair: CryptoHelper.KeyPair? = null,
+        var ikPair: CryptoPrimitives.KeyPair? = null,
+        var spkPair: CryptoPrimitives.KeyPair? = null,
         var spkSignature: ByteArray? = null,
         var username: String = ""
     )
@@ -130,14 +130,17 @@ class E2EEMessagingIntegrationTest {
     @Test
     @Order(7)
     fun `alice generates and uploads key bundle`() {
-        val ik = CryptoHelper.generateEd25519KeyPair()
-        val spk = CryptoHelper.generateX25519KeyPair()
-        val spkSig = CryptoHelper.signEd25519(spk.publicKey, ik.privateKey)
+        val ikHelper = CryptoHelper.generateEd25519KeyPair()
+        val spkHelper = CryptoHelper.generateX25519KeyPair()
+        val spkSig = CryptoHelper.signEd25519(spkHelper.publicKey, ikHelper.privateKey)
+        val ik = CryptoPrimitives.KeyPair(ikHelper.publicKey, ikHelper.privateKey)
+        val spk = CryptoPrimitives.KeyPair(spkHelper.publicKey, spkHelper.privateKey)
         alice.ikPair = ik
         alice.spkPair = spk
         alice.spkSignature = spkSig
 
-        val opks = (1..20).map { CryptoHelper.generateX25519KeyPair() }
+        val opksHelper = (1..20).map { CryptoHelper.generateX25519KeyPair() }
+        val opks = opksHelper.map { CryptoPrimitives.KeyPair(it.publicKey, it.privateKey) }
 
         val body = buildJsonObject {
             put("identity_key", JsonPrimitive(base64Url(ik.publicKey)))
@@ -160,14 +163,17 @@ class E2EEMessagingIntegrationTest {
     @Test
     @Order(8)
     fun `bob generates and uploads key bundle`() {
-        val ik = CryptoHelper.generateEd25519KeyPair()
-        val spk = CryptoHelper.generateX25519KeyPair()
-        val spkSig = CryptoHelper.signEd25519(spk.publicKey, ik.privateKey)
+        val ikHelper = CryptoHelper.generateEd25519KeyPair()
+        val spkHelper = CryptoHelper.generateX25519KeyPair()
+        val spkSig = CryptoHelper.signEd25519(spkHelper.publicKey, ikHelper.privateKey)
+        val ik = CryptoPrimitives.KeyPair(ikHelper.publicKey, ikHelper.privateKey)
+        val spk = CryptoPrimitives.KeyPair(spkHelper.publicKey, spkHelper.privateKey)
         bob.ikPair = ik
         bob.spkPair = spk
         bob.spkSignature = spkSig
 
-        val opks = (1..20).map { CryptoHelper.generateX25519KeyPair() }
+        val opksHelper = (1..20).map { CryptoHelper.generateX25519KeyPair() }
+        val opks = opksHelper.map { CryptoPrimitives.KeyPair(it.publicKey, it.privateKey) }
 
         val body = buildJsonObject {
             put("identity_key", JsonPrimitive(base64Url(ik.publicKey)))
@@ -204,7 +210,8 @@ class E2EEMessagingIntegrationTest {
         val bobSpkPub = base64UrlDecode(bobSpkPubStr)
         val bobOpkPub = bobOpkStr?.let { base64UrlDecode(it) }
 
-        val aliceEk = CryptoHelper.generateX25519KeyPair()
+        val aliceEkHelper = CryptoHelper.generateX25519KeyPair()
+        val aliceEk = CryptoPrimitives.KeyPair(aliceEkHelper.publicKey, aliceEkHelper.privateKey)
         val aliceResult = X3DH.aliceInitiate(
             ourIdentityKey = alice.ikPair!!,
             ourEphemeralKey = aliceEk,
@@ -218,7 +225,8 @@ class E2EEMessagingIntegrationTest {
 
         val aliceSession = DoubleRatchet.initializeAsAlice(
             sharedSecret = aliceResult.sharedSecret,
-            theirSignedPrekeyPublic = bobSpkPub
+            theirSignedPrekeyPublic = bobSpkPub,
+            ourEphemeralKeyPair = aliceEk
         )
 
         val plaintext = "Hello Bob, this is Alice! E2EE works.".encodeToByteArray()
@@ -245,7 +253,8 @@ class E2EEMessagingIntegrationTest {
         val aliceSpkPub = base64UrlDecode(aliceSpkPubStr)
         val aliceOpkPub = aliceOpkStr?.let { base64UrlDecode(it) }
 
-        val bobEk = CryptoHelper.generateX25519KeyPair()
+        val bobEkHelper = CryptoHelper.generateX25519KeyPair()
+        val bobEk = CryptoPrimitives.KeyPair(bobEkHelper.publicKey, bobEkHelper.privateKey)
         val bobResult = X3DH.aliceInitiate(
             ourIdentityKey = bob.ikPair!!,
             ourEphemeralKey = bobEk,
@@ -262,10 +271,12 @@ class E2EEMessagingIntegrationTest {
     @Order(11)
     fun `alice sends encrypted message bob decrypts it roundtrip`() = runBlocking {
         val aliceIk = alice.ikPair!!
-        val aliceEk = CryptoHelper.generateX25519KeyPair()
+        val aliceEkHelper = CryptoHelper.generateX25519KeyPair()
+        val aliceEk = CryptoPrimitives.KeyPair(aliceEkHelper.publicKey, aliceEkHelper.privateKey)
         val bobIk = bob.ikPair!!
         val bobSpk = bob.spkPair!!
-        val bobOpk = CryptoHelper.generateX25519KeyPair()
+        val bobOpkHelper = CryptoHelper.generateX25519KeyPair()
+        val bobOpk = CryptoPrimitives.KeyPair(bobOpkHelper.publicKey, bobOpkHelper.privateKey)
 
         val bobIkX = ed25519PkToX25519(bobIk.publicKey)
 
@@ -290,7 +301,8 @@ class E2EEMessagingIntegrationTest {
 
         val aliceSession = DoubleRatchet.initializeAsAlice(
             sharedSecret = aliceResult.sharedSecret,
-            theirSignedPrekeyPublic = bobSpk.publicKey
+            theirSignedPrekeyPublic = bobSpk.publicKey,
+            ourEphemeralKeyPair = aliceEk
         )
 
         val originalText = "Hey Bob! This message is end-to-end encrypted."
@@ -318,16 +330,22 @@ class E2EEMessagingIntegrationTest {
         val (bobSession3, dec3) = DoubleRatchet.decrypt(bobSession2, msg3)
         assertEquals("Third message", dec3.decodeToString(), "Third message must decrypt correctly")
 
-        val bobToAliceEk = CryptoHelper.generateX25519KeyPair()
+        val bobToAliceEkHelper = CryptoHelper.generateX25519KeyPair()
+        val bobToAliceEk = CryptoPrimitives.KeyPair(bobToAliceEkHelper.publicKey, bobToAliceEkHelper.privateKey)
+        val dudKey = CryptoPrimitives.KeyPair(
+            CryptoHelper.generateX25519KeyPair().publicKey,
+            CryptoHelper.generateX25519KeyPair().privateKey
+        )
         val bobToAliceResult = X3DH.aliceInitiate(
             ourIdentityKey = bobIk,
             ourEphemeralKey = bobToAliceEk,
             theirIdentityKeyPublic = ed25519PkToX25519(aliceIk.publicKey),
-            theirSignedPrekeyPublic = CryptoHelper.generateX25519KeyPair().publicKey
+            theirSignedPrekeyPublic = dudKey.publicKey
         )
         val bobReplySession = DoubleRatchet.initializeAsAlice(
             sharedSecret = bobToAliceResult.sharedSecret,
-            theirSignedPrekeyPublic = CryptoHelper.generateX25519KeyPair().publicKey
+            theirSignedPrekeyPublic = dudKey.publicKey,
+            ourEphemeralKeyPair = bobToAliceEk
         )
         val (_, replyEncrypted) = DoubleRatchet.encrypt(bobReplySession, "Reply from Bob".encodeToByteArray())
         assertTrue(replyEncrypted.ciphertext.isNotEmpty(), "Bob's reply should be encryptable")

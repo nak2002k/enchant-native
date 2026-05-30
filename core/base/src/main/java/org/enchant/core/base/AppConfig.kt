@@ -28,6 +28,10 @@ object AppConfig {
     private var _jwtPublicKey: String? = null
     private var _appVersion: String = "1.0.0"
     private var _userAgent: String = ""
+    private var _applicationContext: Context? = null
+
+    val applicationContext: Context?
+        get() = _applicationContext
 
     val gatewayUrl: String
         get() { checkInitialized(); return _gatewayUrl }
@@ -75,6 +79,7 @@ object AppConfig {
             _jwtPublicKey = prefs.getString("jwt_public_key", null)
             _appVersion = resolveAppVersion(context)
             _userAgent = "Enchant-Android/$_appVersion"
+            _applicationContext = context.applicationContext
 
             initialized = true
         }

@@ -66,14 +66,14 @@ private val NotionDarkColorScheme = darkColorScheme(
 
 object AppThemeManager {
 
-    fun currentTheme(): String = EnchantStore.Settings.theme ?: "system"
+    fun currentTheme(): String = EnchantStore.settings.theme ?: "system"
 
     fun setTheme(theme: String) {
-        EnchantStore.Settings.setTheme(theme)
+        EnchantStore.settings.theme = theme
     }
 
     fun loadTheme() {
-        EnchantStore.Settings.theme
+        EnchantStore.settings.theme
     }
 }
 

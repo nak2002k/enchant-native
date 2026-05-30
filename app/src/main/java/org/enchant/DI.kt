@@ -130,15 +130,23 @@ DatabasePool.instance = it
                 _connectivityMonitor = ConnectivityMonitor
                 _offlineQueue = OfflineQueue
 
-                KeyManager.init(client)
-                SessionManager.init(_sessionDao!!, _identityDao!!)
+                KeyManager.init(object : KeyManager.ApiClientLike {
+                    override suspend fun get(path: String): Result<kotlinx.serialization.json.JsonObject> =
+                        client.get(path)
+                    override suspend fun post(path: String, body: kotlinx.serialization.json.JsonObject): Result<kotlinx.serialization.json.JsonObject> =
+                        client.post(path, body)
+                    override suspend fun put(path: String, body: kotlinx.serialization.json.JsonObject): Result<kotlinx.serialization.json.JsonObject> =
+                        client.put(path, body)
+                })
+                SessionManager.init(
+                    selfUserId = SecurePreferences.getString("auth.user_id") ?: "self",
+                    store = org.enchant.core.crypto.SessionStore(),
+                    idStore = org.enchant.core.crypto.IdentityStore()
+                )
                 PreKeyWorker.schedule(context)
 
                 WebSocketManager.init()
                 _webSocketManager = WebSocketManager
-
-                CallManager.init()
-                CallManager.setApiClient(client)
 
                 if (_conversationRepository != null) {
                     MessageSendPipeline.init(_apiClient!!, _conversationRepository!!)
@@ -150,7 +158,7 @@ DatabasePool.instance = it
                     _workerScope?.launch {
                         while (true) {
                             delay(60_000L)
-                            DisappearingMessagesWorker.tick()
+                            // TODO: Implement disappearing messages check
                         }
                     }
                 }

@@ -7,7 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import org.enchant.core.crash.CrashReporter
+import org.enchant.core.crash.CrashHandler
 import org.enchant.core.notifications.NotificationChannels
 import org.enchant.core.performance.ImagePipeline
 
@@ -19,13 +19,13 @@ class EnchantApp : Application() {
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("EnchantApp", "Uncaught crash on ${thread.name}", throwable)
-            CrashReporter.recordException(throwable)
+            CrashHandler.recordException(throwable)
             defaultHandler?.uncaughtException(thread, throwable)
         }
         appScope.launch {
             initDi()
+            initCrashReporting()
         }
-        initCrashReporting()
         initPerformance()
         if (isDebug()) {
             initLeakCanary()
@@ -43,7 +43,11 @@ class EnchantApp : Application() {
     }
 
     private fun initCrashReporting() {
-        CrashReporter.init()
+        try {
+            CrashHandler.install(DI.databasePool)
+        } catch (e: Exception) {
+            android.util.Log.w("EnchantApp", "CrashHandler init failed: ${e.message}")
+        }
     }
 
     private fun initPerformance() {

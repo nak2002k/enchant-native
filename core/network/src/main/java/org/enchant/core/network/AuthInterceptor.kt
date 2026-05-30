@@ -3,8 +3,10 @@ package org.enchant.core.network
 import android.util.Log
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -13,13 +15,16 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
+import java.util.concurrent.TimeUnit
 
 object AuthInterceptor : Interceptor {
     @Volatile private var refreshing = false
     private var currentToken: String? = null
+    private var refreshFailCount = 0
+    private val maxRefreshFails = 1
     private val refreshClient = OkHttpClient.Builder()
-        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
         .build()
     private val lock = java.lang.Object()
 
@@ -30,30 +35,42 @@ object AuthInterceptor : Interceptor {
             originalRequest.newBuilder()
                 .addHeader("Authorization", "Bearer $token")
                 .build()
-        } else {
-            originalRequest
-        }
+        } else originalRequest
 
         val response = chain.proceed(request)
 
-        if (response.code == 401) {
+        if (response.code == 401 && originalRequest.header("X-Enchant-Retry") == null) {
             val shouldRefresh = synchronized(lock) {
-                if (refreshing) false
+                if (refreshing || refreshFailCount >= maxRefreshFails) false
                 else { refreshing = true; true }
             }
             if (shouldRefresh) {
                 response.close()
                 try {
-                    val newToken = refreshToken()
+                    val newToken = doRefresh()
+                    synchronized(lock) {
+                        if (newToken != null) {
+                            currentToken = newToken
+                            refreshFailCount = 0
+                        } else {
+                            refreshFailCount++
+                        }
+                        refreshing = false
+                        lock.notifyAll()
+                    }
                     if (newToken != null) {
-                        synchronized(lock) { currentToken = newToken; lock.notifyAll() }
                         val retryRequest = originalRequest.newBuilder()
                             .header("Authorization", "Bearer $newToken")
+                            .header("X-Enchant-Retry", "true")
                             .build()
                         return chain.proceed(retryRequest)
                     }
-                } finally {
-                    synchronized(lock) { refreshing = false; lock.notifyAll() }
+                } catch (e: Exception) {
+                    synchronized(lock) {
+                        refreshFailCount++
+                        refreshing = false
+                        lock.notifyAll()
+                    }
                 }
             } else {
                 synchronized(lock) {
@@ -61,32 +78,30 @@ object AuthInterceptor : Interceptor {
                     val deadline = System.currentTimeMillis() + 10000
                     while (refreshing && System.currentTimeMillis() < deadline) {
                         lock.wait(500)
-                        waited += 500
                     }
                 }
                 val refreshedToken = synchronized(lock) { currentToken }
-                if (refreshedToken != null && !refreshing) {
+                if (refreshedToken != null) {
                     response.close()
-                    val retryRequest = originalRequest.newBuilder()
-                        .header("Authorization", "Bearer $refreshedToken")
-                        .build()
-                    return chain.proceed(retryRequest)
+                    return chain.proceed(
+                        originalRequest.newBuilder()
+                            .header("Authorization", "Bearer $refreshedToken")
+                            .header("X-Enchant-Retry", "true")
+                            .build()
+                    )
                 }
             }
-            return response
         }
 
         return response
     }
 
-    private fun refreshToken(): String? {
+    private fun doRefresh(): String? {
         val refreshToken = SecurePreferences.getString("auth.refresh_token") ?: return null
         return try {
-            val bodyJson = kotlinx.serialization.json.Json.encodeToString(
-                kotlinx.serialization.json.JsonObject.serializer(),
-                kotlinx.serialization.json.buildJsonObject {
-                    put("refresh_token", kotlinx.serialization.json.JsonPrimitive(refreshToken))
-                }
+            val bodyJson = Json.encodeToString(
+                JsonObject.serializer(),
+                buildJsonObject { put("refresh_token", JsonPrimitive(refreshToken)) }
             )
             val request = Request.Builder()
                 .url("${AppConfig.gatewayUrl}/v1/auth/refresh")
@@ -96,7 +111,7 @@ object AuthInterceptor : Interceptor {
             if (response.isSuccessful) {
                 val body = response.body?.string()
                 if (body != null) {
-                    val parsed = kotlinx.serialization.json.Json.parseToJsonElement(body).jsonObject
+                    val parsed = Json.parseToJsonElement(body).jsonObject
                     val newJwt = parsed["access_token"]?.jsonPrimitive?.content
                     val newRefreshToken = parsed["refresh_token"]?.jsonPrimitive?.content
                     if (newJwt != null) {
@@ -113,7 +128,7 @@ object AuthInterceptor : Interceptor {
                 null
             }
         } catch (e: Exception) {
-            Log.w("AuthInterceptor", "Refresh failed: ${e.message}")
+            Log.w("AuthInterceptor", "Token refresh failed")
             null
         }
     }

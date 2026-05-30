@@ -13,7 +13,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import org.enchant.ui.theme.AppThemeManager
+import org.enchant.core.store.EnchantStore
 import org.enchant.core.network.ApiClient
 
 data class DeviceInfo(
@@ -63,7 +63,6 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     fun loadSettings() {
-        AppThemeManager.loadTheme()
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
                 apiClient.get("/v1/settings")
@@ -90,7 +89,7 @@ class SettingsViewModel(
     }
 
     fun updateTheme(theme: String) {
-        AppThemeManager.setTheme(theme)
+        EnchantStore.settings.theme = theme
         _uiState.value = _uiState.value.copy(theme = theme)
         viewModelScope.launch {
             withContext(Dispatchers.Default) {

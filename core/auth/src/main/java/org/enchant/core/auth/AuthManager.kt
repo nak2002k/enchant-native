@@ -8,10 +8,12 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import android.util.Log
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.KeyManager
 import org.enchant.core.model.User
 import org.enchant.core.network.ApiClient
+import org.enchant.core.network.models.OtpResponse
 
 sealed class AuthState {
     data object Unknown : AuthState()
@@ -49,12 +51,12 @@ object AuthManager {
             apiClient = client
             repository = AuthRepository(client)
         }
-        val storedState = AuthStateMachine.validateRestoredState(apiClient!!)
+        val storedState = AuthStateMachine.validateRestoredState(repository!!)
         _currentState.value = storedState
         _authState.value = when (storedState) {
             is RegistrationState.Complete -> {
-                val userId = SecurePreferences.getString("auth.user_id") ?: ""
-                val deviceId = SecurePreferences.getString("auth.device_id") ?: ""
+                val userId = SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: ""
+                val deviceId = SecurePreferences.getString(AuthConstants.DEVICE_ID_KEY) ?: ""
                 AuthState.Authenticated(userId, deviceId)
             }
             else -> AuthState.Unauthenticated
@@ -70,7 +72,7 @@ object AuthManager {
         _authState.value = AuthState.Unknown
     }
 
-    suspend fun requestOtp(identifier: String): Result<Unit> {
+    suspend fun requestOtp(identifier: String): Result<OtpResponse> {
         val repo = repository
         if (repo == null) {
             _currentState.value = RegistrationState.Error(
@@ -98,7 +100,7 @@ object AuthManager {
                     identifier = identifier,
                     expiresAt = System.currentTimeMillis() + (otpResponse.expiresIn * 1000L)
                 )
-                Result.success(Unit)
+                Result.success(otpResponse)
             },
             onFailure = { error ->
                 _currentState.value = RegistrationState.Error(
@@ -116,14 +118,18 @@ object AuthManager {
         if (state !is RegistrationState.OtpVerification) {
             return Result.failure(IllegalStateException("Not in OTP state"))
         }
+        if (System.currentTimeMillis() > state.expiresAt) {
+            _currentState.value = RegistrationState.Error(message = "Code expired. Request a new one.")
+            return Result.failure(IllegalStateException("OTP code expired"))
+        }
         _currentState.value = RegistrationState.Loading
         val result = repo.verifyOtp(state.challengeId, code)
         return result.fold(
             onSuccess = { authResponse ->
-                SecurePreferences.putString("auth.jwt", authResponse.accessToken)
-                SecurePreferences.putString("auth.refresh_token", authResponse.refreshToken)
-                SecurePreferences.putString("auth.user_id", authResponse.userId)
-                SecurePreferences.putString("auth.device_id", authResponse.deviceId)
+                SecurePreferences.putString(AuthConstants.JWT_KEY, authResponse.accessToken)
+                SecurePreferences.putString(AuthConstants.REFRESH_TOKEN_KEY, authResponse.refreshToken)
+                SecurePreferences.putString(AuthConstants.USER_ID_KEY, authResponse.userId)
+                SecurePreferences.putString(AuthConstants.DEVICE_ID_KEY, authResponse.deviceId)
                 _authState.value = AuthState.Authenticated(authResponse.userId, authResponse.deviceId)
                 _currentState.value = RegistrationState.Permissions
                 Result.success(Unit)
@@ -136,9 +142,9 @@ object AuthManager {
     }
 
     private var lastOtpRequestMs: Long
-        get() = SecurePreferences.getLong("auth.last_otp_request", 0L)
-        set(value) = SecurePreferences.putLong("auth.last_otp_request", value)
-    private val otpCooldownMs = 30_000L
+        get() = SecurePreferences.getLong(AuthConstants.LAST_OTP_REQUEST_KEY, 0L)
+        set(value) = SecurePreferences.putLong(AuthConstants.LAST_OTP_REQUEST_KEY, value)
+    private val otpCooldownMs = AuthConstants.OTP_COOLDOWN_MS
 
     suspend fun resendOtp(): Result<Unit> {
         val now = System.currentTimeMillis()
@@ -151,18 +157,18 @@ object AuthManager {
             return Result.failure(IllegalStateException("Not in OTP state"))
         }
         lastOtpRequestMs = now
-        return requestOtp(state.identifier)
+        return requestOtp(state.identifier).map { }
     }
 
     suspend fun refreshToken(): Boolean {
         val repo = repository ?: return false
-        val refreshToken = SecurePreferences.getString("auth.refresh_token") ?: return false
+        val refreshToken = SecurePreferences.getString(AuthConstants.REFRESH_TOKEN_KEY) ?: return false
         return try {
             val result = repo.refreshToken(refreshToken)
             result.fold(
                 onSuccess = { response ->
-                    SecurePreferences.putString("auth.jwt", response.accessToken)
-                    SecurePreferences.putString("auth.refresh_token", response.refreshToken)
+                    SecurePreferences.putString(AuthConstants.JWT_KEY, response.accessToken)
+                    SecurePreferences.putString(AuthConstants.REFRESH_TOKEN_KEY, response.refreshToken)
                     true
                 },
                 onFailure = {
@@ -182,11 +188,12 @@ object AuthManager {
         try {
             repository?.logout()
         } catch (e: Exception) {
+            Log.w("AuthManager", "Server logout failed: ${e.message}")
         }
-        SecurePreferences.remove("auth.jwt")
-        SecurePreferences.remove("auth.refresh_token")
-        SecurePreferences.remove("auth.user_id")
-        SecurePreferences.remove("auth.device_id")
+        SecurePreferences.remove(AuthConstants.JWT_KEY)
+        SecurePreferences.remove(AuthConstants.REFRESH_TOKEN_KEY)
+        SecurePreferences.remove(AuthConstants.USER_ID_KEY)
+        SecurePreferences.remove(AuthConstants.DEVICE_ID_KEY)
         SecurePreferences.remove("crypto.identity_key")
         SecurePreferences.remove("crypto.signed_prekey")
         _authState.value = AuthState.Unauthenticated

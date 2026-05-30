@@ -44,7 +44,7 @@ object CrashHandler {
 
     private fun blockUntilWritesFinish() {
         try {
-            EnchantStore.storage.blockUntilAllWritesFinished()
+            EnchantStore.blockUntilAllWritesFinished()
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Failed to block on writes", e)
         }

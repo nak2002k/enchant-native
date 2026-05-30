@@ -1,5 +1,6 @@
 package org.enchant.core.auth
 
+import android.util.Log
 import kotlinx.serialization.json.*
 import org.enchant.core.base.AppConfig
 import org.enchant.core.network.ApiClient
@@ -10,7 +11,7 @@ class AuthRepository(private val apiClient: ApiClient) {
     suspend fun requestOtp(identifier: String): Result<OtpResponse> {
         return try {
             val body = buildJsonObject { put("identifier", identifier) }
-            val response = apiClient.post("/v1/auth/request-otp", body)
+            val response = apiClient.post(AuthConstants.PATH_REQUEST_OTP, body)
             response.map { json ->
                 OtpResponse(
                     challengeId = json["challenge_id"]?.jsonPrimitive?.content ?: "",
@@ -34,7 +35,7 @@ class AuthRepository(private val apiClient: ApiClient) {
                     })
                 }
             }
-            val response = apiClient.post("/v1/auth/verify-otp", body)
+            val response = apiClient.post(AuthConstants.PATH_VERIFY_OTP, body)
             response.map { json ->
                 val accessToken = json["access_token"]?.jsonPrimitive?.content ?: ""
                 val deviceIdFromJwt = extractDeviceIdFromJwt(accessToken)
@@ -54,19 +55,25 @@ class AuthRepository(private val apiClient: ApiClient) {
     private fun extractDeviceIdFromJwt(jwt: String): String {
         return try {
             val parts = jwt.split(".")
-            if (parts.size == 3) {
+            if (parts.size == 3 && parts.none { it.isEmpty() }) {
                 val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
                 val payloadStr = payload.decodeToString()
                 val json = kotlinx.serialization.json.Json.parseToJsonElement(payloadStr).jsonObject
                 json["did"]?.jsonPrimitive?.content ?: ""
-            } else ""
-        } catch (_: Exception) { "" }
+            } else {
+                Log.w("AuthRepo", "Malformed JWT: ${parts.size} parts, empty=${parts.any { it.isEmpty() }}")
+                ""
+            }
+        } catch (e: Exception) {
+            Log.w("AuthRepo", "Failed to extract device ID from JWT: ${e.message}")
+            ""
+        }
     }
 
     suspend fun refreshToken(refreshToken: String): Result<RefreshResponse> {
         return try {
             val body = buildJsonObject { put("refresh_token", refreshToken) }
-            val response = apiClient.post("/v1/auth/refresh", body)
+            val response = apiClient.post(AuthConstants.PATH_REFRESH, body)
             response.map { json ->
                 RefreshResponse(
                     accessToken = json["access_token"]?.jsonPrimitive?.content ?: "",
@@ -81,16 +88,15 @@ class AuthRepository(private val apiClient: ApiClient) {
 
     suspend fun logout(): Result<Unit> {
         return try {
-            apiClient.post("/v1/auth/logout")
-            Result.success(Unit)
+            apiClient.post(AuthConstants.PATH_LOGOUT).map { }
         } catch (e: Exception) {
-            Result.success(Unit)
+            Result.failure(e)
         }
     }
 
     suspend fun listDevices(): Result<List<DeviceInfo>> {
         return try {
-            val response = apiClient.get("/v1/auth/devices")
+            val response = apiClient.get(AuthConstants.PATH_DEVICES)
             response.map { json ->
                 json["devices"]?.jsonArray?.map { value ->
                     DeviceInfo(
@@ -106,7 +112,7 @@ class AuthRepository(private val apiClient: ApiClient) {
 
     suspend fun revokeDevice(deviceId: String): Result<Unit> {
         return try {
-            val result = apiClient.del("/v1/auth/devices/$deviceId")
+            val result = apiClient.del("${AuthConstants.PATH_DEVICES}/$deviceId")
             result.map { }
         } catch (e: Exception) {
             Result.failure(e)
@@ -115,16 +121,15 @@ class AuthRepository(private val apiClient: ApiClient) {
 
     suspend fun deleteAccount(): Result<Unit> {
         return try {
-            apiClient.del("/v1/auth/account")
-            Result.success(Unit)
+            apiClient.del(AuthConstants.PATH_ACCOUNT).map { }
         } catch (e: Exception) {
-            Result.success(Unit)
+            Result.failure(e)
         }
     }
 
     suspend fun fetchJwks(): Result<Map<String, String>> {
         return try {
-            val response = apiClient.get("/v1/auth/.well-known/jwks.json")
+            val response = apiClient.get(AuthConstants.PATH_JWKS)
             if (response.isSuccess) {
                 val json = response.getOrNull()!!
                 val keysArray = json["keys"]?.jsonArray ?: return Result.success(emptyMap())
@@ -136,10 +141,10 @@ class AuthRepository(private val apiClient: ApiClient) {
                 }.toMap()
                 Result.success(map)
             } else {
-                Result.success(emptyMap())
+                Result.failure(Exception("Failed to fetch JWKS: HTTP ${response.exceptionOrNull()?.message}"))
             }
         } catch (e: Exception) {
-            Result.success(emptyMap())
+            Result.failure(e)
         }
     }
 
@@ -157,7 +162,7 @@ class AuthRepository(private val apiClient: ApiClient) {
                     }
                 })
             }
-            val response = apiClient.post("/v1/keys/register", body)
+            val response = apiClient.post(AuthConstants.PATH_KEYS_REGISTER, body)
             response.map { json ->
                 json["device_id"]?.jsonPrimitive?.content ?: ""
             }
@@ -172,8 +177,7 @@ class AuthRepository(private val apiClient: ApiClient) {
                 put("public_key", publicKey)
                 put("signature", signature)
             }
-            apiClient.put("/v1/keys/signed-prekey", body)
-            Result.success(Unit)
+            apiClient.put(AuthConstants.PATH_KEYS_SPK, body).map { }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -188,7 +192,7 @@ class AuthRepository(private val apiClient: ApiClient) {
                     }
                 })
             }
-            val response = apiClient.post("/v1/keys/one-time-prekeys", body)
+            val response = apiClient.post(AuthConstants.PATH_KEYS_OPK, body)
             response.map { json ->
                 json["opk_count"]?.jsonPrimitive?.int ?: 0
             }
@@ -199,7 +203,7 @@ class AuthRepository(private val apiClient: ApiClient) {
 
     suspend fun getOpkCount(): Result<Int> {
         return try {
-            val response = apiClient.get("/v1/keys/opk-count")
+            val response = apiClient.get(AuthConstants.PATH_KEYS_OPK_COUNT)
             response.map { json ->
                 json["opk_count"]?.jsonPrimitive?.int ?: 0
             }

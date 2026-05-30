@@ -162,12 +162,7 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val decrypted = SessionManager.decryptMessage(senderUserId,
-                    org.enchant.core.crypto.EncryptedPayload(
-                        messageType = org.enchant.protos.EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET,
-                        payload = envelope.payload
-                    )
-                )
+                val decrypted = SessionManager.decryptMessage(senderUserId, envelope.payload)
 
                 if (decrypted == null) {
                     return@withContext ProcessResult.Error("Decryption failed")

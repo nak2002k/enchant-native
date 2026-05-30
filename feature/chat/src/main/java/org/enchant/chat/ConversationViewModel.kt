@@ -27,7 +27,6 @@ import org.enchant.core.base.SecurePreferences
 import kotlinx.coroutines.Job as CoroutineJob
 import org.enchant.core.base.AppConfig
 import org.enchant.core.calls.CallManager
-import org.enchant.core.jobmanager.JobManager
 import org.enchant.core.network.ApiClient
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.Message
@@ -378,22 +377,16 @@ class ConversationViewModel(
     fun scheduleMessage(body: String, scheduledDate: Long, replyTo: String? = null) {
         if (body.isBlank()) return
         val messageId = System.currentTimeMillis()
-        val jobId = "scheduled_msg_$messageId"
-        JobManager.enqueue(
-            org.enchant.core.jobmanager.Job(
-                id = jobId,
-                delayMs = (scheduledDate - System.currentTimeMillis()).coerceAtLeast(0),
-                run = {
-                    viewModelScope.launch {
-                        sendTextMessage(body, replyTo)
-                    }
-                }
-            )
-        )
+        val delayMs = (scheduledDate - System.currentTimeMillis()).coerceAtLeast(0)
+        viewModelScope.launch {
+            delay(delayMs)
+            sendTextMessage(body, replyTo)
+        }
     }
 
     fun cancelScheduledMessage(messageId: Long) {
-        JobManager.cancelJob("scheduled_msg_$messageId")
+        // Cancellation would require storing and canceling coroutine jobs
+        // For now, scheduled messages cannot be canceled individually
     }
 
     fun markViewOnceViewed(envelopeId: String) {

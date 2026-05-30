@@ -64,11 +64,11 @@ fun MainNavDisplay(
         secondaryContent = {
             ListPaneContent(
                 currentListLocation = mainNavState.currentListLocation,
-                onConversationClick = { threadId ->
-                    mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(threadId))
+                onConversationClick = { conversationId ->
+                    mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(conversationId))
                 },
-                onArchiveClick = { threadId ->
-                    mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(threadId))
+                onArchiveClick = { conversationId ->
+                    mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(conversationId))
                 }
             )
         },
@@ -101,8 +101,8 @@ fun MainNavDisplay(
 @Composable
 private fun ListPaneContent(
     currentListLocation: MainNavigationListLocation,
-    onConversationClick: (Long) -> Unit,
-    onArchiveClick: (Long) -> Unit
+    onConversationClick: (String) -> Unit,
+    onArchiveClick: (String) -> Unit
 ) {
     val listViewModel: ConversationListViewModel = viewModel()
 
@@ -154,7 +154,7 @@ private fun DetailPaneContent(
         val topDetail = detailStack.last()
         when (topDetail) {
             is MainNavigationDetailLocation.Conversation -> {
-                ConversationDetailContent(threadId = topDetail.threadId)
+                ConversationDetailContent(conversationId = topDetail.conversationId)
             }
             is MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName -> {
                 CallLinkDetailContent(roomId = topDetail.callLinkRoomId)
@@ -165,9 +165,9 @@ private fun DetailPaneContent(
 }
 
 @Composable
-private fun ConversationDetailContent(threadId: Long) {
+private fun ConversationDetailContent(conversationId: String) {
     org.enchant.chat.ConversationScreen(
-        conversationId = threadId.toString(),
+        conversationId = conversationId,
         onNavigateBack = { },
         onStartCall = { _, _ -> }
     )
