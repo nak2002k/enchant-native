@@ -73,6 +73,37 @@ coordination. Each item includes the module, audit reference, and why it's defer
 | Lifecycle | Lifecycle awareness | Needs `ProcessLifecycleOwner` integration |
 | Architecture | Static singleton refactoring | Architecture change |
 
+## core:store
+
+All items were confirmed correct by the audit itself (not bugs). No deferred items.
+
+## core:performance
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Cache encryption | ImagePipeline and MessageCache encryption at rest | Feature request, needs design decision |
+| Disk cache bounds | No limits on Coil disk cache file count | Feature request for Coil configuration |
+| Cache reporting | No cache size reporting | Feature request |
+| MessageCache TTL | No time-based expiry for cached messages | Feature request |
+| Watermark trimming | No high-watermark eviction for MessageCache | Feature request |
+| Dry-run mode | No dry-run for MessageTrimmer | Feature request |
+| Battery throttle | No throttle/battery awareness beyond battery-not-low | Feature request |
+
+## core:network
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| TLS enforcement | No TLS 1.2/1.3 enforcement on OkHttpClient | Requires `Tls12SocketFactory`, `ConnectionSpec.RESTRICTED_TLS` — new dependency |
+| Certificate pinning | No cert pinning on gateway | Requires `CertificatePinner` config — infrastructure setup |
+| WS TLS | No explicit TLS check for WebSocket | `wsUrl` derived from `gatewayUrl` via `AppConfig.deriveWsUrl()` — partially handled |
+| JWT system time | JWT expiry uses device system time | Needs server time endpoint — backend dependency |
+| WS delivery confirm | sendMessage is fire-and-forget | Feature request for delivery/read receipt confirmation |
+| OfflineQueue drop | OfflineQueue drain() silently drops messages | Feature request for error propagation |
+| Connection health | No connection health monitoring | Feature request — needs new `HealthMonitor` component |
+| WS batch reading | No WebSocket batch message reading | Feature request — new `readMessageBatch()` API |
+| Request cancellation | No request cancellation support | Feature request — needs coroutine cancellation integration |
+| Message priority | No message priority queue | Feature request — new queue architecture |
+
 ---
 
 *Last updated: 2026-05-30*
