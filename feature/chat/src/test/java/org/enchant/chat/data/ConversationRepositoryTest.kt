@@ -420,4 +420,22 @@ class ConversationRepositoryTest {
             coVerify { messageDao.markDeleted("env-1") }
         }
     }
+
+    @Nested @DisplayName("Reply Preview")
+    inner class ReplyPreviewTest {
+        @Test @DisplayName("getReplyPreview returns failure when ApiClient is null")
+        fun `get reply preview without api client`() = runTest {
+            val result = repo.getReplyPreview("env-1")
+            assertTrue(result.isFailure)
+        }
+    }
+
+    @Nested @DisplayName("Message Translation")
+    inner class TranslationTest {
+        @Test @DisplayName("translateMessage returns failure when ApiClient is null")
+        fun `translate message without api client`() = runTest {
+            val result = repo.translateMessage("env-1", "es")
+            assertTrue(result.isFailure)
+        }
+    }
 }

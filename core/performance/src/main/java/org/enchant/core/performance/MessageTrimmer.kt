@@ -56,7 +56,7 @@ object MessageTrimmer {
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             TRIMMER_WORK_NAME,
-            ExistingPeriodicWorkPolicy.REPLACE,
+            ExistingPeriodicWorkPolicy.KEEP,
             request
         )
     }

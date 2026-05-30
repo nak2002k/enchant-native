@@ -14,6 +14,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
+import org.enchant.core.base.SecurePreferences
 
 data class ChannelPost(
     val postId: String = "",
@@ -23,7 +24,9 @@ data class ChannelPost(
     val mediaIds: List<String> = emptyList(),
     val isPinned: Boolean = false,
     val createdAt: String = ""
-)
+) {
+    fun isOwn(): Boolean = authorId == SecurePreferences.getString("auth.user_id") ?: ""
+}
 
 data class Channel(
     val channelId: String = "",
@@ -31,7 +34,8 @@ data class Channel(
     val description: String? = null,
     val avatarMediaId: String? = null,
     val subscriberCount: Int = 0,
-    val isSubscribed: Boolean = false
+    val isSubscribed: Boolean = false,
+    val isAdmin: Boolean = false
 )
 
 data class ChannelUiState(
@@ -165,6 +169,100 @@ class ChannelViewModel(
                 apiClient.del("/v1/channels/$channelId/subscribe")
                 updateChannelSubscription(channelId, false)
                 _uiState.value = _uiState.value.copy(successMessage = "Unsubscribed")
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+            }
+        }
+    }
+
+    fun editPost(channelId: String, postId: String, content: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val body = buildJsonObject { put("text_content", content) }
+                val response = apiClient.post("/v1/channels/$channelId/posts/$postId", body)
+                response.fold(
+                    onSuccess = {
+                        val updatedPosts = _uiState.value.feed.map {
+                            if (it.postId == postId) it.copy(content = content) else it
+                        }
+                        val updatedPinned = _uiState.value.pinnedPost?.let {
+                            if (it.postId == postId) it.copy(content = content) else it
+                        }
+                        _uiState.value = _uiState.value.copy(
+                            feed = updatedPosts,
+                            pinnedPost = updatedPinned,
+                            isLoading = false,
+                            successMessage = "Post updated"
+                        )
+                    },
+                    onFailure = {
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = it.message)
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            }
+        }
+    }
+
+    fun deletePost(channelId: String, postId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val response = apiClient.del("/v1/channels/$channelId/posts/$postId")
+                response.fold(
+                    onSuccess = {
+                        val updatedPosts = _uiState.value.feed.filter { it.postId != postId }
+                        val updatedPinned = if (_uiState.value.pinnedPost?.postId == postId) null else _uiState.value.pinnedPost
+                        _uiState.value = _uiState.value.copy(
+                            feed = updatedPosts,
+                            pinnedPost = updatedPinned,
+                            isLoading = false,
+                            successMessage = "Post deleted"
+                        )
+                    },
+                    onFailure = {
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = it.message)
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
+            }
+        }
+    }
+
+    fun pinPost(channelId: String, postId: String, pinned: Boolean) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(error = null)
+            try {
+                val response = apiClient.put("/v1/channels/$channelId/posts/$postId/pin")
+                response.fold(
+                    onSuccess = {
+                        val currentPinned = _uiState.value.pinnedPost
+                        val targetPost = (_uiState.value.feed + listOfNotNull(currentPinned)).find { it.postId == postId }
+                        val updatedPosts = if (pinned && targetPost != null) {
+                            _uiState.value.feed.filter { it.postId != postId }
+                        } else {
+                            _uiState.value.feed
+                        }
+                        val newPinned = if (pinned && targetPost != null) {
+                            targetPost.copy(isPinned = true)
+                        } else if (!pinned && currentPinned?.postId == postId) {
+                            null
+                        } else {
+                            currentPinned
+                        }
+                        _uiState.value = _uiState.value.copy(
+                            feed = updatedPosts,
+                            pinnedPost = newPinned,
+                            successMessage = if (pinned) "Post pinned" else "Post unpinned"
+                        )
+                    },
+                    onFailure = {
+                        _uiState.value = _uiState.value.copy(error = it.message)
+                    }
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)
             }

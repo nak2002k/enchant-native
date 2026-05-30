@@ -12,6 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -84,7 +87,10 @@ fun OutgoingCallScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(48.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = { isSpeakerOn = !isSpeakerOn; onToggleSpeaker() }) {
+                    IconButton(
+                        onClick = { isSpeakerOn = !isSpeakerOn; onToggleSpeaker() },
+                        modifier = Modifier.semantics { this.contentDescription = if (isSpeakerOn) "Turn off speaker" else "Turn on speaker" }
+                    ) {
                         Surface(shape = CircleShape, color = if (isSpeakerOn) MaterialTheme.colorScheme.primaryContainer
                             else MaterialTheme.colorScheme.surfaceVariant) {
                             Icon(if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
@@ -95,7 +101,10 @@ fun OutgoingCallScreen(
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconButton(onClick = onSwitchToVideo) {
+                    IconButton(
+                        onClick = onSwitchToVideo,
+                        modifier = Modifier.semantics { this.contentDescription = "Switch to video call" }
+                    ) {
                         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
                             Icon(Icons.Default.Videocam, "Video", modifier = Modifier.padding(12.dp))
                         }
@@ -108,7 +117,7 @@ fun OutgoingCallScreen(
 
             FilledIconButton(
                 onClick = onEndCall,
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(64.dp).semantics { contentDescription = "End call" },
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE53935))
             ) {
                 Icon(Icons.Default.CallEnd, "End Call", tint = Color.White, modifier = Modifier.size(28.dp))

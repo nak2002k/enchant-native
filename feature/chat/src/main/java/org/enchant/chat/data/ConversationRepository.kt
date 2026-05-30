@@ -19,6 +19,7 @@ import org.enchant.core.model.MessageStatus
 import org.enchant.core.network.ApiClient
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonPrimitive
 
 data class MessagePage(
     val messages: List<Message>,
@@ -353,7 +354,7 @@ class ConversationRepository(
         val client = apiClient ?: return Result.failure(Exception("ApiClient not available"))
         return try {
             val response = client.post("/v1/messages/$envelopeId/translate", buildJsonObject {
-                put("target_language", targetLanguage)
+                put("target_language", JsonPrimitive(targetLanguage))
             })
             response.map { json ->
                 json["translated_text"]?.jsonPrimitive?.content ?: ""

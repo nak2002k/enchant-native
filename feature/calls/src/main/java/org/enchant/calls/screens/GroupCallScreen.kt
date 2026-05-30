@@ -15,6 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 data class CallParticipant(val userId: String, val displayName: String, val isMuted: Boolean, val isVideoOn: Boolean, val hasRaisedHand: Boolean)
@@ -56,17 +59,27 @@ fun GroupCallScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onToggleMute) {
+            IconButton(
+                onClick = onToggleMute,
+                modifier = Modifier.semantics { this.contentDescription = if (isMuted) "Unmute call" else "Mute call" }
+            ) {
                 Icon(if (isMuted) Icons.Default.MicOff else Icons.Default.Mic, "Mute", tint = Color.White)
             }
-            IconButton(onClick = onRaiseHand) {
+            IconButton(
+                onClick = onRaiseHand,
+                modifier = Modifier.semantics { this.contentDescription = "Raise hand" }
+            ) {
                 Icon(Icons.Default.PanTool, "Raise hand", tint = Color.White)
             }
-            IconButton(onClick = { onSendReaction("\uD83D\uDC4D") }) {
+            IconButton(
+                onClick = { onSendReaction("\uD83D\uDC4D") },
+                modifier = Modifier.semantics { this.contentDescription = "Send thumbs up reaction" }
+            ) {
                 Icon(Icons.Default.ThumbUp, "React", tint = Color.White)
             }
             FilledIconButton(
                 onClick = onEndCall,
+                modifier = Modifier.semantics { contentDescription = "End call" },
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE53935))
             ) {
                 Icon(Icons.Default.CallEnd, "End", tint = Color.White)

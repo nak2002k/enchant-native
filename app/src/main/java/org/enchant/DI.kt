@@ -33,6 +33,8 @@ import org.enchant.core.network.ApiClient
 import org.enchant.core.network.ConnectivityMonitor
 import org.enchant.core.network.OfflineQueue
 import org.enchant.core.network.WebSocketManager
+import org.enchant.core.performance.MessageTrimmer
+import org.enchant.core.store.EnchantStore
 
 object DI {
     private val mutex = Mutex()
@@ -144,6 +146,7 @@ DatabasePool.instance = it
                     idStore = org.enchant.core.crypto.IdentityStore()
                 )
                 PreKeyWorker.schedule(context)
+                MessageTrimmer.scheduleTrimming(context, EnchantStore.settings.messageTrimLength.takeIf { it > 0 }?.toLong() ?: 365)
 
                 WebSocketManager.init(context)
                 _webSocketManager = WebSocketManager

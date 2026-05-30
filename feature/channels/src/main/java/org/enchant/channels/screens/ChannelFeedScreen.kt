@@ -19,12 +19,19 @@ fun ChannelFeedScreen(
     channelId: String,
     channelName: String,
     isSubscribed: Boolean,
+    isAdmin: Boolean = false,
     posts: List<ChannelPost>,
     pinnedPost: ChannelPost?,
     onSubscribe: () -> Unit,
     onShare: () -> Unit,
-    onLoadMore: () -> Unit
+    onLoadMore: () -> Unit,
+    onEditPost: (String, String, String) -> Unit = { _, _, _ -> },
+    onDeletePost: (String, String) -> Unit = { _, _ -> },
+    onPinPost: (String, String, Boolean) -> Unit = { _, _, _ -> }
 ) {
+    var postToEdit by remember { mutableStateOf<ChannelPost?>(null) }
+    var postToDelete by remember { mutableStateOf<ChannelPost?>(null) }
+    var postToPin by remember { mutableStateOf<ChannelPost?>(null) }
     val listState = rememberLazyListState()
 
     LaunchedEffect(listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index) {
@@ -33,6 +40,38 @@ fun ChannelFeedScreen(
         if (lastVisible >= totalItems - 3) {
             onLoadMore()
         }
+    }
+
+    if (postToEdit != null) {
+        EditPostDialog(
+            post = postToEdit!!,
+            onDismiss = { postToEdit = null },
+            onConfirm = { newContent ->
+                onEditPost(channelId, postToEdit!!.postId, newContent)
+                postToEdit = null
+            }
+        )
+    }
+
+    if (postToDelete != null) {
+        DeletePostDialog(
+            onDismiss = { postToDelete = null },
+            onConfirm = {
+                onDeletePost(channelId, postToDelete!!.postId)
+                postToDelete = null
+            }
+        )
+    }
+
+    if (postToPin != null) {
+        PinPostDialog(
+            shouldPin = !postToPin!!.isPinned,
+            onDismiss = { postToPin = null },
+            onConfirm = {
+                onPinPost(channelId, postToPin!!.postId, !postToPin!!.isPinned)
+                postToPin = null
+            }
+        )
     }
 
     Scaffold(
@@ -130,12 +169,22 @@ fun ChannelFeedScreen(
                             )
                         }
                     }
-                    PostCard(post = pinnedPost)
+                    PostCard(
+                        post = pinnedPost,
+                        onEdit = { postToEdit = pinnedPost },
+                        onDelete = { postToDelete = pinnedPost },
+                        onPin = { postToPin = pinnedPost }
+                    )
                 }
             }
 
             items(posts, key = { it.postId }) { post ->
-                PostCard(post = post)
+                PostCard(
+                    post = post,
+                    onEdit = { postToEdit = post },
+                    onDelete = { postToDelete = post },
+                    onPin = { postToPin = post }
+                )
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -144,35 +193,156 @@ fun ChannelFeedScreen(
 }
 
 @Composable
-private fun PostCard(post: ChannelPost) {
+private fun PostCard(
+    post: ChannelPost,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onPin: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Surface(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        Box {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        post.authorId.take(12),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        post.createdAt,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "Post options")
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    post.authorId.take(12),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    post.createdAt,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    post.content,
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                post.content,
-                style = MaterialTheme.typography.bodyMedium
-            )
+
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                if (post.isOwn()) {
+                    DropdownMenuItem(
+                        text = { Text("Edit") },
+                        onClick = {
+                            showMenu = false
+                            onEdit()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Delete, null) }
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text(if (post.isPinned) "Unpin" else "Pin") },
+                    onClick = {
+                        showMenu = false
+                        onPin()
+                    },
+                    leadingIcon = { Icon(if (post.isPinned) Icons.Default.PushPin else Icons.Default.PushPin, null) }
+                )
+            }
         }
     }
     HorizontalDivider()
+}
+
+@Composable
+private fun EditPostDialog(
+    post: ChannelPost,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var content by remember { mutableStateOf(post.content) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Post") },
+        text = {
+            OutlinedTextField(
+                value = content,
+                onValueChange = { content = it },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 5
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(content) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun DeletePostDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete Post") },
+        text = { Text("Are you sure you want to delete this post? This action cannot be undone.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun PinPostDialog(
+    shouldPin: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (shouldPin) "Pin Post" else "Unpin Post") },
+        text = { Text(if (shouldPin) "Pin this post to the top of the channel?" else "Remove this post from pinned?") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(if (shouldPin) "Pin" else "Unpin")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

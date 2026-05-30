@@ -10,6 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -90,7 +93,7 @@ fun IncomingCallScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     FilledIconButton(
                         onClick = onDecline,
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(64.dp).semantics { contentDescription = "Decline incoming call" },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = Color(0xFFE53935)
                         )
@@ -105,7 +108,7 @@ fun IncomingCallScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         FilledIconButton(
                             onClick = onAcceptVideo,
-                            modifier = Modifier.size(64.dp),
+                            modifier = Modifier.size(64.dp).semantics { contentDescription = "Accept video call" },
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = Color(0xFF43A047)
                             )
@@ -120,7 +123,7 @@ fun IncomingCallScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     FilledIconButton(
                         onClick = onAcceptAudio,
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(64.dp).semantics { contentDescription = "Accept audio call" },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = Color(0xFF43A047)
                         )

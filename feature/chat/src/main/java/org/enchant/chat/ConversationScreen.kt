@@ -17,6 +17,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -97,6 +100,12 @@ fun ConversationScreen(
 
     LaunchedEffect(Unit) { viewModel.loadConversations() }
 
+    LaunchedEffect(translateDialogEnvelopeId) {
+        translateDialogEnvelopeId?.let { envelopeId ->
+            viewModel.translateMessage(envelopeId)
+        }
+    }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -143,19 +152,31 @@ fun ConversationScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier.semantics { this.contentDescription = "Navigate back" }
+                    ) {
                         Icon(Icons.Default.ArrowBack, "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onStartCall(conversationId, false) }) {
+                    IconButton(
+                        onClick = { onStartCall(conversationId, false) },
+                        modifier = Modifier.semantics { this.contentDescription = "Start audio call" }
+                    ) {
                         Icon(Icons.Default.Call, "Call")
                     }
-                    IconButton(onClick = { onStartCall(conversationId, true) }) {
+                    IconButton(
+                        onClick = { onStartCall(conversationId, true) },
+                        modifier = Modifier.semantics { this.contentDescription = "Start video call" }
+                    ) {
                         Icon(Icons.Default.Videocam, "Video Call")
                     }
                     var showMenu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.semantics { this.contentDescription = "More options" }
+                    ) {
                         Icon(Icons.Default.MoreVert, "More")
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
@@ -184,7 +205,10 @@ fun ConversationScreen(
                         leadingIcon = { Icon(Icons.Default.Search, null) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = ""; showSearch = false }) {
+                                IconButton(
+                                    onClick = { searchQuery = ""; showSearch = false },
+                                    modifier = Modifier.semantics { this.contentDescription = "Clear search" }
+                                ) {
                                     Icon(Icons.Default.Close, "Clear")
                                 }
                             }
@@ -258,7 +282,8 @@ fun ConversationScreen(
                                 onForward = { envelopeId -> forwardDialogMessageId = envelopeId },
                                 onCopy = { viewModel.copyToClipboard(message.content) },
                                 onReact = { viewModel.setReaction(message.localId, it) },
-                                onReport = { viewModel.reportMessage(it) }
+                                onReport = { viewModel.reportMessage(it) },
+                                onTranslate = { translateDialogEnvelopeId = it }
                             )
                         }
                     }
@@ -413,6 +438,43 @@ fun ConversationScreen(
             onDismiss = { mediaViewerPath = null }
         )
     }
+
+    if (translateDialogEnvelopeId != null) {
+        val translated = translatedMessage?.second
+        AlertDialog(
+            onDismissRequest = {
+                translateDialogEnvelopeId = null
+                viewModel.clearTranslation()
+            },
+            title = { Text("Translation") },
+            text = {
+                Column {
+                    if (translated != null) {
+                        Text(translated)
+                    } else {
+                        Text("Translating...")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    translated?.let { viewModel.copyToClipboard(it) }
+                    translateDialogEnvelopeId = null
+                    viewModel.clearTranslation()
+                }) {
+                    Text("Copy")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    translateDialogEnvelopeId = null
+                    viewModel.clearTranslation()
+                }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
 }
 
 
@@ -438,7 +500,10 @@ private fun ReplyPreview(message: String, onDismiss: () -> Unit) {
                 Text("Reply", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 Text(message.take(80), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onDismiss) {
+IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.semantics { this.contentDescription = "Dismiss reply" }
+            ) {
                 Icon(Icons.Default.Close, "Dismiss reply")
             }
         }
@@ -469,11 +534,17 @@ private fun ComposerBar(
                 .navigationBarsPadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onAttach) {
+IconButton(
+                onClick = onAttach,
+                modifier = Modifier.semantics { this.contentDescription = "Attach file" }
+            ) {
                 Icon(Icons.Default.Add, "Attach")
             }
 
-            IconButton(onClick = onViewOnceToggle) {
+IconButton(
+                onClick = onViewOnceToggle,
+                modifier = Modifier.semantics { this.contentDescription = if (viewOnceMode) "View once enabled" else "View once disabled" }
+            ) {
                 Icon(
                     if (viewOnceMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     "View once",
@@ -510,7 +581,8 @@ private fun ComposerBar(
                             isPressed = false
                             onVoiceStop()
                         }
-                    }
+                    },
+                    modifier = Modifier.semantics { this.contentDescription = if (isPressed) "Stop recording voice message" else "Start recording voice message" }
                 ) {
                     Icon(
                         if (isPressed) Icons.Default.Mic else Icons.Default.Mic,
@@ -518,11 +590,17 @@ private fun ComposerBar(
                         tint = if (isPressed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                     )
                 }
-                IconButton(onClick = onEmoji) {
+                IconButton(
+                    onClick = onEmoji,
+                    modifier = Modifier.semantics { this.contentDescription = "Open emoji picker" }
+                ) {
                     Icon(Icons.Default.EmojiEmotions, "Emoji")
                 }
             } else {
-                IconButton(onClick = onSend) {
+                IconButton(
+                    onClick = onSend,
+                    modifier = Modifier.semantics { this.contentDescription = "Send message" }
+                ) {
                     Icon(Icons.Default.Send, "Send")
                 }
             }
