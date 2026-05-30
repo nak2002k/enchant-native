@@ -208,7 +208,7 @@ class OfflineQueueTest {
             every { SecurePreferences.putInt(any(), any()) } returns Unit
             every { SecurePreferences.putString(any(), any()) } returns Unit
             mockkObject(WebSocketManager)
-            every { WebSocketManager.requestRESTFallback(any()) } returns Result.success(Unit)
+            io.mockk.coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.success(Unit)
 
             OfflineQueue.enqueue(QueuedMessage(id = "drain-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
             assertEquals(1, OfflineQueue.pendingCount.value)
@@ -228,7 +228,7 @@ class OfflineQueueTest {
             every { SecurePreferences.putInt(any(), any()) } returns Unit
             every { SecurePreferences.putString(any(), any()) } returns Unit
             mockkObject(WebSocketManager)
-            every { WebSocketManager.requestRESTFallback(any()) } returns Result.failure(Exception("Network error"))
+            io.mockk.coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.failure(Exception("Network error"))
 
             OfflineQueue.enqueue(QueuedMessage(id = "fail-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
 
