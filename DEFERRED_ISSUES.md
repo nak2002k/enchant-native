@@ -206,6 +206,21 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 | Architecture | ViewModel architecture / state management refactor | Code quality improvements requiring broader changes |
 | DI refactor | Remove ApiClient.getInstance() | Requires Hilt/Koin setup |
 
+## feature:polls
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| 1.2 | Results visibility (no access control on poll results) | Backend-dependent — needs server-side authorization check |
+| 3.6 | No "Close Poll" UI | Feature incomplete — requires UI composable to trigger closePoll() |
+| 3.7 | No voters list endpoint | No GET /v1/polls/{id}/voters/{option_id} client implementation |
+| 3.3 | loadPoll test missing | Test coverage gap — needs full state transition test |
+| 2.7 | Duplicate option text allowed | UX issue — no deduplication warning |
+| 2.8 | Auto-close timer invalid input crashes | UX edge case — invalid seconds silently defaults to null |
+| 2.5 | Option count validation not enforced on backend path | Client-side validation not a security boundary — backend enforces |
+| 4.4 | Hardcoded magic numbers (3600, 60, 604800) | Code quality — needs named constants |
+| 4.7 | No loading/error/empty states for PollBubble | UI state not handled — assumes poll always complete |
+| 4.8 | Inconsistent naming (closes_in_hours vs closeInSeconds) | Naming inconsistency — backend uses hours, client uses seconds |
+
 ## feature:backup
 
 | ID | Issue | Reason Deferred |

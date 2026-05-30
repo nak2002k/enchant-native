@@ -173,7 +173,7 @@ fun LocationPickerScreen(
                         Spacer(Modifier.height(16.dp))
                         val statusText: String = when {
                             isGettingLocation -> "Getting current location..."
-                            locationError != null -> locationError
+                            locationError != null -> locationError!!
                             permissionDenied -> "Location permission denied"
                             else -> "Search above or use current location"
                         }
