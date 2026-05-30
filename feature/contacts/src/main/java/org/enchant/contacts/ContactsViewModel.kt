@@ -25,7 +25,11 @@ data class ContactsUiState(
 class ContactsViewModel(
     private val repository: ContactsRepository
 ) : ViewModel() {
-    constructor() : this(ContactsRepository(org.enchant.core.network.ApiClient.getInstance(), org.enchant.core.database.DatabasePool.instance!!))
+    constructor() : this(ContactsRepository(
+        org.enchant.core.network.ApiClient.getInstance(),
+        org.enchant.core.database.DatabasePool.instance
+            ?: throw IllegalStateException("DatabasePool not initialized")
+    ))
     private val _uiState = MutableStateFlow(ContactsUiState())
     val uiState: StateFlow<ContactsUiState> = _uiState.asStateFlow()
 
@@ -35,6 +39,7 @@ class ContactsViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
+                repository.syncContacts()
                 val contacts = repository.getContacts()
                 _uiState.value = _uiState.value.copy(contacts = contacts, isLoading = false)
             } catch (e: Exception) {
@@ -89,8 +94,14 @@ class ContactsViewModel(
         viewModelScope.launch {
             val result = repository.blockUser(userId)
             when (result) {
-                is ContactResult.Added -> {
-                    _uiState.value = _uiState.value.copy(successMessage = "User blocked")
+                is ContactResult.Blocked -> {
+                    val updatedContacts = _uiState.value.contacts.map {
+                        if (it.userId == userId) it.copy(isBlocked = true) else it
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        contacts = updatedContacts,
+                        successMessage = "User blocked"
+                    )
                     loadBlockedUsers()
                 }
                 is ContactResult.Failed -> _uiState.value = _uiState.value.copy(error = result.error)
@@ -103,8 +114,14 @@ class ContactsViewModel(
         viewModelScope.launch {
             val result = repository.unblockUser(userId)
             when (result) {
-                is ContactResult.Removed -> {
-                    _uiState.value = _uiState.value.copy(successMessage = "User unblocked")
+                is ContactResult.Unblocked -> {
+                    val updatedContacts = _uiState.value.contacts.map {
+                        if (it.userId == userId) it.copy(isBlocked = false) else it
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        contacts = updatedContacts,
+                        successMessage = "User unblocked"
+                    )
                     loadBlockedUsers()
                 }
                 is ContactResult.Failed -> _uiState.value = _uiState.value.copy(error = result.error)

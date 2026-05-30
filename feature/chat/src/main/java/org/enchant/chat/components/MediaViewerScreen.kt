@@ -3,6 +3,7 @@ package org.enchant.chat.components
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
@@ -39,8 +40,16 @@ fun MediaViewerScreen(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = context as? android.app.Activity
     val scope = rememberCoroutineScope()
     var scale by remember { mutableFloatStateOf(1f) }
+
+    DisposableEffect(Unit) {
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
     var showControls by remember { mutableStateOf(true) }

@@ -14,6 +14,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.time.Instant
+import java.util.Arrays
 import java.util.UUID
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
@@ -101,6 +102,7 @@ object MessageSendPipeline {
                     content = plaintext.decodeToString(), status = "sending",
                     timestamp = now, replyToEnvelopeId = replyTo
                 ))
+                Arrays.fill(plaintext, 0)
 
                 if (!ConnectivityMonitor.isOnline.value) {
                     OfflineQueue.enqueue(QueuedMessage(
@@ -212,6 +214,7 @@ object MessageSendPipeline {
 
                 val mediaKey = CryptoHelper.generateRandomKey(32)
                 val encryptedData = CryptoHelper.encryptXChaCha20Poly1305(fileBytes, mediaKey)
+                Arrays.fill(fileBytes, 0)
 
                 val client = apiClient!!
                 val uploadResult = client.postRaw("/v1/media/upload", encryptedData, mimeType)
@@ -265,7 +268,8 @@ object MessageSendPipeline {
 
     suspend fun sendDeliveryReceipt(envelopeId: String, senderUserId: String) {
         checkInit()
-        val ts = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+        val msg = repository?.getMessage(envelopeId)
+        val ts = msg?.timestamp ?: System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
             timestamps = listOf(ts),
             type = MessageProtobufHelper.ReceiptType.DELIVERY
@@ -278,13 +282,14 @@ object MessageSendPipeline {
                     put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
                     put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            } catch (e: Exception) { android.util.Log.w("Enchant", "receipt send failed") }
         }
     }
 
     suspend fun sendReadReceipt(envelopeId: String, senderUserId: String) {
         checkInit()
-        val ts = envelopeId.toLongOrNull() ?: System.currentTimeMillis()
+        val msg = repository?.getMessage(envelopeId)
+        val ts = msg?.timestamp ?: System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
             timestamps = listOf(ts),
             type = MessageProtobufHelper.ReceiptType.READ
@@ -297,7 +302,7 @@ object MessageSendPipeline {
                     put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
                     put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            } catch (e: Exception) { android.util.Log.w("Enchant", "receipt send failed") }
         }
     }
 
@@ -322,12 +327,14 @@ object MessageSendPipeline {
 
         if (isTyping) {
             typingJob?.cancel()
-            typingJob = scope?.launch {
+            val currentScope = scope ?: return
+            typingJob = currentScope.launch {
                 delay(5000)
                 sendTypingIndicator(recipientUserId, false)
             }
         } else {
             typingJob?.cancel()
+            typingJob = null
         }
     }
 

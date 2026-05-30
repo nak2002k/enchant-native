@@ -40,6 +40,8 @@ data class PhoneMatch(
 sealed class ContactResult {
     data class Added(val added: Boolean) : ContactResult()
     data class Removed(val removed: Boolean) : ContactResult()
+    data class Blocked(val blocked: Boolean) : ContactResult()
+    data class Unblocked(val unblocked: Boolean) : ContactResult()
     data class Matches(val matches: List<Contact>) : ContactResult()
     data class Failed(val error: String) : ContactResult()
 }
@@ -65,7 +67,7 @@ class ContactsRepository(
         }
     }
 
-    suspend fun getContacts(): List<Contact> = withContext(Dispatchers.Default) {
+    suspend fun syncContacts(): List<Contact> = withContext(Dispatchers.Default) {
         try {
             val response = apiClient.get("/v1/contacts")
             response.fold(
@@ -81,12 +83,18 @@ class ContactsRepository(
                         )
                     } ?: emptyList()
                     pool.write { db ->
-                        db.execSQL("DELETE FROM recipients")
-                        contacts.forEach { c ->
-                            db.execSQL("""
-                                INSERT OR REPLACE INTO recipients (recipient_id, username, display_name)
-                                VALUES (?, ?, ?)
-                            """, arrayOf(c.userId, c.username, c.displayName))
+                        db.beginTransaction()
+                        try {
+                            db.execSQL("DELETE FROM recipients")
+                            contacts.forEach { c ->
+                                db.execSQL("""
+                                    INSERT OR REPLACE INTO recipients (recipient_id, username, display_name)
+                                    VALUES (?, ?, ?)
+                                """, arrayOf(c.userId, c.username, c.displayName))
+                            }
+                            db.setTransactionSuccessful()
+                        } finally {
+                            db.endTransaction()
                         }
                     }
                     contacts
@@ -105,6 +113,14 @@ class ContactsRepository(
                     db.rawQuery("SELECT * FROM recipients", null)
                 ).map { Contact(userId = it.recipientId, username = it.username, displayName = it.displayName) }
             }
+        }
+    }
+
+    suspend fun getContacts(): List<Contact> = withContext(Dispatchers.Default) {
+        pool.readWith { db ->
+            CursorMapper.mapToList<RecipientEntity>(
+                db.rawQuery("SELECT * FROM recipients ORDER BY display_name ASC", null)
+            ).map { Contact(userId = it.recipientId, username = it.username, displayName = it.displayName) }
         }
     }
 
@@ -178,7 +194,7 @@ class ContactsRepository(
                         pool.write { db ->
                             db.execSQL("UPDATE recipients SET is_blocked = 1 WHERE recipient_id = ?", arrayOf(userId))
                         }
-                        ContactResult.Added(true)
+                        ContactResult.Blocked(true)
                     },
                     onFailure = { ContactResult.Failed(it.message ?: "Failed to block user") }
                 )
@@ -197,7 +213,7 @@ class ContactsRepository(
                         pool.write { db ->
                             db.execSQL("UPDATE recipients SET is_blocked = 0 WHERE recipient_id = ?", arrayOf(userId))
                         }
-                        ContactResult.Removed(true)
+                        ContactResult.Unblocked(true)
                     },
                     onFailure = { ContactResult.Failed(it.message ?: "Failed to unblock user") }
                 )
@@ -227,27 +243,32 @@ class ContactsRepository(
 
     suspend fun matchPhoneContacts(phoneHashes: List<String>): List<PhoneMatch> =
         withContext(Dispatchers.Default) {
-            if (phoneHashes.isEmpty() || phoneHashes.size > 1000) return@withContext emptyList()
+            if (phoneHashes.isEmpty()) return@withContext emptyList()
+            val allMatches = mutableListOf<PhoneMatch>()
             try {
-                val response = apiClient.postAnonymous("/v1/contacts/match", buildJsonObject {
-                    put("phone_hashes", buildJsonArray {
-                        phoneHashes.forEach { hash -> add(JsonPrimitive(hash)) }
+                phoneHashes.chunked(1000).forEach { batch ->
+                    val response = apiClient.postAnonymous("/v1/contacts/match", buildJsonObject {
+                        put("phone_hashes", buildJsonArray {
+                            batch.forEach { hash -> add(JsonPrimitive(hash)) }
+                        })
                     })
-                })
-                response.fold(
-                    onSuccess = { json ->
-                        json["matches"]?.jsonArray?.map { item ->
-                            val obj = item.jsonObject
-                            PhoneMatch(
-                                userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
-                                username = obj["username"]?.jsonPrimitive?.content,
-                                displayName = obj["display_name"]?.jsonPrimitive?.content,
-                                phoneHash = obj["phone_hash"]?.jsonPrimitive?.content ?: ""
-                            )
-                        } ?: emptyList()
-                    },
-                    onFailure = { emptyList() }
-                )
+                    response.fold(
+                        onSuccess = { json ->
+                            val matches = json["matches"]?.jsonArray?.map { item ->
+                                val obj = item.jsonObject
+                                PhoneMatch(
+                                    userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
+                                    username = obj["username"]?.jsonPrimitive?.content,
+                                    displayName = obj["display_name"]?.jsonPrimitive?.content,
+                                    phoneHash = obj["phone_hash"]?.jsonPrimitive?.content ?: ""
+                                )
+                            } ?: emptyList()
+                            allMatches.addAll(matches)
+                        },
+                        onFailure = { }
+                    )
+                }
+                allMatches
             } catch (_: Exception) { emptyList() }
         }
 }

@@ -25,9 +25,12 @@ data class FriendRequest(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FriendRequestsScreen(onNavigateBack: () -> Unit) {
+fun FriendRequestsScreen(
+    onNavigateBack: () -> Unit,
+    apiClient: ApiClient = remember { ApiClient() }
+) {
     val scope = rememberCoroutineScope()
-    val client = remember { ApiClient() }
+    val client = apiClient
     var incoming by remember { mutableStateOf<List<FriendRequest>>(emptyList()) }
     var outgoing by remember { mutableStateOf<List<FriendRequest>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }

@@ -1,8 +1,10 @@
 package org.enchant.chat
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -56,8 +58,16 @@ fun ConversationScreen(
     val typingIndicator by viewModel.typingIndicator.collectAsState()
     val sendingState by viewModel.sendingState.collectAsState()
     val context = LocalContext.current
+    val activity = context as? Activity
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+
+    DisposableEffect(Unit) {
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
     val conversations by viewModel.conversations.collectAsState()
     var messageText by remember { mutableStateOf("") }
     var replyToId by remember { mutableStateOf<String?>(null) }

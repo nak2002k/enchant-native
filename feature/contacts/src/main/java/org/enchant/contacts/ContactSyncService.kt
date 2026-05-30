@@ -15,53 +15,70 @@ import java.security.MessageDigest
 
 data class PhoneContact(
     val name: String,
-    val phoneNumber: String,
     val normalizedE164: String
 )
 
 data class MatchedContact(
     val userId: String,
-    val phoneNumber: String,
     val displayName: String?,
     val username: String?,
     val avatarMediaId: String?
 )
 
+sealed class ContactSyncError : Exception() {
+    data object PermissionDenied : ContactSyncError()
+    data class Network(override val message: String) : ContactSyncError()
+    data class Server(override val message: String) : ContactSyncError()
+    data class Unknown(override val message: String) : ContactSyncError()
+}
+
 class ContactSyncService(
     private val apiClient: ApiClient,
     private val contentResolver: ContentResolver
 ) {
+    companion object {
+        private const val BATCH_SIZE = 1000
+    }
+
     suspend fun syncContacts(): Result<List<MatchedContact>> = withContext(Dispatchers.Default) {
         try {
             val deviceContacts = readDeviceContacts()
             if (deviceContacts.isEmpty()) return@withContext Result.success(emptyList())
 
             val hashedNumbers = deviceContacts.map { hashPhoneNumber(it.normalizedE164) }
-            val body = buildJsonObject {
-                put("hashes", kotlinx.serialization.json.buildJsonArray {
-                    hashedNumbers.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
-                })
-            }
+            val allMatched = mutableListOf<MatchedContact>()
 
-            val response = apiClient.post("/v1/contacts/match", body)
-            response.fold(
-                onSuccess = { json ->
-                    val matched = json["matches"]?.jsonArray?.map { item ->
-                        val obj = item.jsonObject
-                        MatchedContact(
-                            userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
-                            phoneNumber = obj["phone_number"]?.jsonPrimitive?.content ?: "",
-                            displayName = obj["display_name"]?.jsonPrimitive?.content,
-                            username = obj["username"]?.jsonPrimitive?.content,
-                            avatarMediaId = obj["avatar_media_id"]?.jsonPrimitive?.content
-                        )
-                    } ?: emptyList()
-                    Result.success(matched)
-                },
-                onFailure = { Result.failure(it) }
-            )
+            hashedNumbers.chunked(BATCH_SIZE).forEach { batch ->
+                val body = buildJsonObject {
+                    put("phone_hashes", kotlinx.serialization.json.buildJsonArray {
+                        batch.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+                    })
+                }
+
+                val response = apiClient.post("/v1/contacts/match", body)
+                response.fold(
+                    onSuccess = { json ->
+                        val matched = json["matches"]?.jsonArray?.map { item ->
+                            val obj = item.jsonObject
+                            MatchedContact(
+                                userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
+                                displayName = obj["display_name"]?.jsonPrimitive?.content,
+                                username = obj["username"]?.jsonPrimitive?.content,
+                                avatarMediaId = obj["avatar_media_id"]?.jsonPrimitive?.content
+                            )
+                        } ?: emptyList()
+                        allMatched.addAll(matched)
+                    },
+                    onFailure = { return@withContext Result.failure(it) }
+                )
+            }
+            Result.success(allMatched)
+        } catch (e: SecurityException) {
+            Result.failure(ContactSyncError.PermissionDenied)
+        } catch (e: java.net.UnknownHostException) {
+            Result.failure(ContactSyncError.Network(e.message ?: "No network connection"))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(ContactSyncError.Unknown(e.message ?: "Unknown error"))
         }
     }
 
@@ -72,6 +89,7 @@ class ContactSyncService(
 
     suspend fun readDeviceContacts(): List<PhoneContact> = withContext(Dispatchers.IO) {
         val contacts = mutableListOf<PhoneContact>()
+        val seen = mutableSetOf<String>()
         val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
@@ -88,16 +106,17 @@ class ContactSyncService(
                     val name = c.getString(nameIdx) ?: "Unknown"
                     val rawNumber = c.getString(numberIdx) ?: continue
                     val e164 = normalizeToE164(rawNumber)
-                    if (e164 != null) {
-                        contacts.add(PhoneContact(name = name, phoneNumber = rawNumber, normalizedE164 = e164))
+                    if (e164 != null && seen.add(e164)) {
+                        contacts.add(PhoneContact(name = name, normalizedE164 = e164))
                     }
                 }
             }
-        } catch (_: SecurityException) {
+        } catch (e: SecurityException) {
+            throw e
         } finally {
             cursor?.close()
         }
-        contacts.distinctBy { it.normalizedE164 }
+        contacts
     }
 
     private fun normalizeToE164(number: String): String? {

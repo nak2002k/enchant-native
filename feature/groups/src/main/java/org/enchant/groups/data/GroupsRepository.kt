@@ -1,10 +1,6 @@
 package org.enchant.groups.data
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -22,7 +18,7 @@ data class Group(
     val name: String,
     val description: String? = null,
     val avatarMediaId: String? = null,
-    val myRole: String = "member",
+    val myRole: MemberRole = MemberRole.MEMBER,
     val memberCount: Int = 0,
     val inviteLink: String? = null,
     val createdAt: Long = System.currentTimeMillis()
@@ -30,7 +26,7 @@ data class Group(
 
 data class GroupMember(
     val userId: String,
-    val role: String,
+    val role: MemberRole,
     val displayName: String? = null,
     val username: String? = null,
     val joinedAt: Long? = null
@@ -45,12 +41,26 @@ data class InviteLink(
 data class JoinRequest(
     val requestId: String,
     val requesterUserId: String,
+    val username: String? = null,
     val status: String,
     val requestedTs: String? = null
 )
 
+enum class MemberRole(val value: String) {
+    OWNER("owner"),
+    ADMIN("admin"),
+    SUPERADMIN("superadmin"),
+    MEMBER("member");
+
+    companion object {
+        fun fromString(value: String): MemberRole = entries.find {
+            it.value == value.lowercase()
+        } ?: MEMBER
+    }
+}
+
 sealed class GroupResult {
-    data class Success(val groupId: String, val name: String, val memberCount: Int) : GroupResult()
+    data class Success(val groupId: String, val name: String, val memberCount: Int, val role: MemberRole = MemberRole.MEMBER) : GroupResult()
     data class MemberAdded(val added: Int) : GroupResult()
     data class MemberRemoved(val removed: Boolean) : GroupResult()
     data class Updated(val updated: Boolean) : GroupResult()
@@ -100,8 +110,8 @@ class GroupsRepository(
                         pool.write { db ->
                             db.execSQL("""
                                 INSERT OR REPLACE INTO groups_table (group_id, name, description, my_role, member_count)
-                                VALUES (?, ?, ?, 'owner', ?)
-                            """, arrayOf(groupId, name, description, count.toString()))
+                                VALUES (?, ?, ?, ?, ?)
+                            """, arrayOf(groupId, name, description, MemberRole.OWNER.value, count.toString()))
                         }
                         GroupResult.Success(groupId, groupName, count)
                     },
@@ -123,17 +133,23 @@ class GroupsRepository(
                         Group(
                             groupId = obj["group_id"]?.jsonPrimitive?.content ?: "",
                             name = obj["name"]?.jsonPrimitive?.content ?: "",
-                            myRole = obj["role"]?.jsonPrimitive?.content ?: "member",
+                            myRole = MemberRole.fromString(obj["role"]?.jsonPrimitive?.content ?: "member"),
                             memberCount = obj["member_count"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
                         )
                     } ?: emptyList()
                     pool.write { db ->
-                        db.execSQL("DELETE FROM groups_table")
-                        groups.forEach { g ->
-                            db.execSQL("""
-                                INSERT OR REPLACE INTO groups_table (group_id, name, my_role, member_count)
-                                VALUES (?, ?, ?, ?)
-                            """, arrayOf(g.groupId, g.name, g.myRole, g.memberCount.toString()))
+                        db.beginTransaction()
+                        try {
+                            db.execSQL("DELETE FROM groups_table")
+                            groups.forEach { g ->
+                                db.execSQL("""
+                                    INSERT OR REPLACE INTO groups_table (group_id, name, my_role, member_count)
+                                    VALUES (?, ?, ?, ?)
+                                """, arrayOf(g.groupId, g.name, g.myRole.value, g.memberCount.toString()))
+                            }
+                            db.setTransactionSuccessful()
+                        } finally {
+                            db.endTransaction()
                         }
                     }
                     groups
@@ -142,7 +158,7 @@ class GroupsRepository(
                     pool.readWith { db ->
                         CursorMapper.mapToList<GroupEntity>(
                             db.rawQuery("SELECT * FROM groups_table", null)
-                        ).map { Group(groupId = it.groupId, name = it.name, myRole = it.myRole, memberCount = it.memberCount) }
+                        ).map { Group(groupId = it.groupId, name = it.name, myRole = MemberRole.fromString(it.myRole), memberCount = it.memberCount) }
                     }
                 }
             )
@@ -150,19 +166,22 @@ class GroupsRepository(
             pool.readWith { db ->
                 CursorMapper.mapToList<GroupEntity>(
                     db.rawQuery("SELECT * FROM groups_table", null)
-                ).map { Group(groupId = it.groupId, name = it.name, myRole = it.myRole, memberCount = it.memberCount) }
+                ).map { Group(groupId = it.groupId, name = it.name, myRole = MemberRole.fromString(it.myRole), memberCount = it.memberCount) }
             }
         }
     }
 
-    fun getCachedGroups(): Flow<List<Group>> = callbackFlow {
-        val collectJob = launch {
-            val entities = pool.readWith { db ->
-                CursorMapper.mapToList<GroupEntity>(db.rawQuery("SELECT * FROM groups_table ORDER BY name", null))
-            }
-            trySend(entities.map { Group(groupId = it.groupId, name = it.name, myRole = it.myRole, memberCount = it.memberCount) })
+    suspend fun getCachedGroups(): List<Group> = withContext(Dispatchers.Default) {
+        pool.readWith { db ->
+            CursorMapper.mapToList<GroupEntity>(db.rawQuery("SELECT * FROM groups_table ORDER BY name", null))
+        }.map { entity ->
+            Group(
+                groupId = entity.groupId,
+                name = entity.name,
+                myRole = MemberRole.fromString(entity.myRole),
+                memberCount = entity.memberCount
+            )
         }
-        awaitClose { collectJob.cancel() }
     }
 
     suspend fun getGroupInfo(groupId: String): GroupResult {
@@ -174,7 +193,8 @@ class GroupsRepository(
                         val name = json["name"]?.jsonPrimitive?.content ?: ""
                         val desc = json["description"]?.jsonPrimitive?.content
                         val count = json["member_count"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
-                        GroupResult.Success(groupId, name, count)
+                        val role = MemberRole.fromString(json["role"]?.jsonPrimitive?.content ?: "member")
+                        GroupResult.Success(groupId, name, count, role)
                     },
                     onFailure = { GroupResult.Failed(it.message ?: "Failed to fetch group") }
                 )
@@ -193,7 +213,7 @@ class GroupsRepository(
                         val obj = item.jsonObject
                         GroupMember(
                             userId = obj["user_id"]?.jsonPrimitive?.content ?: "",
-                            role = obj["role"]?.jsonPrimitive?.content ?: "member",
+                            role = MemberRole.fromString(obj["role"]?.jsonPrimitive?.content ?: "member"),
                             displayName = obj["display_name"]?.jsonPrimitive?.content,
                             username = obj["username"]?.jsonPrimitive?.content,
                             joinedAt = obj["joined_at"]?.jsonPrimitive?.content?.toLongOrNull()
@@ -254,13 +274,12 @@ class GroupsRepository(
         }
     }
 
-    suspend fun updateMemberRole(groupId: String, userId: String, role: String): GroupResult {
-        val validRoles = setOf("member", "admin", "superadmin")
-        if (role !in validRoles) return GroupResult.Failed("Invalid role: $role")
+    suspend fun updateMemberRole(groupId: String, userId: String, role: MemberRole): GroupResult {
+        if (role == MemberRole.OWNER) return GroupResult.Failed("Cannot assign owner role via update")
         return withContext(Dispatchers.Default) {
             try {
                 val response = apiClient.put("/v1/groups/$groupId/members/$userId/role", buildJsonObject {
-                    put("role", role)
+                    put("role", role.value)
                 })
                 response.fold(
                     onSuccess = { GroupResult.Updated(true) },
@@ -297,6 +316,8 @@ class GroupsRepository(
                         pool.write { db ->
                             db.execSQL("DELETE FROM groups_table WHERE group_id = ?", arrayOf(groupId))
                             db.execSQL("DELETE FROM group_members WHERE group_id = ?", arrayOf(groupId))
+                            try { db.execSQL("DELETE FROM messages_table WHERE group_id = ?", arrayOf(groupId)) } catch (_: Exception) {}
+                            try { db.execSQL("DELETE FROM join_requests_table WHERE group_id = ?", arrayOf(groupId)) } catch (_: Exception) {}
                         }
                         GroupResult.Deleted(true)
                     },
