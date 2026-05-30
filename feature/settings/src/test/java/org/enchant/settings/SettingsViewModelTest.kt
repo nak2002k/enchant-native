@@ -144,8 +144,8 @@ class SettingsViewModelTest {
         @Test @DisplayName("updateFontSize updates font size setting")
         fun `update font size`() = runTest {
             val viewModel = createViewModel()
-            viewModel.updateFontSize(1.5f)
-            assertEquals(1.5f, viewModel.uiState.value.fontSize)
+            viewModel.updateFontSize(1.25f)
+            assertEquals(1.25f, viewModel.uiState.value.fontSize)
             coVerify { apiClient.put("/v1/settings/font-size", any()) }
         }
 
@@ -154,6 +154,7 @@ class SettingsViewModelTest {
             coEvery { apiClient.put("/v1/settings/font-size", any()) } returns Result.failure(Exception("Server error"))
             val viewModel = createViewModel()
             viewModel.updateFontSize(1.5f)
+            assertEquals(1.5f, viewModel.uiState.value.fontSize)
             assertEquals("Server error", viewModel.uiState.value.error)
         }
     }

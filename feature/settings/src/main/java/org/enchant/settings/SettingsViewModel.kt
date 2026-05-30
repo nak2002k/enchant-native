@@ -49,7 +49,10 @@ data class SettingsUiState(
     val successMessage: String? = null,
     val displayName: String = "",
     val username: String? = null,
-    val about: String? = null
+    val about: String? = null,
+    val defaultDisappearingTimer: Int = 0,
+    val autoDownloadWifi: Boolean = false,
+    val autoDownloadCellular: Boolean = false
 )
 
 class SettingsViewModel(
@@ -78,7 +81,10 @@ class SettingsViewModel(
                         avatarVisibility = json["avatar_visibility"]?.jsonPrimitive?.content ?: "contacts",
                         aboutVisibility = json["about_visibility"]?.jsonPrimitive?.content ?: "contacts",
                         readReceipts = json["read_receipts"]?.jsonPrimitive?.content?.toBoolean() ?: true,
-                        blockedUsers = json["blocked_users"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+                        blockedUsers = json["blocked_users"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                        defaultDisappearingTimer = json["disappearing_timer_seconds"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
+                        autoDownloadWifi = json["auto_download_wifi"]?.jsonPrimitive?.content?.toBoolean() ?: false,
+                        autoDownloadCellular = json["auto_download_cellular"]?.jsonPrimitive?.content?.toBoolean() ?: false
                     )
                 },
                 onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
@@ -87,7 +93,7 @@ class SettingsViewModel(
     }
 
     fun updateTheme(theme: String) {
-        EnchantStore.settings.theme = theme
+        try { EnchantStore.settings.theme = theme } catch (_: Exception) { }
         _uiState.value = _uiState.value.copy(theme = theme)
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
@@ -266,6 +272,28 @@ class SettingsViewModel(
                     isProcessing = false, error = it.message)
                 }
             )
+        }
+    }
+
+    fun updateDisappearingTimer(seconds: Int) {
+        _uiState.value = _uiState.value.copy(defaultDisappearingTimer = seconds)
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.Default) {
+                apiClient.put("/v1/settings/chats", buildJsonObject { put("disappearing_timer_seconds", seconds) })
+            }
+            result.onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
+    }
+
+    fun updateAutoDownload(autoDownloadWifi: Boolean, autoDownloadCellular: Boolean) {
+        _uiState.value = _uiState.value.copy(autoDownloadWifi = autoDownloadWifi, autoDownloadCellular = autoDownloadCellular)
+        viewModelScope.launch {
+            withContext(Dispatchers.Default) {
+                apiClient.put("/v1/settings/chats", buildJsonObject {
+                    put("auto_download_wifi", autoDownloadWifi)
+                    put("auto_download_cellular", autoDownloadCellular)
+                })
+            }
         }
     }
 
