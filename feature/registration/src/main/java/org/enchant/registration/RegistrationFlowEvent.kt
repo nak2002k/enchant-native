@@ -21,7 +21,7 @@ sealed interface RegistrationFlowEvent : DebugLoggable {
     }
 
     data class E164Chosen(val e164: String) : RegistrationFlowEvent {
-        override val debugDescription: String get() = "E164Chosen(e164=$e164)"
+        override val debugDescription: String get() = "E164Chosen"
     }
 
     data class Registered(val accountEntropyPool: AccountEntropyPool) : RegistrationFlowEvent {

@@ -45,9 +45,17 @@ class RegistrationViewModel(
         is RegistrationFlowEvent.Registered -> state.copy(accountEntropyPool = event.accountEntropyPool)
         is RegistrationFlowEvent.MasterKeyRestoredFromSvr -> state.copy(temporaryMasterKey = event.masterKey)
         is RegistrationFlowEvent.RegistrationComplete -> {
-            _finishRequests.tryEmit(Unit)
-            applyNavigationToScreenEvent(state, RegistrationFlowEvent.NavigateToScreen(RegistrationNavKey.FullyComplete))
+            if (state.backStack.lastOrNull() != RegistrationNavKey.FullyComplete) {
+                _finishRequests.tryEmit(Unit)
+                applyNavigationToScreenEvent(state, RegistrationFlowEvent.NavigateToScreen(RegistrationNavKey.FullyComplete))
+            } else {
+                state
+            }
         }
+        is RegistrationFlowEvent.PendingRestoreOptionSelected -> state
+        is RegistrationFlowEvent.UserSuppliedAepSubmitted -> state
+        is RegistrationFlowEvent.UserSuppliedAepVerified -> state
+        is RegistrationFlowEvent.RecoveryPasswordInvalid -> state
         else -> state
     }
 
@@ -66,8 +74,11 @@ class RegistrationViewModel(
             modelClass: Class<T>,
             extras: CreationExtras
         ): T {
-            @Suppress("UNCHECKED_CAST")
-            return RegistrationViewModel(repository) as T
+            if (modelClass.isAssignableFrom(RegistrationViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return RegistrationViewModel(repository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }

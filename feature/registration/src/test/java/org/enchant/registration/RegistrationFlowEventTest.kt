@@ -77,9 +77,10 @@ class RegistrationFlowEventTest {
     @DisplayName("E164Chosen")
     inner class E164Chosen {
         @Test
-        fun `debugDescription contains e164`() {
+        fun `debugDescription does not contain e164`() {
             val event = RegistrationFlowEvent.E164Chosen("+1234567890")
-            assertTrue(event.debugDescription.contains("+1234567890"))
+            assertTrue(event.debugDescription.contains("E164Chosen"))
+            assertFalse(event.debugDescription.contains("+1234567890"))
         }
 
         @Test

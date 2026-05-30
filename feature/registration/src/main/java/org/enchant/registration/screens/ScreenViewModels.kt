@@ -35,8 +35,11 @@ class PhoneNumberEntryViewModel(
 
     class Factory : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
-            @Suppress("UNCHECKED_CAST")
-            return PhoneNumberEntryViewModel() as T
+            if (modelClass.isAssignableFrom(PhoneNumberEntryViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return PhoneNumberEntryViewModel() as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }
@@ -78,8 +81,11 @@ class CountryCodePickerViewModel : ViewModel() {
 
     class Factory : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
-            @Suppress("UNCHECKED_CAST")
-            return CountryCodePickerViewModel() as T
+            if (modelClass.isAssignableFrom(CountryCodePickerViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return CountryCodePickerViewModel() as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }
@@ -113,8 +119,11 @@ class VerificationCodeViewModel : ViewModel() {
 
     class Factory : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
-            @Suppress("UNCHECKED_CAST")
-            return VerificationCodeViewModel() as T
+            if (modelClass.isAssignableFrom(VerificationCodeViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return VerificationCodeViewModel() as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }

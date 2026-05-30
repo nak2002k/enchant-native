@@ -351,7 +351,8 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                 when (event) {
                     is PinEntryScreenEvents.PinEntered ->
                         registrationViewModel.onEvent(
-                            RegistrationFlowEvent.MasterKeyRestoredFromSvr(MasterKey(byteArrayOf()))
+                            // TODO: Use the PIN to decrypt the master key from SVR
+                            RegistrationFlowEvent.MasterKeyRestoredFromSvr(MasterKey(event.pin.toByteArray()))
                         )
                     PinEntryScreenEvents.Skip -> parentEventEmitter.navigateBack()
                     else -> {}
@@ -363,7 +364,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
     entry<RegistrationNavKey.PinEntryForRegistrationLock> { key ->
         PinEntryScreen(
             title = "Registration Lock",
-            description = "Enter your PIN to unlock (${key.timeRemaining}ms remaining)",
+            description = "Enter your PIN to unlock (${key.timeRemaining / 1000}s remaining)",
             onEvent = { event ->
                 when (event) {
                     is PinEntryScreenEvents.PinEntered ->
@@ -487,6 +488,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                 when (event) {
                     is EnterAepEvents.BackupKeyChanged -> {}
                     EnterAepEvents.Submit -> {
+                        // TODO: Use actual AEP from user input
                         parentEventEmitter(
                             RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
                         )
@@ -505,6 +507,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                 when (event) {
                     is EnterAepEvents.BackupKeyChanged -> {}
                     EnterAepEvents.Submit -> {
+                        // TODO: Use actual AEP from user input
                         parentEventEmitter(
                             RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
                         )
@@ -522,6 +525,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                 when (event) {
                     is EnterAepEvents.BackupKeyChanged -> {}
                     EnterAepEvents.Submit -> {
+                        // TODO: Use actual AEP from user input
                         parentEventEmitter(
                             RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
                         )
