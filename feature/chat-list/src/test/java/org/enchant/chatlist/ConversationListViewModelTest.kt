@@ -1,20 +1,31 @@
 package org.enchant.chatlist
 
+import android.util.Log
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.enchant.chat.data.ConversationRepository
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.ConversationType
 import org.enchant.core.network.ApiClient
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @DisplayName("ConversationListViewModel — Full Coverage")
 class ConversationListViewModelTest {
 
@@ -24,11 +35,22 @@ class ConversationListViewModelTest {
 
     @BeforeEach
     fun setUp() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        mockkStatic(Log::class)
+        every { Log.w(any<String>(), any<String>()) } returns 0
+        every { Log.e(any<String>(), any<String>()) } returns 0
+        every { Log.e(any<String>(), any<String>(), any<Throwable>()) } returns 0
         repo = mockk(relaxed = true)
         apiClient = mockk(relaxed = true)
         coEvery { repo.getConversations(any()) } returns flowOf(emptyList())
         coEvery { repo.getUnreadCount() } returns flowOf(0)
         viewModel = ConversationListViewModel(repo, apiClient)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        Dispatchers.resetMain()
+        unmockkStatic(Log::class)
     }
 
     @Nested @DisplayName("Init")
