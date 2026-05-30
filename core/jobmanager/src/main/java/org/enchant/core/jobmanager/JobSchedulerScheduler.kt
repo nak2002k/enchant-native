@@ -18,13 +18,13 @@ internal class JobSchedulerScheduler(private val context: Context) : Scheduler {
             .mapNotNull { it.factoryKey }
             .sorted()
             .joinToString("-")
-        val jobId = constraintNames.hashCode().toLong()
+        val jobId = constraintNames.hashCode() and 0x7FFFFFFF
 
         val js = jobScheduler ?: return
-        if (js.getPendingJob(jobId.toInt()) != null) return
+        if (js.getPendingJob(jobId) != null) return
 
         val builder = JobInfo.Builder(
-            jobId.toInt(),
+            jobId,
             ComponentName(context, JobSchedulerSystemService::class.java)
         )
             .setMinimumLatency(delayMs)
@@ -37,12 +37,19 @@ internal class JobSchedulerScheduler(private val context: Context) : Scheduler {
 internal class JobSchedulerSystemService : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         try {
-            JobManager.addOnEmptyQueueListener(object : EmptyQueueListener {
+            val listener = object : EmptyQueueListener {
                 override fun onQueueEmpty() {
                     JobManager.removeOnEmptyQueueListener(this)
                     jobFinished(params, false)
                 }
-            })
+            }
+            JobManager.addOnEmptyQueueListener(listener)
+
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                JobManager.removeOnEmptyQueueListener(listener)
+                jobFinished(params, false)
+            }, 5 * 60 * 1000L)
+
             JobManager.wakeUp()
         } catch (e: IllegalStateException) {
             jobFinished(params, false)

@@ -1,5 +1,6 @@
 package org.enchant.core.jobmanager
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 
 internal class JobRunner(
@@ -56,13 +57,12 @@ internal class JobRunner(
                         dependents.forEach { it.onFailure() }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val dependents = controller.onFailure(job)
                 job.onFailure()
                 dependents.forEach { it.onFailure() }
-                if (e is RuntimeException) {
-                    throw e
-                }
             }
         }
     }

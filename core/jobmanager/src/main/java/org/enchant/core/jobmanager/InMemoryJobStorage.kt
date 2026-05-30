@@ -8,6 +8,7 @@ internal class InMemoryJobStorage : JobStorage {
     private val jobs = ConcurrentHashMap<String, JobSpec>()
     private val constraints = ConcurrentHashMap<String, CopyOnWriteArrayList<ConstraintSpec>>()
     private val dependencies = ConcurrentHashMap<String, CopyOnWriteArrayList<DependencySpec>>()
+    private val dependentsByJobId = ConcurrentHashMap<String, CopyOnWriteArrayList<DependencySpec>>()
     private val eligibleJobs = TreeSet<MinimalJobSpec>(EligibleMinJobComparator)
 
     override fun init() {
@@ -15,28 +16,30 @@ internal class InMemoryJobStorage : JobStorage {
     }
 
     override fun insertJobs(fullSpecs: List<FullSpec>) {
-        for (spec in fullSpecs) {
-            val jobSpec = JobSpec(
-                id = spec.id,
-                factoryKey = spec.factoryKey,
-                queueKey = spec.queueKey,
-                createTime = spec.createTime,
-                lastRunAttemptTime = spec.lastRunAttemptTime,
-                nextBackoffInterval = spec.nextBackoffInterval,
-                runAttempt = spec.runAttempt,
-                maxAttempts = spec.maxAttempts,
-                lifespan = spec.lifespan,
-                serializedData = spec.serializedData,
-                serializedInputData = spec.serializedInputData,
-                isRunning = spec.isRunning,
-                isMemoryOnly = spec.isMemoryOnly,
-                globalPriority = spec.globalPriority,
-                queuePriority = spec.queuePriority,
-                initialDelay = spec.initialDelay
-            )
-            jobs[spec.id] = jobSpec
-            if (isEligible(jobSpec)) {
-                eligibleJobs.add(jobSpec.toMinimal())
+        synchronized(this) {
+            for (spec in fullSpecs) {
+                val jobSpec = JobSpec(
+                    id = spec.id,
+                    factoryKey = spec.factoryKey,
+                    queueKey = spec.queueKey,
+                    createTime = spec.createTime,
+                    lastRunAttemptTime = spec.lastRunAttemptTime,
+                    nextBackoffInterval = spec.nextBackoffInterval,
+                    runAttempt = spec.runAttempt,
+                    maxAttempts = spec.maxAttempts,
+                    lifespan = spec.lifespan,
+                    serializedData = spec.serializedData,
+                    serializedInputData = spec.serializedInputData,
+                    isRunning = spec.isRunning,
+                    isMemoryOnly = spec.isMemoryOnly,
+                    globalPriority = spec.globalPriority,
+                    queuePriority = spec.queuePriority,
+                    initialDelay = spec.initialDelay
+                )
+                jobs[spec.id] = jobSpec
+                if (isEligible(jobSpec)) {
+                    eligibleJobs.add(jobSpec.toMinimal())
+                }
             }
         }
     }
@@ -61,10 +64,12 @@ internal class InMemoryJobStorage : JobStorage {
     }
 
     override fun markJobAsRunning(id: String, currentTime: Long) {
-        val spec = jobs[id] ?: return
-        val updated = spec.copy(isRunning = true, lastRunAttemptTime = currentTime)
-        jobs[id] = updated
-        eligibleJobs.remove(spec.toMinimal())
+        synchronized(this) {
+            val spec = jobs[id] ?: return
+            val updated = spec.copy(isRunning = true, lastRunAttemptTime = currentTime)
+            jobs[id] = updated
+            eligibleJobs.remove(spec.toMinimal())
+        }
     }
 
     override fun updateJobAfterRetry(
@@ -74,30 +79,34 @@ internal class InMemoryJobStorage : JobStorage {
         nextBackoffInterval: Long,
         serializedData: ByteArray?
     ) {
-        val spec = jobs[id] ?: return
-        val updated = spec.copy(
-            isRunning = false,
-            runAttempt = runAttempt,
-            nextBackoffInterval = nextBackoffInterval,
-            lastRunAttemptTime = currentTime,
-            serializedData = serializedData
-        )
-        jobs[id] = updated
-        if (isEligible(updated)) {
-            eligibleJobs.add(updated.toMinimal())
+        synchronized(this) {
+            val spec = jobs[id] ?: return
+            val updated = spec.copy(
+                isRunning = false,
+                runAttempt = runAttempt,
+                nextBackoffInterval = nextBackoffInterval,
+                lastRunAttemptTime = currentTime,
+                serializedData = serializedData
+            )
+            jobs[id] = updated
+            if (isEligible(updated)) {
+                eligibleJobs.add(updated.toMinimal())
+            }
         }
     }
 
     override fun updateAllJobsToBePending() {
-        val updated = jobs.mapValues { (_, spec) ->
-            spec.copy(isRunning = false)
-        }
-        jobs.clear()
-        jobs.putAll(updated)
-        eligibleJobs.clear()
-        jobs.values.forEach { spec ->
-            if (isEligible(spec)) {
-                eligibleJobs.add(spec.toMinimal())
+        synchronized(this) {
+            val updated = jobs.mapValues { (_, spec) ->
+                spec.copy(isRunning = false)
+            }
+            jobs.clear()
+            jobs.putAll(updated)
+            eligibleJobs.clear()
+            jobs.values.forEach { spec ->
+                if (isEligible(spec)) {
+                    eligibleJobs.add(spec.toMinimal())
+                }
             }
         }
     }
@@ -109,10 +118,16 @@ internal class InMemoryJobStorage : JobStorage {
     }
 
     override fun deleteJob(id: String) {
-        val spec = jobs.remove(id)
-        spec?.let { eligibleJobs.remove(it.toMinimal()) }
-        constraints.remove(id)
-        dependencies.remove(id)
+        synchronized(this) {
+            val spec = jobs.remove(id)
+            spec?.let { eligibleJobs.remove(it.toMinimal()) }
+            constraints.remove(id)
+            val removedDeps = dependencies.remove(id) ?: emptyList()
+            for (dep in removedDeps) {
+                dependentsByJobId[dep.dependsOnJobId]?.removeAll { it.jobId == id }
+            }
+            dependentsByJobId.remove(id)
+        }
     }
 
     override fun deleteJobs(ids: List<String>) {
@@ -122,10 +137,13 @@ internal class InMemoryJobStorage : JobStorage {
     }
 
     override fun deleteAll() {
-        jobs.clear()
-        constraints.clear()
-        dependencies.clear()
-        eligibleJobs.clear()
+        synchronized(this) {
+            jobs.clear()
+            constraints.clear()
+            dependencies.clear()
+            dependentsByJobId.clear()
+            eligibleJobs.clear()
+        }
     }
 
     override fun getConstraintSpecs(jobId: String): List<ConstraintSpec> {
@@ -133,7 +151,7 @@ internal class InMemoryJobStorage : JobStorage {
     }
 
     override fun getDependencySpecsThatDependOnJob(jobId: String): List<DependencySpec> {
-        return dependencies.values.flatten().filter { it.dependsOnJobId == jobId }
+        return dependentsByJobId[jobId]?.toList() ?: emptyList()
     }
 
     fun insertConstraintSpecs(specs: List<ConstraintSpec>) {
@@ -145,6 +163,7 @@ internal class InMemoryJobStorage : JobStorage {
     fun insertDependencySpecs(specs: List<DependencySpec>) {
         for (spec in specs) {
             dependencies.getOrPut(spec.jobId) { CopyOnWriteArrayList() }.add(spec)
+            dependentsByJobId.getOrPut(spec.dependsOnJobId) { CopyOnWriteArrayList() }.add(spec)
         }
     }
 

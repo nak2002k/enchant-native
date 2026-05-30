@@ -2,6 +2,7 @@ package org.enchant.core.jobmanager
 
 import android.content.Context
 import android.os.PowerManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 
 internal class WakefulJobRunner(
@@ -66,13 +67,12 @@ internal class WakefulJobRunner(
                         dependents.forEach { it.onFailure() }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val dependents = controller.onFailure(job)
                 job.onFailure()
                 dependents.forEach { it.onFailure() }
-                if (e is RuntimeException) {
-                    throw e
-                }
             } finally {
                 if (lock.isHeld) lock.release()
             }

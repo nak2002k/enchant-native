@@ -11,6 +11,7 @@ object JobManager {
     private lateinit var instantiator: JobInstantiator
     private lateinit var constraintInstantiator: ConstraintInstantiator
     private val emptyQueueListeners = CopyOnWriteArrayList<EmptyQueueListener>()
+    private val registeredObservers = CopyOnWriteArrayList<ConstraintObserver>()
 
     fun add(job: Job) {
         ensureInitialized()
@@ -47,6 +48,15 @@ object JobManager {
 
     internal fun onQueueEmpty() {
         emptyQueueListeners.forEach { it.onQueueEmpty() }
+    }
+
+    fun shutdown() {
+        if (!::internalController.isInitialized) return
+        for (observer in registeredObservers) {
+            observer.unregister()
+        }
+        registeredObservers.clear()
+        emptyQueueListeners.clear()
     }
 
     internal fun wakeUp() {
@@ -89,6 +99,8 @@ object JobManager {
         )
 
         internalController.init()
+        registeredObservers.clear()
+        registeredObservers.addAll(internalController.getRegisteredObservers())
         internalController.startJobRunners()
     }
 

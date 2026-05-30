@@ -7,6 +7,7 @@ internal object JobLogger {
         try {
             android.util.Log.d(TAG, message)
         } catch (_: RuntimeException) {
+            System.err.println("[$TAG] d: $message")
         }
     }
 
@@ -14,6 +15,7 @@ internal object JobLogger {
         try {
             android.util.Log.i(TAG, message)
         } catch (_: RuntimeException) {
+            System.err.println("[$TAG] i: $message")
         }
     }
 
@@ -21,6 +23,7 @@ internal object JobLogger {
         try {
             android.util.Log.w(TAG, message)
         } catch (_: RuntimeException) {
+            System.err.println("[$TAG] w: $message")
         }
     }
 
@@ -32,6 +35,8 @@ internal object JobLogger {
                 android.util.Log.e(TAG, message)
             }
         } catch (_: RuntimeException) {
+            System.err.println("[$TAG] e: $message")
+            throwable?.printStackTrace(System.err)
         }
     }
 

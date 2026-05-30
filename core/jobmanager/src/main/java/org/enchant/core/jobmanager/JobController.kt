@@ -14,6 +14,7 @@ internal class JobController(
     private val lock = java.lang.Object()
     private val runners = mutableListOf<JobRunner>()
     private val tracker = JobTracker()
+    private val registeredObservers = mutableListOf<ConstraintObserver>()
 
     fun init() {
         storage.updateAllJobsToBePending()
@@ -23,8 +24,11 @@ internal class JobController(
                     wakeUp()
                 }
             })
+            registeredObservers.add(observer)
         }
     }
+
+    fun getRegisteredObservers(): List<ConstraintObserver> = registeredObservers.toList()
 
     fun startJobRunners() {
         for ((i, predicate) in config.reservedRunnerPredicates.withIndex()) {
@@ -55,6 +59,10 @@ internal class JobController(
             var prevIds = emptyList<String>()
             for (segment in segments) {
                 for (job in segment) {
+                    if (createsCycle(job.id, prevIds)) {
+                        JobLogger.w("Circular dependency detected for job ${job.id}, skipping")
+                        continue
+                    }
                     val fullSpec = buildFullSpec(job, dependsOn = prevIds)
                     storage.insertJobs(listOf(fullSpec))
                     tracker.onStateChange(job, JobTracker.JobState.PENDING)
@@ -231,5 +239,17 @@ internal class JobController(
             queuePriority = job.parameters.queuePriority,
             initialDelay = job.parameters.initialDelayMs
         )
+    }
+
+    private fun createsCycle(jobId: String, dependsOn: List<String>): Boolean {
+        if (dependsOn.isEmpty()) return false
+        val visited = mutableSetOf<String>()
+        fun hasCycle(currentId: String): Boolean {
+            if (currentId == jobId) return true
+            if (!visited.add(currentId)) return false
+            val deps = storage.getDependencySpecsThatDependOnJob(currentId)
+            return deps.any { hasCycle(it.jobId) }
+        }
+        return dependsOn.any { hasCycle(it) }
     }
 }

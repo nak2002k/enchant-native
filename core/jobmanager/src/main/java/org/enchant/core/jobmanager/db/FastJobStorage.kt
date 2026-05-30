@@ -21,6 +21,7 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
     private val eligibleJobs = TreeSet<MinimalJobSpec>(EligibleMinJobComparator)
     private val constraintsByJobId = ConcurrentHashMap<String, CopyOnWriteArrayList<ConstraintSpec>>()
     private val dependenciesByJobId = ConcurrentHashMap<String, CopyOnWriteArrayList<DependencySpec>>()
+    private val dependentsByJobId = ConcurrentHashMap<String, CopyOnWriteArrayList<DependencySpec>>()
     private val fullSpecCache = ConcurrentHashMap<String, JobSpec>()
 
     override fun init() {
@@ -52,6 +53,7 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
         for (d in allDeps) {
             val spec = d.toDependencySpec()
             dependenciesByJobId.getOrPut(spec.jobId) { CopyOnWriteArrayList() }.add(spec)
+            dependentsByJobId.getOrPut(spec.dependsOnJobId) { CopyOnWriteArrayList() }.add(spec)
         }
     }
 
@@ -96,12 +98,12 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
     override fun markJobAsRunning(id: String, currentTime: Long) {
         runBlocking {
             jobDao.markJobAsRunning(id, currentTime)
+            val spec = fullSpecCache[id] ?: return@runBlocking
+            val updated = spec.copy(isRunning = true, lastRunAttemptTime = currentTime)
+            fullSpecCache[id] = updated
+            minimalJobs[id] = updated.toMinimal()
+            eligibleJobs.remove(spec.toMinimal())
         }
-        val spec = fullSpecCache[id] ?: return
-        val updated = spec.copy(isRunning = true, lastRunAttemptTime = currentTime)
-        fullSpecCache[id] = updated
-        minimalJobs[id] = updated.toMinimal()
-        eligibleJobs.remove(spec.toMinimal())
     }
 
     override fun updateJobAfterRetry(
@@ -133,18 +135,20 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
         runBlocking {
             jobDao.updateAllJobsToBePending()
         }
-        val updated = fullSpecCache.mapValues { (_, spec) ->
-            spec.copy(isRunning = false)
-        }
-        fullSpecCache.clear()
-        fullSpecCache.putAll(updated)
-        minimalJobs.clear()
-        eligibleJobs.clear()
-        fullSpecCache.values.forEach { spec ->
-            val minimal = spec.toMinimal()
-            minimalJobs[spec.id] = minimal
-            if (isEligible(spec)) {
-                eligibleJobs.add(minimal)
+        synchronized(this) {
+            val updated = fullSpecCache.mapValues { (_, spec) ->
+                spec.copy(isRunning = false)
+            }
+            fullSpecCache.clear()
+            fullSpecCache.putAll(updated)
+            minimalJobs.clear()
+            eligibleJobs.clear()
+            fullSpecCache.values.forEach { spec ->
+                val minimal = spec.toMinimal()
+                minimalJobs[spec.id] = minimal
+                if (isEligible(spec)) {
+                    eligibleJobs.add(minimal)
+                }
             }
         }
     }
@@ -171,7 +175,12 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
             eligibleJobs.remove(it.toMinimal())
         }
         constraintsByJobId.remove(id)
+        val removedDeps = dependenciesByJobId.remove(id) ?: emptyList()
+        for (dep in removedDeps) {
+            dependentsByJobId[dep.dependsOnJobId]?.removeAll { it.jobId == id }
+        }
         dependenciesByJobId.remove(id)
+        dependentsByJobId.remove(id)
     }
 
     override fun deleteJobs(ids: List<String>) {
@@ -190,7 +199,12 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
                 eligibleJobs.remove(it.toMinimal())
             }
             constraintsByJobId.remove(id)
+            val removedDeps = dependenciesByJobId.remove(id) ?: emptyList()
+            for (dep in removedDeps) {
+                dependentsByJobId[dep.dependsOnJobId]?.removeAll { it.jobId == id }
+            }
             dependenciesByJobId.remove(id)
+            dependentsByJobId.remove(id)
         }
     }
 
@@ -205,6 +219,7 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
         eligibleJobs.clear()
         constraintsByJobId.clear()
         dependenciesByJobId.clear()
+        dependentsByJobId.clear()
     }
 
     override fun getConstraintSpecs(jobId: String): List<ConstraintSpec> {
@@ -212,7 +227,7 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
     }
 
     override fun getDependencySpecsThatDependOnJob(jobId: String): List<DependencySpec> {
-        return dependenciesByJobId.values.flatten().filter { it.dependsOnJobId == jobId }
+        return dependentsByJobId[jobId]?.toList() ?: emptyList()
     }
 
     fun insertConstraintSpecs(specs: List<ConstraintSpec>) {
@@ -232,6 +247,7 @@ class FastJobStorage(private val database: JobDatabase) : JobStorage {
         }
         for (spec in specs) {
             dependenciesByJobId.getOrPut(spec.jobId) { CopyOnWriteArrayList() }.add(spec)
+            dependentsByJobId.getOrPut(spec.dependsOnJobId) { CopyOnWriteArrayList() }.add(spec)
         }
     }
 

@@ -15,6 +15,7 @@ class InMemoryJobStorageForTest : JobStorage {
     private val jobs = ConcurrentHashMap<String, JobSpec>()
     private val constraints = ConcurrentHashMap<String, CopyOnWriteArrayList<ConstraintSpec>>()
     private val dependencies = ConcurrentHashMap<String, CopyOnWriteArrayList<DependencySpec>>()
+    private val dependentsByJobId = ConcurrentHashMap<String, CopyOnWriteArrayList<DependencySpec>>()
     private val eligibleJobs = TreeSet<MinimalJobSpec>(EligibleMinJobComparator)
 
     override fun init() {
@@ -102,7 +103,11 @@ class InMemoryJobStorageForTest : JobStorage {
         val spec = jobs.remove(id)
         spec?.let { eligibleJobs.remove(it.toMinimal()) }
         constraints.remove(id)
-        dependencies.remove(id)
+        val removedDeps = dependencies.remove(id) ?: emptyList()
+        for (dep in removedDeps) {
+            dependentsByJobId[dep.dependsOnJobId]?.removeAll { it.jobId == id }
+        }
+        dependentsByJobId.remove(id)
     }
 
     override fun deleteJobs(ids: List<String>) {
@@ -115,6 +120,7 @@ class InMemoryJobStorageForTest : JobStorage {
         jobs.clear()
         constraints.clear()
         dependencies.clear()
+        dependentsByJobId.clear()
         eligibleJobs.clear()
     }
 
@@ -123,7 +129,7 @@ class InMemoryJobStorageForTest : JobStorage {
     }
 
     override fun getDependencySpecsThatDependOnJob(jobId: String): List<DependencySpec> {
-        return dependencies.values.flatten().filter { it.dependsOnJobId == jobId }
+        return dependentsByJobId[jobId]?.toList() ?: emptyList()
     }
 
     fun insertConstraintSpecs(specs: List<ConstraintSpec>) {
@@ -135,6 +141,7 @@ class InMemoryJobStorageForTest : JobStorage {
     fun insertDependencySpecs(specs: List<DependencySpec>) {
         for (spec in specs) {
             dependencies.getOrPut(spec.jobId) { CopyOnWriteArrayList() }.add(spec)
+            dependentsByJobId.getOrPut(spec.dependsOnJobId) { CopyOnWriteArrayList() }.add(spec)
         }
     }
 
