@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="database" path="enchant.db" />
-        <exclude domain="sharedpref" path="enchant_secure_prefs.xml" />
+        <exclude domain="database" path="enchant.db"/>
+        <exclude domain="database" path="sessions.db"/>
+        <exclude domain="database" path="keys.db"/>
+        <exclude domain="sharedpref" path="signal_store.xml"/>
+        <exclude domain="sharedpref" path="secure_prefs.xml"/>
     </cloud-backup>
     <device-transfer>
-        <exclude domain="database" path="enchant.db" />
-        <exclude domain="sharedpref" path="enchant_secure_prefs.xml" />
+        <exclude domain="database" path="enchant.db"/>
+        <exclude domain="database" path="sessions.db"/>
+        <exclude domain="database" path="keys.db"/>
+        <exclude domain="sharedpref" path="signal_store.xml"/>
+        <exclude domain="sharedpref" path="secure_prefs.xml"/>
     </device-transfer>
 </data-extraction-rules>
