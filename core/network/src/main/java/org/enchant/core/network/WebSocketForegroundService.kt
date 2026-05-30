@@ -41,6 +41,7 @@ class WebSocketForegroundService : Service() {
     }
 
     private fun connect() {
+        WebSocketManager.init(this)
         startForeground(NOTIFICATION_ID, buildNotification("Connecting..."))
 
         scope.launch {
