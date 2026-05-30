@@ -25,7 +25,7 @@ class AccessibilityDelegateTest {
     @Test
     fun `outgoing message formatted`() {
         val result = AccessibilityDelegate.getMessageDescription(
-            context, "outgoing", "Hello", "Sent", "10:30"
+            context, MessageDirection.OUTGOING, "Hello", "Sent", "10:30"
         )
         assertTrue(result.contains("Outgoing"))
         assertTrue(result.contains("Hello"))
@@ -36,7 +36,7 @@ class AccessibilityDelegateTest {
     @Test
     fun `incoming message formatted`() {
         val result = AccessibilityDelegate.getMessageDescription(
-            context, "incoming", "Hi there", "Delivered", "11:00"
+            context, MessageDirection.INCOMING, "Hi there", "Delivered", "11:00"
         )
         assertTrue(result.contains("Incoming"))
         assertTrue(result.contains("Hi there"))
@@ -47,7 +47,7 @@ class AccessibilityDelegateTest {
     @Test
     fun `outgoing with media`() {
         val result = AccessibilityDelegate.getMessageDescription(
-            context, "outgoing", "Check this", "Sent", "12:00", hasMedia = true
+            context, MessageDirection.OUTGOING, "Check this", "Sent", "12:00", hasMedia = true
         )
         assertTrue(result.contains("media attachment"))
     }
@@ -55,7 +55,7 @@ class AccessibilityDelegateTest {
     @Test
     fun `edited message includes suffix`() {
         val result = AccessibilityDelegate.getMessageDescription(
-            context, "outgoing", "Fixed typo", "Sent", "12:30", isEdited = true
+            context, MessageDirection.OUTGOING, "Fixed typo", "Sent", "12:30", isEdited = true
         )
         assertTrue(result.contains("Edited"))
     }
@@ -63,7 +63,7 @@ class AccessibilityDelegateTest {
     @Test
     fun `not edited has no suffix`() {
         val result = AccessibilityDelegate.getMessageDescription(
-            context, "outgoing", "Original", "Sent", "13:00", isEdited = false
+            context, MessageDirection.OUTGOING, "Original", "Sent", "13:00", isEdited = false
         )
         assertTrue(result.endsWith("13:00."))
     }
@@ -71,7 +71,7 @@ class AccessibilityDelegateTest {
     @Test
     fun `empty content uses fallback`() {
         val result = AccessibilityDelegate.getMessageDescription(
-            context, "incoming", "", "Sent", "14:00"
+            context, MessageDirection.INCOMING, "", "Sent", "14:00"
         )
         assertTrue(result.contains("Empty message"))
     }
@@ -79,7 +79,7 @@ class AccessibilityDelegateTest {
     @Test
     fun `incoming media edited`() {
         val result = AccessibilityDelegate.getMessageDescription(
-            context, "incoming", "Photo", "Delivered", "15:00", hasMedia = true, isEdited = true
+            context, MessageDirection.INCOMING, "Photo", "Delivered", "15:00", hasMedia = true, isEdited = true
         )
         assertTrue(result.contains("Incoming"))
         assertTrue(result.contains("media attachment"))
@@ -181,9 +181,10 @@ class AccessibilityDelegateTest {
         assertTrue(result.contains("Enabled"))
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun `unknown key throws`() {
-        AccessibilityDelegate.getButtonDescriptionByKey(context, "nonexistent_action")
+    @Test
+    fun `unknown key returns default`() {
+        val result = AccessibilityDelegate.getButtonDescriptionByKey(context, "nonexistent_action")
+        assertTrue(result.isNotBlank())
     }
 
     @Test

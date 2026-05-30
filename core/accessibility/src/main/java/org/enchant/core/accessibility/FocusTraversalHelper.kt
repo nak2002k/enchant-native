@@ -31,6 +31,12 @@ object FocusTraversalHelper {
                     child.accessibilityTraversalAfter = previousId
                 }
             }
+            if (index < orderedChildren.size - 1) {
+                val nextId = orderedChildren[index + 1].id
+                if (nextId != View.NO_ID) {
+                    child.accessibilityTraversalBefore = nextId
+                }
+            }
         }
     }
 

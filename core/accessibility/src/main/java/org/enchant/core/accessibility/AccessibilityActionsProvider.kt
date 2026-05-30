@@ -121,9 +121,13 @@ object AccessibilityActionsProvider {
     }
 
     /**
-     * Clears all custom accessibility actions from a view.
+     * No-op. Once custom accessibility actions are added via ViewCompat.addAccessibilityAction,
+     * they cannot be safely removed without replacing the view or its delegate entirely.
+     * Setting the delegate to null does NOT remove actions and may break the view's
+     * existing accessibility behavior permanently. Callers should recreate the view
+     * or reattach a new delegate if actions need to change.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun clearActions(view: View) {
-        ViewCompat.setAccessibilityDelegate(view, null)
     }
 }

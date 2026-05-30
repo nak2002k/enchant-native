@@ -27,7 +27,7 @@ object AccessibilityDelegate {
      */
     fun getMessageDescription(
         context: Context,
-        direction: String,
+        direction: MessageDirection,
         content: String,
         status: String,
         timestamp: String,
@@ -39,8 +39,8 @@ object AccessibilityDelegate {
         val suffix = context.getString(suffixRes)
 
         val resId = when {
-            direction == "outgoing" && hasMedia -> R.string.a11y_message_outgoing_media
-            direction == "outgoing" -> R.string.a11y_message_outgoing
+            direction == MessageDirection.OUTGOING && hasMedia -> R.string.a11y_message_outgoing_media
+            direction == MessageDirection.OUTGOING -> R.string.a11y_message_outgoing
             hasMedia -> R.string.a11y_message_incoming_media
             else -> R.string.a11y_message_incoming
         }
@@ -288,7 +288,7 @@ object AccessibilityDelegate {
             "toggle_video" -> R.string.a11y_button_toggle_video
             "toggle_mic" -> R.string.a11y_button_toggle_mic
             "toggle_speaker" -> R.string.a11y_button_toggle_speaker
-            else -> throw IllegalArgumentException("Unknown button action key: $actionKey")
+            else -> R.string.a11y_button_plain
         }
     }
 
@@ -313,6 +313,13 @@ object AccessibilityDelegate {
  */
 enum class DeliveryStatus {
     NONE, PENDING, SENT, DELIVERED, READ
+}
+
+/**
+ * Direction of a chat message, used by [AccessibilityDelegate.getMessageDescription].
+ */
+enum class MessageDirection {
+    INCOMING, OUTGOING
 }
 
 /**

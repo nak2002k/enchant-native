@@ -40,13 +40,13 @@ class LiveRegionAnnouncer {
         val view = liveRegion ?: return
         if (text.isBlank()) return
         (view as? TextView)?.text = text
-        view.contentDescription = text
     }
 
     /**
      * Announces an incoming message preview.
      */
     fun announceIncomingMessage(context: Context, sender: String, preview: String) {
+        if (sender.isBlank()) return
         announce(context.getString(R.string.a11y_announce_incoming_message, sender, preview))
     }
 

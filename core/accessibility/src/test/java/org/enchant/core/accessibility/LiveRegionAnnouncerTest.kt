@@ -48,28 +48,28 @@ class LiveRegionAnnouncerTest {
     @Test
     fun `sets text`() {
         announcer.announce("Hello world")
-        assertEquals("Hello world", liveRegion.contentDescription)
+        assertEquals("Hello world", liveRegion.text.toString())
     }
 
     @Test
     fun `ignores blank`() {
         announcer.announce("")
-        // Blank announcements are ignored, contentDescription remains null
-        assertTrue(liveRegion.contentDescription == null || liveRegion.contentDescription.toString().isBlank())
+        // Blank announcements are ignored, text remains empty
+        assertTrue(liveRegion.text.isNullOrEmpty())
     }
 
     @Test
     fun `overwrites previous`() {
         announcer.announce("First")
         announcer.announce("Second")
-        assertEquals("Second", liveRegion.contentDescription)
+        assertEquals("Second", liveRegion.text.toString())
     }
 
     @Test
     fun `sender and preview`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceIncomingMessage(context, "Alice", "Hey there!")
-        val text = liveRegion.contentDescription.toString()
+        val text = liveRegion.text.toString()
         assertTrue(text.contains("Alice"))
         assertTrue(text.contains("Hey there!"))
     }
@@ -78,7 +78,7 @@ class LiveRegionAnnouncerTest {
     fun `typing announcement`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceTyping(context, "Bob")
-        val text = liveRegion.contentDescription.toString()
+        val text = liveRegion.text.toString()
         assertTrue(text.contains("Bob"))
         assertTrue(text.contains("typing"))
     }
@@ -87,7 +87,7 @@ class LiveRegionAnnouncerTest {
     fun `single unread`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceUnreadCount(context, 1)
-        val text = liveRegion.contentDescription.toString()
+        val text = liveRegion.text.toString()
         assertTrue(text.contains("1"))
         assertTrue(text.contains("unread"))
     }
@@ -96,7 +96,7 @@ class LiveRegionAnnouncerTest {
     fun `multiple unread`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceUnreadCount(context, 7)
-        val text = liveRegion.contentDescription.toString()
+        val text = liveRegion.text.toString()
         assertTrue(text.contains("7"))
     }
 
@@ -104,56 +104,56 @@ class LiveRegionAnnouncerTest {
     fun `incoming call`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceCallState(context, CallState.INCOMING, "Alice")
-        assertTrue(liveRegion.contentDescription.toString().contains("Incoming"))
+        assertTrue(liveRegion.text.toString().contains("Incoming"))
     }
 
     @Test
     fun `ended call`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceCallState(context, CallState.ENDED, "Charlie")
-        assertTrue(liveRegion.contentDescription.toString().contains("ended"))
+        assertTrue(liveRegion.text.toString().contains("ended"))
     }
 
     @Test
     fun `missed call`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceCallState(context, CallState.MISSED, "Dave")
-        assertTrue(liveRegion.contentDescription.toString().contains("Missed"))
+        assertTrue(liveRegion.text.toString().contains("Missed"))
     }
 
     @Test
     fun `connected`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceConnectionState(context, ConnectionState.CONNECTED)
-        assertTrue(liveRegion.contentDescription.toString().contains("Connected"))
+        assertTrue(liveRegion.text.toString().contains("Connected"))
     }
 
     @Test
     fun `disconnected`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceConnectionState(context, ConnectionState.DISCONNECTED)
-        assertTrue(liveRegion.contentDescription.toString().contains("Disconnected"))
+        assertTrue(liveRegion.text.toString().contains("Disconnected"))
     }
 
     @Test
     fun `sent announcement`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceDeliveryStatus(context, DeliveryStatus.SENT)
-        assertTrue(liveRegion.contentDescription.toString().contains("sent"))
+        assertTrue(liveRegion.text.toString().contains("sent"))
     }
 
     @Test
     fun `delivered announcement`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceDeliveryStatus(context, DeliveryStatus.DELIVERED)
-        assertTrue(liveRegion.contentDescription.toString().contains("delivered"))
+        assertTrue(liveRegion.text.toString().contains("delivered"))
     }
 
     @Test
     fun `read announcement`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announceDeliveryStatus(context, DeliveryStatus.READ)
-        assertTrue(liveRegion.contentDescription.toString().contains("read"))
+        assertTrue(liveRegion.text.toString().contains("read"))
     }
 
     @Test
@@ -161,14 +161,14 @@ class LiveRegionAnnouncerTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         announcer.announce("Initial")
         announcer.announceDeliveryStatus(context, DeliveryStatus.NONE)
-        assertEquals("Initial", liveRegion.contentDescription)
+        assertEquals("Initial", liveRegion.text.toString())
     }
 
     @Test
     fun `clears text`() {
         announcer.announce("Something")
         announcer.clear()
-        assertEquals("", liveRegion.contentDescription)
+        assertEquals("", liveRegion.text.toString())
     }
 
     @Test

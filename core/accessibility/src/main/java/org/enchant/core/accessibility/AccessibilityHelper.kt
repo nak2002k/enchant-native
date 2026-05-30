@@ -15,11 +15,12 @@ import androidx.annotation.ChecksSdkIntAtLeast
 object AccessibilityHelper {
 
     /**
-     * Returns true when a screen reader (TalkBack) is enabled.
+     * Returns true when a screen reader (TalkBack) is actively affecting UI.
+     * Uses isTouchExplorationEnabled as the primary indicator since touch
+     * exploration is the core behavior of screen readers.
      */
     fun isScreenReaderEnabled(context: Context): Boolean {
-        val manager = getAccessibilityManager(context) ?: return false
-        return manager.isEnabled && manager.isTouchExplorationEnabled
+        return getAccessibilityManager(context)?.isTouchExplorationEnabled == true
     }
 
     /**
@@ -55,11 +56,16 @@ object AccessibilityHelper {
 
     /**
      * Returns true when the device prefers reduced motion.
-     * Checks animation scale and font scale as a proxy on older Android versions.
+     * On Android Q+ checks Settings.Secure.REDUCE_MOTION.
+     * On older versions, falls back to animation scale and font scale as a proxy.
      */
     fun isReducedMotionPreferred(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return areAnimationsDisabled(context)
+            return try {
+                Settings.Secure.getInt(context.contentResolver, "reduce_motion") == 1
+            } catch (e: Settings.SettingNotFoundException) {
+                areAnimationsDisabled(context)
+            }
         }
         return areAnimationsDisabled(context) || isLargeFontScale(context)
     }
