@@ -87,16 +87,10 @@ object OfflineQueue {
         persistToDisk()
     }
 
-    suspend fun drain() {
-        val batch = mutableListOf<QueuedMessage>()
+    suspend fun drain(): List<Result<QueuedMessage>> {
+        val results = mutableListOf<Result<QueuedMessage>>()
         while (true) {
             val msg = queue.poll() ?: break
-            batch.add(msg)
-        }
-        _pendingCount.value = 0
-        persistToDisk()
-
-        for (msg in batch) {
             try {
                 val outgoing = OutgoingMessage(
                     id = msg.id,
@@ -114,6 +108,9 @@ object OfflineQueue {
                         _pendingCount.value = queue.size
                         persistToDisk()
                     }
+                    results.add(Result.failure(Exception("Send failed for msg ${msg.id}")))
+                } else {
+                    results.add(Result.success(msg))
                 }
             } catch (e: Exception) {
                 Log.w("OfflineQueue", "Drain failed for msg ${msg.id}: ${e.message}, re-enqueue")
@@ -123,8 +120,12 @@ object OfflineQueue {
                     _pendingCount.value = queue.size
                     persistToDisk()
                 }
+                results.add(Result.failure(e))
             }
         }
+        _pendingCount.value = queue.size
+        persistToDisk()
+        return results
     }
 
     fun remove(messageId: String) {

@@ -1,5 +1,6 @@
 package org.enchant.settings.screens
 
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -9,7 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import org.enchant.core.push.BatteryOptimizationHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -152,6 +155,50 @@ fun NotificationsSettingsScreen(
                                     label = { Text(name) },
                                     modifier = Modifier.height(32.dp)
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(LocalContext.current)) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Battery Optimization",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Notifications may be delayed. Disable battery optimization for reliable message delivery.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    if (BatteryOptimizationHelper.isXiaomi() ||
+                                        BatteryOptimizationHelper.isHuawei() ||
+                                        BatteryOptimizationHelper.isOnePlus()) {
+                                        BatteryOptimizationHelper.showAutoStartSettings(LocalContext.current)
+                                    } else {
+                                        BatteryOptimizationHelper.requestDisableBatteryOptimization(LocalContext.current)
+                                    }
+                                }
+                            ) {
+                                Text("Open Settings")
+                            }
+                            OutlinedButton(
+                                onClick = { BatteryOptimizationHelper.requestDisableBatteryOptimization(LocalContext.current) }
+                            ) {
+                                Text("Disable Optimization")
                             }
                         }
                     }

@@ -6,6 +6,7 @@ import io.mockk.unmockkObject
 import kotlinx.coroutines.test.runTest
 import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
+import org.enchant.core.network.WebSocketManager
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -189,6 +190,55 @@ class OfflineQueueTest {
         fun `remove non-existent`() = runTest {
             OfflineQueue.remove("does-not-exist")
             assertEquals(0, OfflineQueue.pendingCount.value)
+        }
+    }
+
+    @Nested @DisplayName("Drain")
+    inner class DrainTest {
+        @Test @DisplayName("drain returns empty list when queue is empty")
+        fun `drain empty queue returns empty`() = runTest {
+            val results = OfflineQueue.drain()
+            assertTrue(results.isEmpty())
+        }
+
+        @Test @DisplayName("drain returns results for each message")
+        fun `drain returns results`() = runTest {
+            mockkObject(SecurePreferences)
+            every { SecurePreferences.getString(any(), any()) } returns null
+            every { SecurePreferences.putInt(any(), any()) } returns Unit
+            every { SecurePreferences.putString(any(), any()) } returns Unit
+            mockkObject(WebSocketManager)
+            every { WebSocketManager.requestRESTFallback(any()) } returns Result.success(Unit)
+
+            OfflineQueue.enqueue(QueuedMessage(id = "drain-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
+            assertEquals(1, OfflineQueue.pendingCount.value)
+
+            val results = OfflineQueue.drain()
+            assertEquals(1, results.size)
+            assertTrue(results[0].isSuccess)
+
+            unmockkObject(WebSocketManager)
+            unmockkObject(SecurePreferences)
+        }
+
+        @Test @DisplayName("drain re-enqueues failed messages for retry")
+        fun `drain re-enqueues on failure`() = runTest {
+            mockkObject(SecurePreferences)
+            every { SecurePreferences.getString(any(), any()) } returns null
+            every { SecurePreferences.putInt(any(), any()) } returns Unit
+            every { SecurePreferences.putString(any(), any()) } returns Unit
+            mockkObject(WebSocketManager)
+            every { WebSocketManager.requestRESTFallback(any()) } returns Result.failure(Exception("Network error"))
+
+            OfflineQueue.enqueue(QueuedMessage(id = "fail-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
+
+            val results = OfflineQueue.drain()
+            assertEquals(1, results.size)
+            assertTrue(results[0].isFailure)
+            assertEquals(1, OfflineQueue.pendingCount.value)
+
+            unmockkObject(WebSocketManager)
+            unmockkObject(SecurePreferences)
         }
     }
 }
