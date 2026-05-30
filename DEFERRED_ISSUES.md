@@ -104,6 +104,41 @@ All items were confirmed correct by the audit itself (not bugs). No deferred ite
 | Request cancellation | No request cancellation support | Feature request — needs coroutine cancellation integration |
 | Message priority | No message priority queue | Feature request — new queue architecture |
 
+## core:navigation
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Deep links | Deep link action verification | Architectural limitation, requires navigation component changes |
+| Bundle safety | Bundle type safety (no compile-time checks) | Needs Safe Args plugin — feature request |
+| Safe Args | Safe Args integration | Feature request |
+| Nested nav | Nested navigation graph support | Feature request |
+| Back stack | Back stack management utilities | Feature request |
+| Arg validation | Argument validation helpers | Feature request |
+| Deep link utils | Deep link handling utilities | Feature request |
+
+## core:ui
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| RTL | RTL support in TransitionSpecs | Feature enhancement, not a bug |
+| Reduced motion | Reduced motion accessibility support | Feature enhancement |
+| Components | Missing common UI components (buttons, loaders, etc.) | Feature requests |
+| Split pane | `isSplitPane` density concern | Not a bug — pixel comparison valid for orientation detection |
+| A11y semantics | Missing accessibility semantics | Feature enhancement |
+
+## feature:channels
+
+| ID | Issue | Reason Deferred |
+|----|-------|-----------------|
+| Admin checks | Admin/permission checks, role validation | Needs backend |
+| Rate limiting | Rate limiting on subscribe/unsubscribe | Needs backend |
+| Creator validation | Channel creator validation | Needs backend |
+| Post management | Create/edit/delete/pin posts | Feature requests, no backend APIs |
+| Admin tools | Admin management, block/report | Feature requests |
+| Media display | Channel avatar display, `mediaIds` display | Feature requests |
+| hasMore | `hasMore` flag for pagination | Backend needs to provide it |
+| Error sealed class | Sealed class for UI errors | Architecture change |
+
 ---
 
 *Last updated: 2026-05-30*
