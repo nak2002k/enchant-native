@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.enchant.groups.data.Group
+import org.enchant.groups.data.MemberRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,10 +127,11 @@ private fun GroupTile(group: Group, onClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     when (group.myRole) {
-                        "owner" -> Icon(Icons.Default.Star, "Owner", modifier = Modifier.size(14.dp),
+                        MemberRole.OWNER -> Icon(Icons.Default.Star, "Owner", modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.primary)
-                        "admin" -> Icon(Icons.Default.Shield, "Admin", modifier = Modifier.size(14.dp),
+                        MemberRole.ADMIN -> Icon(Icons.Default.Shield, "Admin", modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.tertiary)
+                        else -> {}
                     }
                 }
             }

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.enchant.groups.data.Group
 import org.enchant.groups.data.GroupMember
+import org.enchant.groups.data.MemberRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +80,7 @@ fun GroupInfoScreen(
                         Text(group.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("${group.memberCount} members · ${group.myRole}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${group.memberCount} members · ${group.myRole.value}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -137,10 +138,10 @@ fun GroupInfoScreen(
             items(members, key = { it.userId }) { member ->
                 MemberRow(
                     member = member,
-                    isOwner = group.myRole == "owner",
+                    isOwner = group.myRole == MemberRole.OWNER,
                     onRemove = { onRemoveMember(member.userId) },
-                    onMakeAdmin = { onUpdateRole(member.userId, "admin") },
-                    onMakeMember = { onUpdateRole(member.userId, "member") }
+                    onMakeAdmin = { onUpdateRole(member.userId, MemberRole.ADMIN.value) },
+                    onMakeMember = { onUpdateRole(member.userId, MemberRole.MEMBER.value) }
                 )
             }
 
@@ -159,7 +160,7 @@ fun GroupInfoScreen(
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            if (group.myRole == "owner") {
+            if (group.myRole == MemberRole.OWNER) {
                 item {
                     OutlinedButton(
                         onClick = onDeleteGroup,
@@ -176,7 +177,7 @@ fun GroupInfoScreen(
                 }
             }
 
-            if (group.myRole != "owner") {
+            if (group.myRole != MemberRole.OWNER) {
                 item {
                     OutlinedButton(
                         onClick = onLeaveGroup,

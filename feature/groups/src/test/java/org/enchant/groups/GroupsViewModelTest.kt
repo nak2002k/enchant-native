@@ -3,8 +3,8 @@ package org.enchant.groups
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.enchant.groups.data.GroupResult
 import org.enchant.groups.data.GroupsRepository
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -21,8 +21,8 @@ class GroupsViewModelTest {
     @BeforeEach
     fun setUp() {
         repo = mockk(relaxed = true)
-        coEvery { repo.getGroups() } returns flowOf(emptyList())
-        coEvery { repo.getGroupInfo(any()) } returns null
+        coEvery { repo.getGroups() } returns emptyList()
+        coEvery { repo.getGroupInfo(any()) } returns GroupResult.Failed("not found")
         coEvery { repo.getMembers(any()) } returns emptyList()
         viewModel = GroupsViewModel(repo)
     }
@@ -40,7 +40,7 @@ class GroupsViewModelTest {
     inner class CreateGroupTest {
         @Test @DisplayName("createGroup creates a new group")
         fun `create group`() = runTest {
-            coEvery { repo.createGroup(any(), any(), any()) } returns "group-1"
+            coEvery { repo.createGroup(any(), any(), any()) } returns GroupResult.Success("group-1", "Test Group", 1)
             viewModel.createGroup("Test Group", "Description", listOf("user-1"))
             coVerify { repo.createGroup("Test Group", "Description", listOf("user-1")) }
         }
@@ -78,7 +78,7 @@ class GroupsViewModelTest {
         @Test @DisplayName("updateMemberRole updates member role")
         fun `update member role`() = runTest {
             viewModel.updateMemberRole("group-1", "user-1", "admin")
-            coVerify { repo.updateMemberRole("group-1", "user-1", "admin") }
+            coVerify { repo.updateMemberRole("group-1", "user-1", org.enchant.groups.data.MemberRole.ADMIN) }
         }
     }
 
@@ -106,6 +106,15 @@ class GroupsViewModelTest {
         fun `delete group`() = runTest {
             viewModel.deleteGroup("group-1")
             coVerify { repo.deleteGroup("group-1") }
+        }
+    }
+
+    @Nested @DisplayName("Leave Group")
+    inner class LeaveGroupTest {
+        @Test @DisplayName("leaveGroup leaves a group")
+        fun `leave group`() = runTest {
+            viewModel.leaveGroup("group-1")
+            coVerify { repo.leaveGroup("group-1") }
         }
     }
 

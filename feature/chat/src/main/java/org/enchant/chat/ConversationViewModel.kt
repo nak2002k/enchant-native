@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -76,7 +77,7 @@ class ConversationViewModel(
         messageJob?.cancel()
         messageJob = viewModelScope.launch {
             repo.getMessages(convId).collect { list ->
-                _messages.value = list
+                _messages.update { list }
             }
         }
         viewModelScope.launch {
@@ -95,7 +96,7 @@ class ConversationViewModel(
             val lastId = _messages.value.lastOrNull()?.localId
             repo.getMessages(conversationId, beforeId = lastId).collect { list ->
                 if (list.isNotEmpty()) {
-                    _messages.value = list + _messages.value
+                    _messages.update { current -> current + list }
                 }
             }
         }
@@ -191,7 +192,7 @@ class ConversationViewModel(
                     apiClient.post("/v1/location", buildJsonObject {
                         put("envelope_id", JsonPrimitive((result as? SendResult.Success)?.envelopeId ?: ""))
                     })
-                } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+                } catch (e: Exception) { android.util.Log.w("Enchant", "location share failed") }
             }
             _sendingState.value = if (result is SendResult.Success || result is SendResult.Queued) SendState.SENT else SendState.FAILED
             if (_sendingState.value != SendState.IDLE) {
@@ -326,7 +327,7 @@ class ConversationViewModel(
                     put("reason", JsonPrimitive("message_report"))
                     put("envelope_id", JsonPrimitive(envelopeId))
                 })
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+            } catch (e: Exception) { android.util.Log.w("Enchant", "report failed") }
         }
     }
 
@@ -422,11 +423,11 @@ class ConversationViewModel(
                 plaintext = "$text\n$vcard".encodeToByteArray()
             )
             try {
-                apiClient.post("/v1/contacts/share", buildJsonObject {
-                    put("contact_user_id", JsonPrimitive(contactUserId))
-                    put("envelope_id", JsonPrimitive(conversationId))
-                })
-            } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
+                    apiClient.post("/v1/contacts/share", buildJsonObject {
+                        put("contact_user_id", JsonPrimitive(contactUserId))
+                        put("envelope_id", JsonPrimitive(conversationId))
+                    })
+                } catch (e: Exception) { android.util.Log.w("Enchant", "contact share failed") }
         }
     }
 

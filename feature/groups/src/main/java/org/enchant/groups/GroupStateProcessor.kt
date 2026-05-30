@@ -85,7 +85,10 @@ class GroupStateProcessor(
                 },
                 onFailure = { emptyList() }
             )
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) {
+            android.util.Log.w("GroupStateProcessor", "Failed to fetch changelog for $groupId", e)
+            emptyList()
+        }
     }
 
     suspend fun handleP2PChange(groupId: String, update: JsonObject): GroupUpdateResult {

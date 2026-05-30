@@ -11,13 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-
-data class GroupMember(
-    val userId: String,
-    val displayName: String,
-    val role: String,
-    val avatarMediaId: String?
-)
+import org.enchant.groups.data.GroupMember
+import org.enchant.groups.data.MemberRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +64,7 @@ fun GroupMemberListScreen(
                         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
                             Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
                                 Text(
-                                    member.displayName.take(2).uppercase(),
+                                    (member.displayName ?: member.userId).take(2).uppercase(),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
@@ -78,43 +73,43 @@ fun GroupMemberListScreen(
                         Spacer(modifier = Modifier.width(12.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(member.displayName, style = MaterialTheme.typography.titleSmall)
+                            Text(member.displayName ?: member.username ?: member.userId, style = MaterialTheme.typography.titleSmall)
                             Spacer(modifier = Modifier.height(2.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val (icon, tint) = when (member.role) {
-                                    "OWNER" -> Icons.Default.Star to MaterialTheme.colorScheme.primary
-                                    "ADMIN" -> Icons.Default.Shield to MaterialTheme.colorScheme.tertiary
+                                    MemberRole.OWNER -> Icons.Default.Star to MaterialTheme.colorScheme.primary
+                                    MemberRole.ADMIN -> Icons.Default.Shield to MaterialTheme.colorScheme.tertiary
                                     else -> null to null
                                 }
                                 if (icon != null && tint != null) {
-                                    Icon(icon, member.role, tint = tint, modifier = Modifier.size(14.dp))
+                                    Icon(icon, member.role.value, tint = tint, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                 }
                                 Text(
-                                    member.role,
+                                    member.role.value,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
 
-                        if (isAdmin && member.role != "OWNER") {
+                        if (isAdmin && member.role != MemberRole.OWNER) {
                             IconButton(onClick = { showMenu = true }) {
                                 Icon(Icons.Default.MoreVert, "Member options")
                             }
 
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                if (member.role == "MEMBER") {
+                                if (member.role == MemberRole.MEMBER) {
                                     DropdownMenuItem(
                                         text = { Text("Promote to admin") },
-                                        onClick = { onUpdateRole(member.userId, "ADMIN"); showMenu = false },
+                                        onClick = { onUpdateRole(member.userId, MemberRole.ADMIN.value); showMenu = false },
                                         leadingIcon = { Icon(Icons.Default.Shield, null) }
                                     )
                                 }
-                                if (member.role == "ADMIN") {
+                                if (member.role == MemberRole.ADMIN) {
                                     DropdownMenuItem(
                                         text = { Text("Demote to member") },
-                                        onClick = { onUpdateRole(member.userId, "MEMBER"); showMenu = false },
+                                        onClick = { onUpdateRole(member.userId, MemberRole.MEMBER.value); showMenu = false },
                                         leadingIcon = { Icon(Icons.Default.Person, null) }
                                     )
                                 }

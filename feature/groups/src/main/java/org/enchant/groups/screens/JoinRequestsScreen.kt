@@ -14,13 +14,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 import org.enchant.core.network.ApiClient
-
-data class JoinRequest(
-    val requestId: String,
-    val userId: String,
-    val username: String,
-    val requestedAt: String
-)
+import org.enchant.groups.data.JoinRequest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +29,7 @@ fun JoinRequestsScreen(
     }
     var requests by remember { mutableStateOf<List<JoinRequest>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         val response = client.get("/v1/groups/join-requests")
@@ -45,13 +40,14 @@ fun JoinRequestsScreen(
                     val obj = entry.jsonObject
                     JoinRequest(
                         requestId = obj["request_id"]?.jsonPrimitive?.content ?: return@mapNotNull null,
-                        userId = obj["requester_user_id"]?.jsonPrimitive?.content ?: "",
-                        username = obj["username"]?.jsonPrimitive?.content ?: "Unknown",
-                        requestedAt = obj["requested_ts"]?.jsonPrimitive?.content ?: ""
+                        requesterUserId = obj["requester_user_id"]?.jsonPrimitive?.content ?: "",
+                        username = obj["username"]?.jsonPrimitive?.content,
+                        status = obj["status"]?.jsonPrimitive?.content ?: "",
+                        requestedTs = obj["requested_ts"]?.jsonPrimitive?.content
                     )
                 }
             },
-            onFailure = { }
+            onFailure = { error = it.message ?: "Failed to load join requests" }
         )
         isLoading = false
     }
@@ -74,6 +70,34 @@ fun JoinRequestsScreen(
             }
             return@Scaffold
         }
+
+        if (error != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Error,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Error loading requests", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        error ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            return@Scaffold
+        }
+
         if (requests.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -117,7 +141,7 @@ fun JoinRequestsScreen(
                         Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
                             Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
                                 Text(
-                                    request.username.take(2).uppercase(),
+                                    (request.username ?: request.requesterUserId).take(2).uppercase(),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
@@ -126,9 +150,9 @@ fun JoinRequestsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(request.username, style = MaterialTheme.typography.titleSmall)
+                            Text(request.username ?: request.requesterUserId, style = MaterialTheme.typography.titleSmall)
                             Text(
-                                "Requested ${request.requestedAt}",
+                                "Requested ${request.requestedTs ?: ""}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

@@ -2,10 +2,12 @@ package org.enchant.groups
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
+import kotlin.random.Random
 
 enum class GroupAccessPolicy {
     ALL_MEMBERS, ADMIN_ONLY
@@ -45,7 +47,7 @@ class GroupEditor(
     suspend fun setMemberAdmin(userId: String, isAdmin: Boolean): GroupEditResult = mutex.withLock {
         executeWithRetry {
             apiClient.put("/v1/groups/$groupId/members/$userId/role", buildJsonObject {
-                put("role", if (isAdmin) "ADMIN" else "MEMBER")
+                put("role", if (isAdmin) "admin" else "member")
             })
         }
     }
@@ -158,7 +160,7 @@ class GroupEditor(
 
     private suspend fun executeWithRetry(
         maxRetries: Int = 3,
-        block: suspend () -> Result<kotlinx.serialization.json.JsonObject>
+        block: suspend () -> Result<JsonObject>
     ): GroupEditResult {
         var lastError: GroupEditResult = GroupEditResult.Failure("Unknown error", false)
         for (attempt in 1..maxRetries) {
@@ -180,20 +182,30 @@ class GroupEditor(
                 }
             )
             if (result != null) return result
-            if (attempt < maxRetries) kotlinx.coroutines.delay(1000L * attempt)
+            if (attempt < maxRetries) {
+                val baseDelay = 1000L * attempt
+                val jitter = Random.nextLong(0, baseDelay / 2)
+                kotlinx.coroutines.delay(baseDelay + jitter)
+            }
         }
         return lastError
     }
 
-    private fun updateRevision(json: kotlinx.serialization.json.JsonObject) {
+    private fun updateRevision(json: JsonObject) {
         json["revision"]?.jsonPrimitive?.content?.let {
             revision = it
         }
     }
 
     private fun extractRevision(error: Throwable): String {
-        val msg = error.message ?: ""
-        val parts = msg.split("revision:")
-        return if (parts.size > 1) parts[1].trim().take(20) else ""
+        val msg = error.message ?: return ""
+        val patterns = listOf("revision:", "revision=", "current_revision:")
+        for (pattern in patterns) {
+            val idx = msg.indexOf(pattern, ignoreCase = true)
+            if (idx >= 0) {
+                return msg.substring(idx + pattern.length).trim().take(20).filter { it.isLetterOrDigit() || it == '-' }
+            }
+        }
+        return ""
     }
 }

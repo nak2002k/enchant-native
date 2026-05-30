@@ -12,6 +12,7 @@ import org.enchant.groups.data.GroupResult
 import org.enchant.groups.data.GroupsRepository
 import org.enchant.groups.data.InviteLink
 import org.enchant.groups.data.JoinRequest
+import org.enchant.groups.data.MemberRole
 
 data class GroupsUiState(
     val groups: List<Group> = emptyList(),
@@ -125,7 +126,7 @@ class GroupsViewModel(
             when (result) {
                 is GroupResult.MemberRemoved -> loadMembers(groupId)
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(error = result.error)
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(error = "Unexpected result")
             }
         }
     }
@@ -144,18 +145,21 @@ class GroupsViewModel(
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.error
                 )
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
             }
         }
     }
 
     fun updateMemberRole(groupId: String, userId: String, role: String) {
         viewModelScope.launch {
-            val result = repository.updateMemberRole(groupId, userId, role)
+            val memberRole = MemberRole.fromString(role)
+            val result = repository.updateMemberRole(groupId, userId, memberRole)
             when (result) {
                 is GroupResult.Updated -> loadMembers(groupId)
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(error = result.error)
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(error = "Unexpected result")
             }
         }
     }
@@ -187,7 +191,30 @@ class GroupsViewModel(
                 is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.error
                 )
-                else -> {}
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
+            }
+        }
+    }
+
+    fun leaveGroup(groupId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val result = repository.leaveGroup(groupId)
+            when (result) {
+                is GroupResult.Deleted -> {
+                    loadGroups()
+                    _uiState.value = _uiState.value.copy(
+                        successMessage = "Left group", isLoading = false
+                    )
+                }
+                is GroupResult.Failed -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = result.error
+                )
+                else -> _uiState.value = _uiState.value.copy(
+                    isLoading = false, error = "Unexpected result"
+                )
             }
         }
     }
@@ -245,8 +272,13 @@ class GroupsViewModel(
 
     fun loadJoinRequests(groupId: String) {
         viewModelScope.launch {
-            val requests = repository.getJoinRequests(groupId)
-            _uiState.value = _uiState.value.copy(joinRequests = requests)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val requests = repository.getJoinRequests(groupId)
+                _uiState.value = _uiState.value.copy(joinRequests = requests, isLoading = false)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Failed to load join requests")
+            }
         }
     }
 

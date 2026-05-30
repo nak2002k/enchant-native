@@ -165,6 +165,7 @@ object IncomingMessageProcessor {
                 val decrypted = SessionManager.decryptMessage(senderUserId, envelope.payload)
 
                 if (decrypted == null) {
+                    android.util.Log.w("IncomingMsg", "Decryption failed for sender: $senderUserId")
                     return@withContext ProcessResult.Error("Decryption failed")
                 }
 
@@ -265,6 +266,16 @@ object IncomingMessageProcessor {
                         ProcessResult.Handled
                     }
                     content.hasReceiptMessage() -> {
+                        val rm = content.receiptMessage
+                        val status = when (rm.type) {
+                            org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.Type.DELIVERY -> MessageStatus.DELIVERED
+                            org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.Type.READ -> MessageStatus.READ
+                            else -> MessageStatus.DELIVERED
+                        }
+                        rm.timestampList.forEach { ts ->
+                            val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                            repo.updateMessageStatus(envId, status)
+                        }
                         ProcessResult.Handled
                     }
                     content.hasTypingMessage() -> { ProcessResult.Handled }
@@ -273,8 +284,8 @@ object IncomingMessageProcessor {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("IncomingMsg", "Unidentified sender processing failed: ${e.message}", e)
-                ProcessResult.Error("Unidentified sender processing failed: ${e.message}")
+                android.util.Log.e("IncomingMsg", "Unidentified sender processing failed")
+                ProcessResult.Error("Unidentified sender processing failed")
             }
         }
     }
@@ -283,7 +294,8 @@ object IncomingMessageProcessor {
         envelope: IncomingEnvelope, senderUserId: String
     ) {
         val replyToken = envelope.replyToken ?: return
-        val ts = envelope.envelopeId?.toLongOrNull() ?: System.currentTimeMillis()
+        val msg = repository?.getMessage(envelope.envelopeId ?: "")
+        val ts = msg?.timestamp ?: System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
             timestamps = listOf(ts),
             type = MessageProtobufHelper.ReceiptType.DELIVERY

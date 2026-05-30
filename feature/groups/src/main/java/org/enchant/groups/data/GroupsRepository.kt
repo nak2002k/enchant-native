@@ -329,6 +329,26 @@ class GroupsRepository(
         }
     }
 
+    suspend fun leaveGroup(groupId: String): GroupResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val response = apiClient.post("/v1/groups/$groupId/leave")
+                response.fold(
+                    onSuccess = {
+                        pool.write { db ->
+                            db.execSQL("DELETE FROM groups_table WHERE group_id = ?", arrayOf(groupId))
+                            db.execSQL("DELETE FROM group_members WHERE group_id = ?", arrayOf(groupId))
+                        }
+                        GroupResult.Deleted(true)
+                    },
+                    onFailure = { GroupResult.Failed(it.message ?: "Failed to leave group") }
+                )
+            } catch (e: Exception) {
+                GroupResult.Failed(e.message ?: "Network error")
+            }
+        }
+    }
+
     suspend fun createInviteLink(groupId: String, maxUses: Int = 10, expiresTs: String? = null): GroupResult {
         return withContext(Dispatchers.Default) {
             try {
