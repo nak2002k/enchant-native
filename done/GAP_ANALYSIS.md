@@ -852,3 +852,343 @@ UI controls exist and accept input but no `ViewModel` function handles them and 
 23. Proper test coverage with assertions
 24. Accessibility semantics everywhere
 25. RTL + reduced motion support
+
+---
+
+## Batch 2 Findings (2026-05-31)
+
+### core:network
+
+**Enchant-Only:**
+- `ApiClient` singleton with built-in rate limiting, retry logic, JWT refresh
+- `AuthInterceptor` OkHttp interceptor with lock.wait() on 401
+- `WebSocketManager` with custom envelope parsing
+- `OfflineQueue` persistent queue for offline sending
+- `RateLimitTracker`, `ConnectivityMonitor` StateFlow
+
+**Missing (Signal):**
+- `NetworkResult<T>` sealed class with `.then()`, `.map()`, `.withRetry()` chaining
+- `SignalRestClient` with multi-host routing (Service/CDN/Storage), TLS cert pinning
+- `WebSocketConnection` interface (OkHttp vs LibSignal native)
+- `HealthMonitor` for WebSocket health
+- Multi-host routing via `RequestSpec.Host`
+
+**Key Gap:** Enchant uses flat `Result<T>` with exceptions; Signal uses `NetworkResult<T>` sealed class with rich chaining. Enchant lacks CDN/Storage routing.
+
+---
+
+### core:push
+
+**Enchant-Only:**
+- `BatteryOptimizationHelper` (Xiaomi, Huawei, OnePlus auto-start)
+- `HuaweiPushFallback` HMS polling fallback
+- `PushTokenRegistrar` FCM token management
+
+**Missing (Signal):**
+- `FcmJobService` JobScheduler fallback
+- `FcmFetchBackgroundService` background companion
+- Push challenge handling (`PushChallengeRequest`, `SubmitRateLimitPushChallengeJob`)
+- `VerificationCodeRequestedPush` handling
+- `WebSocketDrainer` integration
+
+**Key Gap:** Signal uses job-based approach with `FcmRefreshJob`; Enchant uses callback-based. Signal has better fallback handling and WebSocket draining.
+
+---
+
+### core:base
+
+**Enchant-Only:**
+- `KeyStoreManager` Android Keystore wrapper
+- `CoroutineDispatchers` custom dispatchers
+- `AppConfig` centralized config
+- `SecurePreferences` encrypted prefs wrapper
+- `LRUCache`, `EnchantExecutors`
+- `Result` discriminated union type
+- Extensive `StringExtensions`, `ByteArrayExtensions`, `Scrubber`
+
+**Missing (Signal):**
+- `LoggingExtensions` additional helpers
+- `JvmRxExtensions` RxJava interop
+- `InputStreamExtensions` with `readVarInt32()`, `skipNBytesOrThrow()`
+- `OptionalExtensions` (or(), isAbsent(), toOptional())
+- `MacInputStream/MacOutputStream`, `Crc32OutputStream`
+- `Base64Tools` with `stripPadding()`
+
+**Key Gap:** Enchant's extensions are crypto-focused; Signal's are more I/O oriented. Enchant lacks Okio dependencies.
+
+---
+
+### core:navigation
+
+**Enchant-Only:**
+- `NavRoute.kt` sealed class hierarchy (40+ routes)
+- `RouteEncoder.kt` URL percent-encoding
+- `NavHost.kt` extension functions
+
+**Missing (Signal):**
+- `BottomSheetSceneStrategy.kt` Compose SceneStrategy
+- `ResultEventBus.kt` typed result passing
+- `ResultEffect.kt` composable for results
+- `TransitionSpecs.kt` HorizontalSlide/VerticalSlide
+
+**Key Gap:** Enchant uses custom sealed-class route model; Signal uses Navigation 3's `NavKey`/`NavEntry` with DSL builder. Signal's approach is more type-safe.
+
+---
+
+## Batch 3 Findings (2026-05-31)
+
+### core:crypto
+
+**Enchant-Only:**
+- `EnchantCrypto.kt` JNI bridge to libenchantcrypto
+- `CryptoPrimitives.kt` (X25519, Ed25519, XChaCha20-Poly1305, AES-GCM, HKDF, HMAC, SHA, Argon2id)
+- `KeyManager.kt`, `PreKeyStore.kt`, `SessionManager.kt`, `IdentityStore.kt`
+- `X3DH.kt`, `KdfChain.kt`, `DoubleRatchet.kt` (manual implementations)
+- `SenderKeyManager.kt`, `SealedSender.kt`, `MediaCipher.kt`
+
+**Missing (Signal):**
+- libsignal integration (`SessionBuilder`, `SessionCipher`, `GroupCipher`, `SealedSessionCipher`)
+- `SignalProtocolStore` unified interface
+- `CertificateValidator` and sender certificates
+- `ProfileKey`, `ProfileCipher` profile encryption
+- `IncrementalMacInputStream` for chunked MAC
+- Kyber post-quantum support
+- `SignalSessionLock` reentrant mutex
+
+**Key Gap:** Enchant re-implements X3DH/DoubleRatchet manually; Signal delegates to libsignal. Enchant lacks Kyber, certificate validation, and incremental MAC.
+
+---
+
+### core:config
+
+**Enchant-Only:**
+- Simple `RemoteConfig.kt` (65 lines)
+- Semicolon-separated parsing (`split(";")`)
+- `EnchantStore` persistence
+
+**Missing (Signal):**
+- `RemoteConfigRefreshJob` background fetch
+- `RemoteConfigApi` network layer
+- `RemoteConfigResult` with ETag
+- `Config<T>` delegate class with `hotSwappable`, `sticky`, `active`, `onChangeListener`
+- `OnFlagChange` callback interface
+- ~100 concrete config definitions
+- `libsignalConfigs` bridge
+
+**Key Gap:** Enchant is a minimal stub (65 lines); Signal is production-grade (1437 lines) with JSON parsing, typed delegates, change listeners, hot-swappable flags.
+
+---
+
+### core:crash
+
+**Enchant-Only:**
+- `ScrubbedCrashlyticsTree` Timber tree with PII scrubbing
+- `CrashHandler` with FTS corruption detection
+
+**Missing (Signal):**
+- `CrashConfig` remote-config driven crash prompting
+- `SignalUncaughtExceptionHandler` with SQLite exception handling
+- `UncaughtExceptionHandlerManager` multi-handler
+- `CrashTable` database for crash storage with `anyMatch()`, `markAsPrompted()`
+- Percentage-based crash rollout via BucketingUtil
+
+**Key Gap:** Signal has remote-config driven crash prompting; Enchant uses Firebase Crashlytics directly. Signal has better FTS corruption handling.
+
+---
+
+### core:jobmanager
+
+**Enchant-Only:**
+- Full Room database integration (`JobDatabase`, `JobDao`, `FastJobStorage`)
+- `CompositeScheduler`, `InAppScheduler`, `JobSchedulerScheduler`, `AlarmManagerScheduler`
+- `KeyedSerialExecutor`, constraint observers
+
+**Missing (Signal):**
+- `JobManagerExtensions` coroutine-friendly `runJobBlocking()`
+- `CoroutineJob` base class
+- `MinimalJobSpec` lightweight spec for in-memory tracking
+- `ChangeNumberConstraintObserver`, `RestoreAttachmentConstraintObserver`
+- `PushProcessMessageJobMigration`, `DonationReceiptRedemptionJobMigration`
+
+**Key Gap:** Signal uses composition (`FullSpec` wraps `JobSpec`); Enchant uses flattening. Signal has `MinimalJobSpec` for efficient in-memory tracking. Enchant's constraints are mostly stubs.
+
+---
+
+## Batch 4 Findings (2026-05-31)
+
+### feature:chat
+
+**Enchant-Only:**
+- `ChatNavKey`, `ChatNavDisplay` Navigation3 integration
+- `MessageSendPipeline` centralized sending
+- `MessageProtobufHelper` proto serialization
+- `ChatPagingSource` custom paging
+- `ContentPreProcessor`, `IncomingMessageProcessor`
+
+**Missing (Signal):**
+- `ConversationFragment` (2000+ lines)
+- `ConversationAdapterV2`, `ConversationItem`
+- `QuoteModel`, `DraftViewModel`, `ScheduledMessagesRepository`
+- `PinnedMessagesRepository`, `EditMessageHistoryRepository`
+- `InlineQueryResultsControllerV2` emoji/GIF search
+- `MentionsPickerFragmentV2`, `VoiceMessageRecordingDelegate`
+- `CreatePollFragment`, `MessageRequestViewModel`
+
+**Key Gap:** Signal has full RecyclerView-based UI with 20+ adapter types; Enchant uses Compose. Signal has polls, drafts, scheduled messages, link previews, mentions.
+
+---
+
+### feature:chatlist
+
+**Enchant-Only:**
+- `ChatListNavDisplay`, `ChatListNavKey` Navigation3
+- `ConversationListScreen` with FilterChipsRow
+- Unit tests (ViewModel, NavKey, NavBackStack)
+
+**Missing (Signal):**
+- `ConversationListFragment` with paging
+- `ConversationFilterBehavior` pull-to-filter
+- `ChatFolderAdapter`, folder management
+- `ConversationListSearchAdapter` with ThreadModel, MessageModel
+- Pull-to-filter state machine
+
+**Key Gap:** Signal has pull-to-filter mechanism, folder management, paging with Paging3. Enchant is simple Flow-based.
+
+---
+
+### feature:calls
+
+**Enchant-Only:**
+- `CallsNavKey`, `CallsNavDisplay` Navigation3
+- `SafetyNumberHelper`, `SafetyNumberDialog`
+- `CallLinkManager` API client wrapper
+- Compose-based call screens
+
+**Missing (Signal):**
+- `CallLogFragment`, `CallLogAdapter` RecyclerView
+- `CallLinks` central state management
+- `CreateCallLinkRepository`, `UpdateCallLinkRepository`
+- `CallQualityBottomSheetFragment`, `CallQualityDiagnosticsFragment`
+- `CallLinkDetailsActivity` with admin controls
+- Paging3 integration
+
+**Key Gap:** Signal has production-grade paging, caching, offline support, admin approval flows, revocation dialogs. Enchant is simplified Compose-first.
+
+---
+
+### feature:auth
+
+**Enchant-Only:**
+- `AuthNavKey`, `AuthNavDisplay` Navigation3
+- `AuthViewModel` centralized auth state
+- `KeyGenerationScreen`, `UsernamePickerScreen`, `TwoStepPinScreen`
+- Unit tests
+
+**Missing (Signal):**
+- Event-driven state machine (`RegistrationFlowEvent`, `RegistrationFlowState`)
+- Separate ViewModels per screen
+- `TwoPaneRegistrationScaffold` for tablets
+- Full rate limiting, CAPTCHA, account locked flows
+- Backup restore flows
+
+**Key Gap:** Signal uses event-driven state machine with separate ViewModels; Enchant consolidates into `AuthViewModel`. Signal has extensive tablet support.
+
+---
+
+## Batch 5 Findings (2026-05-31)
+
+### feature:registration
+
+**Enchant-Only:**
+- `AccountEntropyPoolSerializer`
+- `RegistrationTypes.kt` stub implementations
+- `RestoreLocalBackupNavDisplay`, `QuickTransferOldDeviceNavigation`
+
+**Missing (Signal):**
+- `RegistrationRepository`, `NetworkController`, `StorageController`
+- Full ViewModels for every screen
+- All screen implementations
+- State persistence and session validation
+- Parcelers for ACI, PNI, MasterKey, KyberPreKey
+
+**Key Gap:** Enchant is ~90% stub code; Signal has complete production implementation. Enchant uses `Any` types instead of concrete repository/network types.
+
+---
+
+### feature:settings
+
+**Enchant-Only:**
+- `SettingsViewModel` centralized
+- `SettingsUiState` unified state
+- Standalone screens (BlockedUsers, Backup, Security)
+
+**Missing (Signal):**
+- Notification profiles (20+ files)
+- Subscriptions/donations (28+ files)
+- Chat folders (12+ files)
+- Payment lock, change number, app icon selection
+- Remote backups, local backups
+- Stories settings (25+ files)
+
+**Key Gap:** Signal has 100+ settings screens; Enchant has ~12. Signal uses per-feature state with LiveData; Enchant uses single unified StateFlow.
+
+---
+
+### feature:contacts
+
+**Enchant-Only:**
+- `ContactSyncService` with Argon2id phone hashing
+- `ContactsRepository`, `ContactsViewModel`
+- `ContactListScreen`, `ContactProfileScreen`, `AddContactScreen`
+- `FriendRequestsScreen`
+
+**Missing (Signal):**
+- `SystemContactsRepository` low-level access
+- `ContactDiscovery`, `ContactDiscoveryRefreshV2`
+- `ContactSearchViewModel` with paged data
+- Letter header decorations
+- Group stories support
+
+**Key Gap:** Signal has paged contact loading with safety number checking; Enchant loads all at once. Signal has full system contacts integration.
+
+---
+
+### feature:groups
+
+**Enchant-Only:**
+- `GroupsViewModel` monolithic
+- `GroupStateProcessor`, `GroupEditor`
+- `GroupsRepository` REST-based
+- Full Compose screens
+
+**Missing (Signal):**
+- `GroupId` sealed class with V1/V2/MMS types
+- `GroupManager`, `GroupManagerV2` with zkGroup cryptography
+- `GroupsV2StateProcessor` with P2P changes, server paging
+- Member labeling system (12 files)
+- Story group reply system (8 files)
+
+**Key Gap:** Signal has sophisticated GV2 protocol with zkGroup cryptography, conflict resolution, change log history. Enchant uses simple REST.
+
+---
+
+## Consolidated Gaps Summary
+
+| Module | Critical Issues | High Priority | Medium Priority |
+|--------|----------------|---------------|-----------------|
+| core:network | NetworkResult, multi-host routing | TLS cert pinning | Prometheus metrics |
+| core:push | FcmJobService fallback | WebSocketDrainer | Push challenge handling |
+| core:base | Okio dependencies | InputStreamExtensions | OptionalExtensions |
+| core:navigation | NavKey/NavEntry DSL | ResultEventBus | BottomSheetSceneStrategy |
+| core:crypto | libsignal delegation, Kyber | CertificateValidator | IncrementalMac |
+| core:config | Full implementation | Config delegate | Change listeners |
+| core:crash | Remote-config prompting | Multi-handler | CrashTable |
+| core:jobmanager | MinimalJobSpec | CoroutineJob | Migrations |
+| feature:chat | Polls, drafts, scheduled | Link previews | Mentions |
+| feature:chatlist | Pull-to-filter | Folder management | Paging3 |
+| feature:calls | Paging, caching | Admin controls | Quality diagnostics |
+| feature:auth | Event-driven state | Tablet support | CAPTCHA/rate limits |
+| feature:registration | Full implementation | ViewModels | Screen implementations |
+| feature:settings | 100+ settings | Notification profiles | Chat folders |
+| feature:contacts | Paged loading | System contacts | Safety numbers |
+| feature:groups | GV2 protocol | zkGroup crypto | Member labeling |
