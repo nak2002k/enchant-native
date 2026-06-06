@@ -12,8 +12,7 @@ package org.enchant.core.crypto
 object EnchantCrypto {
 
     init {
-        System.loadLibrary("sodium")
-        System.loadLibrary("enchantcrypto")
+        System.loadLibrary("enchantcrypto_jni")
     }
 
     // --- Error codes ---
