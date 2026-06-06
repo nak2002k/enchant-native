@@ -17,9 +17,21 @@ import org.enchant.settings.StorageInfo
 fun StorageSettingsScreen(
     storageInfo: StorageInfo?,
     isProcessing: Boolean,
+    messageRetentionDays: Int = 0,
     onClearCache: () -> Unit,
+    onRetentionChange: (Int) -> Unit = {},
+    onTrimMessages: () -> Unit = {},
     onBack: () -> Unit
 ) {
+    val retentionOptions = listOf(
+        0 to "Keep all",
+        30 to "30 days",
+        90 to "3 months",
+        180 to "6 months",
+        365 to "1 year"
+    )
+    var showTrimDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -49,8 +61,10 @@ fun StorageSettingsScreen(
                         val totalDisplay = if (storageInfo.totalBytes > 0)
                             " / ${formatBytes(storageInfo.totalBytes)}" else ""
 
-                        Text("${formatBytes(used)}$totalDisplay used",
-                            style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "${formatBytes(used)}$totalDisplay used",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
 
                         Spacer(Modifier.height(12.dp))
 
@@ -73,9 +87,11 @@ fun StorageSettingsScreen(
                             color = MaterialTheme.colorScheme.secondary
                         )
                     } else {
-                        Text("Loading storage info...",
+                        Text(
+                            "Loading storage info...",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -88,13 +104,17 @@ fun StorageSettingsScreen(
                 ) {
                     Column {
                         Text("Clear Cache", style = MaterialTheme.typography.bodyMedium)
-                        Text("Remove temporary files",
+                        Text(
+                            "Remove temporary files",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (isProcessing) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
                     } else {
                         FilledTonalButton(onClick = onClearCache) {
                             Text("Clear")
@@ -105,18 +125,71 @@ fun StorageSettingsScreen(
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Message Trim Settings",
-                        style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Message Retention",
+                        style = MaterialTheme.typography.titleSmall
+                    )
                     Spacer(Modifier.height(8.dp))
-                    Text("Keep messages for the last N months. Older messages will be removed.",
+                    Text(
+                        "Automatically delete messages older than the selected period.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Coming soon", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    retentionOptions.forEach { (days, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = messageRetentionDays == days,
+                                onClick = { onRetentionChange(days) }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    if (messageRetentionDays > 0) {
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = { showTrimDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Trim Now")
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if (showTrimDialog) {
+        AlertDialog(
+            onDismissRequest = { showTrimDialog = false },
+            title = { Text("Trim Messages") },
+            text = {
+                Text("This will permanently delete all messages older than $messageRetentionDays days. This action cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showTrimDialog = false
+                    onTrimMessages()
+                }) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTrimDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -134,8 +207,10 @@ private fun StorageBar(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(label, style = MaterialTheme.typography.bodySmall)
-            Text(formatBytes(bytes), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                formatBytes(bytes), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         Spacer(Modifier.height(2.dp))
         LinearProgressIndicator(

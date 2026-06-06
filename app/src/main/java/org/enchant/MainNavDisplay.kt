@@ -195,20 +195,25 @@ private fun DetailPaneContent(
                 )
             }
             topDetail is MainNavigationDetailLocation.AccountSettings -> {
+                LaunchedEffect(Unit) { settingsViewModel.loadDevices() }
                 AccountSettingsScreen(
                     displayName = settingsState.displayName,
                     username = settingsState.username,
                     about = settingsState.about,
-                    devices = settingsState.devices.map { org.enchant.settings.DeviceInfo(it.deviceId, it.name, it.lastSeen, it.isCurrent) },
+                    devices = settingsState.devices,
                     isLoading = settingsState.isProcessing,
+                    onProfileUpdate = { name, user, ab -> settingsViewModel.updateProfile(name, user, ab) },
                     onRevokeDevice = { settingsViewModel.revokeDevice(it) },
                     onDeleteAccount = { settingsViewModel.deleteAccount() },
                     onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.SecuritySettings -> {
+                LaunchedEffect(Unit) { settingsViewModel.loadSecuritySettings() }
                 SecuritySettingsScreen(
-                    onSetupTwoStep = {},
+                    twoStepEnabled = settingsState.twoStepEnabled,
+                    onSetupTwoStep = { pin -> settingsViewModel.setupTwoStepVerification(pin) },
+                    onDisableTwoStep = { pin -> settingsViewModel.disableTwoStepVerification(pin) },
                     onBack = onNavigateBack
                 )
             }
@@ -230,19 +235,20 @@ private fun DetailPaneContent(
                 )
             }
             topDetail is MainNavigationDetailLocation.NotificationSettings -> {
+                LaunchedEffect(Unit) { settingsViewModel.loadSettings() }
                 NotificationsSettingsScreen(
                     masterEnabled = settingsState.notificationEnabled,
                     messageNotifications = settingsState.messageNotifications,
                     showPreview = settingsState.showPreview,
-                    dndStartTime = "22:00",
-                    dndEndTime = "07:00",
-                    dndDaysOfWeek = setOf(1, 2, 3, 4, 5),
+                    dndStartTime = settingsState.dndStartTime,
+                    dndEndTime = settingsState.dndEndTime,
+                    dndDaysOfWeek = settingsState.dndDaysOfWeek,
                     onMasterToggle = { settingsViewModel.updateNotificationPrefs(it, settingsState.messageNotifications, settingsState.showPreview) },
                     onMessageNotificationsChange = { settingsViewModel.updateNotificationPrefs(settingsState.notificationEnabled, it, settingsState.showPreview) },
                     onShowPreviewChange = { settingsViewModel.updateNotificationPrefs(settingsState.notificationEnabled, settingsState.messageNotifications, it) },
-                    onDndStartTimeChange = {},
-                    onDndEndTimeChange = {},
-                    onDndDaysChange = {},
+                    onDndStartTimeChange = { settingsViewModel.updateDndSchedule(it, settingsState.dndEndTime, settingsState.dndDaysOfWeek) },
+                    onDndEndTimeChange = { settingsViewModel.updateDndSchedule(settingsState.dndStartTime, it, settingsState.dndDaysOfWeek) },
+                    onDndDaysChange = { settingsViewModel.updateDndSchedule(settingsState.dndStartTime, settingsState.dndEndTime, it) },
                     onBack = onNavigateBack
                 )
             }
@@ -272,7 +278,10 @@ private fun DetailPaneContent(
                 StorageSettingsScreen(
                     storageInfo = settingsState.storageInfo,
                     isProcessing = settingsState.isProcessing,
+                    messageRetentionDays = settingsState.messageRetentionDays,
                     onClearCache = { settingsViewModel.clearCache() },
+                    onRetentionChange = { settingsViewModel.updateMessageRetention(it) },
+                    onTrimMessages = { settingsViewModel.trimOldMessages() },
                     onBack = onNavigateBack
                 )
             }

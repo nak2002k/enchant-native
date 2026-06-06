@@ -20,11 +20,16 @@ fun AccountSettingsScreen(
     about: String?,
     devices: List<DeviceInfo>,
     isLoading: Boolean,
+    onProfileUpdate: (displayName: String?, username: String?, about: String?) -> Unit = { _, _, _ -> },
     onRevokeDevice: (String) -> Unit,
     onDeleteAccount: () -> Unit,
     onBack: () -> Unit
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showEditProfile by remember { mutableStateOf(false) }
+    var editDisplayName by remember(displayName) { mutableStateOf(displayName) }
+    var editUsername by remember(username) { mutableStateOf(username ?: "") }
+    var editAbout by remember(about) { mutableStateOf(about ?: "") }
 
     Scaffold(
         topBar = {
@@ -46,17 +51,31 @@ fun AccountSettingsScreen(
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Profile", style = MaterialTheme.typography.titleSmall)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Profile", style = MaterialTheme.typography.titleSmall)
+                            TextButton(onClick = { showEditProfile = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Edit")
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
-                        Text("Display name: $displayName",
-                            style = MaterialTheme.typography.bodyMedium)
+                        Text("Display name: $displayName", style = MaterialTheme.typography.bodyMedium)
                         if (username != null) {
-                            Text("@$username", style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "@$username", style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         if (about != null) {
-                            Text(about, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                about, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -68,9 +87,11 @@ fun AccountSettingsScreen(
                         Text("Devices", style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
                         if (devices.isEmpty() && !isLoading) {
-                            Text("No linked devices",
+                            Text(
+                                "No linked devices",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -82,20 +103,26 @@ fun AccountSettingsScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Devices, null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            Icons.Default.Devices, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(device.name, style = MaterialTheme.typography.bodyMedium)
                             if (device.lastSeen != null) {
-                                Text("Last seen: ${device.lastSeen}",
+                                Text(
+                                    "Last seen: ${device.lastSeen}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             if (device.isCurrent) {
-                                Text("Current device",
+                                Text(
+                                    "Current device",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary)
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                         if (!device.isCurrent) {
@@ -114,7 +141,8 @@ fun AccountSettingsScreen(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error)
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
                     Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
@@ -122,6 +150,52 @@ fun AccountSettingsScreen(
                 }
             }
         }
+    }
+
+    if (showEditProfile) {
+        AlertDialog(
+            onDismissRequest = { showEditProfile = false },
+            title = { Text("Edit Profile") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = editDisplayName,
+                        onValueChange = { editDisplayName = it },
+                        label = { Text("Display name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editUsername,
+                        onValueChange = { editUsername = it.lowercase().replace("[^a-z0-9_]".toRegex(), "") },
+                        label = { Text("Username") },
+                        prefix = { Text("@") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editAbout,
+                        onValueChange = { if (it.length <= 139) editAbout = it },
+                        label = { Text("About") },
+                        supportingText = { Text("${editAbout.length}/139") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditProfile = false
+                    onProfileUpdate(
+                        editDisplayName.ifBlank { null },
+                        editUsername.ifBlank { null }.let { if (it == username) null else it },
+                        editAbout.ifBlank { null }.let { if (it == about) null else it }
+                    )
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditProfile = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showDeleteConfirm) {

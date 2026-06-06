@@ -15,13 +15,16 @@ import org.enchant.core.base.SecurePreferences
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecuritySettingsScreen(
-    onSetupTwoStep: () -> Unit,
+    twoStepEnabled: Boolean = false,
+    onSetupTwoStep: (String) -> Unit = {},
+    onDisableTwoStep: (String) -> Unit = {},
     onBack: () -> Unit
 ) {
     var appLockEnabled by remember { mutableStateOf(SecurePreferences.getBoolean("applock.enabled", false)) }
     val biometricAvailable = SecurePreferences.getBoolean("applock.biometric", false)
-    val safetyNumber = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED"
-    val twoStepEnabled = SecurePreferences.getBoolean("twostep.enabled", false)
+    var showTwoStepDialog by remember { mutableStateOf(false) }
+    var twoStepPin by remember { mutableStateOf("") }
+    var twoStepMode by remember { mutableStateOf("setup") }
 
     Scaffold(
         topBar = {
@@ -55,9 +58,11 @@ fun SecuritySettingsScreen(
                         Column {
                             Text("PIN lock", style = MaterialTheme.typography.bodyMedium)
                             if (biometricAvailable) {
-                                Text("Biometric unlock available",
+                                Text(
+                                    "Biometric unlock available",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                         Switch(
@@ -79,11 +84,17 @@ fun SecuritySettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Safety Number", style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(8.dp))
-                    Text(safetyNumber, style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                    Text("Verify with contacts to ensure secure communication",
+                    val safetyNumber = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED"
+                    Text(
+                        safetyNumber, style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Verify with contacts to ensure secure communication",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -103,12 +114,59 @@ fun SecuritySettingsScreen(
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(onClick = onSetupTwoStep) {
+                        IconButton(onClick = {
+                            twoStepMode = if (twoStepEnabled) "disable" else "setup"
+                            twoStepPin = ""
+                            showTwoStepDialog = true
+                        }) {
                             Icon(Icons.Default.Edit, "Setup")
                         }
                     }
                 }
             }
         }
+    }
+
+    if (showTwoStepDialog) {
+        AlertDialog(
+            onDismissRequest = { showTwoStepDialog = false },
+            title = {
+                Text(if (twoStepMode == "setup") "Setup Two-Step Verification" else "Disable Two-Step Verification")
+            },
+            text = {
+                Column {
+                    Text(
+                        if (twoStepMode == "setup")
+                            "Enter a 4-digit PIN to protect your account registration."
+                        else
+                            "Enter your PIN to disable two-step verification.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = twoStepPin,
+                        onValueChange = { if (it.length <= 4) twoStepPin = it },
+                        label = { Text("PIN") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showTwoStepDialog = false
+                        if (twoStepMode == "setup") onSetupTwoStep(twoStepPin)
+                        else onDisableTwoStep(twoStepPin)
+                    },
+                    enabled = twoStepPin.length == 4
+                ) {
+                    Text(if (twoStepMode == "setup") "Enable" else "Disable")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTwoStepDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
