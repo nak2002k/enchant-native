@@ -1,9 +1,9 @@
 package org.enchant.core.crypto
 
 /**
- * Signal-compatible KDF chain for root key → sending/receiving chain keys → message keys.
- *
- * Uses HMAC-SHA256 as the KDF (matching the Signal protocol spec). Each step derives
+ * KDF chain for root key to sending/receiving chain keys to message keys.
+
+ * Uses HMAC-SHA256 as the KDF. Each step derives
  * the next key in the chain and zeroes intermediate material.
  *
  * The chain works as follows:

@@ -37,7 +37,7 @@ class OfflineQueueTest {
             val msg = QueuedMessage(
                 recipientUserId = "user1",
                 recipientDeviceId = null,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = "hello".encodeToByteArray(),
                 senderTs = System.currentTimeMillis()
             )
@@ -51,7 +51,7 @@ class OfflineQueueTest {
                 OfflineQueue.enqueue(QueuedMessage(
                     recipientUserId = "user$i",
                     recipientDeviceId = null,
-                    messageType = "SIGNAL_MESSAGE",
+                    messageType = "ENCRYPTED_MESSAGE",
                     payload = "msg$i".encodeToByteArray(),
                     senderTs = System.currentTimeMillis()
                 ))
@@ -76,8 +76,8 @@ class OfflineQueueTest {
     inner class DequeueTest {
         @Test @DisplayName("dequeue returns first message")
         fun `dequeue returns first`() = runTest {
-            val msg1 = QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "first".encodeToByteArray(), senderTs = 1000)
-            val msg2 = QueuedMessage(recipientUserId = "user2", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "second".encodeToByteArray(), senderTs = 2000)
+            val msg1 = QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "ENCRYPTED_MESSAGE", payload = "first".encodeToByteArray(), senderTs = 1000)
+            val msg2 = QueuedMessage(recipientUserId = "user2", recipientDeviceId = null, messageType = "ENCRYPTED_MESSAGE", payload = "second".encodeToByteArray(), senderTs = 2000)
             OfflineQueue.enqueue(msg1)
             OfflineQueue.enqueue(msg2)
             val dequeued = OfflineQueue.pendingCount.value
@@ -99,7 +99,7 @@ class OfflineQueueTest {
             every { SecurePreferences.putInt(any(), any()) } returns Unit
             every { SecurePreferences.putString(any(), any()) } returns Unit
 
-            val msg = QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
+            val msg = QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "ENCRYPTED_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
             OfflineQueue.enqueue(msg)
             assertEquals(1, OfflineQueue.pendingCount.value)
 
@@ -115,7 +115,7 @@ class OfflineQueueTest {
                 OfflineQueue.enqueue(QueuedMessage(
                     recipientUserId = "user$i",
                     recipientDeviceId = null,
-                    messageType = "SIGNAL_MESSAGE",
+                    messageType = "ENCRYPTED_MESSAGE",
                     payload = "msg$i".encodeToByteArray(),
                     senderTs = System.currentTimeMillis()
                 ))
@@ -127,7 +127,7 @@ class OfflineQueueTest {
         @Test @DisplayName("pendingCount returns correct count")
         fun `pendingCount correct`() = runTest {
             assertEquals(0, OfflineQueue.pendingCount.value)
-            OfflineQueue.enqueue(QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
+            OfflineQueue.enqueue(QueuedMessage(recipientUserId = "user1", recipientDeviceId = null, messageType = "ENCRYPTED_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000))
             assertEquals(1, OfflineQueue.pendingCount.value)
         }
     }
@@ -153,7 +153,7 @@ class OfflineQueueTest {
                     id = "store-$i",
                     recipientUserId = "user1",
                     recipientDeviceId = null,
-                    messageType = "SIGNAL_MESSAGE",
+                    messageType = "ENCRYPTED_MESSAGE",
                     payload = "data".encodeToByteArray(),
                     senderTs = System.currentTimeMillis()
                 ))
@@ -168,7 +168,7 @@ class OfflineQueueTest {
                 id = "large-msg",
                 recipientUserId = "user1",
                 recipientDeviceId = null,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = largePayload,
                 senderTs = System.currentTimeMillis()
             ))
@@ -180,7 +180,7 @@ class OfflineQueueTest {
     inner class RemoveTest {
         @Test @DisplayName("remove removes message by ID")
         fun `remove by id`() = runTest {
-            val msg = QueuedMessage(id = "unique-id", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
+            val msg = QueuedMessage(id = "unique-id", recipientUserId = "user1", recipientDeviceId = null, messageType = "ENCRYPTED_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
             OfflineQueue.enqueue(msg)
             assertEquals(1, OfflineQueue.pendingCount.value)
             OfflineQueue.remove("unique-id")
@@ -211,7 +211,7 @@ class OfflineQueueTest {
             mockkObject(WebSocketManager)
             coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.success(Unit)
 
-            val msg = QueuedMessage(id = "drain-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
+            val msg = QueuedMessage(id = "drain-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "ENCRYPTED_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
             OfflineQueue.enqueue(msg)
             assertEquals(1, OfflineQueue.pendingCount.value)
 
@@ -232,7 +232,7 @@ class OfflineQueueTest {
             mockkObject(WebSocketManager)
             coEvery { WebSocketManager.requestRESTFallback(any()) } returns Result.failure(Exception("Network error"))
 
-            val msg = QueuedMessage(id = "fail-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "SIGNAL_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
+            val msg = QueuedMessage(id = "fail-msg", recipientUserId = "user1", recipientDeviceId = null, messageType = "ENCRYPTED_MESSAGE", payload = "test".encodeToByteArray(), senderTs = 1000)
             OfflineQueue.enqueue(msg)
 
             val results = OfflineQueue.drain()

@@ -46,7 +46,7 @@ class MessageProtobufHelperTest {
     }
 
     @Test
-    @DisplayName("buildDeleteContent produces parseable delete signal")
+    @DisplayName("buildDeleteContent produces parseable delete envelope")
     fun `build delete content`() {
         val targetTs = 1234567890L
         val bytes = MessageProtobufHelper.buildDeleteContent(targetTimestamp = targetTs)

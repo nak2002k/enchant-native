@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * Signal-compatible Double Ratchet for per-message encryption.
+ * Double Ratchet for per-message encryption.
  *
  * Implements the full Double Ratchet protocol:
  * - Symmetric ratchet: chain key → message key → next chain key (HMAC-SHA256)

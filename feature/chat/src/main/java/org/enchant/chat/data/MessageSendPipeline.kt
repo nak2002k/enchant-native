@@ -98,7 +98,7 @@ object MessageSendPipeline {
                 repo.insertMessage(MessageEntity(
                     conversationId = conversationId, senderId = selfId,
                     envelopeId = envelopeId,
-                    messageType = if (hasSession) "SIGNAL_MESSAGE" else "PREKEY_MESSAGE",
+                    messageType = if (hasSession) "ENCRYPTED_MESSAGE" else "PREKEY_MESSAGE",
                     content = plaintext.decodeToString(), status = "sending",
                     timestamp = now, replyToEnvelopeId = replyTo
                 ))
@@ -108,7 +108,7 @@ object MessageSendPipeline {
                     OfflineQueue.enqueue(QueuedMessage(
                         recipientUserId = recipientUserId,
                         recipientDeviceId = encrypted.recipientDeviceId,
-                        messageType = if (hasSession) "SIGNAL_MESSAGE" else "PREKEY_MESSAGE",
+                        messageType = if (hasSession) "ENCRYPTED_MESSAGE" else "PREKEY_MESSAGE",
                         payload = encrypted.payload, senderTs = now
                     ))
                     repo.updateMessageStatus(envelopeId, MessageStatus.PENDING)
@@ -119,7 +119,7 @@ object MessageSendPipeline {
                 val payloadB64 = CryptoHelper.base64UrlEncode(encrypted.payload)
                 val response = client.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", recipientUserId)
-                    put("message_type", if (hasSession) "SIGNAL_MESSAGE" else "PREKEY_MESSAGE")
+                    put("message_type", if (hasSession) "ENCRYPTED_MESSAGE" else "PREKEY_MESSAGE")
                     put("payload", payloadB64)
                     put("sender_ts", System.currentTimeMillis().toString())
                 })
@@ -136,7 +136,7 @@ object MessageSendPipeline {
                             OfflineQueue.enqueue(QueuedMessage(
                                 recipientUserId = recipientUserId,
                                 recipientDeviceId = encrypted.recipientDeviceId,
-                                messageType = if (hasSession) "SIGNAL_MESSAGE" else "PREKEY_MESSAGE",
+                                messageType = if (hasSession) "ENCRYPTED_MESSAGE" else "PREKEY_MESSAGE",
                                 payload = encrypted.payload, senderTs = now
                             ))
                             repo.updateMessageStatus(envelopeId, MessageStatus.PENDING)
@@ -229,7 +229,7 @@ object MessageSendPipeline {
 
                 repo.insertMessage(MessageEntity(
                     conversationId = conversationId, senderId = selfId,
-                    envelopeId = envelopeId, messageType = "SIGNAL_MESSAGE",
+                    envelopeId = envelopeId, messageType = "ENCRYPTED_MESSAGE",
                     content = payloadText, status = "sending", timestamp = now,
                     mediaKey = CryptoHelper.base64UrlEncode(mediaKey),
                     mediaMimeType = mimeType, mediaSize = fileBytes.size.toLong()
@@ -251,7 +251,7 @@ object MessageSendPipeline {
 
                 client.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", recipientUserId)
-                    put("message_type", "SIGNAL_MESSAGE")
+                    put("message_type", "ENCRYPTED_MESSAGE")
                     put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
                 })
                 repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
@@ -289,7 +289,7 @@ object MessageSendPipeline {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(senderUserId))
-                    put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
+                    put("message_type", kotlinx.serialization.json.JsonPrimitive("ENCRYPTED_MESSAGE"))
                     put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "receipt send failed") }
@@ -309,7 +309,7 @@ object MessageSendPipeline {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(senderUserId))
-                    put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
+                    put("message_type", kotlinx.serialization.json.JsonPrimitive("ENCRYPTED_MESSAGE"))
                     put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "receipt send failed") }
@@ -329,7 +329,7 @@ object MessageSendPipeline {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", recipientUserId)
-                    put("message_type", "SIGNAL_MESSAGE")
+                    put("message_type", "ENCRYPTED_MESSAGE")
                     put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
                 })
             } catch (e: Exception) { android.util.Log.w("Enchant", "silent: ${e.message}") }
@@ -362,7 +362,7 @@ object MessageSendPipeline {
 
                 apiClient!!.put("/v1/messages/$originalEnvelopeId", buildJsonObject {
                     put("new_envelope_id", newEnvelopeId)
-                    put("message_type", "SIGNAL_MESSAGE")
+                    put("message_type", "ENCRYPTED_MESSAGE")
                     put("payload", org.enchant.core.crypto.CryptoHelper.base64UrlEncode(encrypted.payload))
                 })
 
@@ -383,7 +383,7 @@ object MessageSendPipeline {
                     ?: return@withContext Result.failure(Exception("Encryption failed"))
                 apiClient!!.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(recipientUserId))
-                    put("message_type", kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"))
+                    put("message_type", kotlinx.serialization.json.JsonPrimitive("ENCRYPTED_MESSAGE"))
                     put("payload", kotlinx.serialization.json.JsonPrimitive(CryptoHelper.base64UrlEncode(encrypted.payload)))
                 })
                 repo.markMessageDeleted(envelopeId)

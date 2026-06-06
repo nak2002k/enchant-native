@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
-@DisplayName("DoubleRatchet — Signal-compatible Double Ratchet")
+@DisplayName("DoubleRatchet — Double Ratchet tests")
 class DoubleRatchetTest {
 
     @Nested @DisplayName("Initialization")

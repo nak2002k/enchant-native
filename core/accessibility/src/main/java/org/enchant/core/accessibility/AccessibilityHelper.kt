@@ -41,7 +41,7 @@ object AccessibilityHelper {
 
     /**
      * Returns true when system-wide animations are disabled.
-     * Mirrors Signal's [AccessibilityUtil.areAnimationsDisabled].
+     * Checks if animations are disabled for accessibility.
      */
     fun areAnimationsDisabled(context: Context): Boolean {
         return try {

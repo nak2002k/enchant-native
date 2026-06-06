@@ -62,7 +62,7 @@ class DatabasePoolTest {
             verify(atLeast = 1) {
                 db.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS messages") })
                 db.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS conversations") })
-                db.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS signal_sessions") })
+                db.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS enchant_sessions") })
                 db.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS identities") })
                 db.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS key_material") })
                 db.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS groups_table") })

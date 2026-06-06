@@ -40,7 +40,7 @@ data class ConversationEntity(
     val disappearTimerSeconds: Int = 0
 )
 
-data class SignalSessionEntity(
+data class EnchantSessionEntity(
     val userId: String,
     val deviceId: String,
     val serializedSession: ByteArray,

@@ -64,25 +64,25 @@ class RegistrationNavKeyTest {
         @Test
         fun `forQuickRestore creates correct selection`() {
             val key = RegistrationNavKey.ArchiveRestoreSelection.forQuickRestore(hasRemoteBackup = true)
-            assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.SignalSecureBackup))
+            assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.EnchantSecureBackup))
             assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.DeviceTransfer))
             assertFalse(key.restoreOptions.contains(ArchiveRestoreOption.None))
             assertFalse(key.isPreRegistration)
         }
 
         @Test
-        fun `forQuickRestore without remote backup excludes SignalSecureBackup`() {
+        fun `forQuickRestore without remote backup excludes EnchantSecureBackup`() {
             val key = RegistrationNavKey.ArchiveRestoreSelection.forQuickRestore(hasRemoteBackup = false)
             assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.DeviceTransfer))
             assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.LocalBackup))
-            assertFalse(key.restoreOptions.contains(ArchiveRestoreOption.SignalSecureBackup))
+            assertFalse(key.restoreOptions.contains(ArchiveRestoreOption.EnchantSecureBackup))
         }
 
         @Test
-        fun `forManualRestore includes local backup and signal backup`() {
+        fun `forManualRestore includes local backup and enchant backup`() {
             val key = RegistrationNavKey.ArchiveRestoreSelection.forManualRestore()
             assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.LocalBackup))
-            assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.SignalSecureBackup))
+            assertTrue(key.restoreOptions.contains(ArchiveRestoreOption.EnchantSecureBackup))
             assertTrue(key.isPreRegistration)
         }
 

@@ -161,7 +161,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversations_last_message_ts ON conversations(last_message_timestamp DESC)")
 
             db.execSQL("""
-                CREATE TABLE IF NOT EXISTS signal_sessions (
+                CREATE TABLE IF NOT EXISTS enchant_sessions (
                     user_id TEXT NOT NULL, device_id TEXT NOT NULL,
                     serialized_session BLOB NOT NULL, created_at INTEGER, last_used_at INTEGER,
                     archived INTEGER DEFAULT 0, PRIMARY KEY(user_id, device_id)

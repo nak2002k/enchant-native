@@ -6,7 +6,7 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Sender Key management for group messaging.
  *
- * Implements the Signal sender keys protocol: each group member generates a
+ * Implements the sender keys protocol: each group member generates a
  * sender key and distributes it to all other members. Messages are then encrypted
  * with the sender key's symmetric chain, avoiding the O(n) encryption cost of
  * pairwise Double Ratchet.

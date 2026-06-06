@@ -3,7 +3,7 @@ package org.enchant.core.crypto
 /**
  * X3DH (Extended Triple Diffie-Hellman) key agreement.
  *
- * Implements the Signal protocol's X3DH for establishing a shared secret between
+ * Implements the X3DH key agreement for establishing a shared secret between
  * two parties who have never communicated before. Uses Ed25519 identity keys
  * (converted to X25519 for DH) and X25519 signed/one-time prekeys.
  *

@@ -51,7 +51,7 @@ sealed class CallAction {
     data class SetOnHold(val hold: Boolean) : CallAction()
     data class RaiseHand(val raised: Boolean) : CallAction()
 
-    // ── Granular Error Reasons (Signal-Style) ──
+     // ── Granular Error Reasons ──
     data object CallFailedTimeout : CallAction()
     data object CallFailedIce : CallAction()
     data object CallFailedDeclinedElsewhere : CallAction()

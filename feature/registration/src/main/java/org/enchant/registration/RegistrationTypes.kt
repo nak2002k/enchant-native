@@ -14,7 +14,7 @@ enum class PendingRestoreOption {
 
 @Serializable
 enum class ArchiveRestoreOption {
-    SignalSecureBackup, LocalBackup, DeviceTransfer, None
+    EnchantSecureBackup, LocalBackup, DeviceTransfer, None
 }
 
 @Serializable

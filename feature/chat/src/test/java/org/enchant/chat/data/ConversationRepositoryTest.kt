@@ -170,7 +170,7 @@ class ConversationRepositoryTest {
             coEvery { messageDao.insert(any()) } returns 1L
             val msg = MessageEntity(
                 conversationId = "conv-1", senderId = "self-user",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
+                envelopeId = "env-1", messageType = "ENCRYPTED_MESSAGE",
                 content = "Hello", status = "sending", timestamp = 1000
             )
             val id = repo.insertMessage(msg)
@@ -182,7 +182,7 @@ class ConversationRepositoryTest {
             coEvery { messageDao.insert(any()) } returns 1L
             val msg = MessageEntity(
                 conversationId = "conv-1", senderId = "self-user",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
+                envelopeId = "env-1", messageType = "ENCRYPTED_MESSAGE",
                 content = "Hello", status = "sending", timestamp = 1000,
                 disappearAt = 2000
             )
@@ -197,7 +197,7 @@ class ConversationRepositoryTest {
         fun `insert and update`() = runTest {
             val msg = MessageEntity(
                 conversationId = "conv-1", senderId = "sender-1",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
+                envelopeId = "env-1", messageType = "ENCRYPTED_MESSAGE",
                 content = "Hello", status = "delivered", timestamp = 1000
             )
             repo.insertMessageAndUpdateConversation(msg, "direct")
@@ -210,7 +210,7 @@ class ConversationRepositoryTest {
         fun `get message by envelope`() = runTest {
             coEvery { messageDao.getByEnvelopeId(any()) } returns MessageEntity(
                 localId = 1, conversationId = "conv-1", senderId = "user-1",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
+                envelopeId = "env-1", messageType = "ENCRYPTED_MESSAGE",
                 content = "Hello", status = "delivered", timestamp = 1000
             )
             val msg = repo.getMessage("env-1")
@@ -229,7 +229,7 @@ class ConversationRepositoryTest {
         fun `get message by local id`() = runTest {
             coEvery { messageDao.getById(any()) } returns MessageEntity(
                 localId = 42, conversationId = "conv-1", senderId = "user-1",
-                envelopeId = "env-1", messageType = "SIGNAL_MESSAGE",
+                envelopeId = "env-1", messageType = "ENCRYPTED_MESSAGE",
                 content = "Hello", status = "delivered", timestamp = 1000
             )
             val msg = repo.getMessageByLocalId(42)

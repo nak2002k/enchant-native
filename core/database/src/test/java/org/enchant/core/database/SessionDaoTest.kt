@@ -26,25 +26,25 @@ class SessionDaoTest {
         dao = SessionDao(mockPool)
     }
 
-    @Test @DisplayName("store inserts into signal_sessions")
+    @Test @DisplayName("store inserts into enchant_sessions")
     fun `store`() = runTest {
         dao.store("user1", "dev1", ByteArray(10))
-        verify { mockDb.compileStatement(match { it.contains("signal_sessions") }) }
+        verify { mockDb.compileStatement(match { it.contains("enchant_sessions") }) }
     }
 
-    @Test @DisplayName("load selects from signal_sessions")
+    @Test @DisplayName("load selects from enchant_sessions")
     fun `load`() = runTest {
         val mc = mockk<net.sqlcipher.Cursor>(relaxed = true)
         every { mockDb.rawQuery(any(), any()) } returns mc
         every { mc.moveToFirst() } returns false
         dao.load("user1", "dev1")
-        verify { mockDb.rawQuery(match { it.contains("signal_sessions") }, any()) }
+        verify { mockDb.rawQuery(match { it.contains("enchant_sessions") }, any()) }
     }
 
-    @Test @DisplayName("delete removes from signal_sessions")
+    @Test @DisplayName("delete removes from enchant_sessions")
     fun `delete`() = runTest {
         dao.delete("user1", "dev1")
-        verify { mockDb.execSQL(match { it.contains("DELETE") && it.contains("signal_sessions") }, any()) }
+        verify { mockDb.execSQL(match { it.contains("DELETE") && it.contains("enchant_sessions") }, any()) }
     }
 
     @Test @DisplayName("hasSession checks existence")
@@ -53,7 +53,7 @@ class SessionDaoTest {
         every { mockDb.rawQuery(any(), any()) } returns mc
         every { mc.moveToFirst() } returns true
         dao.hasSession("user1", "dev1")
-        verify { mockDb.rawQuery(match { it.contains("signal_sessions") }, any()) }
+        verify { mockDb.rawQuery(match { it.contains("enchant_sessions") }, any()) }
     }
 
     @Test @DisplayName("deleteAllForUser deletes all user sessions")

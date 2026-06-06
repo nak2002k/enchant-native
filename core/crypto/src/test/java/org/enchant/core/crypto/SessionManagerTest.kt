@@ -99,13 +99,13 @@ class SessionManagerTest {
             assertEquals(SessionManager.MessageType.PREKEY_MESSAGE, result!!.messageType)
         }
 
-        @Test @DisplayName("encryptMessage returns SIGNAL_MESSAGE on subsequent encrypt")
-        fun `encrypt second is signal`() = runTest {
+        @Test @DisplayName("encryptMessage returns ENCRYPTED_MESSAGE on subsequent encrypt")
+        fun `encrypt second is encrypted message`() = runTest {
             setupKeysAndBundle()
             SessionManager.encryptMessage("bob", "first".encodeToByteArray())
             val result = SessionManager.encryptMessage("bob", "second".encodeToByteArray())
             assertNotNull(result)
-            assertEquals(SessionManager.MessageType.SIGNAL_MESSAGE, result!!.messageType)
+            assertEquals(SessionManager.MessageType.ENCRYPTED_MESSAGE, result!!.messageType)
         }
 
         @Test @DisplayName("encryptMessage payload is non-empty")
@@ -418,11 +418,11 @@ class SessionManagerTest {
         @Test @DisplayName("EncryptedPayload holds correct values")
         fun `payload values`() {
             val payload = SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.SIGNAL_MESSAGE,
+                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = ByteArray(10) { 1 },
                 recipientDeviceId = "device-1"
             )
-            assertEquals(SessionManager.MessageType.SIGNAL_MESSAGE, payload.messageType)
+            assertEquals(SessionManager.MessageType.ENCRYPTED_MESSAGE, payload.messageType)
             assertEquals(10, payload.payload.size)
             assertEquals("device-1", payload.recipientDeviceId)
         }

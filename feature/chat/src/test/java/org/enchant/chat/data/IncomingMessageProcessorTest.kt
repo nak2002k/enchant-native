@@ -63,7 +63,7 @@ class IncomingMessageProcessorTest {
                 envelopeId = "env-1",
                 senderUserId = null,
                 senderDeviceId = null,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = "payload".encodeToByteArray(),
                 serverTimestamp = System.currentTimeMillis(),
                 ephemeral = false
@@ -81,7 +81,7 @@ class IncomingMessageProcessorTest {
                 envelopeId = "env-1",
                 senderUserId = "blocked-user",
                 senderDeviceId = null,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = "payload".encodeToByteArray(),
                 serverTimestamp = System.currentTimeMillis(),
                 ephemeral = false
@@ -104,7 +104,7 @@ class IncomingMessageProcessorTest {
                 envelopeId = "env-1",
                 senderUserId = "sender-1",
                 senderDeviceId = null,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = "payload".encodeToByteArray(),
                 serverTimestamp = System.currentTimeMillis(),
                 ephemeral = false
@@ -121,7 +121,7 @@ class IncomingMessageProcessorTest {
                 envelopeId = "env-1",
                 senderUserId = "sender-1",
                 senderDeviceId = null,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = "payload".encodeToByteArray(),
                 serverTimestamp = System.currentTimeMillis(),
                 ephemeral = false
@@ -267,7 +267,7 @@ class IncomingMessageProcessorTest {
                     envelopeId = "env-$i",
                     senderUserId = "sender-1",
                     senderDeviceId = null,
-                    messageType = "SIGNAL_MESSAGE",
+                    messageType = "ENCRYPTED_MESSAGE",
                     payload = "msg-$i".encodeToByteArray(),
                     serverTimestamp = System.currentTimeMillis(),
                     ephemeral = false
@@ -278,7 +278,7 @@ class IncomingMessageProcessorTest {
 
     @Nested @DisplayName("Disappear Timer")
     inner class DisappearTimerTest {
-        @Test @DisplayName("processSignalMessage applies disappear timer when configured")
+        @Test @DisplayName("processEncryptedMessage applies disappear timer when configured")
         fun `process applies disappear timer`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
             coEvery { SessionManager.decryptMessage(any(), any()) } returns org.enchant.core.crypto.DecryptedResult(
@@ -298,7 +298,7 @@ class IncomingMessageProcessorTest {
                 envelopeId = "env-1",
                 senderUserId = "sender-1",
                 senderDeviceId = null,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = "payload".encodeToByteArray(),
                 serverTimestamp = System.currentTimeMillis(),
                 ephemeral = false

@@ -3,7 +3,7 @@ package org.enchant.core.crypto
 /**
  * Sealed Sender (anonymous sender) encryption.
  *
- * Implements the Signal sealed sender protocol: the sender's identity is encrypted
+ * Implements the sealed sender protocol: the sender's identity is encrypted
  * inside the message payload using a key derived from the recipient's profile key.
  * The server sees only an opaque blob and the recipient — it cannot determine who
  * sent the message.

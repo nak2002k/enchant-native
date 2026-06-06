@@ -11,7 +11,7 @@ import kotlin.system.exitProcess
  *
  * Also clears sensitive data from memory on crash to prevent data leakage in crash reports.
  *
- * Mirrors Signal's SignalUncaughtExceptionHandler behavior.
+ * Based on proven crash handler patterns for secure messaging apps.
  *
  * Install during Application.onCreate() BEFORE any other initialization:
  * ```

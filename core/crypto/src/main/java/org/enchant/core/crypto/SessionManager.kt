@@ -115,7 +115,7 @@ object SessionManager {
                         ourEk = newState.sendingRatchetKeyPublic ?: return@withLock null
                     )
                 } else {
-                    buildSignalPayload(message.header, message.ciphertext)
+                    buildEnvelopePayload(message.header, message.ciphertext)
                 }
 
                 val independentState = newState.deepCopy()
@@ -124,7 +124,7 @@ object SessionManager {
                 persistSession(sKey, independentState)
 
                 EncryptedPayload(
-                    messageType = if (isNewSession) MessageType.PREKEY_MESSAGE else MessageType.SIGNAL_MESSAGE,
+                    messageType = if (isNewSession) MessageType.PREKEY_MESSAGE else MessageType.ENCRYPTED_MESSAGE,
                     payload = combinedPayload,
                     recipientDeviceId = null
                 )
@@ -161,7 +161,7 @@ object SessionManager {
     // ──────────────────────────────────────────────
 
     /**
-     * Decrypt a regular Signal message (existing session).
+     * Decrypt a regular encrypted message (existing session).
      *
      * @param senderUserId the sender's user ID
      * @param payload the encrypted payload [headerSize(4) | header | ciphertext]
@@ -173,7 +173,7 @@ object SessionManager {
                 val sKey = makeSessionKey(senderUserId)
                 val state = sessions[sKey] ?: return@withLock null
 
-                val (headerBytes, ciphertextBytes) = parseSignalPayload(payload)
+                val (headerBytes, ciphertextBytes) = parseEnvelopePayload(payload)
                     ?: return@withLock null
 
                 val ratchetMessage = DoubleRatchet.RatchetMessage(
@@ -389,7 +389,7 @@ object SessionManager {
         }.array()
     }
 
-    private fun buildSignalPayload(header: ByteArray, ciphertext: ByteArray): ByteArray {
+    private fun buildEnvelopePayload(header: ByteArray, ciphertext: ByteArray): ByteArray {
         return ByteBuffer.allocate(4 + header.size + ciphertext.size)
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(header.size)
@@ -398,7 +398,7 @@ object SessionManager {
             .array()
     }
 
-    private fun parseSignalPayload(payload: ByteArray): Pair<ByteArray, ByteArray>? {
+    private fun parseEnvelopePayload(payload: ByteArray): Pair<ByteArray, ByteArray>? {
         return try {
             val buf = ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN)
             if (buf.remaining() < 4) return null
@@ -419,7 +419,7 @@ object SessionManager {
     // ──────────────────────────────────────────────
 
     enum class MessageType {
-        SIGNAL_MESSAGE,
+        ENCRYPTED_MESSAGE,
         PREKEY_MESSAGE
     }
 

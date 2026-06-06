@@ -102,8 +102,8 @@ object IncomingMessageProcessor {
                     return@withContext processPreKeyMessage(envelope, senderId, repo)
                 }
 
-                if (envelope.messageType == "SIGNAL_MESSAGE") {
-                    return@withContext processSignalMessage(envelope, senderId, repo)
+                if (envelope.messageType == "ENCRYPTED_MESSAGE") {
+                    return@withContext processEncryptedMessage(envelope, senderId, repo)
                 }
 
                 ProcessResult.Handled
@@ -133,7 +133,7 @@ object IncomingMessageProcessor {
                     MessageEntity(
                         conversationId = senderUserId,
                         senderId = senderUserId,
-                        messageType = "SIGNAL_MESSAGE",
+                        messageType = "ENCRYPTED_MESSAGE",
                         content = plaintext,
                         status = "delivered",
                         timestamp = envelope.serverTimestamp ?: now,
@@ -157,7 +157,7 @@ object IncomingMessageProcessor {
         }
     }
 
-    private suspend fun processSignalMessage(
+    private suspend fun processEncryptedMessage(
         envelope: IncomingEnvelope, senderUserId: String, repo: ConversationRepository
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
@@ -178,7 +178,7 @@ object IncomingMessageProcessor {
                             MessageEntity(
                                 conversationId = senderUserId,
                                 senderId = senderUserId,
-                                messageType = "SIGNAL_MESSAGE",
+                                messageType = "ENCRYPTED_MESSAGE",
                                 content = parsed.body,
                                 status = "delivered",
                                 timestamp = envelope.serverTimestamp ?: now,
@@ -219,7 +219,7 @@ object IncomingMessageProcessor {
                     }
                 }
             } catch (e: Exception) {
-                ProcessResult.Error("Signal message processing failed: ${e.message}")
+                ProcessResult.Error("Encrypted message processing failed: ${e.message}")
             }
         }
     }
@@ -254,7 +254,7 @@ object IncomingMessageProcessor {
                             MessageEntity(
                                 conversationId = senderUserId,
                                 senderId = senderUserId,
-                                messageType = "SIGNAL_MESSAGE",
+                                messageType = "ENCRYPTED_MESSAGE",
                                 content = dataMsg.body,
                                 status = "delivered",
                                 timestamp = envelope.serverTimestamp ?: now,

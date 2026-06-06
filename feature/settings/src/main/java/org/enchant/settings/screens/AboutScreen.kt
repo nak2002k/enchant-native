@@ -61,8 +61,8 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
                     Text("End-to-End Encrypted Messenger", style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Messages are secured with the Signal Protocol " +
-                        "(X3DH key agreement + Double Ratchet encryption). " +
+                        "Messages are secured with X3DH key agreement " +
+                        "and Double Ratchet encryption. " +
                         "Your private keys never leave your device.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

@@ -217,7 +217,7 @@ object WebSocketManager {
                 id = java.util.UUID.randomUUID().toString(),
                 recipientUserId = recipientUserId,
                 recipientDeviceId = recipientDeviceId,
-                messageType = "SIGNAL_MESSAGE",
+                messageType = "ENCRYPTED_MESSAGE",
                 payload = payload,
                 senderTs = senderTs ?: System.currentTimeMillis()
             )).getOrNull()?.toString()
@@ -260,37 +260,37 @@ object WebSocketManager {
     }
 
     suspend fun sendTypingStart(recipientUserId: String) {
-        sendSignalMessage(recipientUserId, ByteArray(0), "TYPING_START")
+        sendEnchantMessage(recipientUserId, ByteArray(0), "TYPING_START")
     }
 
     suspend fun sendTypingStop(recipientUserId: String) {
-        sendSignalMessage(recipientUserId, ByteArray(0), "TYPING_STOP")
+        sendEnchantMessage(recipientUserId, ByteArray(0), "TYPING_STOP")
     }
 
     suspend fun sendDeliveryReceipt(envelopeId: String, senderUserId: String) {
         val receiptPayload = envelopeId.toByteArray()
-        sendSignalMessage(senderUserId, receiptPayload, "DELIVERY_RECEIPT")
+        sendEnchantMessage(senderUserId, receiptPayload, "DELIVERY_RECEIPT")
     }
 
     suspend fun sendReadReceipt(envelopeId: String, senderUserId: String) {
         val receiptPayload = envelopeId.toByteArray()
-        sendSignalMessage(senderUserId, receiptPayload, "READ_RECEIPT")
+        sendEnchantMessage(senderUserId, receiptPayload, "READ_RECEIPT")
     }
 
     suspend fun sendCallOffer(recipientUserId: String, sdp: String): Boolean {
-        return sendCallSignal(recipientUserId, sdp.toByteArray())
+        return sendCallMessage(recipientUserId, sdp.toByteArray())
     }
 
     suspend fun sendCallAnswer(recipientUserId: String, sdp: String): Boolean {
-        return sendCallSignal(recipientUserId, sdp.toByteArray())
+        return sendCallMessage(recipientUserId, sdp.toByteArray())
     }
 
     suspend fun sendCallIce(recipientUserId: String, candidate: String): Boolean {
-        return sendCallSignal(recipientUserId, candidate.toByteArray())
+        return sendCallMessage(recipientUserId, candidate.toByteArray())
     }
 
     suspend fun sendCallEnd(recipientUserId: String): Boolean {
-        return sendCallSignal(recipientUserId, ByteArray(0))
+        return sendCallMessage(recipientUserId, ByteArray(0))
     }
 
     suspend fun requestRESTFallback(message: OutgoingMessage): Result<Any> {
@@ -429,7 +429,7 @@ object WebSocketManager {
         connect()
     }
 
-    private suspend fun sendSignalMessage(recipientUserId: String, payload: ByteArray, messageType: String) {
+    private suspend fun sendEnchantMessage(recipientUserId: String, payload: ByteArray, messageType: String) {
         if (_connectionState.value != ConnectionState.CONNECTED) return
         val content = com.google.protobuf.ByteString.copyFrom(payload)
         val type = when (messageType) {
@@ -458,7 +458,7 @@ object WebSocketManager {
         webSocket?.send(frame.toByteArray().toByteString())
     }
 
-    private suspend fun sendCallSignal(recipientUserId: String, data: ByteArray): Boolean {
+    private suspend fun sendCallMessage(recipientUserId: String, data: ByteArray): Boolean {
         if (_connectionState.value != ConnectionState.CONNECTED) return false
         val content = com.google.protobuf.ByteString.copyFrom(data)
         val envelope = EnvelopeProtos.Envelope.newBuilder()

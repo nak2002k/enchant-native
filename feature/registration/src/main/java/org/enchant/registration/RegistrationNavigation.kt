@@ -110,7 +110,7 @@ sealed interface RegistrationNavKey : NavKey {
             fun forQuickRestore(hasRemoteBackup: Boolean): ArchiveRestoreSelection =
                 ArchiveRestoreSelection(
                     restoreOptions = if (hasRemoteBackup) {
-                        listOf(ArchiveRestoreOption.SignalSecureBackup, ArchiveRestoreOption.DeviceTransfer)
+                        listOf(ArchiveRestoreOption.EnchantSecureBackup, ArchiveRestoreOption.DeviceTransfer)
                     } else {
                         listOf(ArchiveRestoreOption.DeviceTransfer, ArchiveRestoreOption.LocalBackup)
                     },
@@ -121,7 +121,7 @@ sealed interface RegistrationNavKey : NavKey {
                 ArchiveRestoreSelection(
                     restoreOptions = listOf(
                         ArchiveRestoreOption.LocalBackup,
-                        ArchiveRestoreOption.SignalSecureBackup
+                        ArchiveRestoreOption.EnchantSecureBackup
                     ),
                     isPreRegistration = true
                 )
@@ -431,7 +431,7 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                 when (event) {
                     is ArchiveRestoreSelectionScreenEvents.RestoreOptionSelected -> {
                         when (event.option) {
-                            ArchiveRestoreOption.SignalSecureBackup ->
+                            ArchiveRestoreOption.EnchantSecureBackup ->
                                 parentEventEmitter.navigateTo(
                                     RegistrationNavKey.EnterAepForRemoteBackupPreRegistration(
                                         e164 = ""

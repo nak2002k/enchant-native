@@ -50,7 +50,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
                 apiClient.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(
                     mapOf(
                         "recipient_user_id" to kotlinx.serialization.json.JsonPrimitive(conversationId),
-                        "message_type" to kotlinx.serialization.json.JsonPrimitive("SIGNAL_MESSAGE"),
+                        "message_type" to kotlinx.serialization.json.JsonPrimitive("ENCRYPTED_MESSAGE"),
                         "payload" to kotlinx.serialization.json.JsonPrimitive(
                             java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(payload)
                         )
