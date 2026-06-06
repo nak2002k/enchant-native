@@ -32,7 +32,13 @@ import org.enchant.settings.SettingsViewModel
 import org.enchant.settings.screens.*
 import org.enchant.contacts.screens.ContactListScreen
 import org.enchant.contacts.ContactsViewModel
-import org.enchant.groups.screens.CreateGroupScreen
+import org.enchant.groups.GroupsViewModel
+import org.enchant.groups.screens.*
+import org.enchant.status.StatusViewModel
+import org.enchant.status.screens.*
+import org.enchant.calls.CallLogViewModel
+import org.enchant.calls.screens.CallLogScreen
+import org.enchant.core.calls.CallLogFilter
 import org.enchant.window.AppScaffold
 import org.enchant.window.rememberAppScaffoldNavigator
 
@@ -150,9 +156,26 @@ private fun ListPaneContent(
 
 @Composable
 private fun CallsListContent() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Calls", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
-    }
+    val callLogViewModel: CallLogViewModel = viewModel()
+    LaunchedEffect(Unit) { callLogViewModel.loadCallLogs() }
+    val callLogState by callLogViewModel.uiState.collectAsStateWithLifecycle()
+    CallLogScreen(
+        entries = callLogState.filteredEntries,
+        filter = callLogState.filter,
+        isLoading = callLogState.isLoading,
+        isSelectionMode = callLogState.isSelectionMode,
+        selectedIds = callLogState.selectedIds,
+        onFilterChange = { callLogViewModel.setFilter(it) },
+        onEntryClick = { /* TODO: open call detail */ },
+        onStartSelection = { callLogViewModel.startSelection() },
+        onEndSelection = { callLogViewModel.endSelection() },
+        onToggleSelected = { callLogViewModel.toggleSelected(it) },
+        onSelectAll = { callLogViewModel.selectAll() },
+        onDelete = {
+            val staged = callLogViewModel.stageDeletion()
+            callLogViewModel.confirmDeletion(staged)
+        }
+    )
 }
 
 @Composable
@@ -305,24 +328,56 @@ private fun DetailPaneContent(
             }
             // Groups
             topDetail is MainNavigationDetailLocation.Groups -> {
-                PlaceholderScreen("Groups")
+                val groupsViewModel: GroupsViewModel = viewModel()
+                LaunchedEffect(Unit) { groupsViewModel.loadGroups() }
+                val groupsState by groupsViewModel.uiState.collectAsStateWithLifecycle()
+                GroupListScreen(
+                    groups = groupsState.groups,
+                    isLoading = groupsState.isLoading,
+                    error = groupsState.error,
+                    onGroupClick = { groupId -> onNavigate(MainNavigationDetailLocation.GroupInfo(groupId)) },
+                    onCreateGroup = { onNavigate(MainNavigationDetailLocation.CreateGroup) },
+                    onJoinGroup = { /* TODO: join group via code */ },
+                    onRefresh = { groupsViewModel.loadGroups() }
+                )
             }
             topDetail is MainNavigationDetailLocation.CreateGroup -> {
-                val contactsViewModel: ContactsViewModel = viewModel()
-                LaunchedEffect(Unit) { contactsViewModel.loadContacts() }
-                val contactsState by contactsViewModel.uiState.collectAsStateWithLifecycle()
+                val groupsViewModel: GroupsViewModel = viewModel()
                 CreateGroupScreen(
                     onGroupCreated = { groupId ->
                         onNavigate(MainNavigationDetailLocation.GroupInfo(groupId))
                     },
                     onNavigateBack = onNavigateBack,
                     onCreateGroup = { name, description, members ->
-                        // TODO: create group via API
+                        groupsViewModel.createGroup(name, description, members)
                     }
                 )
             }
             topDetail is MainNavigationDetailLocation.GroupInfo -> {
-                PlaceholderScreen("Group: ${topDetail.groupId}")
+                val groupsViewModel: GroupsViewModel = viewModel()
+                LaunchedEffect(topDetail.groupId) {
+                    groupsViewModel.loadGroupInfo(topDetail.groupId)
+                    groupsViewModel.loadMembers(topDetail.groupId)
+                }
+                val groupsState by groupsViewModel.uiState.collectAsStateWithLifecycle()
+                GroupInfoScreen(
+                    group = groupsState.currentGroup,
+                    members = groupsState.members,
+                    joinRequests = groupsState.joinRequests.size,
+                    isLoading = groupsState.isLoading,
+                    error = groupsState.error,
+                    inviteLink = groupsState.inviteLink,
+                    onNavigateBack = onNavigateBack,
+                    onAddMembers = { /* TODO: add members dialog */ },
+                    onRemoveMember = { userId -> groupsViewModel.removeMember(topDetail.groupId, userId) },
+                    onUpdateRole = { userId, role -> groupsViewModel.updateMemberRole(topDetail.groupId, userId, role) },
+                    onCreateInviteLink = { groupsViewModel.createInviteLink(topDetail.groupId) },
+                    onCopyInviteLink = { link -> /* TODO: copy to clipboard */ },
+                    onViewJoinRequests = { /* TODO: view join requests */ },
+                    onLeaveGroup = { groupsViewModel.leaveGroup(topDetail.groupId); onNavigateBack() },
+                    onDeleteGroup = { groupsViewModel.deleteGroup(topDetail.groupId); onNavigateBack() },
+                    onRefresh = { groupsViewModel.loadGroupInfo(topDetail.groupId) }
+                )
             }
             // Contacts
             topDetail is MainNavigationDetailLocation.Contacts -> {
@@ -343,13 +398,44 @@ private fun DetailPaneContent(
             }
             // Status/Stories
             topDetail is MainNavigationDetailLocation.StatusFeed -> {
-                PlaceholderScreen("Status Feed")
+                val statusViewModel: StatusViewModel = viewModel()
+                LaunchedEffect(Unit) { statusViewModel.loadFeed() }
+                val statusState by statusViewModel.uiState.collectAsStateWithLifecycle()
+                StatusFeedScreen(
+                    myStatus = statusState.myStatus,
+                    feed = statusState.feed,
+                    onStatusTap = { statusId ->
+                        val index = statusState.feed.indexOfFirst { it.statusId == statusId }
+                        onNavigate(MainNavigationDetailLocation.StatusViewer(statusId))
+                    },
+                    onCreateStatus = { onNavigate(MainNavigationDetailLocation.StatusCreate) }
+                )
             }
             topDetail is MainNavigationDetailLocation.StatusCreate -> {
-                PlaceholderScreen("Create Status")
+                val statusViewModel: StatusViewModel = viewModel()
+                StatusCreateScreen(
+                    onCreateText = { text, bgColor, privacy ->
+                        statusViewModel.createTextStatus(text, bgColor, privacy)
+                        onNavigateBack()
+                    },
+                    onCreateMedia = { caption, privacy ->
+                        // TODO: media status creation
+                    },
+                    onBack = onNavigateBack
+                )
             }
             topDetail is MainNavigationDetailLocation.StatusViewer -> {
-                PlaceholderScreen("Status: ${topDetail.statusId}")
+                val statusViewModel: StatusViewModel = viewModel()
+                LaunchedEffect(Unit) { statusViewModel.loadFeed() }
+                val statusState by statusViewModel.uiState.collectAsStateWithLifecycle()
+                val index = statusState.feed.indexOfFirst { it.statusId == topDetail.statusId }.coerceAtLeast(0)
+                StatusViewerScreen(
+                    statuses = statusState.feed,
+                    initialIndex = index,
+                    onReply = { /* TODO: reply to status */ },
+                    onClose = onNavigateBack,
+                    onViewInfo = { /* TODO: view info */ }
+                )
             }
             // Other
             topDetail is MainNavigationDetailLocation.Channels -> {
@@ -360,6 +446,10 @@ private fun DetailPaneContent(
             }
             topDetail is MainNavigationDetailLocation.Profile -> {
                 PlaceholderScreen("Profile: ${topDetail.userId}")
+            }
+            // Call log
+            topDetail is MainNavigationDetailLocation.Calls.EditCallLinkName -> {
+                CallLinkDetailContent(roomId = topDetail.callLinkRoomId)
             }
             else -> {
                 EmptyDetailScreen()
