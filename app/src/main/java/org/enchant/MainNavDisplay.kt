@@ -28,6 +28,7 @@ import org.enchant.main.MainNavigationRail
 import org.enchant.MainNavigationViewModel
 import org.enchant.main.MainFloatingActionButtons
 import org.enchant.main.MainFloatingActionButtonsCallback
+import org.enchant.settings.SettingsViewModel
 import org.enchant.settings.screens.*
 import org.enchant.window.AppScaffold
 import org.enchant.window.rememberAppScaffoldNavigator
@@ -158,6 +159,10 @@ private fun DetailPaneContent(
     onNavigate: (MainNavigationDetailLocation) -> Unit,
     onNavigateBack: () -> Unit
 ) {
+    val settingsViewModel: SettingsViewModel = viewModel()
+    LaunchedEffect(Unit) { settingsViewModel.loadSettings() }
+    val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+
     AnimatedContent(
         targetState = detailStack.lastOrNull(),
         transitionSpec = {
@@ -191,12 +196,14 @@ private fun DetailPaneContent(
             }
             topDetail is MainNavigationDetailLocation.AccountSettings -> {
                 AccountSettingsScreen(
-                    displayName = "",
-                    username = null,
-                    about = null,
+                    displayName = settingsState.displayName,
+                    username = settingsState.username,
+                    about = settingsState.about,
                     onNavigateBack = onNavigateBack,
-                    onSave = {},
-                    onDeleteAccount = {}
+                    onSave = { name, user, ab ->
+                        // TODO: save profile via API
+                    },
+                    onDeleteAccount = { settingsViewModel.deleteAccount() }
                 )
             }
             topDetail is MainNavigationDetailLocation.SecuritySettings -> {
@@ -207,58 +214,59 @@ private fun DetailPaneContent(
             }
             topDetail is MainNavigationDetailLocation.PrivacySettings -> {
                 PrivacySettingsScreen(
-                    lastSeenVisibility = "everyone",
-                    onlineVisibility = true,
-                    avatarVisibility = "everyone",
-                    aboutVisibility = "everyone",
-                    readReceipts = true,
-                    blockedCount = 0,
-                    onLastSeenChange = {},
-                    onOnlineVisibilityChange = {},
-                    onAvatarVisibilityChange = {},
-                    onAboutVisibilityChange = {},
-                    onReadReceiptsChange = {},
+                    lastSeenVisibility = settingsState.lastSeenVisibility,
+                    onlineVisibility = settingsState.onlineVisibility,
+                    avatarVisibility = settingsState.avatarVisibility,
+                    aboutVisibility = settingsState.aboutVisibility,
+                    readReceipts = settingsState.readReceipts,
+                    blockedCount = settingsState.blockedUsers.size,
+                    onLastSeenChange = { settingsViewModel.updatePrivacy(it, settingsState.onlineVisibility, settingsState.avatarVisibility, settingsState.aboutVisibility, settingsState.readReceipts) },
+                    onOnlineVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, it, settingsState.avatarVisibility, settingsState.aboutVisibility, settingsState.readReceipts) },
+                    onAvatarVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, it, settingsState.aboutVisibility, settingsState.readReceipts) },
+                    onAboutVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, settingsState.avatarVisibility, it, settingsState.readReceipts) },
+                    onReadReceiptsChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, settingsState.avatarVisibility, settingsState.aboutVisibility, it) },
                     onBlockedUsersClick = { onNavigate(MainNavigationDetailLocation.BlockedUsers) },
                     onNavigateBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.NotificationSettings -> {
                 NotificationsSettingsScreen(
-                    masterEnabled = true,
-                    messageNotifications = true,
-                    showPreview = true,
+                    masterEnabled = settingsState.notificationEnabled,
+                    messageNotifications = settingsState.messageNotifications,
+                    showPreview = settingsState.showPreview,
                     groupNotifications = true,
-                    onMasterEnabledChange = {},
-                    onMessageNotificationsChange = {},
-                    onShowPreviewChange = {},
+                    onMasterEnabledChange = { settingsViewModel.updateNotificationPrefs(it, settingsState.messageNotifications, settingsState.showPreview) },
+                    onMessageNotificationsChange = { settingsViewModel.updateNotificationPrefs(settingsState.notificationEnabled, it, settingsState.showPreview) },
+                    onShowPreviewChange = { settingsViewModel.updateNotificationPrefs(settingsState.notificationEnabled, settingsState.messageNotifications, it) },
                     onGroupNotificationsChange = {},
                     onNavigateBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.AppearanceSettings -> {
                 AppearanceSettingsScreen(
-                    currentTheme = "system",
-                    fontSize = 16f,
-                    onThemeChange = {},
-                    onFontSizeChange = {},
+                    currentTheme = settingsState.theme,
+                    fontSize = settingsState.fontSize,
+                    onThemeChange = { settingsViewModel.updateTheme(it) },
+                    onFontSizeChange = { settingsViewModel.updateFontSize(it) },
                     onNavigateBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.ChatsSettings -> {
                 ChatsSettingsScreen(
-                    defaultDisappearingTimer = 0,
-                    autoDownloadWifi = true,
-                    autoDownloadCellular = false,
-                    onDisappearingTimerChange = {},
-                    onAutoDownloadChange = { _, _ -> },
+                    defaultDisappearingTimer = settingsState.defaultDisappearingTimer,
+                    autoDownloadWifi = settingsState.autoDownloadWifi,
+                    autoDownloadCellular = settingsState.autoDownloadCellular,
+                    onDisappearingTimerChange = { settingsViewModel.updateDisappearingTimer(it) },
+                    onAutoDownloadChange = { wifi, cell -> settingsViewModel.updateAutoDownload(wifi, cell) },
                     onNavigateBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.StorageSettings -> {
+                LaunchedEffect(Unit) { settingsViewModel.getStorageUsage() }
                 StorageSettingsScreen(
-                    storageInfo = null,
-                    isProcessing = false,
-                    onClearCache = {},
+                    storageInfo = settingsState.storageInfo,
+                    isProcessing = settingsState.isProcessing,
+                    onClearCache = { settingsViewModel.clearCache() },
                     onTrimMessages = {},
                     onNavigateBack = onNavigateBack
                 )
