@@ -58,10 +58,6 @@ object EnchantCrypto {
     external fun enchant_argon2id_hash(plaintext: String, plaintext_len: Int, output: ByteArray, output_len: Int): Int
     external fun enchant_argon2id_hash_with_params(plaintext: ByteArray, plaintext_len: Int, salt: ByteArray, iterations: Int, memory_kb: Int, parallelism: Int, output: ByteArray, output_len: Int): Int
     external fun enchant_argon2id_verify(hash: String, hash_len: Int, plaintext: String, plaintext_len: Int): Int
-    external fun enchant_aes_init(): Int
-    external fun enchant_aes_is_available(): Int
-    external fun enchant_aes_256_gcm_encrypt(key: ByteArray, nonce: ByteArray, plaintext: ByteArray, plaintext_len: Int, aad: ByteArray, aad_len: Int, ciphertext: ByteArray, ciphertext_len: IntArray): Int
-    external fun enchant_aes_256_gcm_decrypt(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray, ciphertext_len: Int, aad: ByteArray, aad_len: Int, plaintext: ByteArray, plaintext_len: IntArray): Int
     external fun enchant_secure_zero(ptr: Long, len: Int)
     external fun enchant_secure_alloc(len: Int): Long
     external fun enchant_secure_free(ptr: Long, len: Int)

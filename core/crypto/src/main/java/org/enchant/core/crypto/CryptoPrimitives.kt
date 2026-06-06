@@ -185,22 +185,12 @@ object CryptoPrimitives {
     fun encryptAesGcm(plaintext: ByteArray, key: ByteArray, nonce: ByteArray? = null): ByteArray {
         require(key.size == AES_GCM_KEY_SIZE) { "AES key must be 32 bytes" }
         val n = nonce ?: generateRandomKey(AES_GCM_NONCE_SIZE)
-        if (EnchantCrypto.enchant_aes_is_available() == 0) {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, n))
-            val ct = cipher.doFinal(plaintext)
-            return ByteArray(n.size + ct.size).apply {
-                n.copyInto(this, 0)
-                ct.copyInto(this, n.size)
-            }
-        }
-        val ct = ByteArray(plaintext.size + AES_GCM_TAG_SIZE)
-        val ctLen = intArrayOf(0)
-        val rc = EnchantCrypto.enchant_aes_256_gcm_encrypt(key, n, plaintext, plaintext.size, ByteArray(0), 0, ct, ctLen)
-        if (rc != 0) throw RuntimeException("aes_256_gcm_encrypt failed: $rc")
-        return ByteArray(n.size + ctLen[0]).apply {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, n))
+        val ct = cipher.doFinal(plaintext)
+        return ByteArray(n.size + ct.size).apply {
             n.copyInto(this, 0)
-            ct.copyInto(this, 0, 0, ctLen[0])
+            ct.copyInto(this, n.size)
         }
     }
 
@@ -209,46 +199,25 @@ object CryptoPrimitives {
         require(data.size >= AES_GCM_NONCE_SIZE + AES_GCM_TAG_SIZE) { "Ciphertext too short" }
         val nonce = data.copyOfRange(0, AES_GCM_NONCE_SIZE)
         val ct = data.copyOfRange(AES_GCM_NONCE_SIZE, data.size)
-        if (EnchantCrypto.enchant_aes_is_available() == 0) {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, nonce))
-            return cipher.doFinal(ct)
-        }
-        val pt = ByteArray(ct.size)
-        val ptLen = intArrayOf(0)
-        val rc = EnchantCrypto.enchant_aes_256_gcm_decrypt(key, nonce, ct, ct.size, ByteArray(0), 0, pt, ptLen)
-        if (rc != 0) throw RuntimeException("aes_256_gcm_decrypt failed: $rc")
-        return pt.copyOf(ptLen[0])
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, nonce))
+        return cipher.doFinal(ct)
     }
 
     fun encryptAesGcmRaw(plaintext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
         require(key.size == AES_GCM_KEY_SIZE) { "AES key must be 32 bytes" }
         require(nonce.size == AES_GCM_NONCE_SIZE) { "AES nonce must be 12 bytes" }
-        if (EnchantCrypto.enchant_aes_is_available() == 0) {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, nonce))
-            return cipher.doFinal(plaintext)
-        }
-        val ct = ByteArray(plaintext.size + AES_GCM_TAG_SIZE)
-        val ctLen = intArrayOf(0)
-        val rc = EnchantCrypto.enchant_aes_256_gcm_encrypt(key, nonce, plaintext, plaintext.size, ByteArray(0), 0, ct, ctLen)
-        if (rc != 0) throw RuntimeException("aes_256_gcm_encrypt failed: $rc")
-        return ct.copyOf(ctLen[0])
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, nonce))
+        return cipher.doFinal(plaintext)
     }
 
     fun decryptAesGcmRaw(ciphertext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
         require(key.size == AES_GCM_KEY_SIZE) { "AES key must be 32 bytes" }
         require(nonce.size == AES_GCM_NONCE_SIZE) { "AES nonce must be 12 bytes" }
-        if (EnchantCrypto.enchant_aes_is_available() == 0) {
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, nonce))
-            return cipher.doFinal(ciphertext)
-        }
-        val pt = ByteArray(ciphertext.size)
-        val ptLen = intArrayOf(0)
-        val rc = EnchantCrypto.enchant_aes_256_gcm_decrypt(key, nonce, ciphertext, ciphertext.size, ByteArray(0), 0, pt, ptLen)
-        if (rc != 0) throw RuntimeException("aes_256_gcm_decrypt failed: $rc")
-        return pt.copyOf(ptLen[0])
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(AES_GCM_TAG_SIZE * 8, nonce))
+        return cipher.doFinal(ciphertext)
     }
 
     // ──────────────────────────────────────────────
