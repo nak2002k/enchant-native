@@ -258,13 +258,6 @@ object EnchantAnimation {
         dampingRatio = 0.8f,
         stiffness = Spring.StiffnessLow,
     )
-    val colorTransition = animateColorAsState(
-        targetValue = Color.Unspecified,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow,
-        )
-    )
 }
 
 // ─── Theme Entry Point ───

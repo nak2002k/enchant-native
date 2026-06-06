@@ -3,7 +3,8 @@ package org.enchant.registration.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -13,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -331,15 +331,15 @@ fun CountryCodePickerScreen(
 
             val filtered = state.countries.filter {
                 state.query.isEmpty() ||
-                    it.name.contains(state.query, ignoreCase = true) ||
+                    it.displayName.contains(state.query, ignoreCase = true) ||
                     it.code.contains(state.query, ignoreCase = true)
             }
 
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(filtered) { country ->
                     ListItem(
-                        headlineContent = { Text(country.name) },
-                        trailingContent = { Text("+${country.dialCode}") },
+                        headlineContent = { Text(country.displayName) },
+                        trailingContent = { Text("+${country.countryCode}") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ListItemDefaults.colors(
                             containerColor = if (country == state.selectedCountry)

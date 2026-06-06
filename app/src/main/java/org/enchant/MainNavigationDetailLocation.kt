@@ -21,9 +21,7 @@ sealed interface MainNavigationDetailLocation : NavKey {
 
     @Serializable
     sealed interface Calls : MainNavigationDetailLocation {
-        @Serializable sealed class CallLinks : Calls() {
-            @Serializable data class EditCallLinkName(val callLinkRoomId: String) : CallLinks()
-        }
+        @Serializable data class EditCallLinkName(val callLinkRoomId: String) : Calls
     }
 
     // Settings sub-routes

@@ -54,7 +54,7 @@ fun MainNavDisplay(
         val status = callUiState.callState.status
         when (status) {
             CallStatus.RINGING, CallStatus.CALLING, CallStatus.CONNECTED -> {
-                mainNavViewModel.goTo(MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName(
+                mainNavViewModel.goTo(MainNavigationDetailLocation.Calls.EditCallLinkName(
                     callUiState.callState.callId ?: ""
                 ))
             }
@@ -178,7 +178,7 @@ private fun DetailPaneContent(
             topDetail is MainNavigationDetailLocation.Conversation -> {
                 ConversationDetailContent(conversationId = topDetail.conversationId)
             }
-            topDetail is MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName -> {
+            topDetail is MainNavigationDetailLocation.Calls.EditCallLinkName -> {
                 CallLinkDetailContent(roomId = topDetail.callLinkRoomId)
             }
             // Settings routes
@@ -199,11 +199,11 @@ private fun DetailPaneContent(
                     displayName = settingsState.displayName,
                     username = settingsState.username,
                     about = settingsState.about,
-                    onNavigateBack = onNavigateBack,
-                    onSave = { name, user, ab ->
-                        // TODO: save profile via API
-                    },
-                    onDeleteAccount = { settingsViewModel.deleteAccount() }
+                    devices = settingsState.devices.map { org.enchant.settings.DeviceInfo(it.deviceId, it.name, it.lastSeen, it.isCurrent) },
+                    isLoading = settingsState.isProcessing,
+                    onRevokeDevice = { settingsViewModel.revokeDevice(it) },
+                    onDeleteAccount = { settingsViewModel.deleteAccount() },
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.SecuritySettings -> {
@@ -218,15 +218,15 @@ private fun DetailPaneContent(
                     onlineVisibility = settingsState.onlineVisibility,
                     avatarVisibility = settingsState.avatarVisibility,
                     aboutVisibility = settingsState.aboutVisibility,
+                    blockedUsers = settingsState.blockedUsers,
                     readReceipts = settingsState.readReceipts,
-                    blockedCount = settingsState.blockedUsers.size,
                     onLastSeenChange = { settingsViewModel.updatePrivacy(it, settingsState.onlineVisibility, settingsState.avatarVisibility, settingsState.aboutVisibility, settingsState.readReceipts) },
                     onOnlineVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, it, settingsState.avatarVisibility, settingsState.aboutVisibility, settingsState.readReceipts) },
                     onAvatarVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, it, settingsState.aboutVisibility, settingsState.readReceipts) },
                     onAboutVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, settingsState.avatarVisibility, it, settingsState.readReceipts) },
                     onReadReceiptsChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, settingsState.avatarVisibility, settingsState.aboutVisibility, it) },
-                    onBlockedUsersClick = { onNavigate(MainNavigationDetailLocation.BlockedUsers) },
-                    onNavigateBack = onNavigateBack
+                    onViewBlockedUsers = { onNavigate(MainNavigationDetailLocation.BlockedUsers) },
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.NotificationSettings -> {
@@ -234,12 +234,16 @@ private fun DetailPaneContent(
                     masterEnabled = settingsState.notificationEnabled,
                     messageNotifications = settingsState.messageNotifications,
                     showPreview = settingsState.showPreview,
-                    groupNotifications = true,
-                    onMasterEnabledChange = { settingsViewModel.updateNotificationPrefs(it, settingsState.messageNotifications, settingsState.showPreview) },
+                    dndStartTime = "22:00",
+                    dndEndTime = "07:00",
+                    dndDaysOfWeek = setOf(1, 2, 3, 4, 5),
+                    onMasterToggle = { settingsViewModel.updateNotificationPrefs(it, settingsState.messageNotifications, settingsState.showPreview) },
                     onMessageNotificationsChange = { settingsViewModel.updateNotificationPrefs(settingsState.notificationEnabled, it, settingsState.showPreview) },
                     onShowPreviewChange = { settingsViewModel.updateNotificationPrefs(settingsState.notificationEnabled, settingsState.messageNotifications, it) },
-                    onGroupNotificationsChange = {},
-                    onNavigateBack = onNavigateBack
+                    onDndStartTimeChange = {},
+                    onDndEndTimeChange = {},
+                    onDndDaysChange = {},
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.AppearanceSettings -> {
@@ -248,7 +252,7 @@ private fun DetailPaneContent(
                     fontSize = settingsState.fontSize,
                     onThemeChange = { settingsViewModel.updateTheme(it) },
                     onFontSizeChange = { settingsViewModel.updateFontSize(it) },
-                    onNavigateBack = onNavigateBack
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.ChatsSettings -> {
@@ -257,8 +261,10 @@ private fun DetailPaneContent(
                     autoDownloadWifi = settingsState.autoDownloadWifi,
                     autoDownloadCellular = settingsState.autoDownloadCellular,
                     onDisappearingTimerChange = { settingsViewModel.updateDisappearingTimer(it) },
-                    onAutoDownloadChange = { wifi, cell -> settingsViewModel.updateAutoDownload(wifi, cell) },
-                    onNavigateBack = onNavigateBack
+                    onAutoDownloadWifiChange = { settingsViewModel.updateAutoDownload(it, settingsState.autoDownloadCellular) },
+                    onAutoDownloadCellularChange = { settingsViewModel.updateAutoDownload(settingsState.autoDownloadWifi, it) },
+                    onBackupSettings = { onNavigate(MainNavigationDetailLocation.BackupSettings) },
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.StorageSettings -> {
@@ -267,8 +273,7 @@ private fun DetailPaneContent(
                     storageInfo = settingsState.storageInfo,
                     isProcessing = settingsState.isProcessing,
                     onClearCache = { settingsViewModel.clearCache() },
-                    onTrimMessages = {},
-                    onNavigateBack = onNavigateBack
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.About -> {
