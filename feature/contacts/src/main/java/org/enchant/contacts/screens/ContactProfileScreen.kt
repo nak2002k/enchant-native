@@ -10,25 +10,41 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+
+data class UserProfile(
+    val displayName: String = "",
+    val username: String? = null,
+    val about: String? = null,
+    val isBlocked: Boolean = false
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactProfileScreen(
     userId: String,
+    profile: UserProfile? = null,
+    isLoading: Boolean = false,
     onMessage: () -> Unit,
     onCall: () -> Unit,
     onVideoCall: () -> Unit,
     onBlock: () -> Unit,
-    isBlocked: Boolean
+    onUnblock: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
+    val displayName = profile?.displayName?.takeIf { it.isNotBlank() } ?: "User"
+    val username = profile?.username
+    val about = profile?.about
+    val isBlocked = profile?.isBlocked ?: false
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
                 navigationIcon = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
                     }
                 }
@@ -51,8 +67,9 @@ fun ContactProfileScreen(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        userId.take(2).uppercase(),
-                        style = MaterialTheme.typography.displaySmall
+                        displayName.take(2).uppercase(),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -60,27 +77,30 @@ fun ContactProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                "User",
-                style = MaterialTheme.typography.headlineSmall
+                displayName,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            if (username != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "@$username",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            Text(
-                "@user_${userId.take(8)}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                "No about text",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp)
-            )
+            if (about != null && about.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    about,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -102,7 +122,7 @@ fun ContactProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedButton(
-                onClick = onBlock,
+                onClick = { if (isBlocked) onUnblock() else onBlock() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp),

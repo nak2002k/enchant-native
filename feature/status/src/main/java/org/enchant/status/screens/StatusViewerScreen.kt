@@ -70,8 +70,12 @@ fun StatusViewerScreen(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, "Close", tint = Color.White)
+                    }
                     statuses.forEachIndexed { index, _ ->
                         val animProgress by animateFloatAsState(
                             targetValue = if (index < currentIndex) 1f
@@ -150,11 +154,29 @@ fun StatusViewerScreen(
                         color = Color.White,
                         style = MaterialTheme.typography.headlineMedium
                     )
+                } else if (currentStatus.type == "image" || currentStatus.type == "video") {
+                    // Media content - show a styled placeholder with media type indicator
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = if (currentStatus.type == "video") Icons.Default.PlayCircle else Icons.Default.Image,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = Color.White.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            if (currentStatus.type == "video") "Video Status" else "Photo Status",
+                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 } else {
                     Text(
-                        "Media content",
-                        color = Color.White.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.bodyLarge
+                        currentStatus.text ?: "",
+                        color = Color.White,
+                        style = MaterialTheme.typography.headlineMedium
                     )
                 }
             }
