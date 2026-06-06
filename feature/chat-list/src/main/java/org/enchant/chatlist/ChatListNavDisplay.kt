@@ -16,7 +16,9 @@ fun ChatListNavDisplay(
     backStack: androidx.navigation3.runtime.NavBackStack<NavKey> = rememberNavBackStack(ChatListNavKey.ConversationList),
     viewModel: ConversationListViewModel = viewModel(),
     modifier: Modifier = Modifier,
-    onNavigateToConversation: (String) -> Unit = {}
+    onNavigateToConversation: (String) -> Unit = {},
+    onNewChat: () -> Unit = {},
+    onNewGroup: () -> Unit = {}
 ) {
     NavDisplay(
         backStack = backStack,
@@ -34,8 +36,8 @@ fun ChatListNavDisplay(
                     onConversationClick = { conversationId ->
                         onNavigateToConversation(conversationId)
                     },
-                    onNewChat = {},
-                    onNewGroup = {}
+                    onNewChat = onNewChat,
+                    onNewGroup = onNewGroup
                 )
             }
 
@@ -48,8 +50,8 @@ fun ChatListNavDisplay(
                     onConversationClick = { conversationId ->
                         onNavigateToConversation(conversationId)
                     },
-                    onNewChat = {},
-                    onNewGroup = {}
+                    onNewChat = onNewChat,
+                    onNewGroup = onNewGroup
                 )
             }
         }

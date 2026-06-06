@@ -30,6 +30,9 @@ import org.enchant.main.MainFloatingActionButtons
 import org.enchant.main.MainFloatingActionButtonsCallback
 import org.enchant.settings.SettingsViewModel
 import org.enchant.settings.screens.*
+import org.enchant.contacts.screens.ContactListScreen
+import org.enchant.contacts.ContactsViewModel
+import org.enchant.groups.screens.CreateGroupScreen
 import org.enchant.window.AppScaffold
 import org.enchant.window.rememberAppScaffoldNavigator
 
@@ -76,7 +79,9 @@ fun MainNavDisplay(
                 },
                 onArchiveClick = { conversationId ->
                     mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(conversationId))
-                }
+                },
+                onNewChat = { mainNavViewModel.goTo(MainNavigationDetailLocation.Contacts) },
+                onNewGroup = { mainNavViewModel.goTo(MainNavigationDetailLocation.CreateGroup) }
             )
         },
         primaryContent = {
@@ -111,7 +116,9 @@ fun MainNavDisplay(
 private fun ListPaneContent(
     currentListLocation: MainNavigationListLocation,
     onConversationClick: (String) -> Unit,
-    onArchiveClick: (String) -> Unit
+    onArchiveClick: (String) -> Unit,
+    onNewChat: () -> Unit = {},
+    onNewGroup: () -> Unit = {}
 ) {
     val listViewModel: ConversationListViewModel = viewModel()
 
@@ -120,7 +127,9 @@ private fun ListPaneContent(
             MainNavigationListLocation.CHATS -> {
                 ChatListNavDisplay(
                     viewModel = listViewModel,
-                    onNavigateToConversation = onConversationClick
+                    onNavigateToConversation = onConversationClick,
+                    onNewChat = onNewChat,
+                    onNewGroup = onNewGroup
                 )
             }
             MainNavigationListLocation.ARCHIVE -> {
@@ -299,14 +308,38 @@ private fun DetailPaneContent(
                 PlaceholderScreen("Groups")
             }
             topDetail is MainNavigationDetailLocation.CreateGroup -> {
-                PlaceholderScreen("Create Group")
+                val contactsViewModel: ContactsViewModel = viewModel()
+                LaunchedEffect(Unit) { contactsViewModel.loadContacts() }
+                val contactsState by contactsViewModel.uiState.collectAsStateWithLifecycle()
+                CreateGroupScreen(
+                    onGroupCreated = { groupId ->
+                        onNavigate(MainNavigationDetailLocation.GroupInfo(groupId))
+                    },
+                    onNavigateBack = onNavigateBack,
+                    onCreateGroup = { name, description, members ->
+                        // TODO: create group via API
+                    }
+                )
             }
             topDetail is MainNavigationDetailLocation.GroupInfo -> {
-                PlaceholderScreen("Group Info: ${topDetail.groupId}")
+                PlaceholderScreen("Group: ${topDetail.groupId}")
             }
             // Contacts
             topDetail is MainNavigationDetailLocation.Contacts -> {
-                PlaceholderScreen("Contacts")
+                val contactsViewModel: ContactsViewModel = viewModel()
+                LaunchedEffect(Unit) { contactsViewModel.loadContacts() }
+                val contactsState by contactsViewModel.uiState.collectAsStateWithLifecycle()
+                ContactListScreen(
+                    contacts = contactsState.contacts,
+                    searchResults = contactsState.searchResults,
+                    searchQuery = contactsState.searchQuery,
+                    isLoading = contactsState.isLoading,
+                    error = contactsState.error,
+                    onContactClick = { userId -> onNavigate(MainNavigationDetailLocation.Profile(userId)) },
+                    onSearchQueryChange = { contactsViewModel.searchContacts(it) },
+                    onAddContact = { /* navigate to add contact */ },
+                    onRefresh = { contactsViewModel.loadContacts() }
+                )
             }
             // Status/Stories
             topDetail is MainNavigationDetailLocation.StatusFeed -> {
