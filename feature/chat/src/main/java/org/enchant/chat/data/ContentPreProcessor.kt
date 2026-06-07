@@ -95,6 +95,12 @@ object ContentPreProcessor {
         }
     }
 
+    suspend fun fetchLinkPreviewForText(text: String): LinkPreview? {
+        val urls = detectUrls(text)
+        if (urls.isEmpty()) return null
+        return generateLinkPreview(urls.first().url)
+    }
+
     fun applyFormatting(text: String): CharSequence {
         val sb = SpannableStringBuilder(text)
         Linkify.addLinks(sb, Linkify.WEB_URLS)

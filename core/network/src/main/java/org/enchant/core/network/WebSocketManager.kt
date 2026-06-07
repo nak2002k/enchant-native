@@ -86,6 +86,9 @@ object WebSocketManager {
         CertificatePinner.Builder()
             .add("api.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
             .add("api.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
+            .add("api.enchant.chat", "sha256/CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=")
+            .add("*.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .add("*.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
             .build()
     }
 
@@ -97,10 +100,10 @@ object WebSocketManager {
                 CipherSuite.TLS_CHACHA20_POLY1305_SHA256
             )
             .build()
-        return OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .connectionSpecs(listOf(spec))
             .certificatePinner(certificatePinner)
-            .build()
+        return DomainFronting.applyToClient(builder).build()
     }
 
     private val wsClient = buildSecureClient()

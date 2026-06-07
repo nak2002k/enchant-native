@@ -344,9 +344,15 @@ private fun ConversationTile(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = conversation.lastMessage ?: "No messages yet",
+                        text = run {
+                            val draft = conversation.draftContent
+                            if (!draft.isNullOrBlank()) "Draft: $draft"
+                            else conversation.lastMessage ?: "No messages yet"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (!conversation.draftContent.isNullOrBlank()) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (!conversation.draftContent.isNullOrBlank()) FontWeight.Medium else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)

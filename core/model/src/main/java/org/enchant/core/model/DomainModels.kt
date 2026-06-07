@@ -13,7 +13,8 @@ data class Conversation(
     val isArchived: Boolean = false,
     val isMuted: Boolean = false,
     val muteUntil: Long? = null,
-    val disappearTimerSeconds: Int = 0
+    val disappearTimerSeconds: Int = 0,
+    val draftContent: String? = null
 ) {
     companion object {
         fun fromEntity(e: ConversationEntity): Conversation = Conversation(

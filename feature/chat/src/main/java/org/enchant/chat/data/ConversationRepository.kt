@@ -51,7 +51,18 @@ class ConversationRepository(
                     ConversationFilter.ARCHIVED -> list.filter { it.isArchived }
                     ConversationFilter.ALL -> list
                 }
-                trySend(filtered.map { Conversation.fromEntity(it) })
+                val drafts = try {
+                    pool.readWith { db ->
+                        val draftMap = mutableMapOf<String, String>()
+                        db.rawQuery("SELECT conversation_id, content FROM drafts", null).use { cursor ->
+                            while (cursor.moveToNext()) {
+                                draftMap[cursor.getString(0)] = cursor.getString(1)
+                            }
+                        }
+                        draftMap
+                    }
+                } catch (_: Exception) { emptyMap() }
+                trySend(filtered.map { Conversation.fromEntity(it).copy(draftContent = drafts[it.conversationId]) })
             }
         }
         awaitClose { collectJob.cancel() }

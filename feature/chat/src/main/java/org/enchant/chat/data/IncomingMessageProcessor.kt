@@ -209,6 +209,13 @@ object IncomingMessageProcessor {
                         ProcessResult.Handled
                     }
                     is MessageProtobufHelper.ParsedContent.Delete -> {
+                        val deleteContent = parsed
+                        if (deleteContent.targetTimestamp > 0) {
+                            val envId = messageDao?.getEnvelopeIdByServerTs(deleteContent.targetTimestamp)
+                            if (envId != null) {
+                                messageDao?.markDeleted(envId)
+                            }
+                        }
                         ProcessResult.Handled
                     }
                     is MessageProtobufHelper.ParsedContent.Null -> {

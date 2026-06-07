@@ -10,6 +10,8 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.enchant.core.base.AppConfig
 import org.enchant.core.crypto.CryptoHelper
@@ -75,8 +77,16 @@ object MediaService {
         }
     }
 
+    private var recording: MediaRecorder? = null
+    private var recordingFile: File? = null
+    private val _waveformAmplitudes = mutableListOf<Int>()
+    val waveformAmplitudes: List<Int> get() = _waveformAmplitudes.toList()
+
+    private var amplitudeJob: kotlinx.coroutines.Job? = null
+
     suspend fun startRecording(): File? = withContext(Dispatchers.IO) {
         try {
+            _waveformAmplitudes.clear()
             val file = createTempFile("voice_", ".mp4")
             val recorder = MediaRecorder().apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -90,6 +100,17 @@ object MediaService {
             }
             recording = recorder
             recordingFile = file
+
+            amplitudeJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                while (recording != null) {
+                    try {
+                        val amp = recorder.maxAmplitude
+                        _waveformAmplitudes.add(amp)
+                        kotlinx.coroutines.delay(50)
+                    } catch (_: Exception) { break }
+                }
+            }
+
             file
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording", e)
@@ -97,11 +118,10 @@ object MediaService {
         }
     }
 
-    private var recording: MediaRecorder? = null
-    private var recordingFile: File? = null
-
     suspend fun stopRecording(): File? = withContext(Dispatchers.IO) {
         try {
+            amplitudeJob?.cancel()
+            amplitudeJob = null
             recording?.apply {
                 stop()
                 release()
