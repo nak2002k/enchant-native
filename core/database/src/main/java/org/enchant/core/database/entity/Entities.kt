@@ -23,7 +23,9 @@ data class MessageEntity(
     val isStarred: Boolean = false,
     val isDeleted: Boolean = false,
     val disappearAt: Long? = null,
-    val gifUrl: String? = null
+    val gifUrl: String? = null,
+    val isViewOnce: Boolean = false,
+    val editedAt: Long? = null
 )
 
 data class ConversationEntity(
@@ -146,4 +148,26 @@ data class InstalledStickerEntity(
     val stickerId: String,
     val emoji: String? = null,
     val position: Int? = null
+)
+
+data class DraftEntity(
+    val conversationId: String,
+    val content: String,
+    val timestamp: Long
+)
+
+data class ScheduledMessageEntity(
+    val id: Long = 0,
+    val conversationId: String,
+    val content: String,
+    val scheduledAt: Long,
+    val isSent: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+data class ChatFolderEntity(
+    val folderId: String,
+    val name: String,
+    val position: Int = 0,
+    val conversationIds: String = "[]"
 )

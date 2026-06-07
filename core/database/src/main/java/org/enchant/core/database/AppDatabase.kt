@@ -121,7 +121,9 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                     is_edited INTEGER DEFAULT 0, edit_envelope_id TEXT,
                     is_starred INTEGER DEFAULT 0, is_deleted INTEGER DEFAULT 0,
                     is_pinned INTEGER DEFAULT 0,
-                    disappear_at INTEGER, gif_url TEXT
+                    disappear_at INTEGER, gif_url TEXT,
+                    is_view_once INTEGER DEFAULT 0,
+                    edited_at INTEGER
                 )
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_messages_conversation_ts ON messages(conversation_id, timestamp DESC)")
@@ -279,6 +281,35 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                 )
             """)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_mentions_msg ON message_mentions(message_local_id)")
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS drafts (
+                    conversation_id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    timestamp INTEGER NOT NULL
+                )
+            """)
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS scheduled_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    conversation_id TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    scheduled_at INTEGER NOT NULL,
+                    is_sent INTEGER DEFAULT 0,
+                    created_at INTEGER NOT NULL
+                )
+            """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_scheduled_messages_pending ON scheduled_messages(scheduled_at ASC) WHERE is_sent = 0")
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS chat_folders (
+                    folder_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    position INTEGER NOT NULL DEFAULT 0,
+                    conversation_ids TEXT NOT NULL DEFAULT '[]'
+                )
+            """)
 
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS crashes (

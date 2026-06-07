@@ -54,7 +54,9 @@ data class Message(
     val mediaSize: Long? = null,
     val replyToEnvelopeId: String? = null,
     val reactions: List<Reaction> = emptyList(),
-    val disappearAt: Long? = null
+    val disappearAt: Long? = null,
+    val isViewOnce: Boolean = false,
+    val editedAt: Long? = null
 ) {
     companion object {
         fun fromEntity(e: MessageEntity): Message = Message(
@@ -72,7 +74,9 @@ data class Message(
             mediaMimeType = e.mediaMimeType,
             mediaSize = e.mediaSize,
             replyToEnvelopeId = e.replyToEnvelopeId,
-            disappearAt = e.disappearAt
+            disappearAt = e.disappearAt,
+            isViewOnce = e.isViewOnce,
+            editedAt = e.editedAt
         )
     }
 }

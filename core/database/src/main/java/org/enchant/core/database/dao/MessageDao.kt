@@ -17,8 +17,8 @@ class MessageDao(private val pool: DatabasePool) {
                  content, media_key, media_iv, media_mime_type, media_size,
                  media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
                  status, timestamp, server_ts, is_edited, edit_envelope_id,
-                 is_starred, is_deleted, disappear_at, gif_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 is_starred, is_deleted, disappear_at, gif_url, is_view_once, edited_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """)
         stmt.bindString(1, message.conversationId)
         stmt.bindString(2, message.senderId)
@@ -42,6 +42,8 @@ class MessageDao(private val pool: DatabasePool) {
         stmt.bindLong(20, if (message.isDeleted) 1 else 0)
         message.disappearAt?.let { stmt.bindLong(21, it) } ?: stmt.bindNull(21)
         message.gifUrl?.let { stmt.bindString(22, it) } ?: stmt.bindNull(22)
+        stmt.bindLong(23, if (message.isViewOnce) 1 else 0)
+        message.editedAt?.let { stmt.bindLong(24, it) } ?: stmt.bindNull(24)
         val result = stmt.executeInsert()
         DatabaseNotifier.notify("messages")
         result
@@ -56,8 +58,8 @@ class MessageDao(private val pool: DatabasePool) {
                      content, media_key, media_iv, media_mime_type, media_size,
                      media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
                      status, timestamp, server_ts, is_edited, edit_envelope_id,
-                     is_starred, is_deleted, disappear_at, gif_url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     is_starred, is_deleted, disappear_at, gif_url, is_view_once, edited_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """)
             messages.forEach { msg ->
                 stmt.bindString(1, msg.conversationId)
@@ -82,6 +84,8 @@ class MessageDao(private val pool: DatabasePool) {
                 stmt.bindLong(20, if (msg.isDeleted) 1 else 0)
                 msg.disappearAt?.let { stmt.bindLong(21, it) } ?: stmt.bindNull(21)
                 msg.gifUrl?.let { stmt.bindString(22, it) } ?: stmt.bindNull(22)
+                stmt.bindLong(23, if (msg.isViewOnce) 1 else 0)
+                msg.editedAt?.let { stmt.bindLong(24, it) } ?: stmt.bindNull(24)
                 stmt.executeInsert()
             }
             db.setTransactionSuccessful()
@@ -190,5 +194,39 @@ class MessageDao(private val pool: DatabasePool) {
     suspend fun deleteConversation(conversationId: String) = pool.write { db ->
         db.execSQL("DELETE FROM messages WHERE conversation_id = ?", arrayOf(conversationId))
         DatabaseNotifier.notify("messages")
+    }
+
+    suspend fun updateEditEnvelopeId(envelopeId: String, editEnvelopeId: String) = pool.write { db ->
+        db.execSQL("UPDATE messages SET edit_envelope_id = ? WHERE envelope_id = ?", arrayOf(editEnvelopeId, envelopeId))
+        DatabaseNotifier.notify("messages")
+    }
+
+    suspend fun updateEditedAt(envelopeId: String, editedAt: Long) = pool.write { db ->
+        db.execSQL("UPDATE messages SET edited_at = ? WHERE envelope_id = ?", arrayOf(editedAt.toString(), envelopeId))
+        DatabaseNotifier.notify("messages")
+    }
+
+    suspend fun getStarredMessages(): Flow<List<MessageEntity>> = callbackFlow {
+        fun query(): List<MessageEntity> = pool.readWith { db ->
+            db.rawQuery("SELECT * FROM messages WHERE is_starred = 1 AND is_deleted = 0 ORDER BY timestamp DESC LIMIT 200", null)
+                .use { CursorMapper.mapToList<MessageEntity>(it) }
+        }
+        trySend(query())
+        val job = launch {
+            DatabaseNotifier.tableChanges.collect { table ->
+                if (table == "messages") trySend(query())
+            }
+        }
+        awaitClose { job.cancel() }
+    }
+
+    suspend fun getPinnedMessages(conversationId: String): List<MessageEntity> = pool.readWith { db ->
+        db.rawQuery("SELECT * FROM messages WHERE conversation_id = ? AND is_pinned = 1 AND is_deleted = 0 ORDER BY timestamp DESC", arrayOf(conversationId))
+            .use { CursorMapper.mapToList<MessageEntity>(it) }
+    }
+
+    suspend fun getDeletedMessages(): List<MessageEntity> = pool.readWith { db ->
+        db.rawQuery("SELECT * FROM messages WHERE is_deleted = 1 AND envelope_id IS NOT NULL ORDER BY timestamp DESC LIMIT 50", null)
+            .use { CursorMapper.mapToList<MessageEntity>(it) }
     }
 }

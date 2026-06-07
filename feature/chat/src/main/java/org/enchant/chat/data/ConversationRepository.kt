@@ -162,6 +162,14 @@ class ConversationRepository(
         db.execSQL("UPDATE messages SET content = ?, is_edited = 1 WHERE envelope_id = ?", arrayOf(content, envelopeId))
     }
 
+    suspend fun updateEditEnvelopeId(envelopeId: String, editEnvelopeId: String) = pool.write { db ->
+        db.execSQL("UPDATE messages SET edit_envelope_id = ? WHERE envelope_id = ?", arrayOf(editEnvelopeId, envelopeId))
+    }
+
+    suspend fun updateEditedAt(envelopeId: String, editedAt: Long) = pool.write { db ->
+        db.execSQL("UPDATE messages SET edited_at = ? WHERE envelope_id = ?", arrayOf(editedAt.toString(), envelopeId))
+    }
+
     suspend fun markMessageDeleted(envelopeId: String) {
         messageDao.markDeleted(envelopeId)
     }
@@ -375,5 +383,62 @@ class ConversationRepository(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun saveDraft(conversationId: String, content: String) = pool.write { db ->
+        db.execSQL(
+            "INSERT OR REPLACE INTO drafts (conversation_id, content, timestamp) VALUES (?, ?, ?)",
+            arrayOf(conversationId, content, System.currentTimeMillis().toString())
+        )
+    }
+
+    suspend fun getDraft(conversationId: String): String? = pool.readWith { db ->
+        db.rawQuery("SELECT content FROM drafts WHERE conversation_id = ?", arrayOf(conversationId))
+            .use { if (it.moveToFirst()) it.getString(0) else null }
+    }
+
+    suspend fun deleteDraft(conversationId: String) = pool.write { db ->
+        db.execSQL("DELETE FROM drafts WHERE conversation_id = ?", arrayOf(conversationId))
+    }
+
+    suspend fun scheduleMessage(conversationId: String, content: String, scheduledAt: Long) = pool.write { db ->
+        db.execSQL(
+            "INSERT INTO scheduled_messages (conversation_id, content, scheduled_at, is_sent, created_at) VALUES (?, ?, ?, 0, ?)",
+            arrayOf(conversationId, content, scheduledAt.toString(), System.currentTimeMillis().toString())
+        )
+    }
+
+    suspend fun getScheduledMessages(conversationId: String): List<org.enchant.core.database.entity.ScheduledMessageEntity> = pool.readWith { db ->
+        db.rawQuery(
+            "SELECT * FROM scheduled_messages WHERE conversation_id = ? ORDER BY scheduled_at ASC",
+            arrayOf(conversationId)
+        ).use {
+            val list = mutableListOf<org.enchant.core.database.entity.ScheduledMessageEntity>()
+            while (it.moveToNext()) {
+                list.add(org.enchant.core.database.entity.ScheduledMessageEntity(
+                    id = it.getLong(0),
+                    conversationId = it.getString(1),
+                    content = it.getString(2),
+                    scheduledAt = it.getLong(3),
+                    isSent = it.getInt(4) == 1,
+                    createdAt = it.getLong(5)
+                ))
+            }
+            list
+        }
+    }
+
+    suspend fun deleteScheduledMessage(id: Long) = pool.write { db ->
+        db.execSQL("DELETE FROM scheduled_messages WHERE id = ?", arrayOf(id.toString()))
+    }
+
+    fun getStarredMessages(): Flow<List<Message>> = callbackFlow {
+        val flow = messageDao.getStarredMessages()
+        val collectJob = launch {
+            flow.collect { entities ->
+                trySend(entities.map { Message.fromEntity(it) })
+            }
+        }
+        awaitClose { collectJob.cancel() }
     }
 }

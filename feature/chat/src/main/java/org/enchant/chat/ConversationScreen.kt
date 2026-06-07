@@ -34,6 +34,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -184,6 +185,8 @@ fun ConversationScreen(
                         DropdownMenuItem(text = { Text("View contact") }, onClick = { showMenu = false })
                         DropdownMenuItem(text = { Text("Search") }, onClick = { showSearch = true; showMenu = false })
                         DropdownMenuItem(text = { Text("Disappearing messages") }, onClick = { showDisappearDialog = true; showMenu = false })
+                        DropdownMenuItem(text = { Text("Starred messages") }, onClick = { showMenu = false })
+                        DropdownMenuItem(text = { Text("Pinned messages") }, onClick = { showMenu = false })
                     }
                 }
             )
@@ -661,24 +664,61 @@ fun MessageBubble(
             modifier = Modifier.widthIn(max = 300.dp)
         ) {
             Column(modifier = Modifier.padding(10.dp)) {
-                if (message.mediaMimeType != null) {
-                    Text(
-                        "📎 ${message.mediaMimeType}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    val size = message.mediaSize
-                    if (size != null) {
+                    if (message.isDeleted) {
                         Text(
-                            formatFileSize(size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            "This message was deleted",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                         )
+                    } else if (message.mediaMimeType != null) {
+                    val mimeType = message.mediaMimeType
+                    if (mimeType != null && mimeType.startsWith("audio/")) {
+                        VoiceMessageContent(
+                            mediaMimeType = mimeType,
+                            mediaSize = message.mediaSize,
+                            content = message.content
+                        )
+                    } else {
+                        Text(
+                            "📎 ${message.mediaMimeType}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        val size = message.mediaSize
+                        if (size != null) {
+                            Text(
+                                formatFileSize(size),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 } else {
+                    val content = message.content
+                    val urlPattern = Regex("https?://[^\\s]+")
+                    val urls = urlPattern.findAll(content).map { it.value }.toList()
                     Text(
-                        text = message.content,
+                        text = content,
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    if (urls.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    urls.first().take(60),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Row(
@@ -715,6 +755,20 @@ fun MessageBubble(
                             "edited",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (message.isViewOnce) {
+                        Icon(
+                            Icons.Default.VisibilityOff,
+                            contentDescription = "View once",
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                        Text(
+                            "View once",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                     }
 
@@ -772,6 +826,16 @@ fun MessageBubble(
                 DropdownMenuItem(text = { Text("Edit") }, onClick = { onEdit(message.envelopeId ?: ""); showMenu = false })
             }
             DropdownMenuItem(text = { Text("Forward") }, onClick = { onForward(message.envelopeId ?: ""); showMenu = false })
+            DropdownMenuItem(
+                text = { Text(if (message.isStarred) "Unstar" else "Star") },
+                onClick = { onReact(message.envelopeId ?: ""); showMenu = false },
+                leadingIcon = { Icon(if (message.isStarred) Icons.Default.Star else Icons.Default.StarBorder, null) }
+            )
+            DropdownMenuItem(
+                text = { Text("Pin") },
+                onClick = { onReact(message.envelopeId ?: ""); showMenu = false },
+                leadingIcon = { Icon(Icons.Default.PushPin, null) }
+            )
             if (isOutgoing) {
                 DropdownMenuItem(text = { Text("Delete for everyone") }, onClick = { onDeleteEveryone(message.envelopeId ?: ""); showMenu = false })
             }
@@ -840,4 +904,51 @@ private fun createTempFile(context: android.content.Context, prefix: String, suf
     val dir = File(context.cacheDir, "media_temp")
     dir.mkdirs()
     return File.createTempFile(prefix, suffix, dir)
+}
+
+@Composable
+private fun VoiceMessageContent(
+    mediaMimeType: String,
+    mediaSize: Long?,
+    content: String
+) {
+    var isPlaying by remember { mutableStateOf(false) }
+    var progress by remember { mutableFloatStateOf(0f) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            IconButton(onClick = { isPlaying = !isPlaying }) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(MaterialTheme.shapes.small),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "0:00",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (mediaSize != null) {
+            Text(
+                formatFileSize(mediaSize),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }

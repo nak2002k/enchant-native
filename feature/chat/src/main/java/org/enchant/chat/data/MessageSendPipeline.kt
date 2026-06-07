@@ -367,6 +367,8 @@ object MessageSendPipeline {
                 })
 
                 repo.updateMessageContent(originalEnvelopeId, newPlaintext.decodeToString())
+                repo.updateEditEnvelopeId(originalEnvelopeId, newEnvelopeId)
+                repo.updateEditedAt(originalEnvelopeId, System.currentTimeMillis())
                 Result.success(Unit)
             } catch (e: Exception) { Result.failure(e) }
         }

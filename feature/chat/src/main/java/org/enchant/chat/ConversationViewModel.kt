@@ -403,11 +403,6 @@ class ConversationViewModel(
         }
     }
 
-    fun cancelScheduledMessage(messageId: Long) {
-        // Cancellation would require storing and canceling coroutine jobs
-        // For now, scheduled messages cannot be canceled individually
-    }
-
     fun markViewOnceViewed(envelopeId: String) {
         viewModelScope.launch {
             try {
@@ -458,6 +453,87 @@ class ConversationViewModel(
     fun scrollToBottom() {
         viewModelScope.launch {
             _scrollToEvent.emit(ScrollEvent.ToBottom)
+        }
+    }
+
+    private val _draft = MutableStateFlow("")
+    val draft: StateFlow<String> = _draft.asStateFlow()
+
+    fun saveDraft(content: String) {
+        _draft.value = content
+        viewModelScope.launch {
+            if (content.isNotBlank()) {
+                repo.saveDraft(conversationId, content)
+            } else {
+                repo.deleteDraft(conversationId)
+            }
+        }
+    }
+
+    fun loadDraft() {
+        viewModelScope.launch {
+            val savedDraft = repo.getDraft(conversationId)
+            if (savedDraft != null) {
+                _draft.value = savedDraft
+            }
+        }
+    }
+
+    fun clearDraft() {
+        _draft.value = ""
+        viewModelScope.launch { repo.deleteDraft(conversationId) }
+    }
+
+    private val _starredMessages = MutableStateFlow<List<Message>>(emptyList())
+    val starredMessages: StateFlow<List<Message>> = _starredMessages.asStateFlow()
+
+    fun loadStarredMessages() {
+        viewModelScope.launch {
+            repo.getStarredMessages().collect { _starredMessages.value = it }
+        }
+    }
+
+    private val _pinnedMessages = MutableStateFlow<List<Message>>(emptyList())
+    val pinnedMessages: StateFlow<List<Message>> = _pinnedMessages.asStateFlow()
+
+    fun loadPinnedMessages() {
+        viewModelScope.launch {
+            val msgs = repo.getPinnedMessages(conversationId)
+            _pinnedMessages.value = msgs
+        }
+    }
+
+    private val _scheduledMessages = MutableStateFlow<List<ScheduledMessage>>(emptyList())
+    val scheduledMessages: StateFlow<List<ScheduledMessage>> = _scheduledMessages.asStateFlow()
+
+    data class ScheduledMessage(
+        val id: Long,
+        val content: String,
+        val scheduledAt: Long,
+        val isSent: Boolean
+    )
+
+    fun loadScheduledMessages() {
+        viewModelScope.launch {
+            val msgs = repo.getScheduledMessages(conversationId)
+            _scheduledMessages.value = msgs.map {
+                ScheduledMessage(it.id, it.content, it.scheduledAt, it.isSent)
+            }
+        }
+    }
+
+    fun scheduleMessagePersisted(body: String, scheduledAt: Long) {
+        if (body.isBlank()) return
+        viewModelScope.launch {
+            repo.scheduleMessage(conversationId, body, scheduledAt)
+            loadScheduledMessages()
+        }
+    }
+
+    fun cancelScheduledMessage(id: Long) {
+        viewModelScope.launch {
+            repo.deleteScheduledMessage(id)
+            loadScheduledMessages()
         }
     }
 
