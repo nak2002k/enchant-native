@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.enchant.chat.data.ConversationRepository
 import org.enchant.chat.data.MessageSendPipeline
 import org.enchant.chat.data.SendResult
+import org.enchant.chat.MainDispatcherRule
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.ConversationType
@@ -23,9 +24,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("ConversationViewModel — Full Coverage")
 class ConversationViewModelTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var repo: ConversationRepository
     private lateinit var apiClient: ApiClient

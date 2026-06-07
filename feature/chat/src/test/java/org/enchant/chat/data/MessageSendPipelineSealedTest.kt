@@ -1,11 +1,17 @@
 package org.enchant.chat.data
 
 import kotlinx.coroutines.test.runTest
+import org.enchant.chat.MainDispatcherRule
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("MessageSendPipeline - Sealed Sender")
 class MessageSendPipelineSealedTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
 
     @Test
     fun `sendSealedMessage throws when not initialized`() = runTest {

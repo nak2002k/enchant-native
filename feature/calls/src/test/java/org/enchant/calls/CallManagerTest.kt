@@ -9,6 +9,7 @@ import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
+import org.enchant.calls.MainDispatcherRule
 import org.enchant.core.calls.CallEndReason
 import org.enchant.core.calls.CallManager
 import org.enchant.core.calls.CallObserver
@@ -21,9 +22,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("CallManager")
 class CallManagerTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var mockCallManager: org.enchant.core.calls.DefaultCallManager
     private lateinit var stateFlow: MutableStateFlow<CallState>

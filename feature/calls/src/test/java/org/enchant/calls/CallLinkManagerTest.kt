@@ -4,6 +4,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.enchant.calls.calllinks.CallLinkManager
+import org.enchant.calls.MainDispatcherRule
 import org.enchant.core.calls.CallLinkData
 import org.enchant.core.calls.CallLinkRestrictions
 import org.enchant.core.network.ApiClient
@@ -11,12 +12,18 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
 @DisplayName("CallLinkManager")
 class CallLinkManagerTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
+
     private val mockApi = mockk<ApiClient>()
     private lateinit var manager: CallLinkManager
 

@@ -5,6 +5,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import net.sqlcipher.Cursor
 import net.sqlcipher.database.SQLiteDatabase
+import org.enchant.chat.MainDispatcherRule
 import org.enchant.core.database.DatabasePool
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -13,9 +14,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("MessageDataFetcher")
 class MessageDataFetcherTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
 
     private val mockDb = mockk<SQLiteDatabase>(relaxed = true)
     private val mockPool = mockk<DatabasePool>(relaxed = true)

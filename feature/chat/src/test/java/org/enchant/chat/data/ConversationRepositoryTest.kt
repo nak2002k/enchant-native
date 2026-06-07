@@ -6,6 +6,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.enchant.chat.MainDispatcherRule
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MediaCacheDao
@@ -22,9 +23,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("ConversationRepository — Full Coverage")
 class ConversationRepositoryTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var messageDao: MessageDao
     private lateinit var conversationDao: ConversationDao

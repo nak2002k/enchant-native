@@ -9,6 +9,7 @@ import io.mockk.unmockkObject
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.enchant.core.base.AppConfig
+import org.enchant.chat.MainDispatcherRule
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.CryptoHelper
 import org.enchant.core.crypto.SessionManager
@@ -30,9 +31,14 @@ import org.junit.jupiter.api.DisplayName
 import org.enchant.core.network.QueuedMessage
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("MessageSendPipeline — Full Coverage")
 class MessageSendPipelineTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var apiClient: ApiClient
     private lateinit var repo: ConversationRepository

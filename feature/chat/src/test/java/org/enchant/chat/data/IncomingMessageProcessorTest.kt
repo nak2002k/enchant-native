@@ -6,6 +6,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.test.runTest
+import org.enchant.chat.MainDispatcherRule
 import org.enchant.core.crypto.SessionManager
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MessageDao
@@ -20,9 +21,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("IncomingMessageProcessor — Full Coverage")
 class IncomingMessageProcessorTest {
+
+    @JvmField
+    @RegisterExtension
+    val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var repo: ConversationRepository
     private lateinit var recipientDao: RecipientDao
