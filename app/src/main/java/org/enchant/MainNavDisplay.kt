@@ -38,6 +38,7 @@ import org.enchant.status.StatusViewModel
 import org.enchant.status.screens.*
 import org.enchant.calls.CallLogViewModel
 import org.enchant.calls.screens.CallLogScreen
+import org.enchant.calls.screens.CallDetailScreen
 import org.enchant.core.calls.CallLogFilter
 import org.enchant.window.AppScaffold
 import org.enchant.window.rememberAppScaffoldNavigator
@@ -87,7 +88,8 @@ fun MainNavDisplay(
                     mainNavViewModel.goTo(MainNavigationDetailLocation.Conversation(conversationId))
                 },
                 onNewChat = { mainNavViewModel.goTo(MainNavigationDetailLocation.Contacts) },
-                onNewGroup = { mainNavViewModel.goTo(MainNavigationDetailLocation.CreateGroup) }
+                onNewGroup = { mainNavViewModel.goTo(MainNavigationDetailLocation.CreateGroup) },
+                onNavigate = { mainNavViewModel.goTo(it) }
             )
         },
         primaryContent = {
@@ -124,7 +126,8 @@ private fun ListPaneContent(
     onConversationClick: (String) -> Unit,
     onArchiveClick: (String) -> Unit,
     onNewChat: () -> Unit = {},
-    onNewGroup: () -> Unit = {}
+    onNewGroup: () -> Unit = {},
+    onNavigate: (MainNavigationDetailLocation) -> Unit = {}
 ) {
     val listViewModel: ConversationListViewModel = viewModel()
 
@@ -145,7 +148,7 @@ private fun ListPaneContent(
                 )
             }
             MainNavigationListLocation.CALLS -> {
-                CallsListContent()
+                CallsListContent(onNavigate = onNavigate)
             }
             MainNavigationListLocation.STORIES -> {
                 StoriesListContent()
@@ -155,7 +158,7 @@ private fun ListPaneContent(
 }
 
 @Composable
-private fun CallsListContent() {
+private fun CallsListContent(onNavigate: (MainNavigationDetailLocation) -> Unit = {}) {
     val callLogViewModel: CallLogViewModel = viewModel()
     LaunchedEffect(Unit) { callLogViewModel.loadCallLogs() }
     val callLogState by callLogViewModel.uiState.collectAsStateWithLifecycle()
@@ -166,7 +169,7 @@ private fun CallsListContent() {
         isSelectionMode = callLogState.isSelectionMode,
         selectedIds = callLogState.selectedIds,
         onFilterChange = { callLogViewModel.setFilter(it) },
-        onEntryClick = { /* TODO: open call detail */ },
+        onEntryClick = { callId -> onNavigate(MainNavigationDetailLocation.Calls.CallDetail(callId)) },
         onStartSelection = { callLogViewModel.startSelection() },
         onEndSelection = { callLogViewModel.endSelection() },
         onToggleSelected = { callLogViewModel.toggleSelected(it) },
@@ -371,6 +374,7 @@ private fun DetailPaneContent(
                     onAddMembers = { /* TODO: add members dialog */ },
                     onRemoveMember = { userId -> groupsViewModel.removeMember(topDetail.groupId, userId) },
                     onUpdateRole = { userId, role -> groupsViewModel.updateMemberRole(topDetail.groupId, userId, role) },
+                    onUpdateGroup = { name, desc -> groupsViewModel.updateGroup(topDetail.groupId, name, desc) },
                     onCreateInviteLink = { groupsViewModel.createInviteLink(topDetail.groupId) },
                     onCopyInviteLink = { link -> /* TODO: copy to clipboard */ },
                     onViewJoinRequests = { /* TODO: view join requests */ },
@@ -450,6 +454,18 @@ private fun DetailPaneContent(
             // Call log
             topDetail is MainNavigationDetailLocation.Calls.EditCallLinkName -> {
                 CallLinkDetailContent(roomId = topDetail.callLinkRoomId)
+            }
+            topDetail is MainNavigationDetailLocation.Calls.CallDetail -> {
+                val callLogViewModel: CallLogViewModel = viewModel()
+                LaunchedEffect(Unit) { callLogViewModel.loadCallLogs() }
+                val callLogState by callLogViewModel.uiState.collectAsStateWithLifecycle()
+                val entry = callLogState.entries.find { it.callId == topDetail.callId }
+                CallDetailScreen(
+                    entry = entry,
+                    onCall = { /* TODO: initiate call */ },
+                    onMessage = { entry?.let { onNavigate(MainNavigationDetailLocation.Conversation(it.remoteUserId)) } },
+                    onNavigateBack = onNavigateBack
+                )
             }
             else -> {
                 EmptyDetailScreen()

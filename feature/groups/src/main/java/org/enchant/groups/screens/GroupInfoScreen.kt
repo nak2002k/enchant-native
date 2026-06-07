@@ -29,6 +29,7 @@ fun GroupInfoScreen(
     onAddMembers: () -> Unit,
     onRemoveMember: (String) -> Unit,
     onUpdateRole: (String, String) -> Unit,
+    onUpdateGroup: (name: String?, description: String?) -> Unit = { _, _ -> },
     onCreateInviteLink: () -> Unit,
     onCopyInviteLink: (String) -> Unit,
     onViewJoinRequests: () -> Unit,
@@ -36,6 +37,9 @@ fun GroupInfoScreen(
     onDeleteGroup: () -> Unit,
     onRefresh: () -> Unit
 ) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editDescription by remember(group?.description) { mutableStateOf(group?.description ?: "") }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -75,9 +79,15 @@ fun GroupInfoScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(group.name, style = MaterialTheme.typography.titleLarge)
-                    if (group.description != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(group.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (group.description != null) {
+                            Text(group.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        } else {
+                            Text("Add description", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
+                        }
+                        IconButton(onClick = { editDescription = group.description ?: ""; showEditDialog = true }) {
+                            Icon(Icons.Default.Edit, "Edit description", modifier = Modifier.size(16.dp))
+                        }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("${group.memberCount} members · ${group.myRole.value}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -193,6 +203,31 @@ fun GroupInfoScreen(
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
         }
+    }
+
+    if (showEditDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Description") },
+            text = {
+                OutlinedTextField(
+                    value = editDescription,
+                    onValueChange = { editDescription = it },
+                    label = { Text("Group description") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditDialog = false
+                    onUpdateGroup(null, editDescription.ifBlank { null })
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

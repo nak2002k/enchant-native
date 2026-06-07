@@ -15,7 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import org.enchant.status.StatusFeedEntry
 
@@ -154,22 +156,26 @@ fun StatusViewerScreen(
                         color = Color.White,
                         style = MaterialTheme.typography.headlineMedium
                     )
-                } else if (currentStatus.type == "image" || currentStatus.type == "video") {
-                    // Media content - show a styled placeholder with media type indicator
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = if (currentStatus.type == "video") Icons.Default.PlayCircle else Icons.Default.Image,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = Color.White.copy(alpha = 0.7f)
+                } else if (currentStatus.type == "image" && currentStatus.mediaId != null) {
+                    AsyncImage(
+                        model = "https://api.enchant.local/v1/media/${currentStatus.mediaId}",
+                        contentDescription = "Status image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else if (currentStatus.type == "video" && currentStatus.mediaId != null) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AsyncImage(
+                            model = "https://api.enchant.local/v1/media/${currentStatus.mediaId}/thumbnail",
+                            contentDescription = "Video thumbnail",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            if (currentStatus.type == "video") "Video Status" else "Photo Status",
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.bodyLarge
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = "Play video",
+                            modifier = Modifier.size(64.dp).align(Alignment.Center),
+                            tint = Color.White.copy(alpha = 0.8f)
                         )
                     }
                 } else {
