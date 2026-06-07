@@ -304,7 +304,7 @@ object KeyManager {
         try {
             val countResponse = client.get("/v1/keys/opk-count")
             val remaining = countResponse.getOrNull()?.let { json ->
-                json["opk_count"]?.jsonPrimitive?.int ?: 100
+                json["remaining"]?.jsonPrimitive?.int ?: 100
             } ?: return
 
             if (remaining < 10) {

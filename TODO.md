@@ -10,33 +10,28 @@
 ### K1: OPK Overwrite Bug (KeyManager.kt:296-315)
 **Severity:** HIGH — silently loses one-time prekeys making messages undeliverable
 
-`topUpOpks()` stores new OPKs starting at index 0, overwriting all existing OPKs.
-If server still has unconsumed old OPKs, client loses them permanently.
+`topUpOpks()` has two issues:
+1. Reads `json["opk_count"]` but server returns `json["remaining"]` — top-up never triggers (FIXED: line 307)
+2. `PreKeyDao` is not implemented in `:core:database` and not wired to `KeyManager` — `loadFromDb()` never called, so `getOneTimePreKeyCount()` returns 0 after restart, causing `startId=0` to regenerate duplicate OPKs
 
-**Fix:** Track `startIndex` returned by server, or change backend to accept offset.
-**Status:** DOCUMENTED in TODO.md, NOT FIXED
+**Fix:** Implement `PreKeyDao` in `:core:database`, wire to `KeyManager.init(store=preKeyStore)`, call `preKeyStore.loadFromDb()` on startup.
+**Status:** PARTIALLY FIXED — `opk_count`→`remaining` typo fixed; full fix requires PreKeyDao implementation and DI wiring
 
 ---
 
 ### K2: sendReaction Missing conversation_id (MessageSendPipeline.kt:255)
 **Severity:** MEDIUM — backend requires `conversation_id` in body, it's not sent
 
+**Actual current code already has the fix:**
 ```kotlin
-// Current — missing conversation_id
-fun sendReaction(envelopeId: String, emoji: String) {
-    api.post("/v1/reactions/$envelopeId", body = mapOf("emoji" to emoji))
+suspend fun sendReaction(messageId: String, emoji: String, conversationId: String): Result<Unit> {
+    client.put("/v1/reactions/$messageId", buildJsonObject {
+        put("emoji", emoji)
+        put("conversation_id", conversationId)
+    })
 }
 ```
-**Fix:**
-```kotlin
-fun sendReaction(envelopeId: String, emoji: String, conversationId: String) {
-    api.put("/v1/reactions/$envelopeId", body = mapOf(
-        "emoji" to emoji,
-        "conversation_id" to conversationId
-    ))
-}
-```
-**Status:** NOT FIXED
+**Status:** FIXED — TODO.md was stale, code already passes conversation_id
 
 ---
 
