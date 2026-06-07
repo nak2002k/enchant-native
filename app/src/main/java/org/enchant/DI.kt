@@ -20,12 +20,14 @@ import org.enchant.core.base.KeyStoreManager
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.calls.CallManager
 import org.enchant.core.crypto.KeyManager
+import org.enchant.core.crypto.PreKeyStore
 import org.enchant.core.crypto.PreKeyWorker
 import org.enchant.core.crypto.SessionManager
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.IdentityDao
 import org.enchant.core.database.dao.MessageDao
+import org.enchant.core.database.dao.PreKeyDaoImpl
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.dao.SessionDao
 import org.enchant.core.jobmanager.DisappearingMessagesWorker
@@ -54,6 +56,7 @@ object DI {
     private var _sessionDao: SessionDao? = null
     private var _identityDao: IdentityDao? = null
     private var _recipientDao: RecipientDao? = null
+    private var _preKeyStore: PreKeyStore? = null
     private var _conversationRepository: ConversationRepository? = null
 
     val securePreferences: SecurePreferences get() = checkNotNull(_securePreferences) { "DI not initialized" }
@@ -69,6 +72,7 @@ object DI {
     val sessionDao: SessionDao get() = checkNotNull(_sessionDao) { "DI not initialized" }
     val identityDao: IdentityDao get() = checkNotNull(_identityDao) { "DI not initialized" }
     val recipientDao: RecipientDao get() = checkNotNull(_recipientDao) { "DI not initialized" }
+    val preKeyStore: PreKeyStore get() = checkNotNull(_preKeyStore) { "DI not initialized" }
     val conversationRepository: ConversationRepository get() = checkNotNull(_conversationRepository) { "DI not initialized" }
     val isInitialized: Boolean get() = _initialized
 
@@ -128,6 +132,12 @@ DatabasePool.instance = it
                         recipientDao = _recipientDao!!,
                         pool = pool
                     )
+
+                    val preKeyDao = PreKeyDaoImpl(pool)
+                    val preKeyStore = PreKeyStore()
+                    preKeyStore.setDao(preKeyDao)
+                    _preKeyStore = preKeyStore
+                    KeyManager.setPreKeyStore(preKeyStore)
                 }
 
                 ConnectivityMonitor.init(context)
@@ -142,6 +152,7 @@ DatabasePool.instance = it
                     override suspend fun put(path: String, body: kotlinx.serialization.json.JsonObject): Result<kotlinx.serialization.json.JsonObject> =
                         client.put(path, body)
                 })
+                KeyManager.setPreKeyStore(preKeyStore)
                 SessionManager.init(
                     selfUserId = SecurePreferences.getString("auth.user_id") ?: "self",
                     store = org.enchant.core.crypto.SessionStore(),
@@ -198,6 +209,7 @@ DatabasePool.instance = it
         _securePreferences = null
         _connectivityMonitor = null
         _offlineQueue = null
+        _preKeyStore = null
         _initialized = false
     }
 

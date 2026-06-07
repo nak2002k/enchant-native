@@ -75,6 +75,9 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                                     db.execSQL("CREATE INDEX IF NOT EXISTS idx_crashes_timestamp ON crashes(timestamp DESC)")
                                     db.execSQL("PRAGMA user_version = 4")
                                 }
+                                5 -> {
+                                    db.execSQL("PRAGMA user_version = 5")
+                                }
                             }
                     }
                 }
@@ -102,7 +105,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     companion object {
         @Volatile
         var instance: DatabasePool? = null
-        const val DB_VERSION = 4
+        const val DB_VERSION = 5
 
         fun createTables(db: SQLiteDatabase) {
             db.execSQL("""

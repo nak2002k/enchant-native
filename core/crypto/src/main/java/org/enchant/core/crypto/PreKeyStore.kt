@@ -2,6 +2,10 @@ package org.enchant.core.crypto
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.enchant.core.database.dao.OneTimePreKeyRecord
+import org.enchant.core.database.dao.PreKeyDao
+import org.enchant.core.database.dao.PreKeyPublic
+import org.enchant.core.database.dao.SignedPreKeyRecord
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -243,51 +247,5 @@ class PreKeyStore {
         signedPreKeys.clear()
         oneTimePreKeys.clear()
         lastResortPreKey = null
-    }
-
-    // ──────────────────────────────────────────────
-    // Data Classes
-    // ──────────────────────────────────────────────
-
-    data class SignedPreKeyRecord(
-        val id: Int,
-        val publicKey: ByteArray,
-        val privateKey: ByteArray,
-        val signature: ByteArray,
-        val timestamp: Long
-    ) {
-        fun copy(): SignedPreKeyRecord = SignedPreKeyRecord(
-            id = id,
-            publicKey = publicKey.copyOf(),
-            privateKey = privateKey.copyOf(),
-            signature = signature.copyOf(),
-            timestamp = timestamp
-        )
-    }
-
-    data class OneTimePreKeyRecord(
-        val id: Int,
-        val publicKey: ByteArray,
-        val privateKey: ByteArray,
-        val timestamp: Long,
-        val isLastResort: Boolean = false
-    )
-
-    data class PreKeyPublic(
-        val id: Int,
-        val publicKey: ByteArray
-    )
-
-    /**
-     * DAO interface for prekey persistence.
-     * Implement this in :core:database module.
-     */
-    interface PreKeyDao {
-        suspend fun storeSignedPreKey(record: SignedPreKeyRecord)
-        suspend fun loadSignedPreKeys(): List<SignedPreKeyRecord>
-        suspend fun deleteSignedPreKey(id: Int)
-        suspend fun storeOneTimePreKeys(records: List<OneTimePreKeyRecord>)
-        suspend fun loadOneTimePreKeys(): List<OneTimePreKeyRecord>
-        suspend fun deleteOneTimePreKey(id: Int)
     }
 }

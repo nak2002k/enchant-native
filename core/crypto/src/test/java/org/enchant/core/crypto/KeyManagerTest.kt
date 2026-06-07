@@ -6,6 +6,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import org.enchant.core.database.dao.SignedPreKeyRecord
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -282,14 +283,14 @@ class KeyManagerTest {
 
         @Test @DisplayName("getSignedPreKeyPair delegates to store")
         fun `spk delegates`() = runTest {
-            val spkRecord = PreKeyStore.SignedPreKeyRecord(
+            val spkRecord = SignedPreKeyRecord(
                 id = 1,
                 publicKey = ByteArray(32) { 1 },
                 privateKey = ByteArray(32) { 2 },
                 signature = ByteArray(64),
                 timestamp = System.currentTimeMillis()
             )
-            every { mockStore.getCurrentSignedPreKey() } returns spkRecord
+            coEvery { mockStore.getCurrentSignedPreKey() } returns spkRecord
             KeyManager.init(store = mockStore)
             val pair = KeyManager.getSignedPreKeyPair()
             assertNotNull(pair)

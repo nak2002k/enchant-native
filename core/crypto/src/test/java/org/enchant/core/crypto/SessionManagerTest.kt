@@ -4,6 +4,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.enchant.core.database.dao.SignedPreKeyRecord
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -247,7 +248,7 @@ class SessionManagerTest {
 
             KeyManager.setTestIdentityKeyPair(bobIkPair)
             val mockSpkStore = mockk<PreKeyStore>(relaxed = true)
-            every { mockSpkStore.getCurrentSignedPreKey() } returns PreKeyStore.SignedPreKeyRecord(
+            coEvery { mockSpkStore.getCurrentSignedPreKey() } returns SignedPreKeyRecord(
                 id = 1, publicKey = bobSpkPair.publicKey, privateKey = bobSpkPair.privateKey,
                 signature = bobSig, timestamp = System.currentTimeMillis()
             )

@@ -1,6 +1,9 @@
 package org.enchant.core.crypto
 
 import kotlinx.coroutines.test.runTest
+import org.enchant.core.database.dao.OneTimePreKeyRecord
+import org.enchant.core.database.dao.PreKeyDao
+import org.enchant.core.database.dao.SignedPreKeyRecord
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -11,7 +14,7 @@ import org.junit.jupiter.api.Test
 class PreKeyStoreTest {
 
     private lateinit var store: PreKeyStore
-    private lateinit var mockDao: PreKeyStore.PreKeyDao
+    private lateinit var mockDao: PreKeyDao
     private lateinit var identityKeyPair: CryptoPrimitives.KeyPair
 
     @BeforeEach
@@ -191,14 +194,14 @@ class PreKeyStoreTest {
         }
     }
 
-    private class InMemoryPreKeyDao : PreKeyStore.PreKeyDao {
-        private val spkStore = mutableMapOf<Int, PreKeyStore.SignedPreKeyRecord>()
-        private val opkStore = mutableMapOf<Int, PreKeyStore.OneTimePreKeyRecord>()
-        override suspend fun storeSignedPreKey(record: PreKeyStore.SignedPreKeyRecord) { spkStore[record.id] = record.copy() }
-        override suspend fun loadSignedPreKeys(): List<PreKeyStore.SignedPreKeyRecord> = spkStore.values.map { it.copy() }
+    private class InMemoryPreKeyDao : PreKeyDao {
+        private val spkStore = mutableMapOf<Int, SignedPreKeyRecord>()
+        private val opkStore = mutableMapOf<Int, OneTimePreKeyRecord>()
+        override suspend fun storeSignedPreKey(record: SignedPreKeyRecord) { spkStore[record.id] = record.copy() }
+        override suspend fun loadSignedPreKeys(): List<SignedPreKeyRecord> = spkStore.values.map { it.copy() }
         override suspend fun deleteSignedPreKey(id: Int) { spkStore.remove(id) }
-        override suspend fun storeOneTimePreKeys(records: List<PreKeyStore.OneTimePreKeyRecord>) { records.forEach { opkStore[it.id] = it } }
-        override suspend fun loadOneTimePreKeys(): List<PreKeyStore.OneTimePreKeyRecord> = opkStore.values.toList()
+        override suspend fun storeOneTimePreKeys(records: List<OneTimePreKeyRecord>) { records.forEach { opkStore[it.id] = it } }
+        override suspend fun loadOneTimePreKeys(): List<OneTimePreKeyRecord> = opkStore.values.toList()
         override suspend fun deleteOneTimePreKey(id: Int) { opkStore.remove(id) }
     }
 }

@@ -10,12 +10,21 @@
 ### K1: OPK Overwrite Bug (KeyManager.kt:296-315)
 **Severity:** HIGH — silently loses one-time prekeys making messages undeliverable
 
-`topUpOpks()` has two issues:
-1. Reads `json["opk_count"]` but server returns `json["remaining"]` — top-up never triggers (FIXED: line 307)
-2. `PreKeyDao` is not implemented in `:core:database` and not wired to `KeyManager` — `loadFromDb()` never called, so `getOneTimePreKeyCount()` returns 0 after restart, causing `startId=0` to regenerate duplicate OPKs
+**Root cause:** 
+- `topUpOpks()` read `json["opk_count"]` but server returns `json["remaining"]`
+- `PreKeyDao` was not implemented in `:core:database` and never wired to `KeyManager`
+- `loadFromDb()` never called on startup, so `getOneTimePreKeyCount()` returned 0 after restart, causing `startId=0` to regenerate duplicate OPKs
 
-**Fix:** Implement `PreKeyDao` in `:core:database`, wire to `KeyManager.init(store=preKeyStore)`, call `preKeyStore.loadFromDb()` on startup.
-**Status:** PARTIALLY FIXED — `opk_count`→`remaining` typo fixed; full fix requires PreKeyDao implementation and DI wiring
+**Fix applied:**
+- KeyManager.kt:307 — `opk_count` → `remaining` typo fixed
+- Created `PreKeyDaoImpl` in `:core:database` using existing `key_material` table
+  - `key_type='SPK'` for signed prekeys, `'OPK'` for one-time, `'OPK_LR'` for last-resort
+- Moved `SignedPreKeyRecord`, `OneTimePreKeyRecord`, `PreKeyPublic`, `PreKeyDao` interface to `:core:database` package to avoid circular dependency
+- Added `setPreKeyStore()` to `KeyManager` to wire store and call `loadFromDb()` on init
+- Wired `PreKeyStore` + `PreKeyDao` in `DI.kt` after database pool initialization
+- Bumped DB version 4 → 5 with empty migration case
+
+**Status:** FIXED — PreKeyStore now persists across restarts, topUpOpks reads correct field, loadFromDb called on startup
 
 ---
 

@@ -5,6 +5,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.*
+import org.enchant.core.database.dao.OneTimePreKeyRecord
+import org.enchant.core.database.dao.SignedPreKeyRecord
 
 /**
  * Key bundle orchestration: identity key, signed prekey, one-time prekey
@@ -111,6 +113,20 @@ object KeyManager {
         }
     }
 
+    /**
+     * Set the PreKeyStore after init.
+     * Loads persisted prekeys from DB into the store.
+     * Safe to call multiple times (idempotent after init).
+     */
+    suspend fun setPreKeyStore(store: PreKeyStore) {
+        if (preKeyStore != null) return
+        mutex.withLock {
+            if (preKeyStore != null) return@withLock
+            preKeyStore = store
+            store.loadFromDb()
+        }
+    }
+
     // ──────────────────────────────────────────────
     // Key Generation & Upload
     // ──────────────────────────────────────────────
@@ -152,7 +168,7 @@ object KeyManager {
         return identityKeyPair!!
     }
 
-    private suspend fun ensureSignedPreKey(ik: CryptoPrimitives.KeyPair): PreKeyStore.SignedPreKeyRecord {
+    private suspend fun ensureSignedPreKey(ik: CryptoPrimitives.KeyPair): SignedPreKeyRecord {
         val store = preKeyStore ?: throw IllegalStateException("PreKeyStore not set")
         val current = store.getCurrentSignedPreKey()
         if (current != null && !store.needsSignedPreKeyRotation()) {
@@ -161,7 +177,7 @@ object KeyManager {
         return store.generateSignedPreKey(ik)
     }
 
-    private suspend fun ensureOpkBatch(): List<PreKeyStore.OneTimePreKeyRecord> {
+    private suspend fun ensureOpkBatch(): List<OneTimePreKeyRecord> {
         val store = preKeyStore ?: throw IllegalStateException("PreKeyStore not set")
         val count = store.getOneTimePreKeyCount()
         return if (count < 20) {
@@ -170,7 +186,7 @@ object KeyManager {
             store.generateOneTimePreKeys(needed, startId = startId)
         } else {
             store.getOneTimePreKeyPublicKeys().map { pub ->
-                PreKeyStore.OneTimePreKeyRecord(
+                OneTimePreKeyRecord(
                     id = pub.id,
                     publicKey = pub.publicKey,
                     privateKey = ByteArray(32),
@@ -182,8 +198,8 @@ object KeyManager {
 
     private suspend fun uploadKeyBundle(
         ik: CryptoPrimitives.KeyPair,
-        spk: PreKeyStore.SignedPreKeyRecord,
-        opks: List<PreKeyStore.OneTimePreKeyRecord>
+        spk: SignedPreKeyRecord,
+        opks: List<OneTimePreKeyRecord>
     ): Result<Unit> {
         val client = apiClient ?: return Result.failure(Exception("No API client"))
 
@@ -323,7 +339,7 @@ object KeyManager {
 
     private suspend fun uploadOpks(
         client: ApiClientLike,
-        opks: List<PreKeyStore.OneTimePreKeyRecord>
+        opks: List<OneTimePreKeyRecord>
     ): Result<Unit> {
         return try {
             val body = buildJsonObject {
