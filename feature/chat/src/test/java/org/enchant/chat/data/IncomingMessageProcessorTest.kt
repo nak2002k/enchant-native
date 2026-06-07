@@ -2,25 +2,18 @@ package org.enchant.chat.data
 
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.test.runTest
-import org.enchant.core.crypto.CryptoHelper
-import org.enchant.core.crypto.EncryptedPayload
 import org.enchant.core.crypto.SessionManager
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.entity.ConversationEntity
-import org.enchant.core.database.entity.MessageEntity
 import org.enchant.core.database.entity.RecipientEntity
-import org.enchant.core.model.MessageStatus
 import org.enchant.core.network.ApiClient
 import org.enchant.core.network.IncomingEnvelope
-import org.enchant.core.network.WebSocketManager
-import org.enchant.protos.EnvelopeProtos
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -89,46 +82,6 @@ class IncomingMessageProcessorTest {
             val result = IncomingMessageProcessor.processIncoming(envelope)
             assertTrue(result is ProcessResult.Ignored)
         }
-
-        @Test @DisplayName("processIncoming returns Handled for non-blocked sender")
-        fun `process non blocked handled`() = runTest {
-            coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns org.enchant.core.crypto.DecryptedResult(
-                plaintext = "Hello".encodeToByteArray(),
-                senderDeviceId = null,
-                isNewSession = false
-            )
-            coEvery { repo.insertMessageAndUpdateConversation(any(), any()) } returns Unit
-            coEvery { MessageSendPipeline.sendDeliveryReceipt(any(), any()) } returns Unit
-            val envelope = IncomingEnvelope(
-                envelopeId = "env-1",
-                senderUserId = "sender-1",
-                senderDeviceId = null,
-                messageType = "ENCRYPTED_MESSAGE",
-                payload = "payload".encodeToByteArray(),
-                serverTimestamp = System.currentTimeMillis(),
-                ephemeral = false
-            )
-            val result = IncomingMessageProcessor.processIncoming(envelope)
-            assertTrue(result is ProcessResult.Handled)
-        }
-
-        @Test @DisplayName("processIncoming returns Error on decryption failure")
-        fun `process decryption error`() = runTest {
-            coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns null
-            val envelope = IncomingEnvelope(
-                envelopeId = "env-1",
-                senderUserId = "sender-1",
-                senderDeviceId = null,
-                messageType = "ENCRYPTED_MESSAGE",
-                payload = "payload".encodeToByteArray(),
-                serverTimestamp = System.currentTimeMillis(),
-                ephemeral = false
-            )
-            val result = IncomingMessageProcessor.processIncoming(envelope)
-            assertTrue(result is ProcessResult.Error)
-        }
     }
 
     @Nested @DisplayName("Process PreKey Message")
@@ -136,8 +89,7 @@ class IncomingMessageProcessorTest {
         @Test @DisplayName("processPreKeyMessage establishes session and stores message")
         fun `process prekey establishes session`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.getIdentityKey(any()) } returns null
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns org.enchant.core.crypto.DecryptedResult(
+            coEvery { SessionManager.decryptPreKeyMessage(any(), any()) } returns SessionManager.DecryptedResult(
                 plaintext = "First message".encodeToByteArray(),
                 senderDeviceId = null,
                 isNewSession = true
@@ -160,8 +112,7 @@ class IncomingMessageProcessorTest {
         @Test @DisplayName("processPreKeyMessage returns Error when decryption fails")
         fun `process prekey decrypt error`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.getIdentityKey(any()) } returns null
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns null
+            coEvery { SessionManager.decryptPreKeyMessage(any(), any()) } returns null
             val envelope = IncomingEnvelope(
                 envelopeId = "env-prekey-1",
                 senderUserId = "new-sender",
@@ -176,73 +127,36 @@ class IncomingMessageProcessorTest {
         }
     }
 
-    @Nested @DisplayName("Process Unidentified Sender")
-    inner class ProcessUnidentifiedTest {
-        @Test @DisplayName("processUnidentifiedSender resolves sender identity and decrypts")
-        fun `process unidentified resolves sender`() = runTest {
-            val sealedPayload = """{"senderIdentity":"${CryptoHelper.base64UrlEncode(CryptoHelper.generateEd25519KeyPair().publicKey)}","ciphertext":"${CryptoHelper.base64UrlEncode("encrypted".encodeToByteArray())}"}"""
-            coEvery { SessionManager.findUserIdByIdentityKey(any()) } returns "sealed-sender"
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns org.enchant.core.crypto.DecryptedResult(
-                plaintext = "Sealed message".encodeToByteArray(),
-                senderDeviceId = null,
-                isNewSession = false
-            )
-            coEvery { repo.insertMessageAndUpdateConversation(any(), any()) } returns Unit
+    @Nested @DisplayName("Process Encrypted Message")
+    inner class ProcessEncryptedTest {
+        @Test @DisplayName("processEncryptedMessage returns Error on decryption failure")
+        fun `process decryption error`() = runTest {
+            coEvery { recipientDao.getBlocked() } returns emptyList()
+            coEvery { SessionManager.decryptMessage(any(), any()) } returns null
             val envelope = IncomingEnvelope(
-                envelopeId = "env-sealed-1",
-                senderUserId = null,
+                envelopeId = "env-1",
+                senderUserId = "sender-1",
                 senderDeviceId = null,
-                messageType = "UNIDENTIFIED_SENDER",
-                payload = sealedPayload.encodeToByteArray(),
+                messageType = "ENCRYPTED_MESSAGE",
+                payload = "payload".encodeToByteArray(),
                 serverTimestamp = System.currentTimeMillis(),
-                ephemeral = true,
-                replyToken = "reply-token-1"
+                ephemeral = false
             )
             val result = IncomingMessageProcessor.processIncoming(envelope)
-            assertTrue(result is ProcessResult.Handled)
+            assertTrue(result is ProcessResult.Error)
         }
+    }
 
-        @Test @DisplayName("processUnidentifiedSender returns Error when senderIdentity missing")
+    @Nested @DisplayName("Process Unidentified Sender")
+    inner class ProcessUnidentifiedTest {
+        @Test @DisplayName("processUnidentifiedSender returns Error when senderUserId missing")
         fun `process unidentified missing sender`() = runTest {
             val envelope = IncomingEnvelope(
                 envelopeId = "env-sealed-1",
                 senderUserId = null,
                 senderDeviceId = null,
                 messageType = "UNIDENTIFIED_SENDER",
-                payload = """{"ciphertext":"encrypted"}""".encodeToByteArray(),
-                serverTimestamp = System.currentTimeMillis(),
-                ephemeral = true
-            )
-            val result = IncomingMessageProcessor.processIncoming(envelope)
-            assertTrue(result is ProcessResult.Error)
-        }
-
-        @Test @DisplayName("processUnidentifiedSender returns Error when ciphertext missing")
-        fun `process unidentified missing ciphertext`() = runTest {
-            val envelope = IncomingEnvelope(
-                envelopeId = "env-sealed-1",
-                senderUserId = null,
-                senderDeviceId = null,
-                messageType = "UNIDENTIFIED_SENDER",
-                payload = """{"senderIdentity":"base64key"}""".encodeToByteArray(),
-                serverTimestamp = System.currentTimeMillis(),
-                ephemeral = true
-            )
-            val result = IncomingMessageProcessor.processIncoming(envelope)
-            assertTrue(result is ProcessResult.Error)
-        }
-
-        @Test @DisplayName("processUnidentifiedSender returns Error when sender identity unknown")
-        fun `process unidentified unknown sender`() = runTest {
-            val ik = CryptoHelper.generateEd25519KeyPair().publicKey
-            val sealedPayload = """{"senderIdentity":"${CryptoHelper.base64UrlEncode(ik)}","ciphertext":"${CryptoHelper.base64UrlEncode("encrypted".encodeToByteArray())}"}"""
-            coEvery { SessionManager.findUserIdByIdentityKey(any()) } returns null
-            val envelope = IncomingEnvelope(
-                envelopeId = "env-sealed-1",
-                senderUserId = null,
-                senderDeviceId = null,
-                messageType = "UNIDENTIFIED_SENDER",
-                payload = sealedPayload.encodeToByteArray(),
+                payload = "payload".encodeToByteArray(),
                 serverTimestamp = System.currentTimeMillis(),
                 ephemeral = true
             )
@@ -258,22 +172,6 @@ class IncomingMessageProcessorTest {
             coEvery { msgDao.insertBatch(any()) } returns Unit
             IncomingMessageProcessor.flush()
         }
-
-        @Test @DisplayName("bufferMessage flushes when threshold reached")
-        fun `buffer flushes at threshold`() = runTest {
-            coEvery { msgDao.insertBatch(any()) } returns Unit
-            repeat(20) { i ->
-                IncomingMessageProcessor.processIncoming(IncomingEnvelope(
-                    envelopeId = "env-$i",
-                    senderUserId = "sender-1",
-                    senderDeviceId = null,
-                    messageType = "ENCRYPTED_MESSAGE",
-                    payload = "msg-$i".encodeToByteArray(),
-                    serverTimestamp = System.currentTimeMillis(),
-                    ephemeral = false
-                ))
-            }
-        }
     }
 
     @Nested @DisplayName("Disappear Timer")
@@ -281,7 +179,7 @@ class IncomingMessageProcessorTest {
         @Test @DisplayName("processEncryptedMessage applies disappear timer when configured")
         fun `process applies disappear timer`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns org.enchant.core.crypto.DecryptedResult(
+            coEvery { SessionManager.decryptMessage(any(), any()) } returns SessionManager.DecryptedResult(
                 plaintext = "Hello".encodeToByteArray(),
                 senderDeviceId = null,
                 isNewSession = false

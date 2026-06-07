@@ -152,7 +152,8 @@ object WebSocketManager {
             return
         }
 
-        val request = Request.Builder().url(AppConfig.wsUrl).build()
+        val wsUrl = AppConfig.wsUrl.trimEnd('/') + "/v1/connect"
+        val request = Request.Builder().url(wsUrl).build()
         webSocket = wsClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
                 scope?.launch {
