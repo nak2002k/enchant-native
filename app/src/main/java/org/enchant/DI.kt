@@ -163,7 +163,11 @@ DatabasePool.instance = it
                     _workerScope?.launch {
                         while (true) {
                             delay(60_000L)
-                            // TODO: Implement disappearing messages check
+                            try {
+                                _conversationRepository?.deleteExpiredMessages()
+                            } catch (e: Exception) {
+                                android.util.Log.w("DI", "Disappearing messages cleanup failed: ${e.message}")
+                            }
                         }
                     }
                 }

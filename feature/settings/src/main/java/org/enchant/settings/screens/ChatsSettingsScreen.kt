@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.enchant.core.model.DisappearTimerPresets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,13 +24,6 @@ fun ChatsSettingsScreen(
     onBackupSettings: () -> Unit,
     onBack: () -> Unit
 ) {
-    val timerOptions = listOf(
-        0 to "Off",
-        86400 to "1 day",
-        604800 to "1 week",
-        2592000 to "1 month",
-        31536000 to "1 year"
-    )
 
     Scaffold(
         topBar = {
@@ -57,7 +51,7 @@ fun ChatsSettingsScreen(
                         style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(8.dp))
                     var expanded by remember { mutableStateOf(false) }
-                    val selectedLabel = timerOptions.find { it.first == defaultDisappearingTimer }?.second ?: "Off"
+                    val selectedLabel = DisappearTimerPresets.SETTINGS_OPTIONS.find { it.seconds == defaultDisappearingTimer }?.label ?: "Off"
                     ExposedDropdownMenuBox(
                         expanded = expanded,
                         onExpandedChange = { expanded = it }
@@ -73,11 +67,11 @@ fun ChatsSettingsScreen(
                             expanded = expanded,
                             onDismissRequest = { expanded = false }
                         ) {
-                            timerOptions.forEach { (seconds, label) ->
+                            DisappearTimerPresets.SETTINGS_OPTIONS.forEach { option ->
                                 DropdownMenuItem(
-                                    text = { Text(label) },
+                                    text = { Text(option.label) },
                                     onClick = {
-                                        onDisappearingTimerChange(seconds)
+                                        onDisappearingTimerChange(option.seconds)
                                         expanded = false
                                     }
                                 )

@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import org.enchant.chat.data.ConversationFilter
 import org.enchant.core.model.Conversation
+import org.enchant.core.model.DisappearTimerPresets
 import org.enchant.core.network.ConnectivityMonitor
 import org.enchant.core.network.OfflineQueue
 import org.enchant.core.network.WebSocketManager
@@ -323,6 +324,15 @@ private fun ConversationTile(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    if (conversation.disappearTimerSeconds > 0) {
+                        Icon(
+                            Icons.Default.Timer,
+                            contentDescription = "Disappearing messages: ${DisappearTimerPresets.formatDuration(conversation.disappearTimerSeconds)}",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
                     Text(
                         text = formatTimestamp(conversation.lastMessageTimestamp),
                         style = MaterialTheme.typography.bodySmall,

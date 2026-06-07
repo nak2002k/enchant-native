@@ -11,20 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-
-data class DisappearingMessageDuration(
-    val seconds: Int,
-    val label: String
-)
-
-val DISAPPEARING_MESSAGE_OPTIONS = listOf(
-    DisappearingMessageDuration(0, "Off"),
-    DisappearingMessageDuration(5, "5 seconds"),
-    DisappearingMessageDuration(30, "30 seconds"),
-    DisappearingMessageDuration(3600, "1 hour"),
-    DisappearingMessageDuration(86400, "24 hours"),
-    DisappearingMessageDuration(604800, "7 days")
-)
+import org.enchant.core.model.DisappearTimerPresets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +91,7 @@ fun GroupSettingsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         var expanded by remember { mutableStateOf(false) }
-                        val selectedLabel = DISAPPEARING_MESSAGE_OPTIONS.find { it.seconds == localDuration }?.label ?: "24 hours"
+                        val selectedLabel = DisappearTimerPresets.GROUP_OPTIONS.find { it.seconds == localDuration }?.label ?: "24 hours"
 
                         ExposedDropdownMenuBox(
                             expanded = expanded,
@@ -121,7 +108,7 @@ fun GroupSettingsScreen(
                                 expanded = expanded,
                                 onDismissRequest = { expanded = false }
                             ) {
-                                DISAPPEARING_MESSAGE_OPTIONS.filter { it.seconds > 0 }.forEach { option ->
+                                DisappearTimerPresets.GROUP_OPTIONS.filter { it.seconds > 0 }.forEach { option ->
                                     DropdownMenuItem(
                                         text = { Text(option.label) },
                                         onClick = {

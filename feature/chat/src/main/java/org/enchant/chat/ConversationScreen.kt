@@ -45,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import org.enchant.chat.components.EmojiPickerSheet
 import org.enchant.chat.components.MediaViewerScreen
+import org.enchant.core.model.DisappearTimerPresets
 import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
 import java.io.File
@@ -378,25 +379,46 @@ fun ConversationScreen(
     }
 
     if (showDisappearDialog) {
+        val currentTimer = conversation?.disappearTimerSeconds ?: 0
         AlertDialog(
             onDismissRequest = { showDisappearDialog = false },
             title = { Text("Disappearing messages") },
             text = {
                 Column {
-                    val options = listOf(
-                        0 to "Off",
-                        5 to "5 seconds",
-                        30 to "30 seconds",
-                        60 to "1 minute",
-                        3600 to "1 hour",
-                        86400 to "1 day",
-                        604800 to "1 week"
+                    Text(
+                        "Messages that disappear after a set time. Current: ${DisappearTimerPresets.formatDuration(currentTimer)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    options.forEach { (seconds, label) ->
-                        TextButton(onClick = {
-                            viewModel.setDisappearTimer(conversationId, seconds)
-                            showDisappearDialog = false
-                        }) { Text(label) }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DisappearTimerPresets.CONVERSATION_OPTIONS.forEach { option ->
+                        val isSelected = currentTimer == option.seconds
+                        Surface(
+                            onClick = {
+                                viewModel.setDisappearTimer(conversationId, option.seconds)
+                                showDisappearDialog = false
+                            },
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surface,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Text(option.label, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
                     }
                 }
             },
@@ -669,6 +691,24 @@ fun MessageBubble(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    val disappearAt = message.disappearAt
+                    if (disappearAt != null && disappearAt > 0) {
+                        val remaining = DisappearTimerPresets.formatTimeRemaining(disappearAt)
+                        if (remaining != "Expired") {
+                            Icon(
+                                Icons.Default.Timer,
+                                contentDescription = "Disappears in $remaining",
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.tertiary
+                            )
+                            Text(
+                                remaining,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
 
                     if (message.isEdited) {
                         Text(

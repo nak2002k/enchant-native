@@ -292,8 +292,21 @@ class ConversationRepository(
         messageDao.deleteConversation(conversationId)
     }
 
-    suspend fun setDisappearTimer(conversationId: String, timerSeconds: Int) = pool.write { db ->
-        db.execSQL("UPDATE conversations SET disappear_timer_seconds = ? WHERE conversation_id = ?", arrayOf(timerSeconds.toString(), conversationId))
+    suspend fun setDisappearTimer(conversationId: String, timerSeconds: Int) {
+        pool.write { db ->
+            db.execSQL("UPDATE conversations SET disappear_timer_seconds = ? WHERE conversation_id = ?", arrayOf(timerSeconds.toString(), conversationId))
+        }
+        apiClient?.let { client ->
+            try {
+                client.put("/v1/disappear/$conversationId", buildJsonObject {
+                    put("timer_seconds", JsonPrimitive(timerSeconds))
+                    put("timer_mode", JsonPrimitive("FROM_SEND"))
+                    put("conversation_type", JsonPrimitive("direct"))
+                })
+            } catch (e: Exception) {
+                android.util.Log.w("ConversationRepo", "Failed to sync disappear timer to server: ${e.message}")
+            }
+        }
     }
 
     suspend fun getPinnedMessages(conversationId: String): List<Message> = pool.readWith { db ->
