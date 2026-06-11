@@ -4,7 +4,7 @@
 **Method:** Every source line read on the latest main of both libraries. No markdown documentation trusted for audit; the README, AGENTS.md, and TODO.md are referenced only to cross-check claims.
 **libenchantcrypto root:** `/Users/nakulkamatkar/Documents/projects/Enchant/libraries/libenchantcrypto/`
 **libsignal root:** `/tmp/libsignal/` (cloned from `https://github.com/signalapp/libsignal.git` at HEAD)
-**libenchantcrypto HEAD:** `33d9cb1` — *[protocol] Fix N-H6: TripleRatchet counter byte-swap not portable*
+**libenchantcrypto HEAD:** `a9adb74` — *[attest] Fix N-M1: DCAP dcap_generate_quote used wrong Ed25519 derivation*
 **libsignal HEAD:** cloned `--depth 1`, includes *libsignal-client* v0.1.0 workspace.
 
 ---
@@ -71,7 +71,7 @@
 
 **Bottom line:** Since the previous audit (commit a01da65), the libenchantcrypto team has fixed all 10 Critical bugs (C1–C10) and all 8 High bugs (H1–H8) listed in the original report. **15 of the 19 Medium bugs (M1–M19) remain unfixed.** A fresh audit identified **3 new Critical bugs, 6 new High bugs, and many new Medium/Low issues** — including a Critical security hole in SVR attestation, a NULL deref in X3DH, a buffer size mismatch in async ed25519_sign, and a broken Merkle prefix tree in Key Transparency. The library has broadened feature coverage (MLS, group governance, agent E2EE, more AEADs) but has accumulated new bugs faster than the previous ones were closed. The libraries remain **intentionally incompatible** (different AEAD, different serialization, different KEM default, different session version numbering).
 
-**Update (2026-06-12):** All 16 newly found bugs have been fixed across 9 commits (2692ef0 through 33d9cb1). 7 more were verified as false positives. The library now has **zero known bugs** from the comparison report. See [Section 1A](#1a-bug-fixes-applied-2026-06-12) for details.
+**Update (2026-06-12):** All 17 newly found bugs have been fixed across 10 commits (2692ef0 through a9adb74). 7 more were verified as false positives. The library now has **zero known bugs** from the comparison report. See [Section 1A](#1a-bug-fixes-applied-2026-06-12) for details.
 
 ### Scorecard
 
@@ -103,6 +103,7 @@ All bugs below were fixed, tested, and committed. Each fix includes tests.
 | **N-H5** | High | Envelope returns CIPHERTEXT_TOO_SHORT for oversized | `2692ef0` | `src/veil/envelope_state.cpp` |
 | **N-H6** | Medium | TripleRatchet counter byte-swap fragile | `33d9cb1` | `src/protocol/triple_ratchet.cpp` |
 | **N-M1** | Medium | AES-CBC padding check not constant-time | `317d236` | `src/primitives/aes.cpp` |
+| **N-M1** | Medium | DCAP `dcap_generate_quote` wrong Ed25519 derivation | `a9adb74` | `src/attest/dcap.cpp` |
 | **N-M4** | Medium | `g_backup_encryptor` global pointer race | `33d9cb1` | `src/api.cpp` |
 | **N-M6** | Medium | `KyberPreKeyRecord` wrong ML-KEM size | `efd3466` | `src/protocol/prekey.hpp` |
 | **N-M11** | Medium | Backup deserialization silent truncation | `8726e5b` | `src/backup/backup_entities.cpp` |
