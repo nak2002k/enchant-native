@@ -101,17 +101,9 @@ int ed25519_validate_public_key(const uint8_t* public_key) {
         return ENCHANT_ERROR_NULL_POINTER;
     }
 
-    uint8_t dummy[64];
-    unsigned long long dummylen = 0;
-    std::vector<unsigned char> sig_and_msg(64 + 1);
-    memset(sig_and_msg.data(), 0, 64);
-    sig_and_msg[64] = 0;
-
-    int rc = crypto_sign_ed25519_open(dummy, &dummylen, sig_and_msg.data(), sig_and_msg.size(), public_key);
-
-    if (rc == 0) {
-        sodium_memzero(dummy, sizeof(dummy));
-        return ENCHANT_ERROR_SIGNATURE_INVALID;
+    // Use libsodium's point-on-curve validation
+    if (crypto_core_ed25519_is_valid_point(public_key) != 1) {
+        return ENCHANT_ERROR_INVALID_KEY_SIZE;
     }
 
     return ENCHANT_SUCCESS;
@@ -126,6 +118,19 @@ int ed25519_validate_private_key(const uint8_t* private_seed) {
     if (sodium_memcmp(private_seed, zero, 32) == 0) {
         return ENCHANT_ERROR_INVALID_KEY_SIZE;
     }
+
+    // Derive public key from seed and validate it's on the curve
+    uint8_t pk[32], sk[64];
+    if (crypto_sign_ed25519_seed_keypair(pk, sk, private_seed) != 0) {
+        return ENCHANT_ERROR_INVALID_KEY_SIZE;
+    }
+    sodium_memzero(sk, 64);
+
+    if (crypto_core_ed25519_is_valid_point(pk) != 1) {
+        sodium_memzero(pk, 32);
+        return ENCHANT_ERROR_INVALID_KEY_SIZE;
+    }
+    sodium_memzero(pk, 32);
 
     return ENCHANT_SUCCESS;
 }
@@ -187,37 +192,10 @@ int ed25519_public_key_from_x25519(const uint8_t* x25519_public_key,
     if (!x25519_public_key || !ed25519_public_key) {
         return ENCHANT_ERROR_NULL_POINTER;
     }
-
-    int rc = ed25519_pk_to_x25519(x25519_public_key, ed25519_public_key);
-    if (rc == 0) {
-        return ENCHANT_SUCCESS;
-    }
-
-    uint8_t u[32];
-    memcpy(u, x25519_public_key, 32);
-    u[31] &= 0x7F;
-
-    uint8_t y_bytes[32];
-    memcpy(y_bytes, u, 32);
-
-    uint8_t one[32] = {0};
-    one[0] = 1;
-
-    uint8_t u_minus_one[32];
-    for (int i = 0; i < 32; i++) {
-        u_minus_one[i] = u[i] - one[i];
-    }
-
-    uint8_t u_plus_one[32];
-    for (int i = 0; i < 32; i++) {
-        u_plus_one[i] = u[i] + one[i];
-    }
-
-    (void)y_bytes;
-    (void)u_minus_one;
-    (void)u_plus_one;
-
-    return ENCHANT_ERROR_INTERNAL;
+    // No standard conversion exists from X25519 public key to Ed25519 public key
+    // They are on different curves (Montgomery vs twisted Edwards)
+    // Only private key derivation is possible (ed25519_keypair_from_x25519)
+    return ENCHANT_ERROR_NOT_IMPLEMENTED;
 }
 
 } // namespace primitives

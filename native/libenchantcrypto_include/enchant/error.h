@@ -2,6 +2,8 @@
 #define ENCHANT_ERROR_H
 
 #include <cstdint>
+#include <cstddef>
+#include <cstring>
 
 namespace enchant {
 
@@ -45,10 +47,52 @@ enum class Error : int {
     MISMATCHED_DEVICES = -200,
     MISSING_DEVICES = -201,
     EXTRA_DEVICES = -202,
-    STALE_DEVICES = -203
+    STALE_DEVICES = -203,
+
+    RATE_LIMITED = -300,
+
+    STALE_SESSION = -400,
+    SESSION_EXPIRED = -401,
+    IDENTITY_CHANGED = -402,
+    CERTIFICATE_REVOKED = -403,
+    CERTIFICATE_CHAIN_INVALID = -404,
+    SENDER_KEY_DISTRIBUTION_FAILED = -405,
+    LIMIT_EXCEEDED = -406
 };
 
 constexpr inline int to_int(Error e) { return static_cast<int>(e); }
+
+struct EnchantErrorInfo {
+    int error_code;
+    char address[96];
+    uint32_t device_id;
+    char message[256];
+    uint64_t timestamp_ms;
+
+    void clear();
+    void set_address(const char* addr, size_t addr_len);
+    void set_message(const char* msg, size_t msg_len);
+};
+
+inline void EnchantErrorInfo::clear() {
+    error_code = 0;
+    address[0] = '\0';
+    device_id = 0;
+    message[0] = '\0';
+    timestamp_ms = 0;
+}
+
+inline void EnchantErrorInfo::set_address(const char* addr, size_t addr_len) {
+    size_t copy_len = addr_len < sizeof(address) - 1 ? addr_len : sizeof(address) - 1;
+    memcpy(address, addr, copy_len);
+    address[copy_len] = '\0';
+}
+
+inline void EnchantErrorInfo::set_message(const char* msg, size_t msg_len) {
+    size_t copy_len = msg_len < sizeof(message) - 1 ? msg_len : sizeof(message) - 1;
+    memcpy(message, msg, copy_len);
+    message[copy_len] = '\0';
+}
 
 }
 
@@ -91,5 +135,15 @@ constexpr inline int to_int(Error e) { return static_cast<int>(e); }
 #define ENCHANT_ERROR_MISSING_DEVICES        -201
 #define ENCHANT_ERROR_EXTRA_DEVICES          -202
 #define ENCHANT_ERROR_STALE_DEVICES          -203
+
+#define ENCHANT_ERROR_RATE_LIMITED           -300
+
+#define ENCHANT_ERROR_STALE_SESSION          -400
+#define ENCHANT_ERROR_SESSION_EXPIRED        -401
+#define ENCHANT_ERROR_IDENTITY_CHANGED       -402
+#define ENCHANT_ERROR_CERTIFICATE_REVOKED    -403
+#define ENCHANT_ERROR_CERTIFICATE_CHAIN_INVALID -404
+#define ENCHANT_ERROR_SENDER_KEY_DISTRIBUTION_FAILED -405
+#define ENCHANT_ERROR_LIMIT_EXCEEDED         -406
 
 #endif

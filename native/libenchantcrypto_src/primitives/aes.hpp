@@ -109,6 +109,30 @@ int aes_256_gcm_siv_decrypt(const uint8_t* key,
                             uint8_t* plaintext,
                             size_t* plaintext_len);
 
+constexpr size_t AES_SIV_KEY_SIZE = 64;
+constexpr size_t AES_SIV_NONCE_SIZE = 16;
+constexpr size_t AES_SIV_TAG_SIZE = 16;
+
+int aes_256_siv_encrypt(const uint8_t* key, size_t key_len,
+                        const uint8_t* plaintext,
+                        size_t plaintext_len,
+                        const uint8_t* additional_data,
+                        size_t additional_data_len,
+                        const uint8_t* nonce,
+                        size_t nonce_len,
+                        uint8_t* ciphertext,
+                        size_t* ciphertext_len);
+
+int aes_256_siv_decrypt(const uint8_t* key, size_t key_len,
+                        const uint8_t* ciphertext,
+                        size_t ciphertext_len,
+                        const uint8_t* additional_data,
+                        size_t additional_data_len,
+                        const uint8_t* nonce,
+                        size_t nonce_len,
+                        uint8_t* plaintext,
+                        size_t* plaintext_len);
+
 } // namespace primitives
 } // namespace enchant
 

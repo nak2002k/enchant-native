@@ -17,8 +17,13 @@ int xchacha20_encrypt(const uint8_t* plaintext, size_t plaintext_len,
     if (ciphertext_capacity < min_capacity) {
         return ENCHANT_ERROR_BUFFER_TOO_SMALL;
     }
-    int rc = crypto_secretbox_xchacha20poly1305_easy(
-        ciphertext, plaintext, plaintext_len, nonce, key);
+    unsigned long long out_len = 0;
+    int rc = crypto_aead_xchacha20poly1305_ietf_encrypt(
+        ciphertext, &out_len,
+        plaintext, plaintext_len,
+        nullptr, 0,
+        nullptr, nonce, key);
+    (void)out_len;
     return (rc == 0) ? ENCHANT_SUCCESS : ENCHANT_ERROR_INTERNAL;
 }
 
@@ -34,8 +39,13 @@ int xchacha20_decrypt(const uint8_t* ciphertext, size_t ciphertext_len,
     if (plaintext_capacity < ciphertext_len - XCHACHA20_TAG_SIZE) {
         return ENCHANT_ERROR_BUFFER_TOO_SMALL;
     }
-    int rc = crypto_secretbox_xchacha20poly1305_open_easy(
-        plaintext, ciphertext, ciphertext_len, nonce, key);
+    unsigned long long pt_len = 0;
+    int rc = crypto_aead_xchacha20poly1305_ietf_decrypt(
+        plaintext, &pt_len,
+        nullptr,
+        ciphertext, ciphertext_len,
+        nullptr, 0,
+        nonce, key);
     return (rc == 0) ? ENCHANT_SUCCESS : ENCHANT_ERROR_DECRYPTION_FAILED;
 }
 
@@ -49,6 +59,12 @@ int xchacha20_encrypt_ad(const uint8_t* plaintext, size_t plaintext_len,
     if (!plaintext && plaintext_len > 0) {
         return ENCHANT_ERROR_NULL_POINTER;
     }
+
+    // Verify output buffer has enough capacity for ciphertext + tag
+    if (*ciphertext_len < plaintext_len + XCHACHA20_TAG_SIZE) {
+        return ENCHANT_ERROR_BUFFER_TOO_SMALL;
+    }
+
     unsigned long long out_len = 0;
     int rc = crypto_aead_xchacha20poly1305_ietf_encrypt(
         ciphertext, &out_len,
@@ -56,8 +72,11 @@ int xchacha20_encrypt_ad(const uint8_t* plaintext, size_t plaintext_len,
         ad, ad_len,
         nullptr, nonce, key
     );
+    if (rc != 0) {
+        return ENCHANT_ERROR_INTERNAL;
+    }
     *ciphertext_len = out_len;
-    return (rc == 0) ? ENCHANT_SUCCESS : ENCHANT_ERROR_INTERNAL;
+    return ENCHANT_SUCCESS;
 }
 
 int xchacha20_decrypt_ad(const uint8_t* ciphertext, size_t ciphertext_len,

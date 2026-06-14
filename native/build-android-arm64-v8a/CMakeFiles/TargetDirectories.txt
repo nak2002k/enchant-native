@@ -1,0 +1,3 @@
+/Users/nakulkamatkar/Documents/projects/Enchant/frontend/native/build-android-arm64-v8a/CMakeFiles/enchantcrypto_jni.dir
+/Users/nakulkamatkar/Documents/projects/Enchant/frontend/native/build-android-arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/nakulkamatkar/Documents/projects/Enchant/frontend/native/build-android-arm64-v8a/CMakeFiles/rebuild_cache.dir

@@ -20,7 +20,7 @@ bool constant_time_eq_64(const uint8_t* a, const uint8_t* b) {
 }
 
 bool constant_time_is_zero(const uint8_t* data, size_t len) {
-    if (!data) return true;
+    if (!data) return false;
     return sodium_is_zero(data, len) == 1;
 }
 

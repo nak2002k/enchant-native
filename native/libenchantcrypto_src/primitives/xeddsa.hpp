@@ -17,7 +17,7 @@ int xeddsa_sign(const uint8_t* message, size_t message_len,
 
 int xeddsa_verify(const uint8_t* message, size_t message_len,
                   const uint8_t* signature,
-                  const uint8_t* x25519_public_key);
+                  const uint8_t* ed25519_public_key);
 
 int xeddsa_derive_public_key(const uint8_t* x25519_private_key,
                              uint8_t* xeddsa_public_key);

@@ -10,7 +10,12 @@ pkg_check_modules(sodium_host REQUIRED IMPORTED_TARGET libsodium)
 
 if(ANDROID)
     set(SODIUM_PREBUILT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../app/build/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib/${ANDROID_ABI}")
-    set(SODIUM_SO "${SODIUM_PREBUILT_DIR}/libsodium.so")
+    set(JNILIBS_SODIUM "${CMAKE_CURRENT_SOURCE_DIR}/../app/src/main/jniLibs/${ANDROID_ABI}/libsodium.so")
+    if(EXISTS "${JNILIBS_SODIUM}")
+        set(SODIUM_SO "${JNILIBS_SODIUM}")
+    elseif(EXISTS "${SODIUM_PREBUILT_DIR}/libsodium.so")
+        set(SODIUM_SO "${SODIUM_PREBUILT_DIR}/libsodium.so")
+    endif()
 endif()
 
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/libenchantcrypto_src)
@@ -42,6 +47,10 @@ target_include_directories(enchantcrypto_jni
         ${SRC}/primitives
         ${sodium_host_INCLUDE_DIRS}
 )
+
+if(ANDROID)
+    target_include_directories(enchantcrypto_jni PRIVATE ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/include)
+endif()
 
 if(ANDROID AND EXISTS "${SODIUM_SO}")
     message(STATUS "Linking against: ${SODIUM_SO}")

@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <cstring>
 #include <sodium.h>
+#include <mutex>
+#include <memory>
 
 namespace enchant {
 namespace secure {
@@ -42,6 +44,31 @@ public:
 private:
     uint8_t* data_;
     size_t size_;
+};
+
+template<typename T>
+class ScopedLock {
+public:
+    explicit ScopedLock(T& mutex) : lock_(mutex), mutex_(mutex) {}
+    ~ScopedLock() = default;
+
+    ScopedLock(const ScopedLock&) = delete;
+    ScopedLock& operator=(const ScopedLock&) = delete;
+
+private:
+    std::lock_guard<T> lock_;
+    T& mutex_;
+};
+
+class SecureZero {
+public:
+    static void zero(void* ptr, size_t len) {
+        sodium_memzero(ptr, len);
+    }
+
+    static bool constant_time_compare(const void* a, const void* b, size_t len) {
+        return sodium_memcmp(a, b, len) == 0;
+    }
 };
 
 } // namespace secure

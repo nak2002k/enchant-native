@@ -37,11 +37,11 @@ int xeddsa_derive_public_key(const uint8_t* x25519_private_key,
     sodium_memzero(ed_sk, 64);
 
     if (rc != 0) {
-        memset(xeddsa_public_key, 0, XEDDSA_PUBLIC_KEY_SIZE);
+        std::memset(xeddsa_public_key, 0, XEDDSA_PUBLIC_KEY_SIZE);
         return ENCHANT_ERROR_INTERNAL;
     }
 
-    memcpy(xeddsa_public_key, ed_pk, 32);
+    std::memcpy(xeddsa_public_key, ed_pk, 32);
     sodium_memzero(ed_pk, 32);
     return ENCHANT_SUCCESS;
 }
@@ -65,12 +65,12 @@ int xeddsa_sign(const uint8_t* message, size_t message_len,
 
 int xeddsa_verify(const uint8_t* message, size_t message_len,
                   const uint8_t* signature,
-                  const uint8_t* x25519_public_key) {
-    if (!message || !signature || !x25519_public_key) {
+                  const uint8_t* ed25519_public_key) {
+    if (!message || !signature || !ed25519_public_key) {
         return ENCHANT_ERROR_NULL_POINTER;
     }
 
-    return ed25519_verify(message, message_len, signature, x25519_public_key);
+    return ed25519_verify(message, message_len, signature, ed25519_public_key);
 }
 
 } // namespace primitives
