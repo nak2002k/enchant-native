@@ -24,6 +24,51 @@ object EnchantCrypto {
     const val ERROR_INVALID_FORMAT = -11
     const val ERROR_INTERNAL = -99
 
+    // --- Size constants (from enchant/api.h) ---
+    const val X25519_PUBLIC_KEY_SIZE = 32
+    const val X25519_PRIVATE_KEY_SIZE = 32
+    const val ED25519_PUBLIC_KEY_SIZE = 32
+    const val ED25519_SEED_SIZE = 32
+    const val ED25519_SIGNATURE_SIZE = 64
+    const val XCHACHA20_KEY_SIZE = 32
+    const val XCHACHA20_NONCE_SIZE = 24
+    const val XCHACHA20_TAG_SIZE = 16
+    const val SHA256_SIZE = 32
+    const val SHA384_SIZE = 48
+    const val SHA512_SIZE = 64
+    const val HMAC_SHA256_SIZE = 32
+    const val HMAC_SHA512_SIZE = 64
+    const val HKDF_MAX_OUTPUT = 8160
+    const val ARGON2_STRBYTES = 128
+    const val AES_128_KEY_SIZE = 16
+    const val AES_192_KEY_SIZE = 24
+    const val AES_256_KEY_SIZE = 32
+    const val AES_BLOCK_SIZE = 16
+    const val AES_GCM_NONCE_SIZE = 12
+    const val AES_GCM_TAG_SIZE = 16
+    const val HPKE_SHARED_SECRET_SIZE = 32
+    const val HPKE_KEY_SIZE = 32
+    const val HMAC_SHA512_KEY_SIZE = 64
+    const val RSA_2048_KEY_SIZE = 256
+    const val RSA_4096_KEY_SIZE = 512
+    const val X509_CERT_MAX_SIZE = 4096
+    const val ATTESTATION_NONCE_SIZE = 32
+    const val BACKUP_KEY_SIZE = 32
+    const val BACKUP_NONCE_SIZE = 24
+    const val BACKUP_FRAME_NONCE_SIZE = 12
+    const val BACKUP_FRAME_MAC_SIZE = 16
+    const val MLS_GROUP_ID_SIZE = 32
+    const val MLS_EPOCH_SIZE = 32
+    const val MLS_TRANSCRIPT_HASH_SIZE = 32
+    const val SAFETY_NUMBER_LEN = 32
+    const val TRUST_TOKEN_SIZE = 104
+    const val ATTACHMENT_KEY_SIZE = 32
+    const val ATTACHMENT_NONCE_SIZE = 24
+    const val ATTACHMENT_MAC_SIZE = 16
+    const val SVR_AUTH_PROOF_SIZE = 64
+    const val SVR_NONCE_SIZE = 32
+    const val KEY_TRANSPARENCY_VRF_PROOF_SIZE = 80
+
     // --- Native functions (auto-generated) ---
     external fun enchant_init(): Int
     external fun enchant_version(): String
