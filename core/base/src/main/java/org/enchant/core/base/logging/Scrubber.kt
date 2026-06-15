@@ -1,7 +1,7 @@
 package org.enchant.core.base.logging
 
 import org.enchant.core.base.SecurePreferences
-import java.security.MessageDigest
+import org.enchant.core.crypto.CryptoPrimitives
 import java.util.regex.Pattern
 
 /**
@@ -12,8 +12,9 @@ import java.util.regex.Pattern
  * exposing raw personal data.
  *
  * Uses HMAC-style hashing: `SHA-256(salt + value)` truncated to 8 hex chars.
- * The salt is fixed at compile time so that the same value always produces
- * the same token within a single app build.
+ * The salt is generated via libenchantcrypto's [CryptoPrimitives.generateRandomKey]
+ * and persisted so that the same value always produces the same token within
+ * a single app install.
  *
  * Usage:
  * ```
@@ -31,8 +32,7 @@ object Scrubber {
             stored
         } else {
             Log.w(TAG, "SecurePreferences not initialized before Scrubber.SALT access; generating ephemeral salt")
-            val bytes = ByteArray(16)
-            java.security.SecureRandom().nextBytes(bytes)
+            val bytes = CryptoPrimitives.generateRandomKey(16)
             val hex = bytes.joinToString("") { "%02x".format(it) }
             SecurePreferences.putString("scrubber_salt", hex)
             hex
@@ -122,9 +122,7 @@ object Scrubber {
     }
 
     private fun hashToken(value: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        digest.update((SALT + value).toByteArray(Charsets.UTF_8))
-        val hash = digest.digest()
+        val hash = CryptoPrimitives.sha256((SALT + value).toByteArray(Charsets.UTF_8))
         return hash.take(4).joinToString("") { "%02x".format(it) }
     }
 }

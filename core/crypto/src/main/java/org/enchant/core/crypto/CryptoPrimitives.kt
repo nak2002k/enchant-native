@@ -1,9 +1,5 @@
 package org.enchant.core.crypto
 
-import java.math.BigInteger
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
-
 /**
  * Core cryptographic primitives for the Enchant protocol.
  *
@@ -297,10 +293,19 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun base64UrlEncode(data: ByteArray): String =
-        java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(data)
+        EnchantCrypto.enchant_base64_encode(data, data.size.toLong()).let { out ->
+            val sb = StringBuilder()
+            for (b in out) sb.append(b.toInt().toChar())
+            sb.toString()
+        }
 
-    fun base64UrlDecode(encoded: String): ByteArray =
-        java.util.Base64.getUrlDecoder().decode(encoded)
+    fun base64UrlDecode(encoded: String): ByteArray {
+        val out = ByteArray(encoded.length)
+        val n = IntArray(1)
+        val rc = EnchantCrypto.enchant_base64_decode(encoded, out, out.size.toLong())
+        if (rc != 0) throw IllegalArgumentException("base64UrlDecode failed: $rc")
+        return out.copyOf(n[0].coerceAtLeast(out.size))
+    }
 
     fun hexEncode(data: ByteArray): String =
         data.joinToString("") { String.format("%02x", it) }

@@ -42,8 +42,15 @@ object BackupArchive {
                 CryptoHelper.decryptXChaCha20Poly1305(fullData, backupKey)
                 true
             }
-        } catch (e: javax.crypto.AEADBadTagException) {
-            android.util.Log.w("BackupArchive", "Integrity check failed: bad authentication tag (possible tampering)")
+        } catch (e: RuntimeException) {
+            val msg = e.message ?: ""
+            if (msg.contains("MAC mismatch", ignoreCase = true) ||
+                msg.contains("decrypt", ignoreCase = true) ||
+                msg.contains("authentication", ignoreCase = true)) {
+                android.util.Log.w("BackupArchive", "Integrity check failed: bad authentication tag (possible tampering)")
+            } else {
+                android.util.Log.w("BackupArchive", "Integrity check failed: $msg")
+            }
             false
         } catch (e: Exception) {
             android.util.Log.w("BackupArchive", "Integrity check failed: ${e.message}")

@@ -2,7 +2,6 @@ package org.enchant.core.crypto
 
 import java.io.InputStream
 import java.io.OutputStream
-import java.security.MessageDigest
 
 /**
  * AES-256-GCM media file encryption/decryption with streaming support.

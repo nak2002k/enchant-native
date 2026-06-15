@@ -211,6 +211,6 @@ fun verifyPinArgon2(pin: String, hash: String): Boolean {
 fun isLegacySha256Hash(hash: String): Boolean = hash.length == 64 && hash.all { it in '0'..'9' || it in 'a'..'f' }
 
 fun legacySha256Hash(pin: String): String {
-    val md = java.security.MessageDigest.getInstance("SHA-256")
-    return md.digest(pin.toByteArray()).joinToString("") { "%02x".format(it) }
+    val hash = org.enchant.core.crypto.CryptoPrimitives.sha256(pin.toByteArray())
+    return hash.joinToString("") { "%02x".format(it) }
 }

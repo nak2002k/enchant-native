@@ -149,7 +149,7 @@ object AuthStateMachine {
             try {
                 val parts = jwt.split(".")
                 if (parts.size == 3 && parts.none { it.isEmpty() }) {
-                    val payload = java.util.Base64.getUrlDecoder().decode(parts[1])
+                    val payload = org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(parts[1])
                     val payloadStr = payload.decodeToString()
                     val json = kotlinx.serialization.json.Json.parseToJsonElement(payloadStr).jsonObject
                     val exp = json["exp"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L

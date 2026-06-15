@@ -14,8 +14,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
 import org.enchant.core.crypto.CryptoPrimitives
-import java.security.SecureRandom
-import java.util.Base64
 
 data class PhoneContact(
     val name: String,
@@ -108,16 +106,16 @@ class ContactSyncService(
      * Previously used raw SHA-256. Existing contacts need re-discovery after update.
      */
     fun hashPhoneNumber(phone: String): String {
-        val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
+        val salt = CryptoPrimitives.generateRandomKey(16)
         val hash = CryptoPrimitives.argon2idHashWithParams(
             phone.toByteArray(Charsets.UTF_8),
             salt,
-            3,
-            65536,
-            4,
+            2,
+            64 * 1024,
+            2,
             32
         )
-        return Base64.getEncoder().encodeToString(salt) + ":" + Base64.getEncoder().encodeToString(hash)
+        return CryptoPrimitives.base64UrlEncode(salt) + ":" + CryptoPrimitives.base64UrlEncode(hash)
     }
 
     suspend fun readDeviceContacts(): List<PhoneContact> = withContext(Dispatchers.IO) {

@@ -21,13 +21,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.app.Activity
 import android.view.WindowManager
-import java.security.MessageDigest
+import org.enchant.core.crypto.CryptoPrimitives
 
 object SafetyNumberHelper {
     fun computeFingerprint(ourKey: ByteArray, theirKey: ByteArray): String {
-        val combined = ourKey + theirKey
-        val hash = MessageDigest.getInstance("SHA-512").digest(combined)
-        return formatFingerprint(hash)
+        val out = ByteArray(32)
+        val rc = org.enchant.core.crypto.EnchantCrypto.enchant_safety_number_generate(
+            ourKey, theirKey, null, null, null, out
+        )
+        if (rc != 0) {
+            val combined = ourKey + theirKey
+            val hash = CryptoPrimitives.sha512(combined)
+            return formatFingerprint(hash.copyOfRange(0, 32))
+        }
+        return formatFingerprint(out)
     }
 
     fun formatFingerprint(digest: ByteArray): String {
@@ -37,12 +44,17 @@ object SafetyNumberHelper {
 
     fun formatSafetyNumberRows(fingerprint: String): List<String> {
         return fingerprint.replace("-", "")
-            .chunked(12) // 3 groups of 4 = 12 chars per row
+            .chunked(12)
             .map { it.chunked(4).joinToString(" ") }
     }
 
     fun verify(remote: String, local: String): Boolean {
-        return MessageDigest.isEqual(remote.encodeToByteArray(), local.encodeToByteArray())
+        val normalizedRemote = remote.replace("-", "").replace(" ", "").uppercase()
+        val normalizedLocal = local.replace("-", "").replace(" ", "").uppercase()
+        return CryptoPrimitives.constantTimeEquals(
+            normalizedRemote.encodeToByteArray(),
+            normalizedLocal.encodeToByteArray()
+        )
     }
 }
 

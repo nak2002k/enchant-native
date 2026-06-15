@@ -104,7 +104,7 @@ object DI {
                     KeyStoreManager.getOrCreateDatabaseKey()
                 } catch (e: Exception) {
                     android.util.Log.w("DI", "DB key init failed: ${e.message}")
-                    ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+                    org.enchant.core.crypto.CryptoPrimitives.generateRandomKey(32)
                 }
                 val pool = try {
                     DatabasePool(context, dbPassphrase, emptyList()).also {
