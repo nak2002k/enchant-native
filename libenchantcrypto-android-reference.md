@@ -8,7 +8,7 @@ needed for the Signal Protocol: X25519, Ed25519, XChaCha20-Poly1305, HKDF, Argon
 - **Language:** C++ (C ABI exposed via `extern "C"`)
 - **Crypto:** libsodium
 - **Output:** Static library (`libenchantcrypto.a`) + C headers
-- **Repo:** `/home/nsk/project/personal/libenchantcrypto`
+- **Repo:** `/home/nsk/project/personal/Enchant/lib/libenchantcrypto`
 - **Headers:** `include/enchant/api.h`, `include/enchant/error.h`
 
 ---
