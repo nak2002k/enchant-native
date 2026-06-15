@@ -667,4 +667,106 @@ class CryptoPrimitivesTest {
             assertTrue(data.all { it == 0.toByte() })
         }
     }
+
+    @Nested @DisplayName("Argon2id hash with custom params")
+    inner class Argon2idWithParamsTest {
+        @Test @DisplayName("produces output of requested length")
+        fun `argon2id with params output length`() {
+            val out = CryptoPrimitives.argon2idHashWithParams(
+                "password".toByteArray(),
+                ByteArray(16) { it.toByte() },
+                1, 8 * 1024, 1,
+                32
+            )
+            assertEquals(32, out.size)
+            assertTrue(out.any { it != 0.toByte() })
+        }
+
+        @Test @DisplayName("same salt+params produces same hash (deterministic)")
+        fun `argon2id deterministic`() {
+            val salt = ByteArray(16) { it.toByte() }
+            val a = CryptoPrimitives.argon2idHashWithParams(
+                "password".toByteArray(), salt, 1, 8 * 1024, 1, 32
+            )
+            val b = CryptoPrimitives.argon2idHashWithParams(
+                "password".toByteArray(), salt, 1, 8 * 1024, 1, 32
+            )
+            assertArrayEquals(a, b)
+        }
+
+        @Test @DisplayName("different salt produces different hash")
+        fun `argon2id different salt`() {
+            val salt1 = ByteArray(16) { 0 }
+            val salt2 = ByteArray(16) { 1 }
+            val a = CryptoPrimitives.argon2idHashWithParams(
+                "password".toByteArray(), salt1, 1, 8 * 1024, 1, 32
+            )
+            val b = CryptoPrimitives.argon2idHashWithParams(
+                "password".toByteArray(), salt2, 1, 8 * 1024, 1, 32
+            )
+            assertFalse(a.contentEquals(b))
+        }
+
+        @Test @DisplayName("different password produces different hash")
+        fun `argon2id different password`() {
+            val salt = ByteArray(16) { 0 }
+            val a = CryptoPrimitives.argon2idHashWithParams(
+                "password1".toByteArray(), salt, 1, 8 * 1024, 1, 32
+            )
+            val b = CryptoPrimitives.argon2idHashWithParams(
+                "password2".toByteArray(), salt, 1, 8 * 1024, 1, 32
+            )
+            assertFalse(a.contentEquals(b))
+        }
+
+        @Test @DisplayName("Signal-style params (2/64MB/2) for phone hashing")
+        fun `argon2id signal style phone hashing`() {
+            val salt = CryptoPrimitives.generateRandomKey(16)
+            val hash = CryptoPrimitives.argon2idHashWithParams(
+                "+15551234567".toByteArray(Charsets.UTF_8),
+                salt, 2, 65536, 2, 32
+            )
+            assertEquals(32, hash.size)
+            assertTrue(hash.any { it != 0.toByte() })
+        }
+    }
+
+    @Nested @DisplayName("Safety number fingerprint (using native)")
+    inner class SafetyNumberTest {
+        @Test @DisplayName("same inputs produce same fingerprint")
+        fun `safety number deterministic`() {
+            val key1 = ByteArray(32) { it.toByte() }
+            val key2 = ByteArray(32) { (it + 7).toByte() }
+            val fp1 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key1, key2)
+            val fp2 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key1, key2)
+            assertEquals(fp1, fp2)
+        }
+
+        @Test @DisplayName("different inputs produce different fingerprints")
+        fun `safety number different inputs`() {
+            val key1 = ByteArray(32) { it.toByte() }
+            val key2 = ByteArray(32) { (it + 7).toByte() }
+            val fp1 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key1, key2)
+            val fp2 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key2, key1)
+            assertNotEquals(fp1, fp2)
+        }
+
+        @Test @DisplayName("verify accepts matching strings with formatting differences")
+        fun `safety number verify formatting`() {
+            val fp = "AABB-CCDD-EEFF-0011-2233-4455-6677-8899-AABB-CCDD-EEFF-0011-2233-4455-6677-8899"
+            val withDashes = "AABB-CCDD-EEFF-0011-2233-4455-6677-8899-AABB-CCDD-EEFF-0011-2233-4455-6677-8899"
+            val withSpaces = "AABB CCDD EEFF 0011 2233 4455 6677 8899 AABB CCDD EEFF 0011 2233 4455 6677 8899"
+            val lowercase = "aabb-ccdd-eeff-0011-2233-4455-6677-8899-aabb-ccdd-eeff-0011-2233-4455-6677-8899"
+            assertTrue(org.enchant.calls.SafetyNumberHelper.verify(fp, withDashes))
+            assertTrue(org.enchant.calls.SafetyNumberHelper.verify(fp, withSpaces))
+            assertTrue(org.enchant.calls.SafetyNumberHelper.verify(fp, lowercase))
+        }
+
+        @Test @DisplayName("verify rejects non-matching strings")
+        fun `safety number verify rejects different`() {
+            val fp1 = "AABB-CCDD-EEFF-0011-2233-4455-6677-8899-AABB-CCDD-EEFF-0011-2233-4455-6677-8899"
+            val fp2 = "0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000"
+            assertFalse(org.enchant.calls.SafetyNumberHelper.verify(fp1, fp2))
+        }
+    }
 }

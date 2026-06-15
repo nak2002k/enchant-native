@@ -104,6 +104,19 @@ class BackupViewModel : ViewModel() {
         isUploading = false
     }
 
+    fun cancelUpload() {
+        uploadQueue.clear()
+        isUploading = false
+        _uiState.value = _uiState.value.copy(isProcessing = false, uploadProgress = 0f)
+    }
+
+    fun retryFailedUpload(backupId: String, chunkIndex: Int, totalChunks: Int, data: ByteArray) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(error = null)
+            uploadChunk(backupId, chunkIndex, totalChunks, data)
+        }
+    }
+
     fun finalizeBackup(backupId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)

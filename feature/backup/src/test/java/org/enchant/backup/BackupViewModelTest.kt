@@ -84,4 +84,23 @@ class BackupViewModelTest {
             assertFalse(state.isProcessing)
         }
     }
+
+    @Nested @DisplayName("Upload Queue")
+    inner class UploadQueueTest {
+        @Test @DisplayName("uploadChunk clears processing state on completion")
+        fun `upload chunk completes`() = runTest {
+            viewModel.uploadChunk("backup-1", 0, 2, ByteArray(100) { it.toByte() })
+            testDispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isProcessing)
+        }
+
+        @Test @DisplayName("cancelUpload clears queue and resets state")
+        fun `cancel upload`() = runTest {
+            viewModel.uploadChunk("backup-1", 0, 2, ByteArray(100) { it.toByte() })
+            viewModel.cancelUpload()
+            testDispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isProcessing)
+            assertEquals(0f, viewModel.uiState.value.uploadProgress)
+        }
+    }
 }

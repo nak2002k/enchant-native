@@ -1,6 +1,7 @@
 package org.enchant.core.crypto
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -26,13 +27,20 @@ class PreKeyWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             if (KeyManager.needsKeyRotation()) {
                 val rotationResult = KeyManager.rotateSignedPreKey()
                 if (rotationResult.isFailure) {
+                    Log.w(TAG, "Signed prekey rotation failed, will retry: ${rotationResult.exceptionOrNull()?.message}")
                     return Result.retry()
                 }
             }
+            Log.d(TAG, "Prekey maintenance completed successfully")
             Result.success()
         } catch (e: Exception) {
+            Log.e(TAG, "Prekey maintenance failed, will retry", e)
             Result.retry()
         }
+    }
+
+    private companion object {
+        private const val TAG = "PreKeyWorker"
     }
 
     companion object {
