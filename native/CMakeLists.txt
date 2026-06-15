@@ -18,42 +18,54 @@ if(ANDROID)
     endif()
 endif()
 
-set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/libenchantcrypto_src)
-set(INC ${CMAKE_CURRENT_SOURCE_DIR}/libenchantcrypto_include)
 set(JNI ${CMAKE_CURRENT_SOURCE_DIR}/bindings/jni)
 
-# Build all C++ sources into the JNI .so directly
+# Build JNI bridge .so — links against prebuilt libenchantcrypto.so
 add_library(enchantcrypto_jni SHARED
-    ${JNI}/enchant_base_jni.cpp
-    ${SRC}/secure/buffer.cpp
-    ${SRC}/primitives/x25519.cpp
-    ${SRC}/primitives/ed25519.cpp
-    ${SRC}/primitives/xeddsa.cpp
-    ${SRC}/primitives/xchacha20.cpp
-    ${SRC}/primitives/hkdf.cpp
-    ${SRC}/primitives/hash.cpp
-    ${SRC}/primitives/hmac.cpp
-    ${SRC}/primitives/random.cpp
-    ${SRC}/primitives/base64.cpp
-    ${SRC}/primitives/constant_time.cpp
-    ${SRC}/primitives/aes_stub.cpp
-    ${SRC}/api.cpp
+    ${JNI}/enchant_generated_jni.cpp
 )
 
+# Find libenchantcrypto.so (prebuilt or from lib/ directory)
+set(ENCHANT_CRYPTO_SEARCH_DIRS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/build_jni"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/build_shared"
+)
+
+if(ANDROID AND DEFINED ANDROID_ABI)
+    list(APPEND ENCHANT_CRYPTO_SEARCH_DIRS
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/prebuilt/${ANDROID_ABI}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../app/src/main/jniLibs/${ANDROID_ABI}"
+    )
+endif()
+
+find_library(ENCHANT_CRYPTO_LIB enchantcrypto PATHS ${ENCHANT_CRYPTO_SEARCH_DIRS} NO_DEFAULT_PATH)
+
+if(ENCHANT_CRYPTO_LIB)
+    message(STATUS "Linking JNI against: ${ENCHANT_CRYPTO_LIB}")
+    add_library(enchantcrypto_prebuilt SHARED IMPORTED)
+    set_target_properties(enchantcrypto_prebuilt PROPERTIES
+        IMPORTED_LOCATION "${ENCHANT_CRYPTO_LIB}"
+    )
+    target_link_libraries(enchantcrypto_jni PRIVATE enchantcrypto_prebuilt)
+else()
+    message(FATAL_ERROR "libenchantcrypto.so not found! Build it first with -DENCHANT_BUILD_SHARED=ON")
+endif()
+
+# Include paths for api.h
 target_include_directories(enchantcrypto_jni
     PRIVATE
-        ${INC}
-        ${SRC}
-        ${SRC}/primitives
-        ${sodium_host_INCLUDE_DIRS}
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/third_party/boringssl/include"
+        ${LIBSODIUM_INCLUDE_DIRS}
 )
 
 if(ANDROID)
-    target_include_directories(enchantcrypto_jni PRIVATE ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/include)
+    target_include_directories(enchantcrypto_jni PRIVATE ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include)
 endif()
 
 if(ANDROID AND EXISTS "${SODIUM_SO}")
-    message(STATUS "Linking against: ${SODIUM_SO}")
+    message(STATUS "Linking against sodium: ${SODIUM_SO}")
     target_link_libraries(enchantcrypto_jni PRIVATE "${SODIUM_SO}")
 else()
     target_link_libraries(enchantcrypto_jni PRIVATE PkgConfig::sodium_host)
