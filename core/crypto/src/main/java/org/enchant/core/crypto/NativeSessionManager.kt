@@ -141,7 +141,10 @@ object NativeSessionManager {
                     plaintext, plaintext.size.toLong(),
                     ciphertext, ciphertextLen, messageType
                 )
-                if (rc != EnchantCrypto.SUCCESS) return@withLock null
+                if (rc != EnchantCrypto.SUCCESS) {
+                    System.err.println("NativeSessionManager.encrypt failed: rc=$rc, has_session_before=${hasSession[0]}, msg_type_out=${messageType[0]}")
+                    return@withLock null
+                }
 
                 val actualType = when (messageType[0]) {
                     1 -> MessageType.PREKEY_MESSAGE
@@ -387,12 +390,18 @@ object NativeSessionManager {
             recipientUserId,
             device,
             keyBundle.identityKey,
+            1,
             keyBundle.signedPrekey.publicKey,
             keyBundle.signedPrekey.signature,
             keyBundle.signedPrekey.signature.size.toLong(),
+            1,
             keyBundle.oneTimePrekey ?: ByteArray(0),
             0
         )
+
+        if (rc != EnchantCrypto.SUCCESS) {
+            System.err.println("NativeSessionManager.establish_session failed: rc=$rc, recipientUserId=$recipientUserId, ik_size=${keyBundle.identityKey.size}, spk_size=${keyBundle.signedPrekey.publicKey.size}, sig_size=${keyBundle.signedPrekey.signature.size}, otk_present=${keyBundle.oneTimePrekey != null}")
+        }
 
         if (rc == EnchantCrypto.SUCCESS && ikPair != null) {
             EnchantCrypto.enchant_identity_store_save_identity(

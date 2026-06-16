@@ -2639,7 +2639,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1destroy(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1establish(
-    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray identity_key, jbyteArray signed_prekey, jbyteArray signed_prekey_sig, jlong signed_prekey_sig_len, jbyteArray one_time_prekey, jint registration_id) {
+    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray identity_key, jint signed_prekey_id, jbyteArray signed_prekey, jbyteArray signed_prekey_sig, jlong signed_prekey_sig_len, jint one_time_prekey_id, jbyteArray one_time_prekey, jint registration_id) {
     (void)clazz;
 
     // Get input arrays
@@ -2652,7 +2652,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1establish(
     // Declare output variables
 
     // Call native function
-    int rc = enchant_session_manager_establish((enchant_session_manager_t*)(long)(manager), address_name_str, device_id, reinterpret_cast<const uint8_t*>(identity_key_jbyte), reinterpret_cast<const uint8_t*>(signed_prekey_jbyte), reinterpret_cast<const uint8_t*>(signed_prekey_sig_jbyte), signed_prekey_sig_len, reinterpret_cast<const uint8_t*>(one_time_prekey_jbyte), registration_id);
+    int rc = enchant_session_manager_establish((enchant_session_manager_t*)(long)(manager), address_name_str, device_id, reinterpret_cast<const uint8_t*>(identity_key_jbyte), static_cast<uint32_t>(signed_prekey_id), reinterpret_cast<const uint8_t*>(signed_prekey_jbyte), reinterpret_cast<const uint8_t*>(signed_prekey_sig_jbyte), static_cast<size_t>(signed_prekey_sig_len), static_cast<uint32_t>(one_time_prekey_id), reinterpret_cast<const uint8_t*>(one_time_prekey_jbyte), static_cast<uint32_t>(registration_id));
 
     // Release and copy back
     env->ReleaseStringUTFChars(address_name, address_name_str);

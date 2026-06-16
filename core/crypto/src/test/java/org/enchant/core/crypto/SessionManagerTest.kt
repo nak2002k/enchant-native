@@ -28,7 +28,7 @@ class NativeSessionManagerTest {
     private fun createBobBundle(): KeyManager.KeyBundle {
         return KeyManager.KeyBundle(
             deviceId = "bob-device",
-            identityKey = bobIkPair.publicKey,
+            identityKey = CryptoPrimitives.ed25519PkToX25519(bobIkPair.publicKey),
             signedPrekey = KeyManager.SignedPrekeyData(bobSpkPair.publicKey, bobSig),
             oneTimePrekey = bobOpkPair.publicKey
         )
