@@ -12,6 +12,10 @@ object EnchantCrypto {
 
     init {
         System.loadLibrary("enchantcrypto_jni")
+        val rc = enchant_init()
+        if (rc != SUCCESS) {
+            throw IllegalStateException("enchant_init failed: $rc")
+        }
     }
 
     // --- Error codes ---
@@ -84,9 +88,9 @@ object EnchantCrypto {
     external fun enchant_sha256(data: ByteArray, len: Long, hash: ByteArray): Int
     external fun enchant_hmac_sha256(key: ByteArray, keyLen: Long, data: ByteArray, dataLen: Long, mac: ByteArray): Int
     external fun enchant_base64_encode(data: ByteArray, len: Long, output: ByteArray, outputLen: Long): Int
-    external fun enchant_base64_decode(input: String, output: ByteArray, outputLen: Long): Int
+    external fun enchant_base64_decode(input: String, inputLen: Long, output: ByteArray, outputLen: Long, decodedLen: LongArray): Int
     external fun enchant_argon2id_hash(plaintext: String, plaintextLen: Long, output: String, outputLen: Long): Int
-    external fun enchant_argon2id_hash_with_params(plaintext: ByteArray, plaintextLen: Long, salt: ByteArray, saltLen: Long, iterations: Long, memoryKb: Long, parallelism: Long, output: ByteArray, outputLen: Long): Int
+    external fun enchant_argon2id_hash_with_params(plaintext: ByteArray, plaintextLen: Long, salt: ByteArray, saltLen: Long, iterations: Int, memoryKb: Int, parallelism: Int, output: ByteArray, outputLen: Long): Int
     external fun enchant_argon2id_verify(hash: String, hashLen: Long, plaintext: String, plaintextLen: Long): Int
     external fun enchant_aes_256_keygen(key: ByteArray): Int
     external fun enchant_aes_192_keygen(key: ByteArray): Int
@@ -204,7 +208,7 @@ object EnchantCrypto {
     external fun enchant_kem_deserialize_ciphertext(data: ByteArray, dataLen: Long, kemTypeOut: Long, rawCt: ByteArray, rawLen: Long): Int
     external fun enchant_fingerprint_generate(version: Int, iterations: Int, localName: String, localKey: ByteArray, remoteName: String, remoteKey: ByteArray, displayableOut: ByteArray, displayableOutLen: Long, scannableOut: ByteArray, scannableLen: Long): Int
     external fun enchant_fingerprint_compare(scannableA: ByteArray, lenA: Long, scannableB: ByteArray, lenB: Long, matchOut: Long): Int
-    external fun enchant_safety_number_generate(senderIdentityKey: ByteArray, recipientIdentityKey: ByteArray, senderUuid: String, recipientUuid: String, safetyNumberOut: ByteArray, safetyNumberLen: Long): Int
+    external fun enchant_safety_number_generate(senderIdentityKey: ByteArray, recipientIdentityKey: ByteArray, senderUuid: String, recipientUuid: String, safetyNumberOut: ByteArray, safetyNumberLen: LongArray): Int
     external fun enchant_safety_number_compare(safetyNumberA: ByteArray, lenA: Long, safetyNumberB: ByteArray, lenB: Long, matchOut: Long): Int
     external fun enchant_sign_alternate_identity(privateKey: ByteArray, otherIdentityKey: ByteArray, signatureOut: ByteArray): Int
     external fun enchant_verify_alternate_identity(publicKey: ByteArray, otherIdentityKey: ByteArray, signature: ByteArray, validOut: Long): Int

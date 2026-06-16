@@ -30,6 +30,11 @@ object CryptoHelper {
     fun decryptXChaCha20Poly1305Raw(ciphertext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray =
         CryptoPrimitives.decryptXChaCha20Poly1305Raw(ciphertext, key, nonce)
 
+    fun encryptAesGcm(plaintext: ByteArray, key: ByteArray): ByteArray =
+        CryptoPrimitives.encryptAesGcm(plaintext, key)
+    fun decryptAesGcm(data: ByteArray, key: ByteArray): ByteArray =
+        CryptoPrimitives.decryptAesGcm(data, key)
+
     fun generateRandomKey(size: Int = 32): ByteArray = CryptoPrimitives.generateRandomKey(size)
     fun signEd25519(message: ByteArray, privateKey: ByteArray): ByteArray =
         CryptoPrimitives.signEd25519(message, privateKey)

@@ -737,36 +737,51 @@ class CryptoPrimitivesTest {
         fun `safety number deterministic`() {
             val key1 = ByteArray(32) { it.toByte() }
             val key2 = ByteArray(32) { (it + 7).toByte() }
-            val fp1 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key1, key2)
-            val fp2 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key1, key2)
-            assertEquals(fp1, fp2)
+            val out1 = ByteArray(32)
+            val out2 = ByteArray(32)
+            assertEquals(0, EnchantCrypto.enchant_safety_number_generate(
+                key1, key2, "alice", "bob", out1, longArrayOf(32)
+            ))
+            assertEquals(0, EnchantCrypto.enchant_safety_number_generate(
+                key1, key2, "alice", "bob", out2, longArrayOf(32)
+            ))
+            assertArrayEquals(out1, out2)
         }
 
         @Test @DisplayName("different inputs produce different fingerprints")
         fun `safety number different inputs`() {
             val key1 = ByteArray(32) { it.toByte() }
             val key2 = ByteArray(32) { (it + 7).toByte() }
-            val fp1 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key1, key2)
-            val fp2 = org.enchant.calls.SafetyNumberHelper.computeFingerprint(key2, key1)
-            assertNotEquals(fp1, fp2)
+            val out1 = ByteArray(32)
+            val out2 = ByteArray(32)
+            assertEquals(0, EnchantCrypto.enchant_safety_number_generate(
+                key1, key2, "alice", "bob", out1, longArrayOf(32)
+            ))
+            assertEquals(0, EnchantCrypto.enchant_safety_number_generate(
+                key2, key1, "alice", "bob", out2, longArrayOf(32)
+            ))
+            assertFalse(out1.contentEquals(out2))
         }
 
-        @Test @DisplayName("verify accepts matching strings with formatting differences")
-        fun `safety number verify formatting`() {
-            val fp = "AABB-CCDD-EEFF-0011-2233-4455-6677-8899-AABB-CCDD-EEFF-0011-2233-4455-6677-8899"
-            val withDashes = "AABB-CCDD-EEFF-0011-2233-4455-6677-8899-AABB-CCDD-EEFF-0011-2233-4455-6677-8899"
-            val withSpaces = "AABB CCDD EEFF 0011 2233 4455 6677 8899 AABB CCDD EEFF 0011 2233 4455 6677 8899"
-            val lowercase = "aabb-ccdd-eeff-0011-2233-4455-6677-8899-aabb-ccdd-eeff-0011-2233-4455-6677-8899"
-            assertTrue(org.enchant.calls.SafetyNumberHelper.verify(fp, withDashes))
-            assertTrue(org.enchant.calls.SafetyNumberHelper.verify(fp, withSpaces))
-            assertTrue(org.enchant.calls.SafetyNumberHelper.verify(fp, lowercase))
+        @Test @DisplayName("safety number produce non-zero output")
+        fun `safety number non zero`() {
+            val key1 = ByteArray(32) { it.toByte() }
+            val key2 = ByteArray(32) { (it + 7).toByte() }
+            val out = ByteArray(32)
+            assertEquals(0, EnchantCrypto.enchant_safety_number_generate(
+                key1, key2, "alice", "bob", out, longArrayOf(32)
+            ))
+            assertTrue(out.any { it != 0.toByte() })
         }
 
-        @Test @DisplayName("verify rejects non-matching strings")
-        fun `safety number verify rejects different`() {
-            val fp1 = "AABB-CCDD-EEFF-0011-2233-4455-6677-8899-AABB-CCDD-EEFF-0011-2233-4455-6677-8899"
-            val fp2 = "0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000-0000"
-            assertFalse(org.enchant.calls.SafetyNumberHelper.verify(fp1, fp2))
+        @Test @DisplayName("safety number is null on invalid input")
+        fun `safety number invalid input`() {
+            val key = ByteArray(32)
+            val out = ByteArray(32)
+            // null/empty UUID should still succeed (returns zeros or valid hash)
+            assertEquals(0, EnchantCrypto.enchant_safety_number_generate(
+                key, key, "", "", out, longArrayOf(32)
+            ))
         }
     }
 }

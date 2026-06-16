@@ -89,17 +89,17 @@ object SenderKeyManager {
     }
 
     /**
-     * Derive encryption key (32 bytes) and nonce (12 bytes) from a message key seed.
+     * Derive encryption key (32 bytes) and nonce (24 bytes) from a message key seed.
      */
     private fun deriveMessageKeyAndNonce(msgKeySeed: ByteArray): Pair<ByteArray, ByteArray> {
         val derived = CryptoPrimitives.hkdfSha256(
             input = msgKeySeed,
             salt = ByteArray(32),
             info = "WhisperMessageKey".encodeToByteArray(),
-            length = 44
+            length = 56
         )
         val encKey = derived.copyOfRange(0, 32)
-        val nonce = derived.copyOfRange(32, 44)
+        val nonce = derived.copyOfRange(32, 56)
         CryptoPrimitives.zeroBytes(derived)
         return Pair(encKey, nonce)
     }

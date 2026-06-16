@@ -6,7 +6,7 @@
 extern "C" {
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_init(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1init(
     JNIEnv* env, jclass clazz) {
     (void)clazz;
 
@@ -24,7 +24,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_init(
 }
 
 JNIEXPORT jstring JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_version(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1version(
     JNIEnv* env, jclass clazz) {
     (void)clazz;
 
@@ -43,7 +43,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_version(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_random_bytes(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1random_1bytes(
     JNIEnv* env, jclass clazz, jbyteArray buf, jlong len) {
     (void)clazz;
 
@@ -63,7 +63,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_random_bytes(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_keypair(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1x25519_1keypair(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray private_key) {
     (void)clazz;
 
@@ -87,7 +87,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_keypair(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_dh(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1x25519_1dh(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray public_key, jbyteArray shared_secret) {
     (void)clazz;
 
@@ -112,7 +112,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_dh(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_keypair(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1ed25519_1keypair(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray private_seed) {
     (void)clazz;
 
@@ -136,7 +136,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_keypair(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_sign(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1ed25519_1sign(
     JNIEnv* env, jclass clazz, jbyteArray message, jlong message_len, jbyteArray private_seed, jbyteArray signature) {
     (void)clazz;
 
@@ -161,7 +161,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_sign(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_verify(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1ed25519_1verify(
     JNIEnv* env, jclass clazz, jbyteArray message, jlong message_len, jbyteArray signature, jbyteArray public_key) {
     (void)clazz;
 
@@ -185,7 +185,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_verify(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_xchacha20_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1xchacha20_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_capacity) {
     (void)clazz;
 
@@ -212,7 +212,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_xchacha20_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_xchacha20_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1xchacha20_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_capacity) {
     (void)clazz;
 
@@ -239,7 +239,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_xchacha20_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_hkdf_sha256(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1hkdf_1sha256(
     JNIEnv* env, jclass clazz, jbyteArray ikm, jlong ikm_len, jbyteArray salt, jlong salt_len, jbyteArray info, jlong info_len, jbyteArray okm, jlong okm_len) {
     (void)clazz;
 
@@ -266,7 +266,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hkdf_sha256(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sha256(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sha256(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong len, jbyteArray hash) {
     (void)clazz;
 
@@ -289,7 +289,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sha256(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_hmac_sha256(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1hmac_1sha256(
     JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray data, jlong data_len, jbyteArray mac) {
     (void)clazz;
 
@@ -314,7 +314,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hmac_sha256(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_base64_encode(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1base64_1encode(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -337,30 +337,34 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_base64_encode(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_base64_decode(
-    JNIEnv* env, jclass clazz, jstring input, jbyteArray output, jlong output_len) {
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1base64_1decode(
+    JNIEnv* env, jclass clazz, jstring input, jlong input_len, jbyteArray output, jlong output_len, jlongArray decoded_len) {
     (void)clazz;
 
     // Get input arrays
     const char* input_str = env->GetStringUTFChars(input, nullptr);
     jbyte* output_jbyte = env->GetByteArrayElements(output, nullptr);
     uint8_t* output_ptr = reinterpret_cast<uint8_t*>(output_jbyte);
+    jlong* decoded_len_elems = env->GetLongArrayElements(decoded_len, nullptr);
 
     // Declare output variables
+    size_t decoded_len_val = 0;
 
     // Call native function
-    int rc = enchant_base64_decode(input_str, output_ptr, output_len);
+    int rc = enchant_base64_decode(input_str, static_cast<size_t>(input_len), output_ptr, static_cast<size_t>(output_len), &decoded_len_val);
 
     // Release and copy back
     env->ReleaseStringUTFChars(input, input_str);
     env->ReleaseByteArrayElements(output, output_jbyte, 0);
 
     // Copy output values back to Java
+    decoded_len_elems[0] = static_cast<jlong>(decoded_len_val);
+    env->ReleaseLongArrayElements(decoded_len, decoded_len_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_argon2id_hash(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1argon2id_1hash(
     JNIEnv* env, jclass clazz, jstring plaintext, jlong plaintext_len, jstring output, jlong output_len) {
     (void)clazz;
 
@@ -381,7 +385,30 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_argon2id_hash(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_argon2id_verify(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1argon2id_1hash_1with_1params(
+    JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray salt, jlong salt_len, jint iterations, jint memory_kb, jint parallelism, jbyteArray output, jlong output_len) {
+    (void)clazz;
+
+    // Get input arrays
+    jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
+    jbyte* salt_jbyte = env->GetByteArrayElements(salt, nullptr);
+    jbyte* output_jbyte = env->GetByteArrayElements(output, nullptr);
+    uint8_t* output_ptr = reinterpret_cast<uint8_t*>(output_jbyte);
+
+    // Call native function
+    int rc = enchant_argon2id_hash_with_params(reinterpret_cast<const uint8_t*>(plaintext_jbyte), plaintext_len, reinterpret_cast<const uint8_t*>(salt_jbyte), salt_len, iterations, memory_kb, parallelism, output_ptr, output_len);
+
+    // Release and copy back
+    env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(salt, salt_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(output, output_jbyte, 0);
+
+    // Copy output values back to Java
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1argon2id_1verify(
     JNIEnv* env, jclass clazz, jstring hash, jlong hash_len, jstring plaintext, jlong plaintext_len) {
     (void)clazz;
 
@@ -403,7 +430,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_argon2id_verify(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_keygen(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1keygen(
     JNIEnv* env, jclass clazz, jbyteArray key) {
     (void)clazz;
 
@@ -424,7 +451,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_keygen(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_192_keygen(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1192_1keygen(
     JNIEnv* env, jclass clazz, jbyteArray key) {
     (void)clazz;
 
@@ -445,7 +472,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_192_keygen(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_128_keygen(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1128_1keygen(
     JNIEnv* env, jclass clazz, jbyteArray key) {
     (void)clazz;
 
@@ -466,7 +493,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_128_keygen(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_is_available(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1is_1available(
     JNIEnv* env, jclass clazz) {
     (void)clazz;
 
@@ -484,7 +511,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_is_available(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_init(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1init(
     JNIEnv* env, jclass clazz) {
     (void)clazz;
 
@@ -502,7 +529,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_init(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1gcm_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
@@ -535,7 +562,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1gcm_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -568,7 +595,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_ctr_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1ctr_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext) {
     (void)clazz;
 
@@ -595,7 +622,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_ctr_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_ctr_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1ctr_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext) {
     (void)clazz;
 
@@ -622,7 +649,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_ctr_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1cbc_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray iv, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
@@ -653,7 +680,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1cbc_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray iv, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -684,7 +711,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_cmac(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1cmac(
     JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray data, jlong data_len, jbyteArray mac) {
     (void)clazz;
 
@@ -709,7 +736,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_cmac(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1siv_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray nonce, jlong nonce_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
@@ -742,7 +769,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1256_1siv_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray nonce, jlong nonce_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -775,7 +802,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1chacha20_1poly1305_1ietf_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
@@ -808,7 +835,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_encryp
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1chacha20_1poly1305_1ietf_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -841,7 +868,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_decryp
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_seal(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1hpke_1seal(
     JNIEnv* env, jclass clazz, jbyteArray recipient_public_key, jbyteArray info, jlong info_len, jbyteArray aad, jlong aad_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
@@ -874,7 +901,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_seal(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_open(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1hpke_1open(
     JNIEnv* env, jclass clazz, jbyteArray recipient_private_key, jbyteArray info, jlong info_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -907,7 +934,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_open(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_secure_zero(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1secure_1zero(
     JNIEnv* env, jclass clazz, jlong ptr, jlong len) {
     (void)clazz;
 
@@ -924,7 +951,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_secure_zero(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_secure_alloc(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1secure_1alloc(
     JNIEnv* env, jclass clazz, jlongArray ptr, jlong len) {
     (void)clazz;
 
@@ -946,7 +973,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_secure_alloc(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_secure_free(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1secure_1free(
     JNIEnv* env, jclass clazz, jlong ptr, jlong len) {
     (void)clazz;
 
@@ -963,7 +990,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_secure_free(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sha384(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sha384(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong len, jbyteArray hash) {
     (void)clazz;
 
@@ -986,7 +1013,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sha384(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sha512(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sha512(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong len, jbyteArray hash) {
     (void)clazz;
 
@@ -1009,7 +1036,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sha512(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_hmac_sha512(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1hmac_1sha512(
     JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray data, jlong data_len, jbyteArray mac) {
     (void)clazz;
 
@@ -1034,7 +1061,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hmac_sha512(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_constant_time_equals(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1constant_1time_1equals(
     JNIEnv* env, jclass clazz, jbyteArray a, jbyteArray b, jlong len, jintArray result) {
     (void)clazz;
 
@@ -1060,7 +1087,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_constant_time_equals(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_sk_to_x25519(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1ed25519_1sk_1to_1x25519(
     JNIEnv* env, jclass clazz, jbyteArray ed25519_sk, jbyteArray x25519_sk) {
     (void)clazz;
 
@@ -1083,7 +1110,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_sk_to_x25519(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_pk_to_x25519(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1ed25519_1pk_1to_1x25519(
     JNIEnv* env, jclass clazz, jbyteArray ed25519_pk, jbyteArray x25519_pk) {
     (void)clazz;
 
@@ -1106,7 +1133,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_pk_to_x25519(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1attachment_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray key, jlong key_len, jbyteArray ciphertext, jlong ciphertext_capacity, jlongArray ciphertext_len_out, jbyteArray mac) {
     (void)clazz;
 
@@ -1138,7 +1165,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1attachment_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray key, jlong key_len, jbyteArray mac, jbyteArray plaintext, jlong plaintext_capacity, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -1169,7 +1196,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1gcm_1siv_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlongArray ciphertext_len_out, jbyteArray tag) {
     (void)clazz;
 
@@ -1205,7 +1232,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1aes_1gcm_1siv_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray tag, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -1240,7 +1267,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_rsa_generate_keypair(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1rsa_1generate_1keypair(
     JNIEnv* env, jclass clazz, jint key_size_bits, jbyteArray private_key, jlong private_key_len, jbyteArray public_key, jlong public_key_len) {
     (void)clazz;
 
@@ -1266,7 +1293,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_rsa_generate_keypair(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_x509_create_self_signed(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1x509_1create_1self_1signed(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jlong private_key_len, jbyteArray public_key, jlong public_key_len, jstring subject_name, jlong validity_seconds, jbyteArray cert_der, jlong cert_der_len) {
     (void)clazz;
 
@@ -1294,7 +1321,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_x509_create_self_signed(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_x509_validate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1x509_1validate(
     JNIEnv* env, jclass clazz, jbyteArray cert_der, jlong cert_der_len, jbyteArray trusted_ca_der, jlong ca_der_len, jintArray valid_out) {
     (void)clazz;
 
@@ -1320,7 +1347,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_x509_validate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_rsa_wrap_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1rsa_1wrap_1key(
     JNIEnv* env, jclass clazz, jbyteArray recipient_public_key, jlong key_len, jbyteArray plaintext_key, jlong plaintext_key_len, jbyteArray wrapped_key, jlong wrapped_key_len) {
     (void)clazz;
 
@@ -1346,7 +1373,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_rsa_wrap_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_rsa_unwrap_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1rsa_1unwrap_1key(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jlong key_len, jbyteArray wrapped_key, jlong wrapped_key_len, jbyteArray plaintext_key, jlong plaintext_key_len) {
     (void)clazz;
 
@@ -1372,7 +1399,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_rsa_unwrap_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1device_1transfer_1create(
     JNIEnv* env, jclass clazz, jbyteArray transfer_key, jint source_device_id, jstring source_device_name, jbyteArray key_data, jlong key_data_len, jbyteArray package_out, jlong package_out_len) {
     (void)clazz;
 
@@ -1400,7 +1427,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_create(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_import(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1device_1transfer_1import(
     JNIEnv* env, jclass clazz, jbyteArray package, jlong package_len, jbyteArray transfer_key, jbyteArray key_data, jlong key_data_len) {
     (void)clazz;
 
@@ -1426,7 +1453,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_import(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_rsa_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1device_1transfer_1rsa_1create(
     JNIEnv* env, jclass clazz, jint source_device_id, jstring source_device_name, jbyteArray key_data, jlong key_data_len, jbyteArray recipient_public_key, jlong recipient_key_len, jbyteArray sender_cert_der, jlong sender_cert_len, jbyteArray package_out, jlong package_out_len) {
     (void)clazz;
 
@@ -1456,7 +1483,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_rsa_create(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_rsa_import(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1device_1transfer_1rsa_1import(
     JNIEnv* env, jclass clazz, jbyteArray package, jlong package_len, jbyteArray private_key, jlong private_key_len, jbyteArray trusted_ca_der, jlong ca_der_len, jbyteArray key_data, jlong key_data_len, jintArray attestation_valid) {
     (void)clazz;
 
@@ -1488,7 +1515,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_rsa_import(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_encrypt_frame(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1backup_1encrypt_1frame(
     JNIEnv* env, jclass clazz, jbyteArray master_key, jbyteArray plaintext, jlong plaintext_len, jint frame_type, jint frame_number, jbyteArray frame_out, jlongArray frame_out_len_out) {
     (void)clazz;
 
@@ -1517,7 +1544,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_encrypt_frame(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_decrypt_frame(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1backup_1decrypt_1frame(
     JNIEnv* env, jclass clazz, jbyteArray master_key, jbyteArray frame, jlong frame_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
@@ -1546,7 +1573,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_decrypt_frame(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_derive_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1backup_1derive_1key(
     JNIEnv* env, jclass clazz, jbyteArray account_key, jbyteArray backup_key) {
     (void)clazz;
 
@@ -1569,7 +1596,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_derive_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_derive_media_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1backup_1derive_1media_1key(
     JNIEnv* env, jclass clazz, jbyteArray backup_key, jstring media_id, jbyteArray media_key) {
     (void)clazz;
 
@@ -1594,7 +1621,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_derive_media_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_create_transfer(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1backup_1create_1transfer(
     JNIEnv* env, jclass clazz, jbyteArray backup_key, jbyteArray target_public_key, jbyteArray package_out, jlong package_out_len) {
     (void)clazz;
 
@@ -1620,7 +1647,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_create_transfer(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_receive_transfer(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1backup_1receive_1transfer(
     JNIEnv* env, jclass clazz, jbyteArray package, jlong package_len, jbyteArray device_private_key, jbyteArray backup_key) {
     (void)clazz;
 
@@ -1645,7 +1672,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_receive_transfer(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_create_validator(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1create_1validator(
     JNIEnv* env, jclass clazz, jlongArray validator_out) {
     (void)clazz;
 
@@ -1667,7 +1694,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_create_validator(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_destroy_validator(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1destroy_1validator(
     JNIEnv* env, jclass clazz, jlong validator) {
     (void)clazz;
 
@@ -1684,7 +1711,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_destroy_validator(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_add_trust_root(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1add_1trust_1root(
     JNIEnv* env, jclass clazz, jlong validator, jbyteArray trust_root, jlong root_len) {
     (void)clazz;
 
@@ -1704,7 +1731,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_add_trust_root(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_set_own_identity(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1set_1own_1identity(
     JNIEnv* env, jclass clazz, jlong validator, jstring own_uuid) {
     (void)clazz;
 
@@ -1724,7 +1751,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_set_own_identity(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_validate_sender(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1validate_1sender(
     JNIEnv* env, jclass clazz, jlong validator, jbyteArray cert_data, jlong cert_len, jlong validation_timestamp, jintArray trust_level_out, jintArray certificate_valid_out, jintArray key_changed_out) {
     (void)clazz;
 
@@ -1756,7 +1783,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_validate_sender(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_establish_trust(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1establish_1trust(
     JNIEnv* env, jclass clazz, jlong validator, jstring sender_uuid, jbyteArray sender_identity_key, jint sender_device_id, jint trust_level, jlong current_timestamp) {
     (void)clazz;
 
@@ -1778,7 +1805,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_establish_trust(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_verify_identity(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1verify_1identity(
     JNIEnv* env, jclass clazz, jlong validator, jstring sender_uuid, jbyteArray sender_identity_key, jint sender_device_id, jlong current_timestamp, jintArray verified_out) {
     (void)clazz;
 
@@ -1804,7 +1831,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_verify_identity(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_compute_safety_number(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1compute_1safety_1number(
     JNIEnv* env, jclass clazz, jbyteArray sender_identity_key, jbyteArray recipient_identity_key, jstring sender_uuid, jstring recipient_uuid, jbyteArray safety_number_out) {
     (void)clazz;
 
@@ -1833,7 +1860,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_compute_safety_number(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_generate_trust_token(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1generate_1trust_1token(
     JNIEnv* env, jclass clazz, jbyteArray identity_seed, jbyteArray sender_identity_key, jstring sender_uuid, jlong expiration, jbyteArray token_out, jlong token_out_len) {
     (void)clazz;
 
@@ -1861,7 +1888,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_generate_trust_token(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_verify_trust_token(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1verify_1trust_1token(
     JNIEnv* env, jclass clazz, jbyteArray identity_public_key, jbyteArray token, jlong token_len, jstring expected_sender_uuid, jlong validation_time, jintArray valid_out) {
     (void)clazz;
 
@@ -1889,7 +1916,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_verify_trust_token(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_add_revoked_server_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1add_1revoked_1server_1key(
     JNIEnv* env, jclass clazz, jlong validator, jint key_id) {
     (void)clazz;
 
@@ -1907,7 +1934,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_add_revoked_server_key
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_get_aggregated_trust(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sesame_1get_1aggregated_1trust(
     JNIEnv* env, jclass clazz, jlong validator, jstring sender_uuid, jintArray trust_level_out) {
     (void)clazz;
 
@@ -1931,7 +1958,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sesame_get_aggregated_trust(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_send_endorsement_keygen(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1group_1send_1endorsement_1keygen(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray public_key) {
     (void)clazz;
 
@@ -1955,7 +1982,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_send_endorsement_keygen
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_send_endorsement_sign(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1group_1send_1endorsement_1sign(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray group_id, jbyteArray endorsement_out, jlong endorsement_len) {
     (void)clazz;
 
@@ -1981,7 +2008,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_send_endorsement_sign(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_send_endorsement_verify(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1group_1send_1endorsement_1verify(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray endorsement, jlong endorsement_len, jbyteArray group_id, jintArray valid_out) {
     (void)clazz;
 
@@ -2009,7 +2036,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_send_endorsement_verify
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_params_generate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1call_1link_1params_1generate(
     JNIEnv* env, jclass clazz, jbyteArray secret_params, jbyteArray public_params) {
     (void)clazz;
 
@@ -2033,7 +2060,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_params_generate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_credential_issue(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1call_1link_1credential_1issue(
     JNIEnv* env, jclass clazz, jbyteArray secret_params, jbyteArray group_id, jbyteArray credential_out, jlong credential_len) {
     (void)clazz;
 
@@ -2059,7 +2086,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_credential_issue(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_credential_present(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1call_1link_1credential_1present(
     JNIEnv* env, jclass clazz, jbyteArray secret_params, jbyteArray credential, jlong credential_len, jbyteArray group_id, jbyteArray presentation_out, jlong presentation_len) {
     (void)clazz;
 
@@ -2087,7 +2114,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_credential_present(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_credential_verify(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1call_1link_1credential_1verify(
     JNIEnv* env, jclass clazz, jbyteArray public_params, jbyteArray group_id, jbyteArray presentation, jlong presentation_len, jintArray valid_out) {
     (void)clazz;
 
@@ -2115,7 +2142,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_call_link_credential_verify(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_keygen(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1x25519_1keygen(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray public_key) {
     (void)clazz;
 
@@ -2139,7 +2166,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_keygen(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_dh_pairwise(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1x25519_1dh_1pairwise(
     JNIEnv* env, jclass clazz, jbyteArray private_key_1, jbyteArray public_key_1, jbyteArray private_key_2, jbyteArray public_key_2, jbyteArray shared_secret_1_out, jbyteArray shared_secret_2_out) {
     (void)clazz;
 
@@ -2171,7 +2198,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_x25519_dh_pairwise(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_blind_keygen(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1blind_1keygen(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray public_key) {
     (void)clazz;
 
@@ -2195,7 +2222,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_blind_keygen(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_blind_point(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1blind_1point(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray point, jbyteArray blinded_out) {
     (void)clazz;
 
@@ -2220,7 +2247,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_blind_point(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_unblind_point(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1unblind_1point(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray blinded_point, jbyteArray unblinded_out) {
     (void)clazz;
 
@@ -2245,7 +2272,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_unblind_point(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_statement_add(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1poksho_1statement_1add(
     JNIEnv* env, jclass clazz, jlongArray statement_out, jstring name, jbyteArray group_element, jlong group_element_len) {
     (void)clazz;
 
@@ -2271,7 +2298,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_statement_add(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_statement_add_scalar(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1poksho_1statement_1add_1scalar(
     JNIEnv* env, jclass clazz, jlong statement, jstring name, jbyteArray scalar, jlong scalar_len) {
     (void)clazz;
 
@@ -2293,7 +2320,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_statement_add_scalar(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_prove(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1poksho_1prove(
     JNIEnv* env, jclass clazz, jlong statement, jbyteArray witness, jlong witness_len, jbyteArray msg, jlong msg_len, jbyteArray proof_out, jlong proof_len) {
     (void)clazz;
 
@@ -2319,7 +2346,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_prove(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_verify(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1poksho_1verify(
     JNIEnv* env, jclass clazz, jlong statement, jbyteArray proof, jlong proof_len, jbyteArray msg, jlong msg_len, jintArray valid_out) {
     (void)clazz;
 
@@ -2345,7 +2372,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_verify(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_statement_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1poksho_1statement_1destroy(
     JNIEnv* env, jclass clazz, jlong statement) {
     (void)clazz;
 
@@ -2362,7 +2389,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_poksho_statement_destroy(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1create(
     JNIEnv* env, jclass clazz, jlongArray store_out) {
     (void)clazz;
 
@@ -2384,7 +2411,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_create(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1destroy(
     JNIEnv* env, jclass clazz, jlong store) {
     (void)clazz;
 
@@ -2401,7 +2428,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_destroy(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_store_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1store_1create(
     JNIEnv* env, jclass clazz, jlongArray store_out) {
     (void)clazz;
 
@@ -2423,7 +2450,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_store_create(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_store_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1store_1destroy(
     JNIEnv* env, jclass clazz, jlong store) {
     (void)clazz;
 
@@ -2440,7 +2467,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_store_destroy(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_get_key_pair(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1get_1key_1pair(
     JNIEnv* env, jclass clazz, jlong store, jbyteArray public_key, jbyteArray private_key) {
     (void)clazz;
 
@@ -2464,7 +2491,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_get_key_pair(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_set_registration_id(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1set_1registration_1id(
     JNIEnv* env, jclass clazz, jlong store, jint registration_id) {
     (void)clazz;
 
@@ -2482,7 +2509,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_set_registrati
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_get_registration_id(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1get_1registration_1id(
     JNIEnv* env, jclass clazz, jlong store, jintArray registration_id_out) {
     (void)clazz;
 
@@ -2504,7 +2531,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_get_registrati
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_save_identity(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1save_1identity(
     JNIEnv* env, jclass clazz, jlong store, jstring address_name, jint device_id, jbyteArray identity_key) {
     (void)clazz;
 
@@ -2526,7 +2553,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_save_identity(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_is_trusted(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1is_1trusted(
     JNIEnv* env, jclass clazz, jlong store, jstring address_name, jint device_id, jbyteArray identity_key, jint direction, jintArray trusted_out) {
     (void)clazz;
 
@@ -2552,7 +2579,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_is_trusted(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_set_trust(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1set_1trust(
     JNIEnv* env, jclass clazz, jlong store, jstring address_name, jint device_id, jint trusted) {
     (void)clazz;
 
@@ -2572,7 +2599,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_identity_store_set_trust(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1create(
     JNIEnv* env, jclass clazz, jlong identity_store, jlong session_store, jlongArray manager_out) {
     (void)clazz;
 
@@ -2594,7 +2621,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_create(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1destroy(
     JNIEnv* env, jclass clazz, jlong manager) {
     (void)clazz;
 
@@ -2611,7 +2638,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_destroy(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_establish(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1establish(
     JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray identity_key, jbyteArray signed_prekey, jbyteArray signed_prekey_sig, jlong signed_prekey_sig_len, jbyteArray one_time_prekey, jint registration_id) {
     (void)clazz;
 
@@ -2639,7 +2666,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_establish(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1encrypt(
     JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len, jintArray message_type_out) {
     (void)clazz;
 
@@ -2672,7 +2699,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1decrypt(
     JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray ciphertext, jlong ciphertext_len, jint message_type, jbyteArray plaintext, jlongArray plaintext_len) {
     (void)clazz;
 
@@ -2701,7 +2728,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_has_session(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1has_1session(
     JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jintArray has_session_out) {
     (void)clazz;
 
@@ -2725,7 +2752,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_has_session(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_archive_session(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1archive_1session(
     JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id) {
     (void)clazz;
 
@@ -2745,7 +2772,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_archive_sessi
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_builder_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1builder_1create(
     JNIEnv* env, jclass clazz, jlong identity_store, jlong session_store, jlongArray builder_out) {
     (void)clazz;
 
@@ -2767,7 +2794,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_builder_create(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_builder_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1builder_1destroy(
     JNIEnv* env, jclass clazz, jlong builder) {
     (void)clazz;
 
@@ -2784,7 +2811,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_builder_destroy(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_builder_process_bundle(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1builder_1process_1bundle(
     JNIEnv* env, jclass clazz, jlong builder, jstring address_name, jint device_id, jbyteArray identity_key, jbyteArray signed_prekey, jbyteArray signed_prekey_sig, jlong signed_prekey_sig_len, jbyteArray one_time_prekey, jint registration_id) {
     (void)clazz;
 
@@ -2812,7 +2839,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_builder_process_bundl
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1cipher_1create(
     JNIEnv* env, jclass clazz, jlong identity_store, jlong session_store, jlongArray cipher_out) {
     (void)clazz;
 
@@ -2834,7 +2861,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_create(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1cipher_1destroy(
     JNIEnv* env, jclass clazz, jlong cipher) {
     (void)clazz;
 
@@ -2851,7 +2878,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_destroy(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1cipher_1encrypt(
     JNIEnv* env, jclass clazz, jlong cipher, jstring address_name, jint device_id, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len) {
     (void)clazz;
 
@@ -2880,7 +2907,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1cipher_1decrypt(
     JNIEnv* env, jclass clazz, jlong cipher, jstring address_name, jint device_id, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlongArray plaintext_len) {
     (void)clazz;
 
@@ -2909,7 +2936,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_serialize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1record_1serialize(
     JNIEnv* env, jclass clazz, jbyteArray session_state_data, jlong session_state_len, jbyteArray output, jlongArray output_len) {
     (void)clazz;
 
@@ -2936,7 +2963,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_serialize(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_deserialize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1record_1deserialize(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray session_state_output, jlongArray session_state_len) {
     (void)clazz;
 
@@ -2963,7 +2990,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_deserialize(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_keypair(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1keypair(
     JNIEnv* env, jclass clazz, jint kem_type, jbyteArray public_key, jlong public_key_len, jbyteArray secret_key, jlong secret_key_len) {
     (void)clazz;
 
@@ -2989,7 +3016,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_keypair(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_encapsulate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1encapsulate(
     JNIEnv* env, jclass clazz, jint kem_type, jbyteArray public_key, jlong public_key_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray shared_secret) {
     (void)clazz;
 
@@ -3016,7 +3043,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_encapsulate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_decapsulate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1decapsulate(
     JNIEnv* env, jclass clazz, jint kem_type, jbyteArray secret_key, jlong secret_key_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray shared_secret) {
     (void)clazz;
 
@@ -3041,7 +3068,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_decapsulate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_public_key_size(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1public_1key_1size(
     JNIEnv* env, jclass clazz, jint kem_type, jlong size_out) {
     (void)clazz;
 
@@ -3060,7 +3087,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_public_key_size(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_secret_key_size(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1secret_1key_1size(
     JNIEnv* env, jclass clazz, jint kem_type, jlong size_out) {
     (void)clazz;
 
@@ -3079,7 +3106,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_secret_key_size(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_ciphertext_size(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1ciphertext_1size(
     JNIEnv* env, jclass clazz, jint kem_type, jlong size_out) {
     (void)clazz;
 
@@ -3098,7 +3125,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_ciphertext_size(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_is_available(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1is_1available(
     JNIEnv* env, jclass clazz, jint kem_type, jintArray available_out) {
     (void)clazz;
 
@@ -3120,7 +3147,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_is_available(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_serialize_public_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1serialize_1public_1key(
     JNIEnv* env, jclass clazz, jint kem_type, jbyteArray raw_key, jlong raw_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -3144,7 +3171,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_serialize_public_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_deserialize_public_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1deserialize_1public_1key(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jintArray kem_type_out, jbyteArray raw_key, jlong raw_len) {
     (void)clazz;
 
@@ -3172,7 +3199,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_deserialize_public_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_serialize_secret_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1serialize_1secret_1key(
     JNIEnv* env, jclass clazz, jint kem_type, jbyteArray raw_key, jlong raw_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -3196,7 +3223,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_serialize_secret_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_deserialize_secret_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1deserialize_1secret_1key(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jintArray kem_type_out, jbyteArray raw_key, jlong raw_len) {
     (void)clazz;
 
@@ -3224,7 +3251,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_deserialize_secret_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_serialize_ciphertext(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1serialize_1ciphertext(
     JNIEnv* env, jclass clazz, jint kem_type, jbyteArray raw_ct, jlong raw_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -3248,7 +3275,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_serialize_ciphertext(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_deserialize_ciphertext(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1deserialize_1ciphertext(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jintArray kem_type_out, jbyteArray raw_ct, jlong raw_len) {
     (void)clazz;
 
@@ -3276,7 +3303,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_kem_deserialize_ciphertext(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_fingerprint_generate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1fingerprint_1generate(
     JNIEnv* env, jclass clazz, jint version, jint iterations, jstring local_name, jbyteArray local_key, jstring remote_name, jbyteArray remote_key, jbyteArray displayable_out, jlong displayable_out_len, jbyteArray scannable_out, jlong scannable_len) {
     (void)clazz;
 
@@ -3309,7 +3336,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_fingerprint_generate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_fingerprint_compare(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1fingerprint_1compare(
     JNIEnv* env, jclass clazz, jbyteArray scannable_a, jlong len_a, jbyteArray scannable_b, jlong len_b, jintArray match_out) {
     (void)clazz;
 
@@ -3335,8 +3362,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_fingerprint_compare(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_safety_number_generate(
-    JNIEnv* env, jclass clazz, jbyteArray sender_identity_key, jbyteArray recipient_identity_key, jstring sender_uuid, jstring recipient_uuid, jbyteArray safety_number_out, jlong safety_number_len) {
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1safety_1number_1generate(
+    JNIEnv* env, jclass clazz, jbyteArray sender_identity_key, jbyteArray recipient_identity_key, jstring sender_uuid, jstring recipient_uuid, jbyteArray safety_number_out, jlongArray safety_number_len) {
     (void)clazz;
 
     // Get input arrays
@@ -3346,9 +3373,10 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_safety_number_generate(
     const char* recipient_uuid_str = env->GetStringUTFChars(recipient_uuid, nullptr);
     jbyte* safety_number_out_jbyte = env->GetByteArrayElements(safety_number_out, nullptr);
     uint8_t* safety_number_out_ptr = reinterpret_cast<uint8_t*>(safety_number_out_jbyte);
+    jlong* safety_number_len_elems = env->GetLongArrayElements(safety_number_len, nullptr);
 
     // Declare output variables
-    size_t safety_number_len_val = 0;
+    size_t safety_number_len_val = static_cast<size_t>(safety_number_len_elems[0]);
 
     // Call native function
     int rc = enchant_safety_number_generate(reinterpret_cast<const uint8_t*>(sender_identity_key_jbyte), reinterpret_cast<const uint8_t*>(recipient_identity_key_jbyte), sender_uuid_str, recipient_uuid_str, safety_number_out_ptr, &safety_number_len_val);
@@ -3361,11 +3389,13 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_safety_number_generate(
     env->ReleaseByteArrayElements(safety_number_out, safety_number_out_jbyte, 0);
 
     // Copy output values back to Java
+    safety_number_len_elems[0] = static_cast<jlong>(safety_number_len_val);
+    env->ReleaseLongArrayElements(safety_number_len, safety_number_len_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_safety_number_compare(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1safety_1number_1compare(
     JNIEnv* env, jclass clazz, jbyteArray safety_number_a, jlong len_a, jbyteArray safety_number_b, jlong len_b, jintArray match_out) {
     (void)clazz;
 
@@ -3391,7 +3421,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_safety_number_compare(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sign_alternate_identity(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sign_1alternate_1identity(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray other_identity_key, jbyteArray signature_out) {
     (void)clazz;
 
@@ -3416,7 +3446,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sign_alternate_identity(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_verify_alternate_identity(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1verify_1alternate_1identity(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray other_identity_key, jbyteArray signature, jintArray valid_out) {
     (void)clazz;
 
@@ -3444,7 +3474,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_verify_alternate_identity(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_calculate_chunk_size(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1calculate_1chunk_1size(
     JNIEnv* env, jclass clazz, jlong data_size) {
     (void)clazz;
 
@@ -3462,7 +3492,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_calculate_chunk_size(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1create(
     JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jlong data_size, jlongArray mac_out) {
     (void)clazz;
 
@@ -3486,7 +3516,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_create(
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1destroy(
     JNIEnv* env, jclass clazz, jlong mac) {
     (void)clazz;
 
@@ -3503,7 +3533,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_destroy(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_update(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1update(
     JNIEnv* env, jclass clazz, jlong mac, jbyteArray data, jlong data_len, jbyteArray mac_out, jlong mac_len) {
     (void)clazz;
 
@@ -3527,7 +3557,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_update(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_finalize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1finalize(
     JNIEnv* env, jclass clazz, jlong mac, jbyteArray final_mac, jlong mac_len) {
     (void)clazz;
 
@@ -3549,7 +3579,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_finalize(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1validator_1create(
     JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jlong data_size, jbyteArray expected_macs, jlong expected_macs_len, jlong mac_size, jlongArray validator_out) {
     (void)clazz;
 
@@ -3575,7 +3605,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_cre
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_destroy(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1validator_1destroy(
     JNIEnv* env, jclass clazz, jlong validator) {
     (void)clazz;
 
@@ -3592,7 +3622,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_des
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_update(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1validator_1update(
     JNIEnv* env, jclass clazz, jlong validator, jbyteArray data, jlong data_len, jlong bytes_validated) {
     (void)clazz;
 
@@ -3613,7 +3643,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_upd
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_finalize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1validator_1finalize(
     JNIEnv* env, jclass clazz, jlong validator, jlong bytes_validated) {
     (void)clazz;
 
@@ -3632,7 +3662,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_fin
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_veil_encrypt_v1(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1encrypt_1v1(
     JNIEnv* env, jclass clazz, jbyteArray recipient_public_key, jbyteArray sender_identity_private, jbyteArray sender_identity_public, jbyteArray plaintext, jlong plaintext_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -3662,7 +3692,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_veil_encrypt_v1(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_veil_decrypt_v1(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1decrypt_1v1(
     JNIEnv* env, jclass clazz, jbyteArray recipient_private_key, jbyteArray recipient_public_key, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray sender_identity_key_out) {
     (void)clazz;
 
@@ -3693,7 +3723,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_veil_decrypt_v1(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_server_certificate_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1server_1certificate_1create(
     JNIEnv* env, jclass clazz, jint key_id, jbyteArray public_key, jbyteArray private_key, jbyteArray cert_out, jlong cert_len) {
     (void)clazz;
 
@@ -3719,7 +3749,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_server_certificate_create(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_server_certificate_validate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1server_1certificate_1validate(
     JNIEnv* env, jclass clazz, jbyteArray cert_data, jlong cert_len, jbyteArray trust_root, jintArray valid_out) {
     (void)clazz;
 
@@ -3745,7 +3775,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_server_certificate_validate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sender_certificate_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sender_1certificate_1create(
     JNIEnv* env, jclass clazz, jstring sender_uuid, jbyteArray sender_e164, jint sender_device_id, jlong expiration, jbyteArray identity_key, jbyteArray server_cert_data, jlong server_cert_len, jbyteArray server_private_key, jbyteArray cert_out, jlong cert_len) {
     (void)clazz;
 
@@ -3777,7 +3807,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sender_certificate_create(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sender_certificate_validate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sender_1certificate_1validate(
     JNIEnv* env, jclass clazz, jbyteArray cert_data, jlong cert_len, jbyteArray server_trust_root, jlong validation_time, jintArray valid_out) {
     (void)clazz;
 
@@ -3803,7 +3833,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sender_certificate_validate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_usmc_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1create(
     JNIEnv* env, jclass clazz, jint msg_type, jbyteArray sender_cert_data, jlong sender_cert_len, jbyteArray plaintext, jlong plaintext_len, jint content_hint, jbyteArray group_id, jlong group_id_len, jbyteArray usmc_out, jlong usmc_len) {
     (void)clazz;
 
@@ -3831,7 +3861,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_usmc_create(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_usmc_serialize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1serialize(
     JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -3855,7 +3885,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_usmc_serialize(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_usmc_deserialize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1deserialize(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray usmc_out, jlong usmc_len, jintArray msg_type_out) {
     (void)clazz;
 
@@ -3883,7 +3913,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_usmc_deserialize(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_prekey_generate_batch(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1prekey_1generate_1batch(
     JNIEnv* env, jclass clazz, jint count, jint start_id, jbyteArray keys_out, jlong keys_len) {
     (void)clazz;
 
@@ -3905,7 +3935,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_prekey_generate_batch(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_prekey_generate_signed(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1prekey_1generate_1signed(
     JNIEnv* env, jclass clazz, jint prekey_id, jbyteArray identity_private_key, jbyteArray signed_prekey_public, jbyteArray signed_prekey_private, jbyteArray signature, jlong signature_len) {
     (void)clazz;
 
@@ -3935,7 +3965,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_prekey_generate_signed(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_prekey_generate_kyber_batch(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1prekey_1generate_1kyber_1batch(
     JNIEnv* env, jclass clazz, jint count, jint start_id, jint kem_type, jbyteArray keys_out, jlong keys_len) {
     (void)clazz;
 
@@ -3957,7 +3987,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_prekey_generate_kyber_batch(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_mls_group_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1mls_1group_1create(
     JNIEnv* env, jclass clazz, jbyteArray group_id, jlong group_id_len, jbyteArray epoch_secret, jbyteArray group_state_out, jlong group_state_len) {
     (void)clazz;
 
@@ -4035,7 +4065,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_decrypt_mls_message(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_identity_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1identity_1create(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray private_key) {
     (void)clazz;
 
@@ -4059,7 +4089,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_identity_create(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_session_initiate(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1session_1initiate(
     JNIEnv* env, jclass clazz, jbyteArray agent_private_key, jbyteArray server_public_key, jbyteArray shared_secret, jbyteArray ephemeral_public) {
     (void)clazz;
 
@@ -4087,7 +4117,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_session_initiate(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_session_respond(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1session_1respond(
     JNIEnv* env, jclass clazz, jbyteArray server_private_key, jbyteArray agent_public_key, jbyteArray agent_ephemeral_public, jbyteArray shared_secret) {
     (void)clazz;
 
@@ -4114,7 +4144,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_session_respond(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len) {
     (void)clazz;
 
@@ -4140,7 +4170,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len) {
     (void)clazz;
 
@@ -4166,7 +4196,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_agent_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_multi_recipient_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1multi_1recipient_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jlong recipient_keys, jlong num_recipients, jbyteArray ciphertext, jlong ciphertext_len) {
     (void)clazz;
 
@@ -4191,7 +4221,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_multi_recipient_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_multi_recipient_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1multi_1recipient_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray private_key, jbyteArray plaintext, jlong plaintext_len) {
     (void)clazz;
 
@@ -4217,7 +4247,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_multi_recipient_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_delete_message_key(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1delete_1message_1key(
     JNIEnv* env, jclass clazz, jbyteArray chain_key, jlong chain_key_len, jint message_number) {
     (void)clazz;
 
@@ -4238,7 +4268,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_delete_message_key(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_clear_consumed_keys(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1clear_1consumed_1keys(
     JNIEnv* env, jclass clazz, jbyteArray skipped_keys, jlong skipped_keys_len, jint max_keys) {
     (void)clazz;
 
@@ -4259,7 +4289,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_clear_consumed_keys(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_profile_encrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1profile_1encrypt(
     JNIEnv* env, jclass clazz, jbyteArray profile_key, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len) {
     (void)clazz;
 
@@ -4285,7 +4315,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_profile_encrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_profile_decrypt(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1profile_1decrypt(
     JNIEnv* env, jclass clazz, jbyteArray profile_key, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len) {
     (void)clazz;
 
@@ -4311,7 +4341,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_profile_decrypt(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_create_backup(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1svr_1create_1backup(
     JNIEnv* env, jclass clazz, jbyteArray pin, jlong pin_len, jbyteArray master_key, jbyteArray backup_out, jlong backup_len) {
     (void)clazz;
 
@@ -4337,7 +4367,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_create_backup(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_restore_backup(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1svr_1restore_1backup(
     JNIEnv* env, jclass clazz, jbyteArray pin, jlong pin_len, jbyteArray backup, jlong backup_len, jbyteArray master_key_out) {
     (void)clazz;
 
@@ -4362,7 +4392,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_restore_backup(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_change_pin(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1svr_1change_1pin(
     JNIEnv* env, jclass clazz, jbyteArray old_pin, jlong old_pin_len, jbyteArray new_pin, jlong new_pin_len, jbyteArray backup, jlong backup_len, jbyteArray new_backup_out, jlong new_backup_len) {
     (void)clazz;
 
@@ -4390,7 +4420,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_change_pin(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_generate_auth_proof(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1svr_1generate_1auth_1proof(
     JNIEnv* env, jclass clazz, jbyteArray server_private_key, jbyteArray client_id, jlong client_id_len, jbyteArray proof_out, jbyteArray nonce_out, jlong timestamp_out) {
     (void)clazz;
 
@@ -4419,7 +4449,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_generate_auth_proof(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_verify_auth_proof(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1svr_1verify_1auth_1proof(
     JNIEnv* env, jclass clazz, jbyteArray server_private_key, jbyteArray client_id, jlong client_id_len, jbyteArray proof, jbyteArray nonce, jlong timestamp) {
     (void)clazz;
 
@@ -4445,7 +4475,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_svr_verify_auth_proof(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_account_entropy_create(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1account_1entropy_1create(
     JNIEnv* env, jclass clazz, jbyteArray entropy_out) {
     (void)clazz;
 
@@ -4466,7 +4496,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_account_entropy_create(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_account_entropy_from_passphrase(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1account_1entropy_1from_1passphrase(
     JNIEnv* env, jclass clazz, jstring passphrase, jlong passphrase_len, jbyteArray entropy_out) {
     (void)clazz;
 
@@ -4489,7 +4519,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_account_entropy_from_passphra
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_account_key_derive(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1account_1key_1derive(
     JNIEnv* env, jclass clazz, jbyteArray entropy, jbyteArray account_key_out) {
     (void)clazz;
 
@@ -4512,7 +4542,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_account_key_derive(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_key_derive(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1backup_1key_1derive(
     JNIEnv* env, jclass clazz, jbyteArray account_key, jbyteArray backup_key_out) {
     (void)clazz;
 
@@ -4535,7 +4565,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_key_derive(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_media_key_derive(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1media_1key_1derive(
     JNIEnv* env, jclass clazz, jbyteArray account_key, jstring media_id, jbyteArray media_key_out) {
     (void)clazz;
 
@@ -4560,7 +4590,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_media_key_derive(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_auth_credential_present(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1auth_1credential_1present(
     JNIEnv* env, jclass clazz, jbyteArray credential_data, jlong credential_len, jbyteArray server_params, jbyteArray presentation_out, jlong presentation_len) {
     (void)clazz;
 
@@ -4586,7 +4616,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_auth_credential_present(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_profile_key_credential_present(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1profile_1key_1credential_1present(
     JNIEnv* env, jclass clazz, jbyteArray credential_data, jlong credential_len, jbyteArray server_params, jbyteArray presentation_out, jlong presentation_len) {
     (void)clazz;
 
@@ -4612,7 +4642,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_profile_key_credential_presen
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_credential_present(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1group_1credential_1present(
     JNIEnv* env, jclass clazz, jbyteArray credential_data, jlong credential_len, jbyteArray server_params, jbyteArray presentation_out, jlong presentation_len) {
     (void)clazz;
 
@@ -4638,7 +4668,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_group_credential_present(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_generate_keypair(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1key_1transparency_1generate_1keypair(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray private_key) {
     (void)clazz;
 
@@ -4662,7 +4692,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_generate_key
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_prove(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1key_1transparency_1prove(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray commitment, jbyteArray proof_out, jlong proof_len) {
     (void)clazz;
 
@@ -4688,7 +4718,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_prove(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_verify(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1key_1transparency_1verify(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray commitment, jbyteArray proof, jlong proof_len, jintArray valid_out) {
     (void)clazz;
 
@@ -4716,7 +4746,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_verify(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_vrf_prove(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1key_1transparency_1vrf_1prove(
     JNIEnv* env, jclass clazz, jbyteArray private_key, jbyteArray message, jlong message_len, jbyteArray proof_out) {
     (void)clazz;
 
@@ -4741,7 +4771,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_vrf_prove(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_vrf_verify(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1key_1transparency_1vrf_1verify(
     JNIEnv* env, jclass clazz, jbyteArray public_key, jbyteArray message, jlong message_len, jbyteArray proof, jintArray valid_out) {
     (void)clazz;
 
@@ -4769,7 +4799,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_vrf_verify(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_vrf_proof_to_hash(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1key_1transparency_1vrf_1proof_1to_1hash(
     JNIEnv* env, jclass clazz, jbyteArray proof, jbyteArray hash_out) {
     (void)clazz;
 
@@ -4792,7 +4822,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_vrf_proof_to
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_verify_search(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1key_1transparency_1verify_1search(
     JNIEnv* env, jclass clazz, jbyteArray vrf_public_key, jbyteArray user_id, jlong user_id_len, jbyteArray expected_value, jlong expected_value_len, jbyteArray vrf_proof, jlong vrf_proof_len, jintArray valid_out) {
     (void)clazz;
 
@@ -4822,7 +4852,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_key_transparency_verify_searc
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_init(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1encrypt_1init(
     JNIEnv* env, jclass clazz, jlongArray handle_out, jbyteArray key, jbyteArray nonce, jbyteArray aad, jlong aad_len) {
     (void)clazz;
 
@@ -4850,7 +4880,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_init(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_update(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1encrypt_1update(
     JNIEnv* env, jclass clazz, jlong handle, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len) {
     (void)clazz;
 
@@ -4874,7 +4904,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_update
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_finalize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1encrypt_1finalize(
     JNIEnv* env, jclass clazz, jlong handle, jbyteArray tag_out) {
     (void)clazz;
 
@@ -4895,7 +4925,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_finali
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_free(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1encrypt_1free(
     JNIEnv* env, jclass clazz, jlong handle) {
     (void)clazz;
 
@@ -4912,7 +4942,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_encrypt_free(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_init(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1decrypt_1init(
     JNIEnv* env, jclass clazz, jlongArray handle_out, jbyteArray key, jbyteArray nonce, jbyteArray aad, jlong aad_len) {
     (void)clazz;
 
@@ -4940,7 +4970,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_init(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_update(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1decrypt_1update(
     JNIEnv* env, jclass clazz, jlong handle, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len) {
     (void)clazz;
 
@@ -4964,7 +4994,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_update
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_finalize(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1decrypt_1finalize(
     JNIEnv* env, jclass clazz, jlong handle, jbyteArray tag) {
     (void)clazz;
 
@@ -4984,7 +5014,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_finali
 }
 
 JNIEXPORT void JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_free(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1streaming_1aead_1decrypt_1free(
     JNIEnv* env, jclass clazz, jlong handle) {
     (void)clazz;
 
@@ -5001,7 +5031,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_streaming_aead_decrypt_free(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_media_sanitize_mp4(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1media_1sanitize_1mp4(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -5025,7 +5055,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_media_sanitize_mp4(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_media_sanitize_webp(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1media_1sanitize_1webp(
     JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 

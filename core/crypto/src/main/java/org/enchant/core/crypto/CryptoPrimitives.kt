@@ -126,6 +126,7 @@ object CryptoPrimitives {
 
     fun encryptXChaCha20Poly1305Raw(plaintext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
         val n = if (nonce.size == XCHACHA20_NONCE_SIZE) nonce else nonce.copyOf(XCHACHA20_NONCE_SIZE)
+        require(n.size == XCHACHA20_NONCE_SIZE) { "XChaCha20 nonce must be 24 bytes" }
         val ct = ByteArray(plaintext.size + EnchantCrypto.XCHACHA20_TAG_SIZE)
         val rc = EnchantCrypto.enchant_xchacha20_encrypt(plaintext, plaintext.size.toLong(), key, n, ct, ct.size.toLong())
         if (rc != 0) throw RuntimeException("xchacha20_encrypt failed: $rc")
@@ -134,6 +135,7 @@ object CryptoPrimitives {
 
     fun decryptXChaCha20Poly1305Raw(ciphertext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
         val n = if (nonce.size == XCHACHA20_NONCE_SIZE) nonce else nonce.copyOf(XCHACHA20_NONCE_SIZE)
+        require(n.size == XCHACHA20_NONCE_SIZE) { "XChaCha20 nonce must be 24 bytes" }
         require(key.size == XCHACHA20_KEY_SIZE) { "Key must be 32 bytes" }
         val pt = ByteArray(ciphertext.size - EnchantCrypto.XCHACHA20_TAG_SIZE)
         val rc = EnchantCrypto.enchant_xchacha20_decrypt(ciphertext, ciphertext.size.toLong(), key, n, pt, pt.size.toLong())
@@ -261,7 +263,7 @@ object CryptoPrimitives {
         val output = ByteArray(outputLen)
         val rc = EnchantCrypto.enchant_argon2id_hash_with_params(
             plaintext, plaintext.size.toLong(),
-            salt, salt.size.toLong(), iterations.toLong(), memory_kb.toLong(), parallelism.toLong(),
+            salt, salt.size.toLong(), iterations, memory_kb, parallelism,
             output, outputLen.toLong()
         )
         if (rc != 0) throw RuntimeException("argon2id_hash_with_params failed: $rc")
@@ -306,9 +308,10 @@ object CryptoPrimitives {
 
     fun base64UrlDecode(encoded: String): ByteArray {
         val out = ByteArray(encoded.length)
-        val rc = EnchantCrypto.enchant_base64_decode(encoded, out, out.size.toLong())
+        val decodedLen = longArrayOf(0)
+        val rc = EnchantCrypto.enchant_base64_decode(encoded, encoded.length.toLong(), out, out.size.toLong(), decodedLen)
         if (rc != 0) throw IllegalArgumentException("base64UrlDecode failed: $rc")
-        return out
+        return out.copyOf(decodedLen[0].toInt())
     }
 
     fun hexEncode(data: ByteArray): String =

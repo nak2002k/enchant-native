@@ -39,14 +39,14 @@ class SealedSenderTest {
 
         @Test @DisplayName("wrong profile key size throws")
         fun `access key wrong profile size`() {
-            assertThrows<IllegalArgumentException> {
+            assertThrows(IllegalArgumentException::class.java) {
                 SealedSender.deriveAccessKey(ByteArray(16), ByteArray(32))
             }
         }
 
         @Test @DisplayName("wrong sender key size throws")
         fun `access key wrong sender size`() {
-            assertThrows<IllegalArgumentException> {
+            assertThrows(IllegalArgumentException::class.java) {
                 SealedSender.deriveAccessKey(ByteArray(32), ByteArray(16))
             }
         }
@@ -82,7 +82,7 @@ class SealedSenderTest {
 
         @Test @DisplayName("wrong access key size throws")
         fun `sealed wrong key size`() {
-            assertThrows<IllegalArgumentException> {
+            assertThrows(IllegalArgumentException::class.java) {
                 SealedSender.encryptSealed(ByteArray(8), ByteArray(32), ByteArray(10))
             }
         }
@@ -113,7 +113,7 @@ class SealedSenderTest {
 
         @Test @DisplayName("wrong profile key size throws")
         fun `profile data wrong size`() {
-            assertThrows<IllegalArgumentException> {
+            assertThrows(IllegalArgumentException::class.java) {
                 SealedSender.encryptProfileData(ByteArray(16), ByteArray(10))
             }
         }

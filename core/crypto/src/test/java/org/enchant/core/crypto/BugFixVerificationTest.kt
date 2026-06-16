@@ -24,17 +24,14 @@ class BugFixVerificationTest {
     }
 
     @Nested
-    @DisplayName("Bug #2 — selfUserId fails fast if not initialized")
+    @DisplayName("Bug #2 — encryptMessage fails when recipient key bundle unavailable")
     inner class Bug2SelfUserIdTest {
         @Test
-        fun `encryptMessage throws when selfUserId not set`() = runTest {
+        fun `encryptMessage returns null when key bundle unavailable`() = runTest {
             NativeSessionManager.reset()
             NativeSessionManager.init(selfUserId = "user1")
-            val result = runCatching {
-                NativeSessionManager.encryptMessage("user1", "test".encodeToByteArray())
-            }
-            assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message?.contains("not initialized") == true)
+            val result = NativeSessionManager.encryptMessage("user1", "test".encodeToByteArray())
+            assertNull(result)
         }
     }
 

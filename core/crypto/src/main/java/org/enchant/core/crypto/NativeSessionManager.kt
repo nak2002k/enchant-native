@@ -317,10 +317,11 @@ object NativeSessionManager {
         val ourIk = getLocalIdentityPublicKey() ?: return "UNVERIFIED"
         return try {
             val safetyNumberOut = ByteArray(64)
+            val outLen = longArrayOf(64)
             val rc = EnchantCrypto.enchant_safety_number_generate(
                 ourIk, theirIk,
                 selfUserId ?: "", userId,
-                safetyNumberOut, 64
+                safetyNumberOut, outLen
             )
             if (rc == EnchantCrypto.SUCCESS) {
                 safetyNumberOut.joinToString("") { "%02x".format(it) }
