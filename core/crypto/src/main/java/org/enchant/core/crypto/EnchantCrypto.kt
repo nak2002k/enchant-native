@@ -276,4 +276,18 @@ object EnchantCrypto {
     external fun enchant_streaming_aead_decrypt_free(handle: Long)
     external fun enchant_media_sanitize_mp4(data: ByteArray, dataLen: Long, output: ByteArray, outputLen: Long): Int
     external fun enchant_media_sanitize_webp(data: ByteArray, dataLen: Long, output: ByteArray, outputLen: Long): Int
+
+    // ──────────────────────────────────────────────
+    // Veil Session (Sealed Sender)
+    // ──────────────────────────────────────────────
+    external fun enchant_veil_session_create(sessionOut: LongArray): Int
+    external fun enchant_veil_session_destroy(session: Long)
+    external fun enchant_veil_session_init_alice(session: Long, rootKey: ByteArray, chainKey: ByteArray, ourDhPublic: ByteArray, ourDhPrivate: ByteArray, theirX25519Public: ByteArray, ourIdentity: ByteArray, theirIdentity: ByteArray, pqrKey: ByteArray): Int
+    external fun enchant_veil_session_init_bob(session: Long, rootKey: ByteArray, chainKey: ByteArray, ourDhPublic: ByteArray, ourDhPrivate: ByteArray, theirX25519Public: ByteArray, ourIdentity: ByteArray, theirIdentity: ByteArray, pqrKey: ByteArray): Int
+    external fun enchant_veil_session_encrypt(session: Long, plaintext: ByteArray, plaintextLen: Long, output: ByteArray, outputLen: LongArray): Int
+    external fun enchant_veil_session_decrypt(session: Long, input: ByteArray, inputLen: Long, plaintext: ByteArray, plaintextLen: LongArray): Int
+    external fun enchant_veil_session_seal_and_encrypt(session: Long, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, recipientPublicKeys: ByteArray, numRecipients: Long, senderCertData: ByteArray, senderCertLen: Long, plaintext: ByteArray, plaintextLen: Long, output: ByteArray, outputLen: LongArray): Int
+    external fun enchant_veil_session_unseal_and_decrypt(session: Long, recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray, senderIdentityKeyOut: ByteArray): Int
+    external fun enchant_veil_session_seal_group_message(session: Long, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, recipientPublicKeys: ByteArray, numRecipients: Long, senderCertData: ByteArray, senderCertLen: Long, senderKeyCiphertext: ByteArray, senderKeyLen: Long, senderKeyId: Int, output: ByteArray, outputLen: LongArray): Int
+    external fun enchant_veil_session_unseal_group_message(session: Long, recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, senderKeyOut: ByteArray, senderKeyLen: LongArray, senderKeyIdOut: IntArray): Int
 }

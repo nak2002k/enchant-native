@@ -3593,6 +3593,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1update(
     return rc;
 }
 
+
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1incremental_1mac_1finalize(
     JNIEnv* env, jclass clazz, jlong mac, jbyteArray final_mac, jlong mac_len) {
@@ -5111,7 +5112,304 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1media_1sanitize_1webp(
     env->ReleaseByteArrayElements(data, data_jbyte, JNI_ABORT);
     env->ReleaseByteArrayElements(output, output_jbyte, 0);
 
+    env->ReleaseByteArrayElements(data, data_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(output, output_jbyte, 0);
+
     // Copy output values back to Java
+    return rc;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   VEIL SESSION (SEALED SENDER)
+   ═══════════════════════════════════════════════════════════════════ */
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1create(
+    JNIEnv* env, jclass clazz, jlongArray session_out) {
+    (void)clazz;
+    jlong* session_out_ptr = env->GetLongArrayElements(session_out, nullptr);
+    enchant_veil_session_t* session = nullptr;
+    int rc = enchant_veil_session_create(&session);
+    if (rc == ENCHANT_SUCCESS) {
+        session_out_ptr[0] = reinterpret_cast<jlong>(session);
+    }
+    env->ReleaseLongArrayElements(session_out, session_out_ptr, 0);
+    return rc;
+}
+
+JNIEXPORT void JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1destroy(
+    JNIEnv* env, jclass clazz, jlong session) {
+    (void)env; (void)clazz;
+    enchant_veil_session_destroy(reinterpret_cast<enchant_veil_session_t*>(session));
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1init_1alice(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray root_key, jbyteArray chain_key,
+    jbyteArray our_dh_public, jbyteArray our_dh_private,
+    jbyteArray their_x25519_public,
+    jbyteArray our_identity, jbyteArray their_identity,
+    jbyteArray pqr_key) {
+    (void)clazz;
+    jbyte* rk = env->GetByteArrayElements(root_key, nullptr);
+    jbyte* ck = env->GetByteArrayElements(chain_key, nullptr);
+    jbyte* odp = env->GetByteArrayElements(our_dh_public, nullptr);
+    jbyte* odv = env->GetByteArrayElements(our_dh_private, nullptr);
+    jbyte* txp = env->GetByteArrayElements(their_x25519_public, nullptr);
+    jbyte* oi  = env->GetByteArrayElements(our_identity, nullptr);
+    jbyte* ti  = env->GetByteArrayElements(their_identity, nullptr);
+    jbyte* pq  = env->GetByteArrayElements(pqr_key, nullptr);
+    int rc = enchant_veil_session_init_alice(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(rk),
+        reinterpret_cast<const uint8_t*>(ck),
+        reinterpret_cast<const uint8_t*>(odp),
+        reinterpret_cast<const uint8_t*>(odv),
+        reinterpret_cast<const uint8_t*>(txp),
+        reinterpret_cast<const uint8_t*>(oi),
+        reinterpret_cast<const uint8_t*>(ti),
+        reinterpret_cast<const uint8_t*>(pq));
+    env->ReleaseByteArrayElements(root_key, rk, JNI_ABORT);
+    env->ReleaseByteArrayElements(chain_key, ck, JNI_ABORT);
+    env->ReleaseByteArrayElements(our_dh_public, odp, JNI_ABORT);
+    env->ReleaseByteArrayElements(our_dh_private, odv, JNI_ABORT);
+    env->ReleaseByteArrayElements(their_x25519_public, txp, JNI_ABORT);
+    env->ReleaseByteArrayElements(our_identity, oi, JNI_ABORT);
+    env->ReleaseByteArrayElements(their_identity, ti, JNI_ABORT);
+    env->ReleaseByteArrayElements(pqr_key, pq, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1init_1bob(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray root_key, jbyteArray chain_key,
+    jbyteArray our_dh_public, jbyteArray our_dh_private,
+    jbyteArray their_x25519_public,
+    jbyteArray our_identity, jbyteArray their_identity,
+    jbyteArray pqr_key) {
+    (void)clazz;
+    jbyte* rk = env->GetByteArrayElements(root_key, nullptr);
+    jbyte* ck = env->GetByteArrayElements(chain_key, nullptr);
+    jbyte* odp = env->GetByteArrayElements(our_dh_public, nullptr);
+    jbyte* odv = env->GetByteArrayElements(our_dh_private, nullptr);
+    jbyte* txp = env->GetByteArrayElements(their_x25519_public, nullptr);
+    jbyte* oi  = env->GetByteArrayElements(our_identity, nullptr);
+    jbyte* ti  = env->GetByteArrayElements(their_identity, nullptr);
+    jbyte* pq  = env->GetByteArrayElements(pqr_key, nullptr);
+    int rc = enchant_veil_session_init_bob(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(rk),
+        reinterpret_cast<const uint8_t*>(ck),
+        reinterpret_cast<const uint8_t*>(odp),
+        reinterpret_cast<const uint8_t*>(odv),
+        reinterpret_cast<const uint8_t*>(txp),
+        reinterpret_cast<const uint8_t*>(oi),
+        reinterpret_cast<const uint8_t*>(ti),
+        reinterpret_cast<const uint8_t*>(pq));
+    env->ReleaseByteArrayElements(root_key, rk, JNI_ABORT);
+    env->ReleaseByteArrayElements(chain_key, ck, JNI_ABORT);
+    env->ReleaseByteArrayElements(our_dh_public, odp, JNI_ABORT);
+    env->ReleaseByteArrayElements(our_dh_private, odv, JNI_ABORT);
+    env->ReleaseByteArrayElements(their_x25519_public, txp, JNI_ABORT);
+    env->ReleaseByteArrayElements(our_identity, oi, JNI_ABORT);
+    env->ReleaseByteArrayElements(their_identity, ti, JNI_ABORT);
+    env->ReleaseByteArrayElements(pqr_key, pq, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1encrypt(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray plaintext, jlong plaintext_len,
+    jbyteArray output, jlongArray output_len) {
+    (void)clazz;
+    jbyte* pt = env->GetByteArrayElements(plaintext, nullptr);
+    jbyte* out = env->GetByteArrayElements(output, nullptr);
+    jlong* out_len = env->GetLongArrayElements(output_len, nullptr);
+    size_t olen = static_cast<size_t>(out_len[0]);
+    int rc = enchant_veil_session_encrypt(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(pt), static_cast<size_t>(plaintext_len),
+        reinterpret_cast<uint8_t*>(out), &olen);
+    env->ReleaseByteArrayElements(plaintext, pt, JNI_ABORT);
+    out_len[0] = static_cast<jlong>(olen);
+    env->ReleaseLongArrayElements(output_len, out_len, 0);
+    env->ReleaseByteArrayElements(output, out, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1decrypt(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray input, jlong input_len,
+    jbyteArray plaintext, jlongArray plaintext_len) {
+    (void)clazz;
+    jbyte* in = env->GetByteArrayElements(input, nullptr);
+    jbyte* pt = env->GetByteArrayElements(plaintext, nullptr);
+    jlong* pt_len = env->GetLongArrayElements(plaintext_len, nullptr);
+    size_t plen = static_cast<size_t>(pt_len[0]);
+    int rc = enchant_veil_session_decrypt(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(in), static_cast<size_t>(input_len),
+        reinterpret_cast<uint8_t*>(pt), &plen);
+    env->ReleaseByteArrayElements(input, in, JNI_ABORT);
+    pt_len[0] = static_cast<jlong>(plen);
+    env->ReleaseLongArrayElements(plaintext_len, pt_len, 0);
+    env->ReleaseByteArrayElements(plaintext, pt, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1seal_1and_1encrypt(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray sender_identity_private,
+    jbyteArray sender_identity_public,
+    jbyteArray recipient_public_keys, jlong num_recipients,
+    jbyteArray sender_cert_data, jlong sender_cert_len,
+    jbyteArray plaintext, jlong plaintext_len,
+    jbyteArray output, jlongArray output_len) {
+    (void)clazz;
+    jbyte* sip = env->GetByteArrayElements(sender_identity_private, nullptr);
+    jbyte* spub = env->GetByteArrayElements(sender_identity_public, nullptr);
+    jbyte* rpk = env->GetByteArrayElements(recipient_public_keys, nullptr);
+    jbyte* scd = env->GetByteArrayElements(sender_cert_data, nullptr);
+    jbyte* pt = env->GetByteArrayElements(plaintext, nullptr);
+    jbyte* out = env->GetByteArrayElements(output, nullptr);
+    jlong* out_len = env->GetLongArrayElements(output_len, nullptr);
+    size_t olen = static_cast<size_t>(out_len[0]);
+    int rc = enchant_veil_session_seal_and_encrypt(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(sip),
+        reinterpret_cast<const uint8_t*>(spub),
+        reinterpret_cast<const uint8_t*>(rpk),
+        static_cast<size_t>(num_recipients),
+        reinterpret_cast<const uint8_t*>(scd),
+        static_cast<size_t>(sender_cert_len),
+        reinterpret_cast<const uint8_t*>(pt),
+        static_cast<size_t>(plaintext_len),
+        reinterpret_cast<uint8_t*>(out), &olen);
+    env->ReleaseByteArrayElements(sender_identity_private, sip, JNI_ABORT);
+    env->ReleaseByteArrayElements(sender_identity_public, spub, JNI_ABORT);
+    env->ReleaseByteArrayElements(recipient_public_keys, rpk, JNI_ABORT);
+    env->ReleaseByteArrayElements(sender_cert_data, scd, JNI_ABORT);
+    env->ReleaseByteArrayElements(plaintext, pt, JNI_ABORT);
+    out_len[0] = static_cast<jlong>(olen);
+    env->ReleaseLongArrayElements(output_len, out_len, 0);
+    env->ReleaseByteArrayElements(output, out, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1unseal_1and_1decrypt(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray recipient_private_key,
+    jbyteArray recipient_public_key,
+    jbyteArray ciphertext, jlong ciphertext_len,
+    jbyteArray plaintext, jlongArray plaintext_len,
+    jbyteArray sender_identity_key_out) {
+    (void)clazz;
+    jbyte* rpk = env->GetByteArrayElements(recipient_private_key, nullptr);
+    jbyte* rpub = env->GetByteArrayElements(recipient_public_key, nullptr);
+    jbyte* ct = env->GetByteArrayElements(ciphertext, nullptr);
+    jbyte* pt = env->GetByteArrayElements(plaintext, nullptr);
+    jlong* pt_len = env->GetLongArrayElements(plaintext_len, nullptr);
+    jbyte* sik = env->GetByteArrayElements(sender_identity_key_out, nullptr);
+    size_t plen = static_cast<size_t>(pt_len[0]);
+    int rc = enchant_veil_session_unseal_and_decrypt(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(rpk),
+        reinterpret_cast<const uint8_t*>(rpub),
+        reinterpret_cast<const uint8_t*>(ct),
+        static_cast<size_t>(ciphertext_len),
+        reinterpret_cast<uint8_t*>(pt), &plen,
+        reinterpret_cast<uint8_t*>(sik));
+    env->ReleaseByteArrayElements(recipient_private_key, rpk, JNI_ABORT);
+    env->ReleaseByteArrayElements(recipient_public_key, rpub, JNI_ABORT);
+    env->ReleaseByteArrayElements(ciphertext, ct, JNI_ABORT);
+    pt_len[0] = static_cast<jlong>(plen);
+    env->ReleaseLongArrayElements(plaintext_len, pt_len, 0);
+    env->ReleaseByteArrayElements(plaintext, pt, 0);
+    env->ReleaseByteArrayElements(sender_identity_key_out, sik, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1seal_1group_1message(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray sender_identity_private,
+    jbyteArray sender_identity_public,
+    jbyteArray recipient_public_keys, jlong num_recipients,
+    jbyteArray sender_cert_data, jlong sender_cert_len,
+    jbyteArray sender_key_ciphertext, jlong sender_key_len,
+    jint sender_key_id,
+    jbyteArray output, jlongArray output_len) {
+    (void)clazz;
+    jbyte* sip = env->GetByteArrayElements(sender_identity_private, nullptr);
+    jbyte* spub = env->GetByteArrayElements(sender_identity_public, nullptr);
+    jbyte* rpk = env->GetByteArrayElements(recipient_public_keys, nullptr);
+    jbyte* scd = env->GetByteArrayElements(sender_cert_data, nullptr);
+    jbyte* skc = env->GetByteArrayElements(sender_key_ciphertext, nullptr);
+    jbyte* out = env->GetByteArrayElements(output, nullptr);
+    jlong* out_len = env->GetLongArrayElements(output_len, nullptr);
+    size_t olen = static_cast<size_t>(out_len[0]);
+    int rc = enchant_veil_session_seal_group_message(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(sip),
+        reinterpret_cast<const uint8_t*>(spub),
+        reinterpret_cast<const uint8_t*>(rpk),
+        static_cast<size_t>(num_recipients),
+        reinterpret_cast<const uint8_t*>(scd),
+        static_cast<size_t>(sender_cert_len),
+        reinterpret_cast<const uint8_t*>(skc),
+        static_cast<size_t>(sender_key_len),
+        static_cast<uint32_t>(sender_key_id),
+        reinterpret_cast<uint8_t*>(out), &olen);
+    env->ReleaseByteArrayElements(sender_identity_private, sip, JNI_ABORT);
+    env->ReleaseByteArrayElements(sender_identity_public, spub, JNI_ABORT);
+    env->ReleaseByteArrayElements(recipient_public_keys, rpk, JNI_ABORT);
+    env->ReleaseByteArrayElements(sender_cert_data, scd, JNI_ABORT);
+    env->ReleaseByteArrayElements(sender_key_ciphertext, skc, JNI_ABORT);
+    out_len[0] = static_cast<jlong>(olen);
+    env->ReleaseLongArrayElements(output_len, out_len, 0);
+    env->ReleaseByteArrayElements(output, out, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1unseal_1group_1message(
+    JNIEnv* env, jclass clazz, jlong session,
+    jbyteArray recipient_private_key,
+    jbyteArray recipient_public_key,
+    jbyteArray ciphertext, jlong ciphertext_len,
+    jbyteArray sender_key_out, jlongArray sender_key_len,
+    jintArray sender_key_id_out) {
+    (void)clazz;
+    jbyte* rpk = env->GetByteArrayElements(recipient_private_key, nullptr);
+    jbyte* rpub = env->GetByteArrayElements(recipient_public_key, nullptr);
+    jbyte* ct = env->GetByteArrayElements(ciphertext, nullptr);
+    jbyte* sk = env->GetByteArrayElements(sender_key_out, nullptr);
+    jlong* sk_len = env->GetLongArrayElements(sender_key_len, nullptr);
+    jint* sk_id = env->GetIntArrayElements(sender_key_id_out, nullptr);
+    size_t skl = static_cast<size_t>(sk_len[0]);
+    uint32_t kid = 0;
+    int rc = enchant_veil_session_unseal_group_message(
+        reinterpret_cast<enchant_veil_session_t*>(session),
+        reinterpret_cast<const uint8_t*>(rpk),
+        reinterpret_cast<const uint8_t*>(rpub),
+        reinterpret_cast<const uint8_t*>(ct),
+        static_cast<size_t>(ciphertext_len),
+        reinterpret_cast<uint8_t*>(sk), &skl, &kid);
+    env->ReleaseByteArrayElements(recipient_private_key, rpk, JNI_ABORT);
+    env->ReleaseByteArrayElements(recipient_public_key, rpub, JNI_ABORT);
+    env->ReleaseByteArrayElements(ciphertext, ct, JNI_ABORT);
+    sk_len[0] = static_cast<jlong>(skl);
+    env->ReleaseLongArrayElements(sender_key_len, sk_len, 0);
+    sk_id[0] = static_cast<jint>(kid);
+    env->ReleaseIntArrayElements(sender_key_id_out, sk_id, 0);
+    env->ReleaseByteArrayElements(sender_key_out, sk, 0);
     return rc;
 }
 
