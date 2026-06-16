@@ -22,7 +22,7 @@ import org.enchant.core.calls.CallManager
 import org.enchant.core.crypto.KeyManager
 import org.enchant.core.crypto.PreKeyStore
 import org.enchant.core.crypto.PreKeyWorker
-import org.enchant.core.crypto.SessionManager
+import org.enchant.core.crypto.NativeSessionManager
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.IdentityDao
@@ -153,10 +153,8 @@ DatabasePool.instance = it
                         client.put(path, body)
                 })
                 KeyManager.setPreKeyStore(preKeyStore)
-                SessionManager.init(
-                    selfUserId = SecurePreferences.getString("auth.user_id") ?: "self",
-                    store = org.enchant.core.crypto.SessionStore(),
-                    idStore = org.enchant.core.crypto.IdentityStore()
+                NativeSessionManager.init(
+                    selfUserId = SecurePreferences.getString("auth.user_id") ?: "self"
                 )
                 PreKeyWorker.schedule(context)
                 MessageTrimmer.scheduleTrimming(context, EnchantStore.settings.messageTrimLength.takeIf { it > 0 }?.toLong() ?: 365)

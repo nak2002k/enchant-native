@@ -7,7 +7,7 @@ import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.test.runTest
 import org.enchant.chat.MainDispatcherRule
-import org.enchant.core.crypto.SessionManager
+import org.enchant.core.crypto.NativeSessionManager
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.dao.RecipientDao
@@ -44,13 +44,13 @@ class IncomingMessageProcessorTest {
         convDao = mockk(relaxed = true)
         msgDao = mockk(relaxed = true)
         IncomingMessageProcessor.init(repo, recipientDao, apiClient, convDao, msgDao)
-        mockkObject(SessionManager)
+        mockkObject(NativeSessionManager)
         mockkObject(MessageSendPipeline)
     }
 
     @AfterEach
     fun tearDown() {
-        unmockkObject(SessionManager)
+        unmockkObject(NativeSessionManager)
         unmockkObject(MessageSendPipeline)
     }
 
@@ -95,7 +95,7 @@ class IncomingMessageProcessorTest {
         @Test @DisplayName("processPreKeyMessage establishes session and stores message")
         fun `process prekey establishes session`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.decryptPreKeyMessage(any(), any()) } returns SessionManager.DecryptedResult(
+            coEvery { NativeSessionManager.decryptPreKeyMessage(any(), any()) } returns NativeSessionManager.DecryptedResult(
                 plaintext = "First message".encodeToByteArray(),
                 senderDeviceId = null,
                 isNewSession = true
@@ -118,7 +118,7 @@ class IncomingMessageProcessorTest {
         @Test @DisplayName("processPreKeyMessage returns Error when decryption fails")
         fun `process prekey decrypt error`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.decryptPreKeyMessage(any(), any()) } returns null
+            coEvery { NativeSessionManager.decryptPreKeyMessage(any(), any()) } returns null
             val envelope = IncomingEnvelope(
                 envelopeId = "env-prekey-1",
                 senderUserId = "new-sender",
@@ -138,7 +138,7 @@ class IncomingMessageProcessorTest {
         @Test @DisplayName("processEncryptedMessage returns Error on decryption failure")
         fun `process decryption error`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns null
+            coEvery { NativeSessionManager.decryptMessage(any(), any()) } returns null
             val envelope = IncomingEnvelope(
                 envelopeId = "env-1",
                 senderUserId = "sender-1",
@@ -185,7 +185,7 @@ class IncomingMessageProcessorTest {
         @Test @DisplayName("processEncryptedMessage applies disappear timer when configured")
         fun `process applies disappear timer`() = runTest {
             coEvery { recipientDao.getBlocked() } returns emptyList()
-            coEvery { SessionManager.decryptMessage(any(), any()) } returns SessionManager.DecryptedResult(
+            coEvery { NativeSessionManager.decryptMessage(any(), any()) } returns NativeSessionManager.DecryptedResult(
                 plaintext = "Hello".encodeToByteArray(),
                 senderDeviceId = null,
                 isNewSession = false

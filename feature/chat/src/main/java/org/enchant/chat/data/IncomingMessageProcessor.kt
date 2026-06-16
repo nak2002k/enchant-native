@@ -5,7 +5,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.crypto.CryptoHelper
-import org.enchant.core.crypto.SessionManager
+import org.enchant.core.crypto.NativeSessionManager
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.entity.MessageEntity
@@ -122,7 +122,7 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val decrypted = SessionManager.decryptPreKeyMessage(senderUserId, envelope.payload)
+                val decrypted = NativeSessionManager.decryptPreKeyMessage(senderUserId, envelope.payload)
 
                 if (decrypted == null) return@withContext ProcessResult.Error("Failed to establish session")
 
@@ -162,7 +162,7 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val decrypted = SessionManager.decryptMessage(senderUserId, envelope.payload)
+                val decrypted = NativeSessionManager.decryptMessage(senderUserId, envelope.payload)
 
                 if (decrypted == null) {
                     android.util.Log.w("IncomingMsg", "Decryption failed for sender: $senderUserId")
@@ -331,7 +331,7 @@ object IncomingMessageProcessor {
                             (key as? kotlinx.serialization.json.JsonPrimitive)?.content
                         } ?: return false
                         val ikBytes = CryptoHelper.base64UrlDecode(ik)
-                        SessionManager.setIdentityKey(userId, ikBytes)
+                        NativeSessionManager.setIdentityKey(userId, ikBytes)
                         true
                     } else false
                 },

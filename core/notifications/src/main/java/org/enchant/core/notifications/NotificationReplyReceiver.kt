@@ -9,7 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import android.content.BroadcastReceiver.PendingResult
-import org.enchant.core.crypto.SessionManager
+import org.enchant.core.crypto.NativeSessionManager
 
 class NotificationReplyReceiver : BroadcastReceiver() {
 
@@ -45,7 +45,7 @@ class NotificationReplyReceiver : BroadcastReceiver() {
             try {
                 val apiClient = org.enchant.core.network.ApiClient.getInstance()
                 val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: return@launch
-                val encrypted = SessionManager.encryptMessage(conversationId, replyText.encodeToByteArray())
+                val encrypted = NativeSessionManager.encryptMessage(conversationId, replyText.encodeToByteArray())
                 val payload = encrypted?.payload ?: return@launch
                 apiClient.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(
                     mapOf(

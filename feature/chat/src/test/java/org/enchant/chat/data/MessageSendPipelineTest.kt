@@ -12,7 +12,7 @@ import org.enchant.core.base.AppConfig
 import org.enchant.chat.MainDispatcherRule
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.CryptoHelper
-import org.enchant.core.crypto.SessionManager
+import org.enchant.core.crypto.NativeSessionManager
 import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MessageDao
@@ -53,10 +53,10 @@ class MessageSendPipelineTest {
         every { SecurePreferences.getString(any()) } returns "self-user"
         mockkObject(ConnectivityMonitor)
         every { ConnectivityMonitor.isOnline } returns kotlinx.coroutines.flow.MutableStateFlow(true)
-        mockkObject(SessionManager)
-        coEvery { SessionManager.hasSession(any()) } returns true
-        coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-            messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+        mockkObject(NativeSessionManager)
+        coEvery { NativeSessionManager.hasSession(any()) } returns true
+        coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+            messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
             payload = "encrypted".encodeToByteArray()
         )
         mockkObject(org.enchant.core.crypto.KeyManager)
@@ -70,7 +70,7 @@ class MessageSendPipelineTest {
     fun tearDown() {
         unmockkObject(SecurePreferences)
         unmockkObject(ConnectivityMonitor)
-        unmockkObject(SessionManager)
+        unmockkObject(NativeSessionManager)
         unmockkObject(org.enchant.core.crypto.KeyManager)
     }
 
@@ -85,7 +85,7 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("sendMessage fails with ENCRYPTION_FAILED when encrypt returns null")
         fun `encryption failed`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns null
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns null
             val result = MessageSendPipeline.sendMessage("conv-1", "user-1", "Hello".encodeToByteArray())
             assertTrue(result is SendResult.Failed)
             assertEquals(SendError.ENCRYPTION_FAILED, (result as SendResult.Failed).error)
@@ -159,7 +159,7 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("sendMessage uses PREKEY_MESSAGE type when no session exists")
         fun `send prekey message`() = runTest {
-            coEvery { SessionManager.hasSession(any()) } returns false
+            coEvery { NativeSessionManager.hasSession(any()) } returns false
             coEvery { repo.insertMessage(any()) } returns 1L
             coEvery { repo.updateMessageStatus(any(), any()) } returns Unit
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -200,7 +200,7 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("sendSealedMessage fails with ENCRYPTION_FAILED when no identity key")
         fun `sealed no identity key`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns null
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns null
             val result = MessageSendPipeline.sendSealedMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user-1",
@@ -269,8 +269,8 @@ class MessageSendPipelineTest {
     inner class ReceiptTest {
         @Test @DisplayName("sendDeliveryReceipt sends encrypted receipt")
         fun `send delivery receipt`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+                messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = "receipt".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -281,8 +281,8 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("sendReadReceipt sends encrypted receipt")
         fun `send read receipt`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+                messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = "receipt".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -296,8 +296,8 @@ class MessageSendPipelineTest {
     inner class TypingTest {
         @Test @DisplayName("sendTypingIndicator sends encrypted typing message")
         fun `send typing`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+                messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = "typing".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -308,8 +308,8 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("sendTypingIndicator with isTyping=false sends stop")
         fun `send typing stop`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+                messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = "typing".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -320,7 +320,7 @@ class MessageSendPipelineTest {
 
         @Test @DisplayName("sendTypingIndicator does nothing when not connected")
         fun `send typing not connected`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns null
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns null
             MessageSendPipeline.sendTypingIndicator("user-1", true)
         }
     }
@@ -340,7 +340,7 @@ class MessageSendPipelineTest {
                 localId = 1, conversationId = "conv-1", senderId = "self-user",
                 envelopeId = "env-1", content = "Old text", status = MessageStatus.SENT, timestamp = 1000
             )
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns null
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns null
             val result = MessageSendPipeline.editMessage("env-1", "New text".encodeToByteArray(), "user-1")
             assertTrue(result.isFailure)
         }
@@ -351,8 +351,8 @@ class MessageSendPipelineTest {
                 localId = 1, conversationId = "conv-1", senderId = "self-user",
                 envelopeId = "env-1", content = "Old text", status = MessageStatus.SENT, timestamp = 1000
             )
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+                messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = "encrypted".encodeToByteArray()
             )
             coEvery { apiClient.put(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -368,8 +368,8 @@ class MessageSendPipelineTest {
     inner class DeleteMessageTest {
         @Test @DisplayName("deleteForEveryone sends encrypted delete and marks deleted")
         fun `delete for everyone`() = runTest {
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+                messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = "delete".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -405,8 +405,8 @@ class MessageSendPipelineTest {
             )
             coEvery { repo.insertMessage(any()) } returns 1L
             coEvery { repo.updateMessageStatus(any(), any()) } returns Unit
-            coEvery { SessionManager.encryptMessage(any(), any()) } returns SessionManager.EncryptedPayload(
-                messageType = SessionManager.MessageType.ENCRYPTED_MESSAGE,
+            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns NativeSessionManager.EncryptedPayload(
+                messageType = NativeSessionManager.MessageType.ENCRYPTED_MESSAGE,
                 payload = "encrypted".encodeToByteArray()
             )
             coEvery { apiClient.post(any(), any()) } returns kotlinx.coroutines.runBlocking {

@@ -20,7 +20,7 @@ import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.crypto.CryptoHelper
 import org.enchant.core.crypto.KeyManager
-import org.enchant.core.crypto.SessionManager
+import org.enchant.core.crypto.NativeSessionManager
 import org.enchant.core.database.entity.MessageEntity
 import org.enchant.core.model.MessageStatus
 import org.enchant.core.network.ApiClient
@@ -87,8 +87,8 @@ object MessageSendPipeline {
                     timestamp = System.currentTimeMillis()
                 )
 
-                val hasSession = SessionManager.hasSession(recipientUserId)
-                val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes)
+                val hasSession = NativeSessionManager.hasSession(recipientUserId)
+                val encrypted = NativeSessionManager.encryptMessage(recipientUserId, contentBytes)
                 if (encrypted == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
 
                 val envelopeId = UUID.randomUUID().toString()
@@ -172,7 +172,7 @@ object MessageSendPipeline {
                     body = plaintext.decodeToString(),
                     timestamp = System.currentTimeMillis()
                 )
-                val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes)
+                val encrypted = NativeSessionManager.encryptMessage(recipientUserId, contentBytes)
                 if (encrypted == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
 
                 val ciphertextB64 = CryptoHelper.base64UrlEncode(encrypted.payload)
@@ -235,7 +235,7 @@ object MessageSendPipeline {
                     mediaMimeType = mimeType, mediaSize = fileBytes.size.toLong()
                 ))
 
-                val encryptedMediaKey = SessionManager.encryptWithSessionKey(recipientUserId, mediaKey)
+                val encryptedMediaKey = NativeSessionManager.encryptWithSessionKey(recipientUserId, mediaKey)
                 if (encryptedMediaKey == null) {
                     repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
                     return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
@@ -243,7 +243,7 @@ object MessageSendPipeline {
                 Arrays.fill(mediaKey, 0)
 
                 val mediaPayload = "$mediaId:${CryptoHelper.base64UrlEncode(encryptedMediaKey)}"
-                val encrypted = SessionManager.encryptMessage(recipientUserId, mediaPayload.encodeToByteArray())
+                val encrypted = NativeSessionManager.encryptMessage(recipientUserId, mediaPayload.encodeToByteArray())
                 if (encrypted == null) {
                     repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
                     return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
@@ -284,7 +284,7 @@ object MessageSendPipeline {
             timestamps = listOf(ts),
             type = MessageProtobufHelper.ReceiptType.DELIVERY
         )
-        val encrypted = SessionManager.encryptMessage(senderUserId, contentBytes) ?: return
+        val encrypted = NativeSessionManager.encryptMessage(senderUserId, contentBytes) ?: return
         scope?.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
@@ -304,7 +304,7 @@ object MessageSendPipeline {
             timestamps = listOf(ts),
             type = MessageProtobufHelper.ReceiptType.READ
         )
-        val encrypted = SessionManager.encryptMessage(senderUserId, contentBytes) ?: return
+        val encrypted = NativeSessionManager.encryptMessage(senderUserId, contentBytes) ?: return
         scope?.launch {
             try {
                 apiClient?.post("/v1/messages/send", buildJsonObject {
@@ -323,7 +323,7 @@ object MessageSendPipeline {
         if (isTyping) lastTypingTs = now
 
         val contentBytes = MessageProtobufHelper.buildTypingContent(isTyping)
-        val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes) ?: return
+        val encrypted = NativeSessionManager.encryptMessage(recipientUserId, contentBytes) ?: return
 
         scope?.launch {
             try {
@@ -357,7 +357,7 @@ object MessageSendPipeline {
                     ?: return@withContext Result.failure(Exception("Message not found"))
 
                 val newEnvelopeId = UUID.randomUUID().toString()
-                val encrypted = SessionManager.encryptMessage(recipientUserId, newPlaintext)
+                val encrypted = NativeSessionManager.encryptMessage(recipientUserId, newPlaintext)
                     ?: return@withContext Result.failure(Exception("Encryption failed"))
 
                 apiClient!!.put("/v1/messages/$originalEnvelopeId", buildJsonObject {
@@ -381,7 +381,7 @@ object MessageSendPipeline {
             try {
                 val targetTs = System.currentTimeMillis()
                 val contentBytes = MessageProtobufHelper.buildDeleteContent(targetTimestamp = targetTs)
-                val encrypted = SessionManager.encryptMessage(recipientUserId, contentBytes)
+                val encrypted = NativeSessionManager.encryptMessage(recipientUserId, contentBytes)
                     ?: return@withContext Result.failure(Exception("Encryption failed"))
                 apiClient!!.post("/v1/messages/send", buildJsonObject {
                     put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(recipientUserId))

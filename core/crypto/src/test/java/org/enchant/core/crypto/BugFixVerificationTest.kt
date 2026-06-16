@@ -13,13 +13,13 @@ class BugFixVerificationTest {
 
     @BeforeEach
     fun setUp() {
-        SessionManager.reset()
+        NativeSessionManager.reset()
         KeyManager.reset()
     }
 
     @AfterEach
     fun tearDown() {
-        SessionManager.reset()
+        NativeSessionManager.reset()
         KeyManager.reset()
     }
 
@@ -28,10 +28,10 @@ class BugFixVerificationTest {
     inner class Bug2SelfUserIdTest {
         @Test
         fun `encryptMessage throws when selfUserId not set`() = runTest {
-            SessionManager.reset()
-            SessionManager.init()
+            NativeSessionManager.reset()
+            NativeSessionManager.init(selfUserId = "user1")
             val result = runCatching {
-                SessionManager.encryptMessage("user1", "test".encodeToByteArray())
+                NativeSessionManager.encryptMessage("user1", "test".encodeToByteArray())
             }
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull()?.message?.contains("not initialized") == true)
