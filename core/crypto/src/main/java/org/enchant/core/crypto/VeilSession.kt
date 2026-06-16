@@ -259,6 +259,77 @@ class VeilSession private constructor(
         }
     }
 
+    /**
+     * Decrypt a first-message prekey from a sender (responder path).
+     *
+     * This is the X3DH responder: the initiator's first message includes
+     * the ephemeral public key and prekey IDs so the responder can derive
+     * the same shared secret. The responder's prekey private keys must
+     * already be stored in the identity store (via storeSignedPrekey /
+     * storeOneTimePrekey).
+     *
+     * @param senderUserId the sender's user ID
+     * @param ciphertext the prekey message (76-byte header + envelope)
+     * @param ourSignedPrekeyId the signed prekey ID that the initiator used
+     * @param ourOneTimePrekeyId the one-time prekey ID the initiator used (0 if none)
+     * @return decrypted plaintext or null on failure
+     */
+    suspend fun decryptPrekeyMessage(
+        senderUserId: String,
+        ciphertext: ByteArray,
+        ourSignedPrekeyId: Int,
+        ourOneTimePrekeyId: Int
+    ): DecryptedResult? {
+        return withContext(Dispatchers.Default) {
+            sessionLock.withLock {
+                val device = extractDeviceId(senderUserId)
+
+                val maxPlaintext = ciphertext.size + 256
+                val plaintext = ByteArray(maxPlaintext)
+                val plaintextLen = longArrayOf(maxPlaintext.toLong())
+
+                val rc = EnchantCrypto.enchant_session_manager_decrypt_prekey(
+                    sessionManagerHandle, senderUserId, device,
+                    ciphertext, ciphertext.size.toLong(),
+                    ourSignedPrekeyId, ourOneTimePrekeyId,
+                    plaintext, plaintextLen
+                )
+                if (rc != EnchantCrypto.SUCCESS) {
+                    println("decryptPrekeyMessage FAILED: rc=$rc (name=$senderUserId, dev=$device, ctLen=${ciphertext.size})")
+                    return@withLock null
+                }
+
+                DecryptedResult(
+                    plaintext = plaintext.copyOf(plaintextLen[0].toInt()),
+                    senderDeviceId = null,
+                    isNewSession = true
+                )
+            }
+        }
+    }
+
+    /**
+     * Store a signed prekey private key in the native identity store
+     * so the X3DH responder can look it up by ID when processing a
+     * prekey message.
+     */
+    fun storeSignedPrekey(prekeyId: Int, privateKey: ByteArray): Int {
+        return EnchantCrypto.enchant_identity_store_store_signed_prekey(
+            identityStoreHandle, prekeyId, privateKey, privateKey.size.toLong()
+        )
+    }
+
+    /**
+     * Store a one-time prekey private key in the native identity store
+     * so the X3DH responder can look it up by ID when processing a
+     * prekey message.
+     */
+    fun storeOneTimePrekey(prekeyId: Int, privateKey: ByteArray): Int {
+        return EnchantCrypto.enchant_identity_store_store_one_time_prekey(
+            identityStoreHandle, prekeyId, privateKey, privateKey.size.toLong()
+        )
+    }
+
     // ──────────────────────────────────────────────
     // Session Management
     // ──────────────────────────────────────────────

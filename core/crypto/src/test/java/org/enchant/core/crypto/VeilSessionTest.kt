@@ -117,7 +117,9 @@ class VeilSessionTest {
                 idStore = mockIdentityStore
             )
             setupKeysAndBundle()
-            val result = veilSession.encryptMessage("peer", "Hello".encodeToByteArray())
+            // First encrypt is PREKEY; send one to establish, then check second
+            veilSession.encryptMessage("peer", "Hello".encodeToByteArray())
+            val result = veilSession.encryptMessage("peer", "World".encodeToByteArray())
             assertNotNull(result)
             assertEquals(VeilSession.MessageType.ENCRYPTED_MESSAGE, result!!.messageType)
         }

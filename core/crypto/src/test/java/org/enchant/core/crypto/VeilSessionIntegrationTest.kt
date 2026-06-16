@@ -317,10 +317,8 @@ class VeilSessionIntegrationTest {
                 val encrypted = session.encryptMessage("peer", plaintext.toByteArray())
                 assertNotNull(encrypted)
                 assertTrue(encrypted!!.payload.isNotEmpty())
-                assertEquals(
-                    VeilSession.MessageType.ENCRYPTED_MESSAGE,
-                    encrypted.messageType
-                )
+                assertEquals(VeilSession.MessageType.ENCRYPTED_MESSAGE,
+                    encrypted.messageType)
             } finally {
                 session.close()
             }

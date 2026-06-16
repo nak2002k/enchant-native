@@ -2599,6 +2599,60 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1set_1trust(
 }
 
 JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1store_1signed_1prekey(
+    JNIEnv* env, jclass clazz, jlong store, jint prekey_id, jbyteArray private_key, jlong key_len) {
+    (void)clazz;
+    jbyte* pk = env->GetByteArrayElements(private_key, nullptr);
+    int rc = enchant_identity_store_store_signed_prekey(
+        reinterpret_cast<enchant_identity_store_t*>(store),
+        static_cast<uint32_t>(prekey_id),
+        reinterpret_cast<const uint8_t*>(pk), static_cast<size_t>(key_len));
+    env->ReleaseByteArrayElements(private_key, pk, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1store_1one_1time_1prekey(
+    JNIEnv* env, jclass clazz, jlong store, jint prekey_id, jbyteArray private_key, jlong key_len) {
+    (void)clazz;
+    jbyte* pk = env->GetByteArrayElements(private_key, nullptr);
+    int rc = enchant_identity_store_store_one_time_prekey(
+        reinterpret_cast<enchant_identity_store_t*>(store),
+        static_cast<uint32_t>(prekey_id),
+        reinterpret_cast<const uint8_t*>(pk), static_cast<size_t>(key_len));
+    env->ReleaseByteArrayElements(private_key, pk, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1decrypt_1prekey(
+    JNIEnv* env, jclass clazz, jlong manager,
+    jstring address_name, jint device_id,
+    jbyteArray ciphertext, jlong ciphertext_len,
+    jint our_signed_prekey_id, jint our_one_time_prekey_id,
+    jbyteArray plaintext, jlongArray plaintext_len) {
+    (void)clazz;
+    const char* addr = env->GetStringUTFChars(address_name, nullptr);
+    jbyte* ct = env->GetByteArrayElements(ciphertext, nullptr);
+    jbyte* pt = env->GetByteArrayElements(plaintext, nullptr);
+    jlong* pl = env->GetLongArrayElements(plaintext_len, nullptr);
+    size_t plen = static_cast<size_t>(pl[0]);
+    int rc = enchant_session_manager_decrypt_prekey(
+        reinterpret_cast<enchant_session_manager_t*>(manager),
+        addr, static_cast<uint32_t>(device_id),
+        reinterpret_cast<const uint8_t*>(ct), static_cast<size_t>(ciphertext_len),
+        static_cast<uint32_t>(our_signed_prekey_id),
+        static_cast<uint32_t>(our_one_time_prekey_id),
+        reinterpret_cast<uint8_t*>(pt), &plen);
+    env->ReleaseStringUTFChars(address_name, addr);
+    env->ReleaseByteArrayElements(ciphertext, ct, JNI_ABORT);
+    pl[0] = static_cast<jlong>(plen);
+    env->ReleaseLongArrayElements(plaintext_len, pl, 0);
+    env->ReleaseByteArrayElements(plaintext, pt, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1create(
     JNIEnv* env, jclass clazz, jlong identity_store, jlong session_store, jlongArray manager_out) {
     (void)clazz;
