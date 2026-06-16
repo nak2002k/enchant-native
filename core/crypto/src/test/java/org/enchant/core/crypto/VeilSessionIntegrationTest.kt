@@ -169,11 +169,11 @@ class VeilSessionIntegrationTest {
         }
 
         @Test
-        fun `encrypt produces ENCRYPTED_MESSAGE type`() = runTest {
+        fun `first encrypt after establish produces PREKEY_MESSAGE`() = runTest {
             setupKeysAndBundle()
-            val result = veilSession.encryptMessage("peer", "Hello".encodeToByteArray())
+            val result = veilSession.encryptMessage("peer", "second".encodeToByteArray())
             assertNotNull(result)
-            assertEquals(VeilSession.MessageType.ENCRYPTED_MESSAGE, result!!.messageType)
+            assertEquals(VeilSession.MessageType.PREKEY_MESSAGE, result!!.messageType)
         }
 
         @Test
@@ -317,7 +317,7 @@ class VeilSessionIntegrationTest {
                 val encrypted = session.encryptMessage("peer", plaintext.toByteArray())
                 assertNotNull(encrypted)
                 assertTrue(encrypted!!.payload.isNotEmpty())
-                assertEquals(VeilSession.MessageType.ENCRYPTED_MESSAGE,
+                assertEquals(VeilSession.MessageType.PREKEY_MESSAGE,
                     encrypted.messageType)
             } finally {
                 session.close()
