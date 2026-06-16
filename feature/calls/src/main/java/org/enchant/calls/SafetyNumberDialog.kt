@@ -26,15 +26,16 @@ import org.enchant.core.crypto.CryptoPrimitives
 object SafetyNumberHelper {
     fun computeFingerprint(ourKey: ByteArray, theirKey: ByteArray): String {
         val out = ByteArray(32)
+        val outLen = longArrayOf(32)
         val rc = org.enchant.core.crypto.EnchantCrypto.enchant_safety_number_generate(
-            ourKey, theirKey, null, null, null, out
+            ourKey, theirKey, "", "", out, outLen
         )
         if (rc != 0) {
             val combined = ourKey + theirKey
             val hash = CryptoPrimitives.sha512(combined)
             return formatFingerprint(hash.copyOfRange(0, 32))
         }
-        return formatFingerprint(out)
+        return formatFingerprint(out.copyOf(outLen[0].toInt()))
     }
 
     fun formatFingerprint(digest: ByteArray): String {

@@ -197,14 +197,14 @@ object TwoStepPinScreen {
 }
 
 fun hashPinArgon2(pin: String): String {
-    val output = ByteArray(ARGON2_HASH_LEN)
-    val rc = EnchantCrypto.enchant_argon2id_hash(pin, pin.length, output, output.size)
+    val output = String(ByteArray(ARGON2_HASH_LEN), Charsets.US_ASCII)
+    val rc = EnchantCrypto.enchant_argon2id_hash(pin, pin.length.toLong(), output, output.length.toLong())
     if (rc != 0) throw RuntimeException("enchant_argon2id_hash failed: $rc")
-    return String(output, Charsets.US_ASCII)
+    return output
 }
 
 fun verifyPinArgon2(pin: String, hash: String): Boolean {
-    val rc = EnchantCrypto.enchant_argon2id_verify(hash, hash.length, pin, pin.length)
+    val rc = EnchantCrypto.enchant_argon2id_verify(hash, hash.length.toLong(), pin, pin.length.toLong())
     return rc == 0
 }
 
