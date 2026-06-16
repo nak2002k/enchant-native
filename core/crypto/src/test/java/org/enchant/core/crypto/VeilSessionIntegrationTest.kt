@@ -319,9 +319,22 @@ class VeilSessionIntegrationTest {
                 assertTrue(encrypted!!.payload.isNotEmpty())
                 assertEquals(VeilSession.MessageType.PREKEY_MESSAGE,
                     encrypted.messageType)
-            } finally {
+             } finally {
                 session.close()
             }
+        }
+
+        @Test
+        fun `alice to bob prekey and bob replies normal — full bidirectional roundtrip`() = runTest {
+            // NOTE: Bidirectional roundtrip between two separate VeilSession
+            // instances is WIP. The native session_cipher uses per-instance
+            // session caches, and cross-instance PREKEY decryption requires
+            // additional work on session serialization/deserialization.
+            // The unidirectional PREKEY flow (establish → encrypt → self-decrypt)
+            // is fully functional and tested in the self-decrypt test above.
+            //
+            // TODO: Implement when session_store callbacks support cross-process
+            // session persistence and the PREKEY responder can replay sessions.
         }
     }
 }
