@@ -109,7 +109,7 @@ object SealedSender {
 
         val fullKey = ByteArray(32).apply {
             accessKey.copyInto(this)
-            CryptoPrimitives.sha256(accessKey).copyInto(this, 16)
+            CryptoPrimitives.sha256(accessKey).copyInto(this, 16, 0, 16)
         }
 
         return try {

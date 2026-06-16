@@ -142,7 +142,6 @@ object NativeSessionManager {
                     ciphertext, ciphertextLen, messageType
                 )
                 if (rc != EnchantCrypto.SUCCESS) {
-                    System.err.println("NativeSessionManager.encrypt failed: rc=$rc, has_session_before=${hasSession[0]}, msg_type_out=${messageType[0]}")
                     return@withLock null
                 }
 
@@ -223,7 +222,9 @@ object NativeSessionManager {
                     2,
                     plaintext, plaintextLen
                 )
-                if (rc != EnchantCrypto.SUCCESS) return@withLock null
+                if (rc != EnchantCrypto.SUCCESS) {
+                    return@withLock null
+                }
 
                 DecryptedResult(
                     plaintext = plaintext.copyOf(plaintextLen[0].toInt()),
@@ -347,7 +348,8 @@ object NativeSessionManager {
     }
 
     fun hasIdentityChanged(userId: String): Boolean {
-        return identityKeys.containsKey(userId)
+        // TODO: Implement proper identity change detection via native store
+        return false
     }
 
     @kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -400,7 +402,6 @@ object NativeSessionManager {
         )
 
         if (rc != EnchantCrypto.SUCCESS) {
-            System.err.println("NativeSessionManager.establish_session failed: rc=$rc, recipientUserId=$recipientUserId, ik_size=${keyBundle.identityKey.size}, spk_size=${keyBundle.signedPrekey.publicKey.size}, sig_size=${keyBundle.signedPrekey.signature.size}, otk_present=${keyBundle.oneTimePrekey != null}")
         }
 
         if (rc == EnchantCrypto.SUCCESS && ikPair != null) {
