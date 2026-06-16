@@ -1,3 +1,0 @@
-/home/nsk/project/personal/Enchant/frontend/native/build_jni/CMakeFiles/enchantcrypto_jni.dir
-/home/nsk/project/personal/Enchant/frontend/native/build_jni/CMakeFiles/edit_cache.dir
-/home/nsk/project/personal/Enchant/frontend/native/build_jni/CMakeFiles/rebuild_cache.dir

@@ -61,4 +61,6 @@ keystore.properties
 **/build/
 **/out/
 **/.cxx/
+**/build_jni/
+**/test/jniLibs/
 .opencode_ref
