@@ -3564,7 +3564,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_incremental_mac_validator_fin
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sealed_sender_encrypt_v1(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_veil_encrypt_v1(
     JNIEnv* env, jclass clazz, jbyteArray recipient_public_key, jbyteArray sender_identity_private, jbyteArray sender_identity_public, jbyteArray plaintext, jlong plaintext_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
@@ -3580,7 +3580,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sealed_sender_encrypt_v1(
     size_t output_len_val = 0;
 
     // Call native function
-    int rc = enchant_sealed_sender_encrypt_v1(reinterpret_cast<const uint8_t*>(recipient_public_key_jbyte), reinterpret_cast<const uint8_t*>(sender_identity_private_jbyte), reinterpret_cast<const uint8_t*>(sender_identity_public_jbyte), reinterpret_cast<const uint8_t*>(plaintext_jbyte), plaintext_len, output_ptr, &output_len_val);
+    int rc = enchant_veil_encrypt_v1(reinterpret_cast<const uint8_t*>(recipient_public_key_jbyte), reinterpret_cast<const uint8_t*>(sender_identity_private_jbyte), reinterpret_cast<const uint8_t*>(sender_identity_public_jbyte), reinterpret_cast<const uint8_t*>(plaintext_jbyte), plaintext_len, output_ptr, &output_len_val);
 
     // Release and copy back
     env->ReleaseByteArrayElements(recipient_public_key, recipient_public_key_jbyte, JNI_ABORT);
@@ -3594,7 +3594,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sealed_sender_encrypt_v1(
 }
 
 JNIEXPORT jint JNICALL
-Java_org_enchant_core_crypto_EnchantCrypto_enchant_sealed_sender_decrypt_v1(
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_veil_decrypt_v1(
     JNIEnv* env, jclass clazz, jbyteArray recipient_private_key, jbyteArray recipient_public_key, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray sender_identity_key_out) {
     (void)clazz;
 
@@ -3611,7 +3611,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_sealed_sender_decrypt_v1(
     size_t plaintext_len_val = 0;
 
     // Call native function
-    int rc = enchant_sealed_sender_decrypt_v1(reinterpret_cast<const uint8_t*>(recipient_private_key_jbyte), reinterpret_cast<const uint8_t*>(recipient_public_key_jbyte), reinterpret_cast<const uint8_t*>(ciphertext_jbyte), ciphertext_len, plaintext_ptr, &plaintext_len_val, sender_identity_key_out_ptr);
+    int rc = enchant_veil_decrypt_v1(reinterpret_cast<const uint8_t*>(recipient_private_key_jbyte), reinterpret_cast<const uint8_t*>(recipient_public_key_jbyte), reinterpret_cast<const uint8_t*>(ciphertext_jbyte), ciphertext_len, plaintext_ptr, &plaintext_len_val, sender_identity_key_out_ptr);
 
     // Release and copy back
     env->ReleaseByteArrayElements(recipient_private_key, recipient_private_key_jbyte, JNI_ABORT);

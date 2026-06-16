@@ -217,8 +217,8 @@ object EnchantCrypto {
     external fun enchant_incremental_mac_validator_destroy(validator: Long)
     external fun enchant_incremental_mac_validator_update(validator: Long, data: ByteArray, dataLen: Long, bytesValidated: Long): Int
     external fun enchant_incremental_mac_validator_finalize(validator: Long, bytesValidated: Long): Int
-    external fun enchant_sealed_sender_encrypt_v1(recipientPublicKey: ByteArray, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, plaintext: ByteArray, plaintextLen: Long, output: ByteArray, outputLen: Long): Int
-    external fun enchant_sealed_sender_decrypt_v1(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long, senderIdentityKeyOut: ByteArray): Int
+    external fun enchant_veil_encrypt_v1(recipientPublicKey: ByteArray, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, plaintext: ByteArray, plaintextLen: Long, output: ByteArray, outputLen: Long): Int
+    external fun enchant_veil_decrypt_v1(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long, senderIdentityKeyOut: ByteArray): Int
     external fun enchant_server_certificate_create(keyId: Int, publicKey: ByteArray, privateKey: ByteArray, certOut: ByteArray, certLen: Long): Int
     external fun enchant_server_certificate_validate(certData: ByteArray, certLen: Long, trustRoot: ByteArray, validOut: Long): Int
     external fun enchant_sender_certificate_create(senderUuid: String, senderE164: ByteArray, senderDeviceId: Int, expiration: Long, identityKey: ByteArray, serverCertData: ByteArray, serverCertLen: Long, serverPrivateKey: ByteArray, certOut: ByteArray, certLen: Long): Int
