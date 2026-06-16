@@ -288,7 +288,12 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun zeroBytes(data: ByteArray) {
-        data.fill(0)
+        var i = 0
+        val n = data.size
+        while (i < n) {
+            data[i] = 0
+            i++
+        }
     }
 
     // ──────────────────────────────────────────────
