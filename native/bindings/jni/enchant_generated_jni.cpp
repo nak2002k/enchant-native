@@ -315,20 +315,22 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hmac_sha256(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_base64_encode(
-    JNIEnv* env, jclass clazz, jbyteArray data, jlong len, jstring output, jlong output_len) {
+    JNIEnv* env, jclass clazz, jbyteArray data, jlong len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
     // Get input arrays
     jbyte* data_jbyte = env->GetByteArrayElements(data, nullptr);
+    jbyte* output_jbyte = env->GetByteArrayElements(output, nullptr);
+    char* output_ptr = reinterpret_cast<char*>(output_jbyte);
 
     // Declare output variables
-    char* output_ptr = nullptr;
 
     // Call native function
     int rc = enchant_base64_encode(reinterpret_cast<const uint8_t*>(data_jbyte), len, output_ptr, output_len);
 
     // Release and copy back
     env->ReleaseByteArrayElements(data, data_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(output, output_jbyte, 0);
 
     // Copy output values back to Java
     return rc;
@@ -501,7 +503,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_init(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_encrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlong ciphertext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -511,6 +513,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_encrypt(
     jbyte* aad_jbyte = env->GetByteArrayElements(aad, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_out_elems = env->GetLongArrayElements(ciphertext_len_out, nullptr);
 
     // Declare output variables
     size_t ciphertext_len_val = 0;
@@ -526,12 +529,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_encrypt(
     env->ReleaseByteArrayElements(ciphertext, ciphertext_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_out_elems[0] = ciphertext_len_val;
+    env->ReleaseLongArrayElements(ciphertext_len_out, ciphertext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_decrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -541,6 +546,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_decrypt(
     jbyte* aad_jbyte = env->GetByteArrayElements(aad, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -556,6 +562,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_gcm_decrypt(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
@@ -615,7 +623,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_ctr_decrypt(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_encrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray iv, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray iv, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -624,6 +632,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_encrypt(
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_out_elems = env->GetLongArrayElements(ciphertext_len_out, nullptr);
 
     // Declare output variables
     size_t ciphertext_len_val = 0;
@@ -638,12 +647,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_encrypt(
     env->ReleaseByteArrayElements(ciphertext, ciphertext_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_out_elems[0] = ciphertext_len_val;
+    env->ReleaseLongArrayElements(ciphertext_len_out, ciphertext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_decrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray iv, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray iv, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -652,6 +663,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_decrypt(
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -666,6 +678,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_cbc_decrypt(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
@@ -696,7 +710,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_cmac(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_encrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray nonce, jlong nonce_len, jbyteArray ciphertext, jlong ciphertext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray nonce, jlong nonce_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -706,6 +720,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_encrypt(
     jbyte* nonce_jbyte = env->GetByteArrayElements(nonce, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_out_elems = env->GetLongArrayElements(ciphertext_len_out, nullptr);
 
     // Declare output variables
     size_t ciphertext_len_val = 0;
@@ -721,12 +736,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_encrypt(
     env->ReleaseByteArrayElements(ciphertext, ciphertext_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_out_elems[0] = ciphertext_len_val;
+    env->ReleaseLongArrayElements(ciphertext_len_out, ciphertext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_decrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray nonce, jlong nonce_len, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray nonce, jlong nonce_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -736,6 +753,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_decrypt(
     jbyte* nonce_jbyte = env->GetByteArrayElements(nonce, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -751,12 +769,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_256_siv_decrypt(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_encrypt(
-    JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -766,6 +786,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_encryp
     jbyte* nonce_jbyte = env->GetByteArrayElements(nonce, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_out_elems = env->GetLongArrayElements(ciphertext_len_out, nullptr);
 
     // Declare output variables
     size_t ciphertext_len_val = 0;
@@ -781,12 +802,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_encryp
     env->ReleaseByteArrayElements(ciphertext, ciphertext_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_out_elems[0] = ciphertext_len_val;
+    env->ReleaseLongArrayElements(ciphertext_len_out, ciphertext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_decrypt(
-    JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -796,6 +819,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_decryp
     jbyte* nonce_jbyte = env->GetByteArrayElements(nonce, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -811,12 +835,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_chacha20_poly1305_ietf_decryp
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_seal(
-    JNIEnv* env, jclass clazz, jbyteArray recipient_public_key, jbyteArray info, jlong info_len, jbyteArray aad, jlong aad_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray recipient_public_key, jbyteArray info, jlong info_len, jbyteArray aad, jlong aad_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -826,6 +852,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_seal(
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_out_elems = env->GetLongArrayElements(ciphertext_len_out, nullptr);
 
     // Declare output variables
     size_t ciphertext_len_val = 0;
@@ -841,12 +868,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_seal(
     env->ReleaseByteArrayElements(ciphertext, ciphertext_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_out_elems[0] = ciphertext_len_val;
+    env->ReleaseLongArrayElements(ciphertext_len_out, ciphertext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_open(
-    JNIEnv* env, jclass clazz, jbyteArray recipient_private_key, jbyteArray info, jlong info_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray recipient_private_key, jbyteArray info, jlong info_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -856,6 +885,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_open(
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -871,6 +901,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_hpke_open(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
@@ -1075,7 +1107,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_ed25519_pk_to_x25519(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_encrypt(
-    JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray key, jlong key_len, jbyteArray ciphertext, jlong ciphertext_capacity, jlong ciphertext_len, jbyteArray mac) {
+    JNIEnv* env, jclass clazz, jbyteArray plaintext, jlong plaintext_len, jbyteArray key, jlong key_len, jbyteArray ciphertext, jlong ciphertext_capacity, jlongArray ciphertext_len_out, jbyteArray mac) {
     (void)clazz;
 
     // Get input arrays
@@ -1083,6 +1115,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_encrypt(
     jbyte* key_jbyte = env->GetByteArrayElements(key, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_out_elems = env->GetLongArrayElements(ciphertext_len_out, nullptr);
     jbyte* mac_jbyte = env->GetByteArrayElements(mac, nullptr);
     uint8_t* mac_ptr = reinterpret_cast<uint8_t*>(mac_jbyte);
 
@@ -1099,12 +1132,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_encrypt(
     env->ReleaseByteArrayElements(mac, mac_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_out_elems[0] = ciphertext_len_val;
+    env->ReleaseLongArrayElements(ciphertext_len_out, ciphertext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_decrypt(
-    JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray key, jlong key_len, jbyteArray mac, jbyteArray plaintext, jlong plaintext_capacity, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray key, jlong key_len, jbyteArray mac, jbyteArray plaintext, jlong plaintext_capacity, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -1113,6 +1148,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_decrypt(
     jbyte* mac_jbyte = env->GetByteArrayElements(mac, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -1127,12 +1163,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_attachment_decrypt(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_encrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray tag) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray plaintext, jlong plaintext_len, jbyteArray aad, jlong aad_len, jbyteArray ciphertext, jlongArray ciphertext_len_out, jbyteArray tag) {
     (void)clazz;
 
     // Get input arrays
@@ -1142,6 +1180,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_encrypt(
     jbyte* aad_jbyte = env->GetByteArrayElements(aad, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_out_elems = env->GetLongArrayElements(ciphertext_len_out, nullptr);
     jbyte* tag_jbyte = env->GetByteArrayElements(tag, nullptr);
     uint8_t* tag_ptr = reinterpret_cast<uint8_t*>(tag_jbyte);
 
@@ -1160,12 +1199,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_encrypt(
     env->ReleaseByteArrayElements(tag, tag_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_out_elems[0] = ciphertext_len_val;
+    env->ReleaseLongArrayElements(ciphertext_len_out, ciphertext_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_decrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray tag, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jbyteArray nonce, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray aad, jlong aad_len, jbyteArray tag, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -1176,6 +1217,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_decrypt(
     jbyte* tag_jbyte = env->GetByteArrayElements(tag, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -1192,6 +1234,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_aes_gcm_siv_decrypt(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
@@ -1445,7 +1489,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_device_transfer_rsa_import(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_encrypt_frame(
-    JNIEnv* env, jclass clazz, jbyteArray master_key, jbyteArray plaintext, jlong plaintext_len, jint frame_type, jint frame_number, jbyteArray frame_out, jlong frame_out_len) {
+    JNIEnv* env, jclass clazz, jbyteArray master_key, jbyteArray plaintext, jlong plaintext_len, jint frame_type, jint frame_number, jbyteArray frame_out, jlongArray frame_out_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -1453,6 +1497,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_encrypt_frame(
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     jbyte* frame_out_jbyte = env->GetByteArrayElements(frame_out, nullptr);
     uint8_t* frame_out_ptr = reinterpret_cast<uint8_t*>(frame_out_jbyte);
+    jlong* frame_out_len_out_elems = env->GetLongArrayElements(frame_out_len_out, nullptr);
 
     // Declare output variables
     size_t frame_out_len_val = 0;
@@ -1466,12 +1511,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_encrypt_frame(
     env->ReleaseByteArrayElements(frame_out, frame_out_jbyte, 0);
 
     // Copy output values back to Java
+    frame_out_len_out_elems[0] = frame_out_len_val;
+    env->ReleaseLongArrayElements(frame_out_len_out, frame_out_len_out_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_decrypt_frame(
-    JNIEnv* env, jclass clazz, jbyteArray master_key, jbyteArray frame, jlong frame_len, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray master_key, jbyteArray frame, jlong frame_len, jbyteArray plaintext, jlongArray plaintext_len_out) {
     (void)clazz;
 
     // Get input arrays
@@ -1479,6 +1526,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_decrypt_frame(
     jbyte* frame_jbyte = env->GetByteArrayElements(frame, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_out_elems = env->GetLongArrayElements(plaintext_len_out, nullptr);
 
     // Declare output variables
     size_t plaintext_len_val = 0;
@@ -1492,6 +1540,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_backup_decrypt_frame(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_out_elems[0] = plaintext_len_val;
+    env->ReleaseLongArrayElements(plaintext_len_out, plaintext_len_out_elems, 0);
     return rc;
 }
 
@@ -2590,7 +2640,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_establish(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_encrypt(
-    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len, jintArray message_type_out) {
+    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len, jintArray message_type_out) {
     (void)clazz;
 
     // Get input arrays
@@ -2598,9 +2648,10 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_encrypt(
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_elems = env->GetLongArrayElements(ciphertext_len, nullptr);
 
     // Declare output variables
-    size_t ciphertext_len_val = 0;
+    size_t ciphertext_len_val = static_cast<size_t>(ciphertext_len_elems[0]);
     int message_type_out_val = 0;
 
     // Call native function
@@ -2612,6 +2663,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_encrypt(
     env->ReleaseByteArrayElements(ciphertext, ciphertext_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_elems[0] = static_cast<jlong>(ciphertext_len_val);
+    env->ReleaseLongArrayElements(ciphertext_len, ciphertext_len_elems, 0);
     jint* message_type_out_elems = env->GetIntArrayElements(message_type_out, nullptr);
     message_type_out_elems[0] = message_type_out_val;
     env->ReleaseIntArrayElements(message_type_out, message_type_out_elems, 0);
@@ -2620,7 +2673,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_encrypt(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_decrypt(
-    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray ciphertext, jlong ciphertext_len, jint message_type, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray ciphertext, jlong ciphertext_len, jint message_type, jbyteArray plaintext, jlongArray plaintext_len) {
     (void)clazz;
 
     // Get input arrays
@@ -2628,9 +2681,10 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_decrypt(
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_elems = env->GetLongArrayElements(plaintext_len, nullptr);
 
     // Declare output variables
-    size_t plaintext_len_val = 0;
+    size_t plaintext_len_val = static_cast<size_t>(plaintext_len_elems[0]);
 
     // Call native function
     int rc = enchant_session_manager_decrypt((enchant_session_manager_t*)(long)(manager), address_name_str, device_id, reinterpret_cast<const uint8_t*>(ciphertext_jbyte), ciphertext_len, message_type, plaintext_ptr, &plaintext_len_val);
@@ -2641,6 +2695,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_manager_decrypt(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_elems[0] = static_cast<jlong>(plaintext_len_val);
+    env->ReleaseLongArrayElements(plaintext_len, plaintext_len_elems, 0);
     return rc;
 }
 
@@ -2796,7 +2852,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_destroy(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_encrypt(
-    JNIEnv* env, jclass clazz, jlong cipher, jstring address_name, jint device_id, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len) {
+    JNIEnv* env, jclass clazz, jlong cipher, jstring address_name, jint device_id, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len) {
     (void)clazz;
 
     // Get input arrays
@@ -2804,9 +2860,10 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_encrypt(
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
+    jlong* ciphertext_len_elems = env->GetLongArrayElements(ciphertext_len, nullptr);
 
     // Declare output variables
-    size_t ciphertext_len_val = 0;
+    size_t ciphertext_len_val = static_cast<size_t>(ciphertext_len_elems[0]);
 
     // Call native function
     int rc = enchant_session_cipher_encrypt((enchant_session_cipher_t*)(long)(cipher), address_name_str, device_id, reinterpret_cast<const uint8_t*>(plaintext_jbyte), plaintext_len, ciphertext_ptr, &ciphertext_len_val);
@@ -2817,12 +2874,14 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_encrypt(
     env->ReleaseByteArrayElements(ciphertext, ciphertext_jbyte, 0);
 
     // Copy output values back to Java
+    ciphertext_len_elems[0] = static_cast<jlong>(ciphertext_len_val);
+    env->ReleaseLongArrayElements(ciphertext_len, ciphertext_len_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_decrypt(
-    JNIEnv* env, jclass clazz, jlong cipher, jstring address_name, jint device_id, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jlong cipher, jstring address_name, jint device_id, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlongArray plaintext_len) {
     (void)clazz;
 
     // Get input arrays
@@ -2830,9 +2889,10 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_decrypt(
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
+    jlong* plaintext_len_elems = env->GetLongArrayElements(plaintext_len, nullptr);
 
     // Declare output variables
-    size_t plaintext_len_val = 0;
+    size_t plaintext_len_val = static_cast<size_t>(plaintext_len_elems[0]);
 
     // Call native function
     int rc = enchant_session_cipher_decrypt((enchant_session_cipher_t*)(long)(cipher), address_name_str, device_id, reinterpret_cast<const uint8_t*>(ciphertext_jbyte), ciphertext_len, plaintext_ptr, &plaintext_len_val);
@@ -2843,21 +2903,24 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_cipher_decrypt(
     env->ReleaseByteArrayElements(plaintext, plaintext_jbyte, 0);
 
     // Copy output values back to Java
+    plaintext_len_elems[0] = static_cast<jlong>(plaintext_len_val);
+    env->ReleaseLongArrayElements(plaintext_len, plaintext_len_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_serialize(
-    JNIEnv* env, jclass clazz, jbyteArray session_state_data, jlong session_state_len, jbyteArray output, jlong output_len) {
+    JNIEnv* env, jclass clazz, jbyteArray session_state_data, jlong session_state_len, jbyteArray output, jlongArray output_len) {
     (void)clazz;
 
     // Get input arrays
     jbyte* session_state_data_jbyte = env->GetByteArrayElements(session_state_data, nullptr);
     jbyte* output_jbyte = env->GetByteArrayElements(output, nullptr);
     uint8_t* output_ptr = reinterpret_cast<uint8_t*>(output_jbyte);
+    jlong* output_len_elems = env->GetLongArrayElements(output_len, nullptr);
 
     // Declare output variables
-    size_t output_len_val = 0;
+    size_t output_len_val = static_cast<size_t>(output_len_elems[0]);
 
     // Call native function
     int rc = enchant_session_record_serialize(reinterpret_cast<const uint8_t*>(session_state_data_jbyte), session_state_len, output_ptr, &output_len_val);
@@ -2867,21 +2930,24 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_serialize(
     env->ReleaseByteArrayElements(output, output_jbyte, 0);
 
     // Copy output values back to Java
+    output_len_elems[0] = static_cast<jlong>(output_len_val);
+    env->ReleaseLongArrayElements(output_len, output_len_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_deserialize(
-    JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray session_state_output, jlong session_state_len) {
+    JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray session_state_output, jlongArray session_state_len) {
     (void)clazz;
 
     // Get input arrays
     jbyte* data_jbyte = env->GetByteArrayElements(data, nullptr);
     jbyte* session_state_output_jbyte = env->GetByteArrayElements(session_state_output, nullptr);
     uint8_t* session_state_output_ptr = reinterpret_cast<uint8_t*>(session_state_output_jbyte);
+    jlong* session_state_len_elems = env->GetLongArrayElements(session_state_len, nullptr);
 
     // Declare output variables
-    size_t session_state_len_val = 0;
+    size_t session_state_len_val = static_cast<size_t>(session_state_len_elems[0]);
 
     // Call native function
     int rc = enchant_session_record_deserialize(reinterpret_cast<const uint8_t*>(data_jbyte), data_len, session_state_output_ptr, &session_state_len_val);
@@ -2891,6 +2957,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_session_record_deserialize(
     env->ReleaseByteArrayElements(session_state_output, session_state_output_jbyte, 0);
 
     // Copy output values back to Java
+    session_state_len_elems[0] = static_cast<jlong>(session_state_len_val);
+    env->ReleaseLongArrayElements(session_state_len, session_state_len_elems, 0);
     return rc;
 }
 

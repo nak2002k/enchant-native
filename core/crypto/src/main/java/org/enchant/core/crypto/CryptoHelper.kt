@@ -10,8 +10,8 @@ object CryptoHelper {
 
     data class KeyPair(val publicKey: ByteArray, val privateKey: ByteArray)
 
-    fun generateX25519KeyPair(): KeyPair = CryptoPrimitives.generateX25519KeyPair()
-    fun generateEd25519KeyPair(): KeyPair = CryptoPrimitives.generateEd25519KeyPair()
+    fun generateX25519KeyPair(): KeyPair = CryptoPrimitives.generateX25519KeyPair().let { KeyPair(it.publicKey, it.privateKey) }
+    fun generateEd25519KeyPair(): KeyPair = CryptoPrimitives.generateEd25519KeyPair().let { KeyPair(it.publicKey, it.privateKey) }
 
     fun ed25519SkToX25519(sk: ByteArray): ByteArray = CryptoPrimitives.ed25519SkToX25519(sk)
     fun ed25519PkToX25519(pk: ByteArray): ByteArray = CryptoPrimitives.ed25519PkToX25519(pk)

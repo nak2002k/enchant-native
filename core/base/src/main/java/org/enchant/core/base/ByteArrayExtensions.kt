@@ -1,6 +1,6 @@
 package org.enchant.core.base
 
-import org.enchant.core.crypto.CryptoPrimitives
+import java.security.MessageDigest
 
 /**
  * Returns the hexadecimal representation of this byte array using uppercase digits.
@@ -35,10 +35,9 @@ fun ByteArray.zero() {
 }
 
 /**
- * Constant-time comparison of two byte arrays using libenchantcrypto's
- * [enchant_constant_time_equals] primitive.
+ * Constant-time comparison of two byte arrays.
  *
- * This method prevents timing attacks by ensuring the comparison takes the
+ * Prevents timing attacks by ensuring the comparison takes the
  * same amount of time regardless of where the first difference occurs.
  * Arrays of different lengths return false immediately (length is not secret).
  *
@@ -48,13 +47,17 @@ fun ByteArray.zero() {
 infix fun ByteArray.constantTimeEquals(other: ByteArray): Boolean {
     if (this === other) return true
     if (this.size != other.size) return false
-    return CryptoPrimitives.constantTimeEquals(this, other)
+    var diff = 0
+    for (i in indices) {
+        diff = diff or (this[i].toInt() xor other[i].toInt())
+    }
+    return diff == 0
 }
 
 /**
  * Returns the SHA-256 hash of this byte array.
  */
-fun ByteArray.sha256(): ByteArray = CryptoPrimitives.sha256(this)
+fun ByteArray.sha256(): ByteArray = MessageDigest.getInstance("SHA-256").digest(this)
 
 /**
  * Returns a new byte array containing the XOR of this array and [other].

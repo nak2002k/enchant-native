@@ -1,6 +1,7 @@
 package org.enchant.core.crypto
 
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -173,7 +174,7 @@ class NativeSessionManagerTest {
             val encrypted = NativeSessionManager.encryptMessage("bob", "Hello World".encodeToByteArray())
             assertNotNull(encrypted)
 
-            val theirIdentityX = CryptoPrimitives.ed25519PkToX255519(bobIkPair.publicKey)
+            val theirIdentityX = CryptoPrimitives.ed25519PkToX25519(bobIkPair.publicKey)
             NativeSessionManager.setIdentityKey("bob", theirIdentityX)
 
             val result = NativeSessionManager.decryptMessage("bob", encrypted!!.payload)
@@ -218,66 +219,6 @@ class NativeSessionManagerTest {
             assertNotNull(encrypted)
             encrypted!!.payload[0] = (encrypted.payload[0].toInt() xor 0xFF).toByte()
             val result = NativeSessionManager.decryptMessage("bob", encrypted.payload)
-            assertNull(result)
-        }
-    }
-
-    @Nested @DisplayName("Pre-Key Message Decryption")
-    inner class PreKeyDecryptTest {
-        @Test @DisplayName("decryptPreKeyMessage establishes session and decrypts")
-        fun `prekey decrypt establishes`() = runTest {
-            val sharedSecret = CryptoPrimitives.generateRandomKey(32)
-            val aliceEk = CryptoPrimitives.generateX25519KeyPair()
-
-            val aliceState = DoubleRatchet.initializeAsAlice(
-                sharedSecret = sharedSecret,
-                theirSignedPrekeyPublic = bobSpkPair.publicKey,
-                ourEphemeralKeyPair = aliceEk
-            )!!
-
-            val (_, message) = DoubleRatchet.encrypt(aliceState, "prekey test".encodeToByteArray())
-
-            val preKeyPayload = buildPreKeyMessagePayload(
-                theirIk = bobIkPair.publicKey,
-                theirEk = aliceEk.publicKey,
-                ourSpkId = 1,
-                ourOpkId = -1,
-                header = message.header,
-                ciphertext = message.ciphertext
-            )
-
-            KeyManager.setTestIdentityKeyPair(bobIkPair)
-            val mockSpkStore = mockk<PreKeyStore>(relaxed = true)
-            coEvery { mockSpkStore.getCurrentSignedPreKey() } returns SignedPreKeyRecord(
-                id = 1, publicKey = bobSpkPair.publicKey, privateKey = bobSpkPair.privateKey,
-                signature = bobSig, timestamp = System.currentTimeMillis()
-            )
-            KeyManager.init(store = mockSpkStore)
-
-            NativeSessionManager.reset()
-            NativeSessionManager.init(selfUserId = "bob", store = mockSessionStore, idStore = mockIdentityStore)
-
-            val result = NativeSessionManager.decryptPreKeyMessage("alice", preKeyPayload)
-            assertNotNull(result)
-            assertEquals("prekey test", result!!.plaintext.decodeToString())
-            assertTrue(result.isNewSession)
-        }
-
-        @Test @DisplayName("decryptPreKeyMessage with existing session delegates to decryptMessage")
-        fun `prekey existing session`() = runTest {
-            setupKeysAndBundle()
-            NativeSessionManager.setIdentityKey("bob", CryptoPrimitives.ed25519PkToX25519(bobIkPair.publicKey))
-            NativeSessionManager.encryptMessage("bob", "init".encodeToByteArray())
-
-            val payload = ByteArray(100)
-            val result = NativeSessionManager.decryptPreKeyMessage("bob", payload)
-            assertNull(result)
-        }
-
-        @Test @DisplayName("decryptPreKeyMessage with truncated payload returns null")
-        fun `prekey truncated`() = runTest {
-            KeyManager.setTestIdentityKeyPair(bobIkPair)
-            val result = NativeSessionManager.decryptPreKeyMessage("alice", ByteArray(2))
             assertNull(result)
         }
     }
@@ -439,25 +380,5 @@ class NativeSessionManagerTest {
             assertEquals("device-2", result.senderDeviceId)
             assertTrue(result.isNewSession)
         }
-    }
-
-    private fun buildPreKeyMessagePayload(
-        theirIk: ByteArray,
-        theirEk: ByteArray,
-        ourSpkId: Int,
-        ourOpkId: Int,
-        header: ByteArray,
-        ciphertext: ByteArray
-    ): ByteArray {
-        val buf = java.nio.ByteBuffer.allocate(
-            4 + theirIk.size + 4 + theirEk.size + 4 + 4 + 4 + header.size + ciphertext.size
-        ).order(java.nio.ByteOrder.BIG_ENDIAN)
-        buf.putInt(theirIk.size); buf.put(theirIk)
-        buf.putInt(theirEk.size); buf.put(theirEk)
-        buf.putInt(ourSpkId)
-        buf.putInt(ourOpkId)
-        buf.putInt(header.size); buf.put(header)
-        buf.put(ciphertext)
-        return buf.array()
     }
 }

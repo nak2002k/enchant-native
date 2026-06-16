@@ -216,15 +216,13 @@ object KeyStoreManager {
         }
         val raw = SecurePreferences.getString("db.passphrase")
         if (raw == null) {
-            val key = org.enchant.core.crypto.CryptoPrimitives.generateRandomKey(32)
+            val key = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
             val wrapped = encrypt(alias, key) ?: throw IllegalStateException("Failed to encrypt DB key")
-            val b64 = StringBuilder()
-            for (b in wrapped) b64.append(b.toInt().toChar())
-            SecurePreferences.putString("db.passphrase", org.enchant.core.crypto.EnchantCrypto.enchant_base64_encode(wrapped, wrapped.size.toLong()).let { String(it) })
+            SecurePreferences.putString("db.passphrase", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(wrapped))
             return key
         }
         val bytes = try {
-            org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(raw)
+            java.util.Base64.getUrlDecoder().decode(raw)
         } catch (e: Exception) {
             SecurePreferences.remove("db.passphrase")
             return getOrCreateDatabaseKey(retryCount + 1)

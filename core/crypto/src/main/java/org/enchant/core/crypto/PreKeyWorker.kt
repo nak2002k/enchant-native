@@ -39,11 +39,8 @@ class PreKeyWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
     }
 
-    private companion object {
-        private const val TAG = "PreKeyWorker"
-    }
-
     companion object {
+        private const val TAG = "PreKeyWorker"
         private const val WORK_NAME = "prekey_rotation"
 
         /** Schedule the periodic prekey rotation worker. */

@@ -77,7 +77,34 @@ object SenderKeyManager {
     }
 
     /**
-     * Encrypt a group message using the sender key chain.
+     * Derive a message key and the next chain key from the current chain key.
+     *
+     * chain_key → HMAC(chain_key, 0x01) = message_key_seed
+     * chain_key → HMAC(chain_key, 0x02) = next_chain_key
+     */
+    private fun deriveMessageKeyAndNextChain(chainKey: ByteArray): Pair<ByteArray, ByteArray> {
+        val msgKeySeed = CryptoPrimitives.hmacSha256(chainKey, byteArrayOf(0x01))
+        val nextChainKey = CryptoPrimitives.hmacSha256(chainKey, byteArrayOf(0x02))
+        return Pair(msgKeySeed, nextChainKey)
+    }
+
+    /**
+     * Derive encryption key (32 bytes) and nonce (12 bytes) from a message key seed.
+     */
+    private fun deriveMessageKeyAndNonce(msgKeySeed: ByteArray): Pair<ByteArray, ByteArray> {
+        val derived = CryptoPrimitives.hkdfSha256(
+            input = msgKeySeed,
+            salt = ByteArray(32),
+            info = "WhisperMessageKey".encodeToByteArray(),
+            length = 44
+        )
+        val encKey = derived.copyOfRange(0, 32)
+        val nonce = derived.copyOfRange(32, 44)
+        CryptoPrimitives.zeroBytes(derived)
+        return Pair(encKey, nonce)
+    }
+
+    /**
      *
      * @param groupId unique group identifier
      * @param senderUserId the user sending the message
@@ -88,8 +115,8 @@ object SenderKeyManager {
         val key = senderKey(groupId, senderUserId)
         val state = senderKeyStore[key] ?: return@withLock null
 
-        val (msgKeySeed, nextChainKey) = KdfChain.deriveMessageKeyAndNextChain(state.chainKey)
-        val (encKey, nonce) = KdfChain.deriveMessageKeyAndNonce(msgKeySeed)
+        val (msgKeySeed, nextChainKey) = deriveMessageKeyAndNextChain(state.chainKey)
+        val (encKey, nonce) = deriveMessageKeyAndNonce(msgKeySeed)
         CryptoPrimitives.zeroBytes(msgKeySeed)
 
         val ciphertext = CryptoPrimitives.encryptXChaCha20Poly1305Raw(plaintext, encKey, nonce)
@@ -137,14 +164,14 @@ object SenderKeyManager {
         var chainKey = state.chainKey
         var currentIteration = state.iteration
         while (currentIteration < iteration - 1) {
-            val (_, nextCk) = KdfChain.deriveMessageKeyAndNextChain(chainKey)
+            val (_, nextCk) = deriveMessageKeyAndNextChain(chainKey)
             chainKey = nextCk
             currentIteration++
         }
 
         // Derive message key for this iteration
-        val (msgKeySeed, nextChainKey) = KdfChain.deriveMessageKeyAndNextChain(chainKey)
-        val (encKey, msgNonce) = KdfChain.deriveMessageKeyAndNonce(msgKeySeed)
+        val (msgKeySeed, nextChainKey) = deriveMessageKeyAndNextChain(chainKey)
+        val (encKey, msgNonce) = deriveMessageKeyAndNonce(msgKeySeed)
         CryptoPrimitives.zeroBytes(msgKeySeed)
 
         val plaintext = try {

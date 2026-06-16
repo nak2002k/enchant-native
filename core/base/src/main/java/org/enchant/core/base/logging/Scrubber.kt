@@ -1,7 +1,8 @@
 package org.enchant.core.base.logging
 
 import org.enchant.core.base.SecurePreferences
-import org.enchant.core.crypto.CryptoPrimitives
+import java.security.MessageDigest
+import java.security.SecureRandom
 import java.util.regex.Pattern
 
 /**
@@ -32,7 +33,8 @@ object Scrubber {
             stored
         } else {
             Log.w(TAG, "SecurePreferences not initialized before Scrubber.SALT access; generating ephemeral salt")
-            val bytes = CryptoPrimitives.generateRandomKey(16)
+            val bytes = ByteArray(16)
+            SecureRandom().nextBytes(bytes)
             val hex = bytes.joinToString("") { "%02x".format(it) }
             SecurePreferences.putString("scrubber_salt", hex)
             hex
@@ -122,7 +124,8 @@ object Scrubber {
     }
 
     private fun hashToken(value: String): String {
-        val hash = CryptoPrimitives.sha256((SALT + value).toByteArray(Charsets.UTF_8))
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest((SALT + value).toByteArray(Charsets.UTF_8))
         return hash.take(4).joinToString("") { "%02x".format(it) }
     }
 }

@@ -149,15 +149,15 @@ object CryptoPrimitives {
         require(key.size == AES_GCM_KEY_SIZE) { "AES key must be 32 bytes" }
         val n = nonce ?: generateRandomKey(AES_GCM_NONCE_SIZE)
         val ct = ByteArray(plaintext.size + AES_GCM_TAG_SIZE)
-        val ctLen = IntArray(1)
+        val ctLen = longArrayOf(0)
         val rc = EnchantCrypto.enchant_aes_256_gcm_encrypt(
             key, n, plaintext, plaintext.size.toLong(),
             ByteArray(0), 0L, ct, ctLen
         )
         if (rc != 0) throw RuntimeException("aes_256_gcm_encrypt failed: $rc")
-        return ByteArray(n.size + ctLen[0]).apply {
+        return ByteArray(n.size + ctLen[0].toInt()).apply {
             n.copyInto(this, 0)
-            ct.copyInto(this, n.size, 0, ctLen[0])
+            ct.copyInto(this, n.size, 0, ctLen[0].toInt())
         }
     }
 
@@ -173,26 +173,26 @@ object CryptoPrimitives {
         require(key.size == AES_GCM_KEY_SIZE) { "AES key must be 32 bytes" }
         require(nonce.size == AES_GCM_NONCE_SIZE) { "AES nonce must be 12 bytes" }
         val ct = ByteArray(plaintext.size + AES_GCM_TAG_SIZE)
-        val ctLen = IntArray(1)
+        val ctLen = longArrayOf(0)
         val rc = EnchantCrypto.enchant_aes_256_gcm_encrypt(
             key, nonce, plaintext, plaintext.size.toLong(),
             ByteArray(0), 0L, ct, ctLen
         )
         if (rc != 0) throw RuntimeException("aes_256_gcm_encrypt failed: $rc")
-        return ct.copyOf(ctLen[0])
+        return ct.copyOf(ctLen[0].toInt())
     }
 
     fun decryptAesGcmRaw(ciphertext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
         require(key.size == AES_GCM_KEY_SIZE) { "AES key must be 32 bytes" }
         require(nonce.size == AES_GCM_NONCE_SIZE) { "AES nonce must be 12 bytes" }
         val pt = ByteArray(ciphertext.size)
-        val ptLen = IntArray(1)
+        val ptLen = longArrayOf(0)
         val rc = EnchantCrypto.enchant_aes_256_gcm_decrypt(
             key, nonce, ciphertext, ciphertext.size.toLong(),
             ByteArray(0), 0L, pt, ptLen
         )
         if (rc != 0) throw RuntimeException("aes_256_gcm_decrypt failed: $rc")
-        return pt.copyOf(ptLen[0])
+        return pt.copyOf(ptLen[0].toInt())
     }
 
     // ──────────────────────────────────────────────
@@ -261,7 +261,7 @@ object CryptoPrimitives {
         val output = ByteArray(outputLen)
         val rc = EnchantCrypto.enchant_argon2id_hash_with_params(
             plaintext, plaintext.size.toLong(),
-            salt, iterations.toLong(), memory_kb.toLong(), parallelism.toLong(),
+            salt, salt.size.toLong(), iterations.toLong(), memory_kb.toLong(), parallelism.toLong(),
             output, outputLen.toLong()
         )
         if (rc != 0) throw RuntimeException("argon2id_hash_with_params failed: $rc")
@@ -292,19 +292,23 @@ object CryptoPrimitives {
     // Encoding
     // ──────────────────────────────────────────────
 
-    fun base64UrlEncode(data: ByteArray): String =
-        EnchantCrypto.enchant_base64_encode(data, data.size.toLong()).let { out ->
-            val sb = StringBuilder()
-            for (b in out) sb.append(b.toInt().toChar())
-            sb.toString()
+    fun base64UrlEncode(data: ByteArray): String {
+        val out = ByteArray(data.size * 2)
+        val rc = EnchantCrypto.enchant_base64_encode(data, data.size.toLong(), out, out.size.toLong())
+        if (rc != 0) throw RuntimeException("base64UrlEncode failed: $rc")
+        val sb = StringBuilder()
+        for (b in out) {
+            if (b == 0.toByte()) break
+            sb.append(b.toInt().toChar())
         }
+        return sb.toString()
+    }
 
     fun base64UrlDecode(encoded: String): ByteArray {
         val out = ByteArray(encoded.length)
-        val n = IntArray(1)
         val rc = EnchantCrypto.enchant_base64_decode(encoded, out, out.size.toLong())
         if (rc != 0) throw IllegalArgumentException("base64UrlDecode failed: $rc")
-        return out.copyOf(n[0].coerceAtLeast(out.size))
+        return out
     }
 
     fun hexEncode(data: ByteArray): String =

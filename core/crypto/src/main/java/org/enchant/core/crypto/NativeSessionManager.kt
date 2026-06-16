@@ -317,14 +317,13 @@ object NativeSessionManager {
         val ourIk = getLocalIdentityPublicKey() ?: return "UNVERIFIED"
         return try {
             val safetyNumberOut = ByteArray(64)
-            val safetyNumberLen = longArrayOf(64)
             val rc = EnchantCrypto.enchant_safety_number_generate(
                 ourIk, theirIk,
                 selfUserId ?: "", userId,
-                safetyNumberOut, safetyNumberLen
+                safetyNumberOut, 64
             )
             if (rc == EnchantCrypto.SUCCESS) {
-                safetyNumberOut.copyOf(safetyNumberLen[0].toInt()).joinToString("") { "%02x".format(it) }
+                safetyNumberOut.joinToString("") { "%02x".format(it) }
             } else "UNVERIFIED"
         } catch (_: Exception) {
             "UNVERIFIED"
@@ -344,8 +343,7 @@ object NativeSessionManager {
     }
 
     fun hasIdentityChanged(userId: String): Boolean {
-        return identityKeys[userId] ?: return false
-        // TODO: Implement identity change detection via native store
+        return identityKeys.containsKey(userId)
     }
 
     @kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -391,7 +389,7 @@ object NativeSessionManager {
             keyBundle.signedPrekey.publicKey,
             keyBundle.signedPrekey.signature,
             keyBundle.signedPrekey.signature.size.toLong(),
-            keyBundle.oneTimePrekey,
+            keyBundle.oneTimePrekey ?: ByteArray(0),
             0
         )
 
@@ -401,7 +399,7 @@ object NativeSessionManager {
             )
         }
 
-        rc == EnchantCrypto.SUCCESS
+        return rc == EnchantCrypto.SUCCESS
     }
 
     /**
