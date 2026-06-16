@@ -29,6 +29,7 @@ add_library(enchantcrypto_jni SHARED
 set(ENCHANT_CRYPTO_SEARCH_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/build_jni"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/build_shared"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/libenchantcrypto/build_shared"
 )
 
 if(ANDROID AND DEFINED ANDROID_ABI)
@@ -54,9 +55,9 @@ endif()
 # Include paths for api.h
 target_include_directories(enchantcrypto_jni
     PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/src"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/third_party/boringssl/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/libenchantcrypto/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/libenchantcrypto/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/libenchantcrypto/third_party/boringssl/include"
         ${LIBSODIUM_INCLUDE_DIRS}
 )
 
@@ -69,6 +70,13 @@ if(ANDROID AND EXISTS "${SODIUM_SO}")
     target_link_libraries(enchantcrypto_jni PRIVATE "${SODIUM_SO}")
 else()
     target_link_libraries(enchantcrypto_jni PRIVATE PkgConfig::sodium_host)
+endif()
+
+if(NOT ANDROID AND EXISTS "/opt/homebrew/opt/openjdk@17/include/jni.h")
+    target_include_directories(enchantcrypto_jni PRIVATE
+        /opt/homebrew/opt/openjdk@17/include
+        /opt/homebrew/opt/openjdk@17/include/darwin
+    )
 endif()
 
 set_target_properties(enchantcrypto_jni PROPERTIES
