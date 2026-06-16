@@ -31,6 +31,7 @@ dependencies {
     implementation(project(":core:crypto"))
     implementation(project(":core:model"))
     implementation(project(":core:protos"))
+    implementation(libs.okhttp.core)
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)

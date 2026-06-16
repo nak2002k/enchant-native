@@ -1,5 +1,6 @@
 package org.enchant.main
 
+import org.enchant.MainNavigationListLocation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull

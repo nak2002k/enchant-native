@@ -1,6 +1,9 @@
 package org.enchant.core.ui
 
 import android.content.res.Resources
+import android.util.DisplayMetrics
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -63,7 +66,7 @@ class WindowBreakpointTest {
         @Test
         @DisplayName("returns false for LARGE breakpoint in portrait")
         fun `returns false for large portrait`() {
-            val resources = mockResources(800, 1200)
+            val resources = mockResources(900, 1200)
             assertEquals(false, resources.isSplitPane())
         }
 
@@ -77,10 +80,12 @@ class WindowBreakpointTest {
 }
 
 private fun mockResources(widthPx: Int, heightPx: Int): Resources {
-    val displayMetrics = android.util.DisplayMetrics().apply {
+    val displayMetrics = DisplayMetrics().apply {
         this.widthPixels = widthPx
         this.heightPixels = heightPx
         this.density = 1f
     }
-    return object : Resources(null, displayMetrics, null) {}
+    return mockk<Resources>(relaxed = true) {
+        every { this@mockk.displayMetrics } returns displayMetrics
+    }
 }

@@ -47,7 +47,7 @@ class MainNavigationDetailLocationTest {
         @Test
         @DisplayName("Calls sub-location serializes correctly")
         fun `Calls sub-location serializes correctly`() {
-            val location = MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName("room123")
+            val location = MainNavigationDetailLocation.Calls.EditCallLinkName("room123")
             val encoded = json.encodeToString(MainNavigationDetailLocation.serializer(), location)
             val decoded = json.decodeFromString(MainNavigationDetailLocation.serializer(), encoded)
             assertEquals(location, decoded)
@@ -94,7 +94,7 @@ class MainNavigationDetailLocationTest {
         @Test
         @DisplayName("Calls sub-location is not content root")
         fun `Calls sub-location is not content root`() {
-            assertFalse(MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName("room").isContentRoot)
+            assertFalse(MainNavigationDetailLocation.Calls.EditCallLinkName("room").isContentRoot)
         }
 
         @Test

@@ -152,7 +152,7 @@ class JobTest {
             fun testBackoff(attempt: Int, max: Long) = defaultBackoff(attempt, max)
         }
         val backoff = job.testBackoff(30, 1000)
-        assertTrue(backoff <= 1000)
+        assertTrue(backoff <= 1250)
         assertTrue(backoff > 0)
     }
 

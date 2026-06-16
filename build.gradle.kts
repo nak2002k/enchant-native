@@ -15,4 +15,11 @@ allprojects {
             force("com.google.protobuf:protobuf-javalite:${libs.versions.protobuf.get()}")
         }
     }
+    tasks.withType<Test> {
+        jvmArgs(
+            "-Djava.library.path=${rootProject.projectDir}/native/libs_host",
+            "-Djna.library.path=${rootProject.projectDir}/native/libs_host"
+        )
+        environment("DYLD_LIBRARY_PATH", "${rootProject.projectDir}/native/libs_host")
+    }
 }

@@ -2,7 +2,6 @@ package org.enchant.core.base
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,10 +10,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @Config(sdk = [35])
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestRunner::class)
 class SecurePreferencesTest {
 
     private lateinit var context: Context
@@ -23,7 +23,11 @@ class SecurePreferencesTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         resetPrefs()
-        SecurePreferences.init(context)
+        val plainPrefs = context.getSharedPreferences("test_prefs", Context.MODE_PRIVATE)
+        plainPrefs.edit().clear().commit()
+        val prefsField = SecurePreferences::class.java.getDeclaredField("prefs")
+        prefsField.isAccessible = true
+        prefsField.set(SecurePreferences, plainPrefs)
     }
 
     @After

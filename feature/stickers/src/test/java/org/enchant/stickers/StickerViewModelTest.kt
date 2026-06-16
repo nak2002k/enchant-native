@@ -2,24 +2,61 @@ package org.enchant.stickers
 
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.flow.flowOf
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.enchant.core.network.ApiClient
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
-import org.enchant.core.model.StickerPack
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.AfterEachCallback
+import org.junit.jupiter.api.extension.BeforeEachCallback
+import org.junit.jupiter.api.extension.ExtensionContext
+import org.junit.jupiter.api.extension.RegisterExtension
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class StickerDispatcherRule : BeforeEachCallback, AfterEachCallback {
+    private val dispatcher = StandardTestDispatcher()
+    override fun beforeEach(context: ExtensionContext?) { Dispatchers.setMain(dispatcher) }
+    override fun afterEach(context: ExtensionContext?) { Dispatchers.resetMain() }
+}
 
 @DisplayName("StickerViewModel — Full Coverage")
 class StickerViewModelTest {
 
+    @JvmField
+    @RegisterExtension
+    val dispatcherRule = StickerDispatcherRule()
+
     private lateinit var viewModel: StickerViewModel
+    private lateinit var apiClient: ApiClient
 
     @BeforeEach
     fun setUp() {
-        viewModel = StickerViewModel()
+        apiClient = mockk(relaxed = true)
+        mockkObject(ApiClient)
+        every { ApiClient.getInstance() } returns apiClient
+        coEvery { apiClient.get(any(), any()) } returns Result.success(JsonObject(mapOf("packs" to JsonArray(emptyList()))))
+        coEvery { apiClient.post(any(), any()) } returns Result.success(JsonObject(mapOf("status" to JsonPrimitive("ok"))))
+        viewModel = StickerViewModel(apiClient)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        unmockkObject(ApiClient)
     }
 
     @Nested @DisplayName("Load Featured")

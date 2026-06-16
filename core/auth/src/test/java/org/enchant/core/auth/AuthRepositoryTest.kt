@@ -12,6 +12,7 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.enchant.core.base.AppConfig
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.util.concurrent.TimeUnit
 
 @DisplayName("AuthRepository — Full Coverage")
 class AuthRepositoryTest {
@@ -49,8 +51,13 @@ class AuthRepositoryTest {
         every { SecurePreferences.getInt(any(), any()) } returns 0
         every { SecurePreferences.putInt(any(), any()) } returns Unit
         resetAuthInterceptor()
+        val testClient = OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .writeTimeout(5, TimeUnit.SECONDS)
+            .build()
         apiClient = ApiClient()
-        apiClient.init()
+        apiClient.init(testClient)
         repo = AuthRepository(apiClient)
     }
 

@@ -84,14 +84,14 @@ class MainNavigationRouterTest {
         @Test
         @DisplayName("CallLinks.EditCallLinkName serializes correctly")
         fun `CallLinks serializes correctly`() {
-            val location = MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName("room123")
+            val location = MainNavigationDetailLocation.Calls.EditCallLinkName("room123")
             assertNotNull(location)
         }
 
         @Test
         @DisplayName("Calls sub-location is not content root")
         fun `Calls sub-location is not content root`() {
-            assertFalse(MainNavigationDetailLocation.Calls.CallLinks.EditCallLinkName("room").isContentRoot)
+            assertFalse(MainNavigationDetailLocation.Calls.EditCallLinkName("room").isContentRoot)
         }
     }
 }

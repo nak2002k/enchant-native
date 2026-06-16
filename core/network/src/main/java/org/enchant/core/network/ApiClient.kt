@@ -57,13 +57,15 @@ class ApiClient {
     @Volatile
     private var initialized = false
     private lateinit var client: OkHttpClient
+    private var baseClient: OkHttpClient? = null
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun init() {
+    fun init(customClient: OkHttpClient? = null) {
         if (initialized) return
         synchronized(initLock) {
             if (initialized) return
-            client = buildSecureClient()
+            baseClient = customClient
+            client = (customClient ?: buildSecureClient())
                 .newBuilder()
                 .addInterceptor(AuthInterceptor)
                 .connectTimeout(30, TimeUnit.SECONDS)
@@ -81,7 +83,7 @@ class ApiClient {
         request("POST", path, body)
 
     private val anonymousClient by lazy {
-        buildSecureClient()
+        (baseClient ?: buildSecureClient())
             .newBuilder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

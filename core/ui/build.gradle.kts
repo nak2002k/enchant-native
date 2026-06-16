@@ -53,6 +53,7 @@ dependencies {
     testImplementation(libs.junit5.engine)
     testImplementation(libs.junit5.params)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.robolectric.junit)
     testImplementation(libs.androidx.test.ext.junit)

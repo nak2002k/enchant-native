@@ -2,7 +2,10 @@ package org.enchant.profile
 
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
+import org.enchant.core.base.SecurePreferences
 import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -154,14 +158,17 @@ class ProfileViewModelTest {
         @DisplayName("null displayName is accepted")
         fun `null displayName accepted`() = runTest {
             val client = mockApi()
+            mockkObject(SecurePreferences)
+            every { SecurePreferences.getString(any()) } returns "user-1"
             coEvery { client.put(any(), any()) } returns Result.success(buildJsonObject {})
-            coEvery { client.get("/v1/profile/me") } returns Result.success(buildJsonObject {})
+            coEvery { client.get(any()) } returns Result.success(buildJsonObject {})
             viewModel = ProfileViewModel(client)
 
             viewModel.updateProfile(null, "some about")
             advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.error)
+            unmockkObject(SecurePreferences)
         }
     }
 
