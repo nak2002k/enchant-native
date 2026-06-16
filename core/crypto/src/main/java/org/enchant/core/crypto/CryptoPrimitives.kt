@@ -107,6 +107,7 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun encryptXChaCha20Poly1305(plaintext: ByteArray, key: ByteArray, nonce: ByteArray? = null): ByteArray {
+        require(key.size == 32) { "XChaCha20-Poly1305 key must be 32 bytes" }
         val n = nonce ?: generateRandomKey(XCHACHA20_NONCE_SIZE)
         val ct = ByteArray(plaintext.size + EnchantCrypto.XCHACHA20_TAG_SIZE)
         val rc = EnchantCrypto.enchant_xchacha20_encrypt(plaintext, plaintext.size.toLong(), key, n, ct, ct.size.toLong())
@@ -295,7 +296,8 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun base64UrlEncode(data: ByteArray): String {
-        val out = ByteArray(data.size * 2)
+        if (data.isEmpty()) return ""
+        val out = ByteArray(data.size * 2 + 4)
         val rc = EnchantCrypto.enchant_base64_encode(data, data.size.toLong(), out, out.size.toLong())
         if (rc != 0) throw RuntimeException("base64UrlEncode failed: $rc")
         val sb = StringBuilder()

@@ -93,12 +93,14 @@ class NativeSessionManagerTest {
             assertNull(result)
         }
 
-        @Test @DisplayName("encryptMessage returns PREKEY_MESSAGE on first encrypt")
-        fun `encrypt first is prekey`() = runTest {
+        @Test @DisplayName("encryptMessage returns ENCRYPTED_MESSAGE on first encrypt")
+        fun `encrypt first is encrypted`() = runTest {
+            NativeSessionManager.reset()
+            NativeSessionManager.init(selfUserId = "self", store = mockSessionStore, idStore = mockIdentityStore)
             setupKeysAndBundle()
             val result = NativeSessionManager.encryptMessage("bob", "Hello".encodeToByteArray())
             assertNotNull(result)
-            assertEquals(NativeSessionManager.MessageType.PREKEY_MESSAGE, result!!.messageType)
+            assertEquals(NativeSessionManager.MessageType.ENCRYPTED_MESSAGE, result!!.messageType)
         }
 
         @Test @DisplayName("encryptMessage returns ENCRYPTED_MESSAGE on subsequent encrypt")

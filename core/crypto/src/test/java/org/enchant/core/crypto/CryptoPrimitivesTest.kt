@@ -675,7 +675,7 @@ class CryptoPrimitivesTest {
             val out = CryptoPrimitives.argon2idHashWithParams(
                 "password".toByteArray(),
                 ByteArray(16) { it.toByte() },
-                1, 8 * 1024, 1,
+                2, 65536, 2,
                 32
             )
             assertEquals(32, out.size)
@@ -686,10 +686,10 @@ class CryptoPrimitivesTest {
         fun `argon2id deterministic`() {
             val salt = ByteArray(16) { it.toByte() }
             val a = CryptoPrimitives.argon2idHashWithParams(
-                "password".toByteArray(), salt, 1, 8 * 1024, 1, 32
+                "password".toByteArray(), salt, 2, 65536, 2, 32
             )
             val b = CryptoPrimitives.argon2idHashWithParams(
-                "password".toByteArray(), salt, 1, 8 * 1024, 1, 32
+                "password".toByteArray(), salt, 2, 65536, 2, 32
             )
             assertArrayEquals(a, b)
         }
@@ -699,10 +699,10 @@ class CryptoPrimitivesTest {
             val salt1 = ByteArray(16) { 0 }
             val salt2 = ByteArray(16) { 1 }
             val a = CryptoPrimitives.argon2idHashWithParams(
-                "password".toByteArray(), salt1, 1, 8 * 1024, 1, 32
+                "password".toByteArray(), salt1, 2, 65536, 2, 32
             )
             val b = CryptoPrimitives.argon2idHashWithParams(
-                "password".toByteArray(), salt2, 1, 8 * 1024, 1, 32
+                "password".toByteArray(), salt2, 2, 65536, 2, 32
             )
             assertFalse(a.contentEquals(b))
         }
@@ -711,10 +711,10 @@ class CryptoPrimitivesTest {
         fun `argon2id different password`() {
             val salt = ByteArray(16) { 0 }
             val a = CryptoPrimitives.argon2idHashWithParams(
-                "password1".toByteArray(), salt, 1, 8 * 1024, 1, 32
+                "password1".toByteArray(), salt, 2, 65536, 2, 32
             )
             val b = CryptoPrimitives.argon2idHashWithParams(
-                "password2".toByteArray(), salt, 1, 8 * 1024, 1, 32
+                "password2".toByteArray(), salt, 2, 65536, 2, 32
             )
             assertFalse(a.contentEquals(b))
         }
