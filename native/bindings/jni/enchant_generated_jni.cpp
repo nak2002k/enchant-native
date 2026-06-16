@@ -2666,6 +2666,43 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1establish(
 }
 
 JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1establish_1with_1ephemeral(
+    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray identity_key, jint signed_prekey_id, jbyteArray signed_prekey, jbyteArray signed_prekey_sig, jlong signed_prekey_sig_len, jint one_time_prekey_id, jbyteArray one_time_prekey, jint registration_id, jbyteArray our_ephemeral_private, jlong our_ephemeral_private_len) {
+    (void)clazz;
+
+    const char* address_name_str = env->GetStringUTFChars(address_name, nullptr);
+    jbyte* identity_key_jbyte = env->GetByteArrayElements(identity_key, nullptr);
+    jbyte* signed_prekey_jbyte = env->GetByteArrayElements(signed_prekey, nullptr);
+    jbyte* signed_prekey_sig_jbyte = env->GetByteArrayElements(signed_prekey_sig, nullptr);
+    jbyte* one_time_prekey_jbyte = env->GetByteArrayElements(one_time_prekey, nullptr);
+    jbyte* our_ephemeral_private_jbyte = our_ephemeral_private ? env->GetByteArrayElements(our_ephemeral_private, nullptr) : nullptr;
+
+    int rc = enchant_session_manager_establish_with_ephemeral(
+        (enchant_session_manager_t*)(long)(manager),
+        address_name_str, device_id,
+        reinterpret_cast<const uint8_t*>(identity_key_jbyte),
+        static_cast<uint32_t>(signed_prekey_id),
+        reinterpret_cast<const uint8_t*>(signed_prekey_jbyte),
+        reinterpret_cast<const uint8_t*>(signed_prekey_sig_jbyte),
+        static_cast<size_t>(signed_prekey_sig_len),
+        static_cast<uint32_t>(one_time_prekey_id),
+        reinterpret_cast<const uint8_t*>(one_time_prekey_jbyte),
+        static_cast<uint32_t>(registration_id),
+        reinterpret_cast<const uint8_t*>(our_ephemeral_private_jbyte),
+        static_cast<size_t>(our_ephemeral_private_len));
+
+    env->ReleaseStringUTFChars(address_name, address_name_str);
+    env->ReleaseByteArrayElements(identity_key, identity_key_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(signed_prekey, signed_prekey_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(signed_prekey_sig, signed_prekey_sig_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(one_time_prekey, one_time_prekey_jbyte, JNI_ABORT);
+    if (our_ephemeral_private_jbyte) {
+        env->ReleaseByteArrayElements(our_ephemeral_private, our_ephemeral_private_jbyte, JNI_ABORT);
+    }
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1encrypt(
     JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlongArray ciphertext_len, jintArray message_type_out) {
     (void)clazz;

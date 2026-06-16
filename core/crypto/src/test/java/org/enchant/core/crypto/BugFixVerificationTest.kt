@@ -11,15 +11,19 @@ import org.junit.jupiter.api.Test
 @DisplayName("Bug Fix Verification Tests")
 class BugFixVerificationTest {
 
+    private lateinit var veilSession: VeilSession
+
     @BeforeEach
-    fun setUp() {
-        NativeSessionManager.reset()
+    fun setUp() = runTest {
+        VeilSession.reset()
         KeyManager.reset()
+        veilSession = VeilSession.create(selfUserId = "user1")
     }
 
     @AfterEach
-    fun tearDown() {
-        NativeSessionManager.reset()
+    fun tearDown() = runTest {
+        veilSession.close()
+        VeilSession.reset()
         KeyManager.reset()
     }
 
@@ -28,9 +32,7 @@ class BugFixVerificationTest {
     inner class Bug2SelfUserIdTest {
         @Test
         fun `encryptMessage returns null when key bundle unavailable`() = runTest {
-            NativeSessionManager.reset()
-            NativeSessionManager.init(selfUserId = "user1")
-            val result = NativeSessionManager.encryptMessage("user1", "test".encodeToByteArray())
+            val result = veilSession.encryptMessage("user1", "test".encodeToByteArray())
             assertNull(result)
         }
     }
