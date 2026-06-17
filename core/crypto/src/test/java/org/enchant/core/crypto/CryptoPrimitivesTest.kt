@@ -668,6 +668,39 @@ class CryptoPrimitivesTest {
         }
     }
 
+    @Nested @DisplayName("Argon2id hash (TwoStepPin FFI)")
+    inner class Argon2idHashTest {
+        @Test @DisplayName("produces a non-empty encoded hash string")
+        fun `argon2id hash produces valid string`() {
+            val output = ByteArray(128)
+            val rc = EnchantCrypto.enchant_argon2id_hash(
+                "1234", 4, output, output.size.toLong()
+            )
+            assertEquals(EnchantCrypto.SUCCESS, rc)
+            val hash = output.toString(Charsets.US_ASCII).trimEnd('\u0000')
+            assertTrue(hash.startsWith("$" + "argon2id$"))
+        }
+
+        @Test @DisplayName("same password produces different encoded hashes (random salt)")
+        fun `argon2id hash random salt`() {
+            val outA = ByteArray(128)
+            val outB = ByteArray(128)
+            EnchantCrypto.enchant_argon2id_hash("1234", 4, outA, outA.size.toLong())
+            EnchantCrypto.enchant_argon2id_hash("1234", 4, outB, outB.size.toLong())
+            // crypto_pwhash_str uses random salt per call
+            assertFalse(outA.contentEquals(outB))
+        }
+
+        @Test @DisplayName("verify accepts a produced hash")
+        fun `argon2id hash verify roundtrip`() {
+            val out = ByteArray(128)
+            EnchantCrypto.enchant_argon2id_hash("1234", 4, out, out.size.toLong())
+            val hash = out.toString(Charsets.US_ASCII).trimEnd('\u0000')
+            val rc = EnchantCrypto.enchant_argon2id_verify(hash, hash.length.toLong(), "1234", 4)
+            assertEquals(EnchantCrypto.SUCCESS, rc)
+        }
+    }
+
     @Nested @DisplayName("Argon2id hash with custom params")
     inner class Argon2idWithParamsTest {
         @Test @DisplayName("produces output of requested length")

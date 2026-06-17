@@ -365,20 +365,20 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1base64_1decode(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1argon2id_1hash(
-    JNIEnv* env, jclass clazz, jstring plaintext, jlong plaintext_len, jstring output, jlong output_len) {
+    JNIEnv* env, jclass clazz, jstring plaintext, jlong plaintext_len, jbyteArray output, jlong output_len) {
     (void)clazz;
 
     // Get input arrays
     const char* plaintext_str = env->GetStringUTFChars(plaintext, nullptr);
-
-    // Declare output variables
-    char* output_ptr = nullptr;
+    jbyte* output_jbyte = env->GetByteArrayElements(output, nullptr);
+    char* output_ptr = reinterpret_cast<char*>(output_jbyte);
 
     // Call native function
-    int rc = enchant_argon2id_hash(plaintext_str, plaintext_len, output_ptr, output_len);
+    int rc = enchant_argon2id_hash(plaintext_str, static_cast<size_t>(plaintext_len), output_ptr, static_cast<size_t>(output_len));
 
     // Release and copy back
     env->ReleaseStringUTFChars(plaintext, plaintext_str);
+    env->ReleaseByteArrayElements(output, output_jbyte, 0);
 
     // Copy output values back to Java
     return rc;
