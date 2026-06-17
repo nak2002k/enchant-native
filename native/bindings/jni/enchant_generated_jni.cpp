@@ -4261,7 +4261,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1session_1respond(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1encrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray ciphertext, jlong ciphertext_capacity) {
     (void)clazz;
 
     // Get input arrays
@@ -4270,8 +4270,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1encrypt(
     jbyte* ciphertext_jbyte = env->GetByteArrayElements(ciphertext, nullptr);
     uint8_t* ciphertext_ptr = reinterpret_cast<uint8_t*>(ciphertext_jbyte);
 
-    // Declare output variables
-    size_t ciphertext_len_val = 0;
+    // Use actual Java array capacity
+    size_t ciphertext_len_val = static_cast<size_t>(env->GetArrayLength(ciphertext));
 
     // Call native function
     int rc = enchant_agent_encrypt(reinterpret_cast<const uint8_t*>(key_jbyte), key_len, reinterpret_cast<const uint8_t*>(plaintext_jbyte), plaintext_len, ciphertext_ptr, &ciphertext_len_val);
@@ -4287,7 +4287,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1encrypt(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1decrypt(
-    JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len) {
+    JNIEnv* env, jclass clazz, jbyteArray key, jlong key_len, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_capacity) {
     (void)clazz;
 
     // Get input arrays
@@ -4296,8 +4296,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1agent_1decrypt(
     jbyte* plaintext_jbyte = env->GetByteArrayElements(plaintext, nullptr);
     uint8_t* plaintext_ptr = reinterpret_cast<uint8_t*>(plaintext_jbyte);
 
-    // Declare output variables
-    size_t plaintext_len_val = 0;
+    // Use actual Java array capacity
+    size_t plaintext_len_val = static_cast<size_t>(env->GetArrayLength(plaintext));
 
     // Call native function
     int rc = enchant_agent_decrypt(reinterpret_cast<const uint8_t*>(key_jbyte), key_len, reinterpret_cast<const uint8_t*>(ciphertext_jbyte), ciphertext_len, plaintext_ptr, &plaintext_len_val);
