@@ -277,24 +277,6 @@ class VeilSessionIntegrationTest {
     @DisplayName("Alice-Bob Roundtrip (Two Separate Sessions)")
     inner class RoundtripTests {
 
-        // TODO: Real two-party X3DH roundtrip is blocked on libenchantcrypto
-        // supporting a true X3DH responder mode. Today, both parties can only
-        // run process_prekey_bundle as the *initiator* (which generates a fresh
-        // ephemeral and derives a session from the peer's bundle). For Alice
-        // and Bob to derive the *same* session, the responder must derive
-        // their session from the prekey message itself (using the initiator's
-        // ephemeral public key + their own prekey private keys).
-        //
-        // We have a control-test path that uses the same ephemeral and bundle
-        // on both sides to derive the same session, but the triple ratchet's
-        // per-side random DH ratchet key still makes the wire header
-        // incompatible across the two sessions, so the test is currently
-        // disabled pending proper responder support in the native lib.
-        //
-        // The single-session encrypt + decrypt path is fully covered by the
-        // SessionCipher-level tests in libenchantcrypto (24 test suites, all
-        // passing) and the VeilSessionTest suite in this module.
-
         @Test
         fun `single session can encrypt and self-decrypt for sanity check`() = runTest {
             val session = VeilSession.create(selfUserId = "self")
@@ -326,15 +308,102 @@ class VeilSessionIntegrationTest {
 
         @Test
         fun `alice to bob prekey and bob replies normal — full bidirectional roundtrip`() = runTest {
-            // NOTE: Bidirectional roundtrip between two separate VeilSession
-            // instances is WIP. The native session_cipher uses per-instance
-            // session caches, and cross-instance PREKEY decryption requires
-            // additional work on session serialization/deserialization.
-            // The unidirectional PREKEY flow (establish → encrypt → self-decrypt)
-            // is fully functional and tested in the self-decrypt test above.
-            //
-            // TODO: Implement when session_store callbacks support cross-process
-            // session persistence and the PREKEY responder can replay sessions.
+            // Both parties create their own VeilSession with auto-generated X25519 identities.
+            // Alice initiates X3DH with Bob's key bundle. Bob responds via decryptPrekeyMessage.
+            // Bob then encrypts a reply. Alice decrypts it using the existing session.
+
+            val alice = VeilSession.create(selfUserId = "alice")
+            val bob = VeilSession.create(selfUserId = "bob")
+
+            try {
+                // Get Bob's auto-generated X25519 identity public key
+                val bobIdentityPub = bob.getLocalIdentityPublicKey()!!
+                assertEquals(32, bobIdentityPub.size)
+
+                // Generate Bob's signed prekey and one-time prekey (X25519)
+                val bobSpk = CryptoPrimitives.generateX25519KeyPair()
+                val bobOpk = CryptoPrimitives.generateX25519KeyPair()
+
+                // Store Bob's SPK and OPK private keys in his identity store
+                // so decryptPrekeyMessage can look them up by ID
+                bob.storeSignedPrekey(1, bobSpk.privateKey)
+                bob.storeOneTimePrekey(1, bobOpk.privateKey)
+
+                // Sign Bob's SPK (native validates signature size, not content)
+                val signingKey = CryptoPrimitives.generateEd25519KeyPair()
+                val spkSig = CryptoPrimitives.signEd25519(bobSpk.publicKey, signingKey.privateKey)
+
+                // Build Bob's key bundle
+                val bobBundle = KeyManager.KeyBundle(
+                    deviceId = "1",
+                    identityKey = bobIdentityPub,
+                    signedPrekey = KeyManager.SignedPrekeyData(bobSpk.publicKey, spkSig),
+                    oneTimePrekey = bobOpk.publicKey
+                )
+
+                // --- Step 1: Alice establishes session and sends PREKEY message ---
+                val established = alice.establishSession("bob", 1, bobBundle)
+                assertTrue(established, "Alice should establish session with Bob")
+
+                val plaintext1 = "Hello Bob from Alice"
+                val encrypted1 = alice.encryptMessage("bob", plaintext1.toByteArray())
+                assertNotNull(encrypted1, "Alice encrypt should succeed")
+                assertEquals(VeilSession.MessageType.PREKEY_MESSAGE, encrypted1!!.messageType)
+                assertTrue(encrypted1.payload.isNotEmpty(), "Ciphertext should not be empty")
+
+                println("[TEST] Alice sent PREKEY (${encrypted1.payload.size} bytes)")
+
+                // --- Step 2: Bob decrypts Alice's PREKEY message ---
+                val decrypted1 = bob.decryptPrekeyMessage(
+                    senderUserId = "alice",
+                    ciphertext = encrypted1.payload,
+                    ourSignedPrekeyId = 1,
+                    ourOneTimePrekeyId = 1
+                )
+                assertNotNull(decrypted1, "Bob decryptPrekeyMessage should succeed")
+                assertEquals(plaintext1, String(decrypted1!!.plaintext), "Bob should read Alice's message")
+                assertTrue(decrypted1.isNewSession, "Should indicate new session")
+
+                println("[TEST] Bob decrypted PREKEY: \"${String(decrypted1.plaintext)}\"")
+
+                // --- Step 3: Bob sends NORMAL reply ---
+                val plaintext2 = "Hello Alice from Bob"
+                val encrypted2 = bob.encryptMessage("alice", plaintext2.toByteArray())
+                assertNotNull(encrypted2, "Bob encrypt should succeed")
+                assertEquals(VeilSession.MessageType.ENCRYPTED_MESSAGE, encrypted2!!.messageType)
+
+                println("[TEST] Bob sent NORMAL (${encrypted2.payload.size} bytes)")
+
+                // --- Step 4: Alice decrypts Bob's NORMAL reply ---
+                val decrypted2 = alice.decryptMessage("bob", encrypted2.payload)
+                assertNotNull(decrypted2, "Alice decryptMessage should succeed")
+                assertEquals(plaintext2, String(decrypted2!!.plaintext), "Alice should read Bob's reply")
+
+                println("[TEST] Alice decrypted NORMAL: \"${String(decrypted2.plaintext)}\"")
+
+                // --- Step 5: Multi-message roundtrip ---
+                val plaintext3 = "Second message from Alice"
+                val encrypted3 = alice.encryptMessage("bob", plaintext3.toByteArray())
+                assertNotNull(encrypted3, "Alice second encrypt should succeed")
+                assertEquals(VeilSession.MessageType.ENCRYPTED_MESSAGE, encrypted3!!.messageType)
+
+                val decrypted3 = bob.decryptMessage("alice", encrypted3.payload)
+                assertNotNull(decrypted3, "Bob second decrypt should succeed")
+                assertEquals(plaintext3, String(decrypted3!!.plaintext))
+
+                val plaintext4 = "Second reply from Bob"
+                val encrypted4 = bob.encryptMessage("alice", plaintext4.toByteArray())
+                assertNotNull(encrypted4, "Bob second encrypt should succeed")
+
+                val decrypted4 = alice.decryptMessage("bob", encrypted4!!.payload)
+                assertNotNull(decrypted4, "Alice second decrypt should succeed")
+                assertEquals(plaintext4, String(decrypted4!!.plaintext))
+
+                println("[TEST] Multi-message roundtrip PASSED")
+            } finally {
+                alice.close()
+                bob.close()
+            }
         }
     }
 }

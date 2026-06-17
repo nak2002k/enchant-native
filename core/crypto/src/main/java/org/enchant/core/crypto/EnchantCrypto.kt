@@ -172,6 +172,7 @@ object EnchantCrypto {
     external fun enchant_session_store_create(storeOut: LongArray): Int
     external fun enchant_session_store_destroy(store: Long)
     external fun enchant_identity_store_get_key_pair(store: Long, publicKey: ByteArray, privateKey: ByteArray): Int
+    external fun enchant_identity_store_set_key_pair(store: Long, publicKey: ByteArray, privateKey: ByteArray): Int
     external fun enchant_identity_store_set_registration_id(store: Long, registrationId: Int): Int
     external fun enchant_identity_store_get_registration_id(store: Long, registrationIdOut: Long): Int
     external fun enchant_identity_store_save_identity(store: Long, addressName: String, deviceId: Int, identityKey: ByteArray): Int

@@ -397,6 +397,24 @@ class VeilSession private constructor(
         )
     }
 
+    /**
+     * Override the local identity key pair in the native store.
+     *
+     * This is used by the X3DH responder (Bob) to set a known key pair
+     * so that Alice's X3DH handshake uses Bob's real identity.
+     *
+     * @param publicKey 32-byte X25519 public key
+     * @param privateKey 32-byte X25519 private key
+     */
+    fun setIdentityKeyPair(publicKey: ByteArray, privateKey: ByteArray) {
+        val rc = EnchantCrypto.enchant_identity_store_set_key_pair(
+            identityStoreHandle, publicKey, privateKey
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("Failed to set identity key pair: $rc")
+        }
+    }
+
     fun hasIdentityChanged(userId: String): Boolean {
         // TODO: Implement proper identity change detection via native store
         return false

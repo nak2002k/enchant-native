@@ -2491,6 +2491,30 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1get_1key_1p
 }
 
 JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1set_1key_1pair(
+    JNIEnv* env, jclass clazz, jlong store, jbyteArray public_key, jbyteArray private_key) {
+    (void)clazz;
+
+    // Get input arrays
+    jbyte* public_key_jbyte = env->GetByteArrayElements(public_key, nullptr);
+    uint8_t* public_key_ptr = reinterpret_cast<uint8_t*>(public_key_jbyte);
+    jbyte* private_key_jbyte = env->GetByteArrayElements(private_key, nullptr);
+    uint8_t* private_key_ptr = reinterpret_cast<uint8_t*>(private_key_jbyte);
+
+    // Declare output variables
+
+    // Call native function
+    int rc = enchant_identity_store_set_key_pair((enchant_identity_store_t*)(long)(store), public_key_ptr, private_key_ptr);
+
+    // Release and copy back
+    env->ReleaseByteArrayElements(public_key, public_key_jbyte, JNI_ABORT);
+    env->ReleaseByteArrayElements(private_key, private_key_jbyte, JNI_ABORT);
+
+    // Copy output values back to Java
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1identity_1store_1set_1registration_1id(
     JNIEnv* env, jclass clazz, jlong store, jint registration_id) {
     (void)clazz;

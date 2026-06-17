@@ -55,9 +55,9 @@ endif()
 # Include paths for api.h
 target_include_directories(enchantcrypto_jni
     PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/libenchantcrypto/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/libenchantcrypto/src"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/libenchantcrypto/third_party/boringssl/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/libenchantcrypto/third_party/boringssl/include"
         ${LIBSODIUM_INCLUDE_DIRS}
 )
 
