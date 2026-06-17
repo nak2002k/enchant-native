@@ -173,8 +173,8 @@ object EnchantCrypto {
     // ──────────────────────────────────────────────
     // Profile
     // ──────────────────────────────────────────────
-    external fun enchant_profile_encrypt(profileKey: ByteArray, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: LongArray): Int
-    external fun enchant_profile_decrypt(profileKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray): Int
+    external fun enchant_profile_encrypt(profileKey: ByteArray, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: Long): Int
+    external fun enchant_profile_decrypt(profileKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long): Int
 
     // ──────────────────────────────────────────────
     // SVR / Account
