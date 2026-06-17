@@ -2885,6 +2885,54 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1archive_1s
 }
 
 JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1get_1session_1age(
+    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jlongArray age_seconds_out) {
+    (void)clazz;
+
+    // Get input arrays
+    const char* address_name_str = env->GetStringUTFChars(address_name, nullptr);
+    jlong* age_seconds_out_elems = env->GetLongArrayElements(age_seconds_out, nullptr);
+
+    // Declare output variables
+    uint64_t age_seconds_out_val = 0;
+
+    // Call native function
+    int rc = enchant_session_manager_get_session_age((enchant_session_manager_t*)(long)(manager), address_name_str, device_id, &age_seconds_out_val);
+
+    // Release and copy back
+    env->ReleaseStringUTFChars(address_name, address_name_str);
+    age_seconds_out_elems[0] = static_cast<jlong>(age_seconds_out_val);
+    env->ReleaseLongArrayElements(age_seconds_out, age_seconds_out_elems, 0);
+
+    // Copy output values back to Java
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1manager_1is_1expired(
+    JNIEnv* env, jclass clazz, jlong manager, jstring address_name, jint device_id, jlong current_timestamp, jintArray expired_out) {
+    (void)clazz;
+
+    // Get input arrays
+    const char* address_name_str = env->GetStringUTFChars(address_name, nullptr);
+    jint* expired_out_elems = env->GetIntArrayElements(expired_out, nullptr);
+
+    // Declare output variables
+    int expired_out_val = 0;
+
+    // Call native function
+    int rc = enchant_session_manager_is_expired((enchant_session_manager_t*)(long)(manager), address_name_str, device_id, static_cast<uint64_t>(current_timestamp), &expired_out_val);
+
+    // Release and copy back
+    env->ReleaseStringUTFChars(address_name, address_name_str);
+    expired_out_elems[0] = expired_out_val;
+    env->ReleaseIntArrayElements(expired_out, expired_out_elems, 0);
+
+    // Copy output values back to Java
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1session_1builder_1create(
     JNIEnv* env, jclass clazz, jlong identity_store, jlong session_store, jlongArray builder_out) {
     (void)clazz;

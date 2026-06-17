@@ -128,6 +128,8 @@ object EnchantCrypto {
     external fun enchant_session_manager_decrypt_prekey(manager: Long, addressName: String, deviceId: Int, ciphertext: ByteArray, ciphertextLen: Long, ourSignedPrekeyId: Int, ourOneTimePrekeyId: Int, plaintext: ByteArray, plaintextLen: LongArray): Int
     external fun enchant_session_manager_has_session(manager: Long, addressName: String, deviceId: Int, hasSessionOut: IntArray): Int
     external fun enchant_session_manager_archive_session(manager: Long, addressName: String, deviceId: Int): Int
+    external fun enchant_session_manager_get_session_age(manager: Long, addressName: String, deviceId: Int, ageSecondsOut: LongArray): Int
+    external fun enchant_session_manager_is_expired(manager: Long, addressName: String, deviceId: Int, currentTimestamp: Long, expiredOut: IntArray): Int
 
     // --- Safety number ---
     external fun enchant_safety_number_generate(senderIdentityKey: ByteArray, recipientIdentityKey: ByteArray, senderUuid: String, recipientUuid: String, safetyNumberOut: ByteArray, safetyNumberLen: LongArray): Int

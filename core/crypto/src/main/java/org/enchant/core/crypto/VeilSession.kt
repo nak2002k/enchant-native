@@ -357,6 +357,63 @@ class VeilSession private constructor(
         )
     }
 
+    /**
+     * Return the age of the current session for a peer in seconds.
+     * Returns 0 if no session exists.
+     */
+    suspend fun getSessionAge(userId: String): Long = sessionLock.withLock {
+        val device = extractDeviceId(userId)
+        val ageOut = LongArray(1)
+        val rc = EnchantCrypto.enchant_session_manager_get_session_age(
+            sessionManagerHandle, userId, device, ageOut
+        )
+        if (rc == EnchantCrypto.SUCCESS) ageOut[0] else 0L
+    }
+
+    /**
+     * Check whether the session for a peer has expired.
+     *
+     * @param userId peer address
+     * @param maxAgeSeconds maximum allowed session age; defaults to 90 days
+     * @return true if the session is missing or older than maxAgeSeconds
+     */
+    suspend fun isSessionExpired(
+        userId: String,
+        maxAgeSeconds: Long = 90L * 24 * 60 * 60
+    ): Boolean = sessionLock.withLock {
+        val device = extractDeviceId(userId)
+        val expiredOut = IntArray(1)
+        val rc = EnchantCrypto.enchant_session_manager_is_expired(
+            sessionManagerHandle, userId, device, maxAgeSeconds, expiredOut
+        )
+        if (rc != EnchantCrypto.SUCCESS) return@withLock true
+        expiredOut[0] != 0
+    }
+
+    /**
+     * Archive the session if it has expired.
+     *
+     * @return true if a session was archived
+     */
+    suspend fun archiveIfExpired(
+        userId: String,
+        maxAgeSeconds: Long = 90L * 24 * 60 * 60
+    ): Boolean = sessionLock.withLock {
+        val device = extractDeviceId(userId)
+        val expiredOut = IntArray(1)
+        val rc = EnchantCrypto.enchant_session_manager_is_expired(
+            sessionManagerHandle, userId, device, maxAgeSeconds, expiredOut
+        )
+        if (rc == EnchantCrypto.SUCCESS && expiredOut[0] != 0) {
+            EnchantCrypto.enchant_session_manager_archive_session(
+                sessionManagerHandle, userId, device
+            )
+            true
+        } else {
+            false
+        }
+    }
+
     suspend fun loadSessionsFromDb() {
         // Native in-memory store has no persistence. No-op.
     }
