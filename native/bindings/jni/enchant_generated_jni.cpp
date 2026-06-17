@@ -3841,7 +3841,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1encrypt_1v1(
     uint8_t* output_ptr = reinterpret_cast<uint8_t*>(output_jbyte);
 
     // Declare output variables
-    size_t output_len_val = 0;
+    size_t output_len_val = static_cast<size_t>(env->GetArrayLength(output));
 
     // Call native function
     int rc = enchant_veil_encrypt_v1(reinterpret_cast<const uint8_t*>(recipient_public_key_jbyte), reinterpret_cast<const uint8_t*>(sender_identity_private_jbyte), reinterpret_cast<const uint8_t*>(sender_identity_public_jbyte), reinterpret_cast<const uint8_t*>(plaintext_jbyte), plaintext_len, output_ptr, &output_len_val);
@@ -3872,7 +3872,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1decrypt_1v1(
     uint8_t* sender_identity_key_out_ptr = reinterpret_cast<uint8_t*>(sender_identity_key_out_jbyte);
 
     // Declare output variables
-    size_t plaintext_len_val = 0;
+    size_t plaintext_len_val = static_cast<size_t>(env->GetArrayLength(plaintext));
 
     // Call native function
     int rc = enchant_veil_decrypt_v1(reinterpret_cast<const uint8_t*>(recipient_private_key_jbyte), reinterpret_cast<const uint8_t*>(recipient_public_key_jbyte), reinterpret_cast<const uint8_t*>(ciphertext_jbyte), ciphertext_len, plaintext_ptr, &plaintext_len_val, sender_identity_key_out_ptr);
@@ -3900,7 +3900,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1server_1certificate_1create(
     uint8_t* cert_out_ptr = reinterpret_cast<uint8_t*>(cert_out_jbyte);
 
     // Declare output variables
-    size_t cert_len_val = 0;
+    size_t cert_len_val = static_cast<size_t>(env->GetArrayLength(cert_out));
 
     // Call native function
     int rc = enchant_server_certificate_create(key_id, reinterpret_cast<const uint8_t*>(public_key_jbyte), reinterpret_cast<const uint8_t*>(private_key_jbyte), cert_out_ptr, &cert_len_val);
@@ -3955,7 +3955,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sender_1certificate_1create(
     uint8_t* cert_out_ptr = reinterpret_cast<uint8_t*>(cert_out_jbyte);
 
     // Declare output variables
-    size_t cert_len_val = 0;
+    size_t cert_len_val = static_cast<size_t>(env->GetArrayLength(cert_out));
 
     // Call native function
     int rc = enchant_sender_certificate_create(sender_uuid_str, reinterpret_cast<const uint8_t*>(sender_e164_jbyte), sender_device_id, expiration, reinterpret_cast<const uint8_t*>(identity_key_jbyte), reinterpret_cast<const uint8_t*>(server_cert_data_jbyte), server_cert_len, reinterpret_cast<const uint8_t*>(server_private_key_jbyte), cert_out_ptr, &cert_len_val);
@@ -4000,7 +4000,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1sender_1certificate_1validat
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1create(
-    JNIEnv* env, jclass clazz, jint msg_type, jbyteArray sender_cert_data, jlong sender_cert_len, jbyteArray plaintext, jlong plaintext_len, jint content_hint, jbyteArray group_id, jlong group_id_len, jbyteArray usmc_out, jlong usmc_len) {
+    JNIEnv* env, jclass clazz, jint msg_type, jbyteArray sender_cert_data, jlong sender_cert_len, jbyteArray plaintext, jlong plaintext_len, jint content_hint, jbyteArray group_id, jlong group_id_len, jbyteArray usmc_out, jlongArray usmc_len) {
     (void)clazz;
 
     // Get input arrays
@@ -4011,7 +4011,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1create(
     uint8_t* usmc_out_ptr = reinterpret_cast<uint8_t*>(usmc_out_jbyte);
 
     // Declare output variables
-    size_t usmc_len_val = 0;
+    size_t usmc_len_val = static_cast<size_t>(env->GetArrayLength(usmc_out));
 
     // Call native function
     int rc = enchant_usmc_create(msg_type, reinterpret_cast<const uint8_t*>(sender_cert_data_jbyte), sender_cert_len, reinterpret_cast<const uint8_t*>(plaintext_jbyte), plaintext_len, content_hint, reinterpret_cast<const uint8_t*>(group_id_jbyte), group_id_len, usmc_out_ptr, &usmc_len_val);
@@ -4023,12 +4023,15 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1create(
     env->ReleaseByteArrayElements(usmc_out, usmc_out_jbyte, 0);
 
     // Copy output values back to Java
+    jlong* usmc_len_elems = env->GetLongArrayElements(usmc_len, nullptr);
+    usmc_len_elems[0] = static_cast<jlong>(usmc_len_val);
+    env->ReleaseLongArrayElements(usmc_len, usmc_len_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1serialize(
-    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jbyteArray output, jlong output_len) {
+    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jbyteArray output, jlongArray output_len) {
     (void)clazz;
 
     // Get input arrays
@@ -4037,7 +4040,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1serialize(
     uint8_t* output_ptr = reinterpret_cast<uint8_t*>(output_jbyte);
 
     // Declare output variables
-    size_t output_len_val = 0;
+    size_t output_len_val = static_cast<size_t>(env->GetArrayLength(output));
 
     // Call native function
     int rc = enchant_usmc_serialize(reinterpret_cast<const uint8_t*>(usmc_data_jbyte), usmc_len, output_ptr, &output_len_val);
@@ -4047,12 +4050,15 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1serialize(
     env->ReleaseByteArrayElements(output, output_jbyte, 0);
 
     // Copy output values back to Java
+    jlong* output_len_elems = env->GetLongArrayElements(output_len, nullptr);
+    output_len_elems[0] = static_cast<jlong>(output_len_val);
+    env->ReleaseLongArrayElements(output_len, output_len_elems, 0);
     return rc;
 }
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1deserialize(
-    JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray usmc_out, jlong usmc_len, jintArray msg_type_out) {
+    JNIEnv* env, jclass clazz, jbyteArray data, jlong data_len, jbyteArray usmc_out, jlongArray usmc_len, jintArray msg_type_out) {
     (void)clazz;
 
     // Get input arrays
@@ -4061,7 +4067,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1deserialize(
     uint8_t* usmc_out_ptr = reinterpret_cast<uint8_t*>(usmc_out_jbyte);
 
     // Declare output variables
-    size_t usmc_len_val = 0;
+    size_t usmc_len_val = static_cast<size_t>(env->GetArrayLength(usmc_out));
     int msg_type_out_val = 0;
 
     // Call native function
@@ -4072,6 +4078,10 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1deserialize(
     env->ReleaseByteArrayElements(usmc_out, usmc_out_jbyte, 0);
 
     // Copy output values back to Java
+    jlong* usmc_len_elems = env->GetLongArrayElements(usmc_len, nullptr);
+    usmc_len_elems[0] = static_cast<jlong>(usmc_len_val);
+    env->ReleaseLongArrayElements(usmc_len, usmc_len_elems, 0);
+
     jint* msg_type_out_elems = env->GetIntArrayElements(msg_type_out, nullptr);
     msg_type_out_elems[0] = msg_type_out_val;
     env->ReleaseIntArrayElements(msg_type_out, msg_type_out_elems, 0);
@@ -5544,6 +5554,150 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1session_1unseal_1group
     sk_id[0] = static_cast<jint>(kid);
     env->ReleaseIntArrayElements(sender_key_id_out, sk_id, 0);
     env->ReleaseByteArrayElements(sender_key_out, sk, 0);
+    return rc;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VEIL V2 (MULTI-RECIPIENT)
+// ═══════════════════════════════════════════════════════════════════
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1encrypt_1v2(
+    JNIEnv* env, jclass clazz, jbyteArray sender_identity_private, jbyteArray sender_identity_public, jbyteArray recipient_public_keys, jlong num_recipients, jbyteArray usmc_data, jlong usmc_len, jbyteArray output, jlong output_len) {
+    (void)clazz;
+    jbyte* sip = env->GetByteArrayElements(sender_identity_private, nullptr);
+    jbyte* sup = env->GetByteArrayElements(sender_identity_public, nullptr);
+    jbyte* rpk = env->GetByteArrayElements(recipient_public_keys, nullptr);
+    jbyte* ud = env->GetByteArrayElements(usmc_data, nullptr);
+    jbyte* out = env->GetByteArrayElements(output, nullptr);
+    size_t out_len = static_cast<size_t>(env->GetArrayLength(output));
+    int rc = enchant_veil_encrypt_v2(
+        reinterpret_cast<const uint8_t*>(sip), reinterpret_cast<const uint8_t*>(sup),
+        reinterpret_cast<const uint8_t*>(rpk), static_cast<size_t>(num_recipients),
+        reinterpret_cast<const uint8_t*>(ud), static_cast<size_t>(usmc_len),
+        reinterpret_cast<uint8_t*>(out), &out_len);
+    env->ReleaseByteArrayElements(sender_identity_private, sip, JNI_ABORT);
+    env->ReleaseByteArrayElements(sender_identity_public, sup, JNI_ABORT);
+    env->ReleaseByteArrayElements(recipient_public_keys, rpk, JNI_ABORT);
+    env->ReleaseByteArrayElements(usmc_data, ud, JNI_ABORT);
+    env->ReleaseByteArrayElements(output, out, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1veil_1decrypt_1v2(
+    JNIEnv* env, jclass clazz, jbyteArray recipient_private_key, jbyteArray recipient_public_key, jbyteArray ciphertext, jlong ciphertext_len, jbyteArray plaintext, jlong plaintext_len, jbyteArray sender_identity_key_out) {
+    (void)clazz;
+    jbyte* rpk = env->GetByteArrayElements(recipient_private_key, nullptr);
+    jbyte* rpub = env->GetByteArrayElements(recipient_public_key, nullptr);
+    jbyte* ct = env->GetByteArrayElements(ciphertext, nullptr);
+    jbyte* pt = env->GetByteArrayElements(plaintext, nullptr);
+    size_t pt_len = static_cast<size_t>(env->GetArrayLength(plaintext));
+    jbyte* siOut = env->GetByteArrayElements(sender_identity_key_out, nullptr);
+    int rc = enchant_veil_decrypt_v2(
+        reinterpret_cast<const uint8_t*>(rpk), reinterpret_cast<const uint8_t*>(rpub),
+        reinterpret_cast<const uint8_t*>(ct), static_cast<size_t>(ciphertext_len),
+        reinterpret_cast<uint8_t*>(pt), &pt_len,
+        reinterpret_cast<uint8_t*>(siOut));
+    env->ReleaseByteArrayElements(recipient_private_key, rpk, JNI_ABORT);
+    env->ReleaseByteArrayElements(recipient_public_key, rpub, JNI_ABORT);
+    env->ReleaseByteArrayElements(ciphertext, ct, JNI_ABORT);
+    env->ReleaseByteArrayElements(plaintext, pt, 0);
+    env->ReleaseByteArrayElements(sender_identity_key_out, siOut, 0);
+    return rc;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// USMC GET ACCESSORS
+// ═══════════════════════════════════════════════════════════════════
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1get_1sender_1uuid(
+    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jbyteArray sender_uuid_out, jlong sender_uuid_len) {
+    (void)clazz;
+    jbyte* ud = env->GetByteArrayElements(usmc_data, nullptr);
+    jbyte* suo = env->GetByteArrayElements(sender_uuid_out, nullptr);
+    size_t sul = static_cast<size_t>(env->GetArrayLength(sender_uuid_out));
+    int rc = enchant_usmc_get_sender_uuid(
+        reinterpret_cast<const uint8_t*>(ud), static_cast<size_t>(usmc_len),
+        reinterpret_cast<char*>(suo), &sul);
+    env->ReleaseByteArrayElements(usmc_data, ud, JNI_ABORT);
+    env->ReleaseByteArrayElements(sender_uuid_out, suo, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1get_1sender_1device_1id(
+    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jintArray device_id_out) {
+    (void)clazz;
+    jbyte* ud = env->GetByteArrayElements(usmc_data, nullptr);
+    uint32_t did = 0;
+    int rc = enchant_usmc_get_sender_device_id(
+        reinterpret_cast<const uint8_t*>(ud), static_cast<size_t>(usmc_len), &did);
+    env->ReleaseByteArrayElements(usmc_data, ud, JNI_ABORT);
+    jint* doe = env->GetIntArrayElements(device_id_out, nullptr);
+    doe[0] = static_cast<jint>(did);
+    env->ReleaseIntArrayElements(device_id_out, doe, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1get_1content_1hint(
+    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jintArray content_hint_out) {
+    (void)clazz;
+    jbyte* ud = env->GetByteArrayElements(usmc_data, nullptr);
+    int ch = 0;
+    int rc = enchant_usmc_get_content_hint(
+        reinterpret_cast<const uint8_t*>(ud), static_cast<size_t>(usmc_len), &ch);
+    env->ReleaseByteArrayElements(usmc_data, ud, JNI_ABORT);
+    jint* cho = env->GetIntArrayElements(content_hint_out, nullptr);
+    cho[0] = static_cast<jint>(ch);
+    env->ReleaseIntArrayElements(content_hint_out, cho, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1get_1message_1type(
+    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jintArray message_type_out) {
+    (void)clazz;
+    jbyte* ud = env->GetByteArrayElements(usmc_data, nullptr);
+    int mt = 0;
+    int rc = enchant_usmc_get_message_type(
+        reinterpret_cast<const uint8_t*>(ud), static_cast<size_t>(usmc_len), &mt);
+    env->ReleaseByteArrayElements(usmc_data, ud, JNI_ABORT);
+    jint* mto = env->GetIntArrayElements(message_type_out, nullptr);
+    mto[0] = static_cast<jint>(mt);
+    env->ReleaseIntArrayElements(message_type_out, mto, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1get_1contents(
+    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jbyteArray contents_out, jlong contents_len) {
+    (void)clazz;
+    jbyte* ud = env->GetByteArrayElements(usmc_data, nullptr);
+    jbyte* co = env->GetByteArrayElements(contents_out, nullptr);
+    size_t cl = static_cast<size_t>(env->GetArrayLength(contents_out));
+    int rc = enchant_usmc_get_contents(
+        reinterpret_cast<const uint8_t*>(ud), static_cast<size_t>(usmc_len),
+        reinterpret_cast<uint8_t*>(co), &cl);
+    env->ReleaseByteArrayElements(usmc_data, ud, JNI_ABORT);
+    env->ReleaseByteArrayElements(contents_out, co, 0);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1get_1group_1id(
+    JNIEnv* env, jclass clazz, jbyteArray usmc_data, jlong usmc_len, jbyteArray group_id_out, jlong group_id_len) {
+    (void)clazz;
+    jbyte* ud = env->GetByteArrayElements(usmc_data, nullptr);
+    jbyte* go = env->GetByteArrayElements(group_id_out, nullptr);
+    size_t gl = static_cast<size_t>(env->GetArrayLength(group_id_out));
+    int rc = enchant_usmc_get_group_id(
+        reinterpret_cast<const uint8_t*>(ud), static_cast<size_t>(usmc_len),
+        reinterpret_cast<uint8_t*>(go), &gl);
+    env->ReleaseByteArrayElements(usmc_data, ud, JNI_ABORT);
+    env->ReleaseByteArrayElements(group_id_out, go, 0);
     return rc;
 }
 

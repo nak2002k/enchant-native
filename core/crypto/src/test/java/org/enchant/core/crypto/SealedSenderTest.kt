@@ -1,12 +1,21 @@
 package org.enchant.core.crypto
 
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@DisplayName("SealedSender — Anonymous sender encryption")
+@DisplayName("SealedSender — Native Veil anonymous sender encryption")
 class SealedSenderTest {
+
+    companion object {
+        @JvmStatic
+        @BeforeAll
+        fun init() {
+            CryptoPrimitives.init()
+        }
+    }
 
     @Nested @DisplayName("Access Key Derivation")
     inner class AccessKeyTest {
@@ -52,38 +61,81 @@ class SealedSenderTest {
         }
     }
 
-    @Nested @DisplayName("Sealed Encryption/Decryption")
+    @Nested @DisplayName("Veil Sealed Encryption/Decryption")
     inner class SealedEncryptDecryptTest {
         @Test @DisplayName("encrypt then decrypt returns sender identity and message")
         fun `sealed roundtrip`() {
-            val profileKey = ByteArray(32) { 1 }
-            val senderIk = ByteArray(32) { 2 }
-            val accessKey = SealedSender.deriveAccessKey(profileKey, senderIk)
+            val recipient = CryptoPrimitives.generateX25519KeyPair()
+            val sender = CryptoPrimitives.generateX25519KeyPair()
             val message = "sealed message".encodeToByteArray()
 
-            val sealed = SealedSender.encryptSealed(accessKey, senderIk, message)
-            val (decryptedSenderIk, decryptedMessage) = SealedSender.decryptSealed(accessKey, sealed)!!
+            val sealed = SealedSender.encryptSealed(
+                recipient.publicKey,
+                sender.privateKey,
+                sender.publicKey,
+                message
+            )
+            val (decryptedSenderKey, decryptedMessage) = SealedSender.decryptSealed(
+                recipient.privateKey,
+                recipient.publicKey,
+                sealed
+            )!!
 
-            assertArrayEquals(senderIk, decryptedSenderIk)
+            assertArrayEquals(sender.publicKey, decryptedSenderKey)
             assertArrayEquals(message, decryptedMessage)
         }
 
-        @Test @DisplayName("wrong access key fails decryption")
+        @Test @DisplayName("wrong recipient private key fails decryption")
         fun `sealed wrong key fails`() {
-            val profileKey = ByteArray(32) { 1 }
-            val senderIk = ByteArray(32) { 2 }
-            val accessKey = SealedSender.deriveAccessKey(profileKey, senderIk)
-            val wrongAccessKey = ByteArray(16) { 0xFF.toByte() }
+            val recipient = CryptoPrimitives.generateX25519KeyPair()
+            val wrongRecipient = CryptoPrimitives.generateX25519KeyPair()
+            val sender = CryptoPrimitives.generateX25519KeyPair()
             val message = "sealed message".encodeToByteArray()
 
-            val sealed = SealedSender.encryptSealed(accessKey, senderIk, message)
-            assertNull(SealedSender.decryptSealed(wrongAccessKey, sealed))
+            val sealed = SealedSender.encryptSealed(
+                recipient.publicKey,
+                sender.privateKey,
+                sender.publicKey,
+                message
+            )
+            assertNull(
+                SealedSender.decryptSealed(
+                    wrongRecipient.privateKey,
+                    recipient.publicKey,
+                    sealed
+                )
+            )
         }
 
-        @Test @DisplayName("wrong access key size throws")
+        @Test @DisplayName("corrupted ciphertext fails decryption")
+        fun `sealed corrupted fails`() {
+            val recipient = CryptoPrimitives.generateX25519KeyPair()
+            val sender = CryptoPrimitives.generateX25519KeyPair()
+            val message = "sealed message".encodeToByteArray()
+
+            val sealed = SealedSender.encryptSealed(
+                recipient.publicKey,
+                sender.privateKey,
+                sender.publicKey,
+                message
+            )
+            sealed[sealed.size / 2] = (sealed[sealed.size / 2].toInt() xor 0xFF).toByte()
+
+            assertNull(
+                SealedSender.decryptSealed(
+                    recipient.privateKey,
+                    recipient.publicKey,
+                    sealed
+                )
+            )
+        }
+
+        @Test @DisplayName("wrong key sizes throw")
         fun `sealed wrong key size`() {
             assertThrows(IllegalArgumentException::class.java) {
-                SealedSender.encryptSealed(ByteArray(8), ByteArray(32), ByteArray(10))
+                SealedSender.encryptSealed(
+                    ByteArray(8), ByteArray(32), ByteArray(32), ByteArray(10)
+                )
             }
         }
     }

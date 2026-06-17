@@ -1,31 +1,31 @@
 package org.enchant.core.crypto
 
 /**
- * Sealed Sender (anonymous sender) encryption.
+ * Veil (anonymous sender) encryption.
  *
- * Implements the sealed sender protocol: the sender's identity is encrypted
- * inside the message payload using a key derived from the recipient's profile key.
- * The server sees only an opaque blob and the recipient — it cannot determine who
- * sent the message.
+ * Replaces the previous Kotlin-only sealed sender implementation with native
+ * libenchantcrypto FFI calls. All key derivation, DH key agreement, and
+ * authenticated encryption run in the C++ library.
  *
  * Flow:
- * 1. Sender derives an access key from the recipient's profile key
- * 2. Sender encrypts their identity + message with the access key
- * 3. Server relays the sealed envelope without knowing the sender
- * 4. Recipient decrypts using their profile key to discover who sent it
+ * 1. Sender uses the recipient's public key and their own identity key pair
+ *    to veil-encrypt a message. The resulting payload hides the sender's
+ *    identity from the relay server.
+ * 2. Server relays the opaque blob.
+ * 3. Recipient uses their private key to decrypt and recover the sender's
+ *    identity public key.
  *
- * NOTE: Profile key derivation and certificate management are expected to be
- * handled by the :core:auth or :core:profile module.
+ * Profile data encryption uses native AES-256-GCM directly.
  */
 object SealedSender {
 
-    private const val SEALED_SENDER_INFO = "SealedSender"
+    private const val VEIL_ACCESS_KEY_INFO = "EnchantSealedSenderAccessKey"
 
     /**
-     * Derive an unidentified access key from a profile key.
+     * Derive an unidentified access key from a profile key and sender identity.
      *
-     * The access key is used to encrypt the sender's identity inside the sealed
-     * envelope. This is AES-256-GCM encryption of 32 zero bytes with the profile key.
+     * Uses HKDF-SHA256 in the native library. The result can be used by the
+     * server to authorize anonymous delivery without learning the sender.
      *
      * @param profileKey the recipient's 32-byte profile key
      * @param senderIdentityKey the sender's 32-byte identity public key
@@ -35,121 +35,98 @@ object SealedSender {
         require(profileKey.size == 32) { "Profile key must be 32 bytes" }
         require(senderIdentityKey.size == 32) { "Identity key must be 32 bytes" }
 
-        val nonce = CryptoPrimitives.sha256(senderIdentityKey).copyOfRange(0, 12)
-        val encrypted = CryptoPrimitives.encryptAesGcmRaw(
-            plaintext = ByteArray(32),
-            key = profileKey,
-            nonce = nonce
+        val okm = ByteArray(16)
+        val info = VEIL_ACCESS_KEY_INFO.toByteArray(Charsets.UTF_8)
+        val rc = EnchantCrypto.enchant_hkdf_sha256(
+            senderIdentityKey, senderIdentityKey.size.toLong(),
+            profileKey, profileKey.size.toLong(),
+            info, info.size.toLong(),
+            okm, okm.size.toLong()
         )
-        return encrypted.copyOfRange(0, 16)
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("deriveAccessKey failed: $rc")
+        }
+        return okm
     }
 
     /**
-     * Encrypt a message for sealed sender delivery.
+     * Veil-encrypt a message for a recipient.
      *
-     * The result contains the sender's identity encrypted with the access key,
-     * followed by the message encrypted with the same key.
+     * The sender's identity is hidden inside the ciphertext using ephemeral and
+     * static X25519 DH. The server sees only an opaque blob.
      *
-     * @param accessKey derived access key (16 bytes, padded to 32)
-     * @param senderIdentityKey sender's identity public key
-     * @param message the encrypted message payload
-     * @return sealed sender payload
+     * @param recipientPublicKey recipient's 32-byte X25519 public key
+     * @param senderIdentityPrivate sender's 32-byte X25519 private key
+     * @param senderIdentityPublic sender's 32-byte X25519 public key
+     * @param message plaintext message
+     * @return opaque veil ciphertext
      */
     fun encryptSealed(
-        accessKey: ByteArray,
-        senderIdentityKey: ByteArray,
+        recipientPublicKey: ByteArray,
+        senderIdentityPrivate: ByteArray,
+        senderIdentityPublic: ByteArray,
         message: ByteArray
     ): ByteArray {
-        require(accessKey.size == 16) { "Access key must be 16 bytes" }
+        require(recipientPublicKey.size == 32) { "Recipient public key must be 32 bytes" }
+        require(senderIdentityPrivate.size == 32) { "Sender private key must be 32 bytes" }
+        require(senderIdentityPublic.size == 32) { "Sender public key must be 32 bytes" }
 
-        val fullKey = ByteArray(32).apply {
-            accessKey.copyInto(this)
-            CryptoPrimitives.sha256(accessKey).copyInto(this, 16, 0, 16)
-        }
-
-        val nonce = CryptoPrimitives.generateRandomKey(CryptoPrimitives.AES_GCM_NONCE_SIZE)
-        val identityCiphertext = CryptoPrimitives.encryptAesGcmRaw(
-            plaintext = senderIdentityKey,
-            key = fullKey,
-            nonce = nonce
+        val output = ByteArray(veilV1CiphertextSize(message.size))
+        val rc = EnchantCrypto.enchant_veil_encrypt_v1(
+            recipientPublicKey,
+            senderIdentityPrivate,
+            senderIdentityPublic,
+            message, message.size.toLong(),
+            output, output.size.toLong()
         )
-
-        val msgNonce = CryptoPrimitives.generateRandomKey(CryptoPrimitives.XCHACHA20_NONCE_SIZE)
-        val msgCiphertext = CryptoPrimitives.encryptXChaCha20Poly1305Raw(
-            plaintext = message,
-            key = fullKey,
-            nonce = msgNonce
-        )
-
-        CryptoPrimitives.zeroBytes(fullKey)
-
-        return ByteArray(
-            nonce.size + identityCiphertext.size + msgNonce.size + msgCiphertext.size
-        ).apply {
-            var offset = 0
-            nonce.copyInto(this, offset); offset += nonce.size
-            identityCiphertext.copyInto(this, offset); offset += identityCiphertext.size
-            msgNonce.copyInto(this, offset); offset += msgNonce.size
-            msgCiphertext.copyInto(this, offset)
+        System.err.println("DEBUG kt enchant_veil_encrypt_v1 rc=$rc outputSize=${output.size}")
+        System.err.println("DEBUG kt encrypt eph_pub bytes 0-4: " + output.sliceArray(0 until 4).joinToString("") { "%02x".format(it) })
+        System.err.println("DEBUG kt encrypt output bytes 80-96: " + output.sliceArray(80 until 96).joinToString("") { "%02x".format(it) })
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("enchant_veil_encrypt_v1 failed: $rc")
         }
+        return output
     }
 
     /**
-     * Decrypt a sealed sender message.
+     * Decrypt a veil ciphertext and recover the sender's identity key.
      *
-     * @param accessKey derived access key (16 bytes)
-     * @param sealedPayload the sealed sender payload
-     * @return Pair(senderIdentityKey, message) or null on failure
+     * @param recipientPrivateKey recipient's 32-byte X25519 private key
+     * @param recipientPublicKey recipient's 32-byte X25519 public key
+     * @param sealedPayload veil ciphertext from [encryptSealed]
+     * @return Pair(senderIdentityKey, plaintext) or null on failure
      */
     fun decryptSealed(
-        accessKey: ByteArray,
+        recipientPrivateKey: ByteArray,
+        recipientPublicKey: ByteArray,
         sealedPayload: ByteArray
     ): Pair<ByteArray, ByteArray>? {
-        require(accessKey.size == 16) { "Access key must be 16 bytes" }
+        require(recipientPrivateKey.size == 32) { "Recipient private key must be 32 bytes" }
+        require(recipientPublicKey.size == 32) { "Recipient public key must be 32 bytes" }
 
-        val fullKey = ByteArray(32).apply {
-            accessKey.copyInto(this)
-            CryptoPrimitives.sha256(accessKey).copyInto(this, 16, 0, 16)
+        val plaintext = ByteArray(sealedPayload.size)
+        val senderIdentityKeyOut = ByteArray(32)
+        val rc = EnchantCrypto.enchant_veil_decrypt_v1(
+            recipientPrivateKey,
+            recipientPublicKey,
+            sealedPayload, sealedPayload.size.toLong(),
+            plaintext, plaintext.size.toLong(),
+            senderIdentityKeyOut
+        )
+        System.err.println("DEBUG kt enchant_veil_decrypt_v1 rc=$rc sealedSize=${sealedPayload.size}")
+        System.err.println("DEBUG kt decrypt eph_pub bytes 0-4: " + sealedPayload.sliceArray(0 until 4).joinToString("") { "%02x".format(it) })
+        System.err.println("DEBUG kt decrypt input bytes 80-96: " + sealedPayload.sliceArray(80 until 96).joinToString("") { "%02x".format(it) })
+        if (rc != EnchantCrypto.SUCCESS) {
+            return null
         }
-
-        return try {
-            var offset = 0
-            val nonce = sealedPayload.copyOfRange(offset, offset + CryptoPrimitives.AES_GCM_NONCE_SIZE)
-            offset += CryptoPrimitives.AES_GCM_NONCE_SIZE
-
-            val identityCiphertext = sealedPayload.copyOfRange(offset, offset + 32 + CryptoPrimitives.AES_GCM_TAG_SIZE)
-            offset += identityCiphertext.size
-
-            val senderIdentityKey = CryptoPrimitives.decryptAesGcmRaw(
-                ciphertext = identityCiphertext,
-                key = fullKey,
-                nonce = nonce
-            )
-
-            val msgNonce = sealedPayload.copyOfRange(offset, offset + CryptoPrimitives.XCHACHA20_NONCE_SIZE)
-            offset += CryptoPrimitives.XCHACHA20_NONCE_SIZE
-
-            val msgCiphertext = sealedPayload.copyOfRange(offset, sealedPayload.size)
-
-            val message = CryptoPrimitives.decryptXChaCha20Poly1305Raw(
-                ciphertext = msgCiphertext,
-                key = fullKey,
-                nonce = msgNonce
-            )
-
-            CryptoPrimitives.zeroBytes(fullKey)
-            Pair(senderIdentityKey, message)
-        } catch (e: Exception) {
-            CryptoPrimitives.zeroBytes(fullKey)
-            null
-        }
+        return Pair(senderIdentityKeyOut, plaintext)
     }
 
     /**
-     * Encrypt a message with a profile key for profile data.
+     * Encrypt profile data with a profile key.
      *
      * Used for encrypting profile fields (name, about, avatar) before uploading
-     * to the server.
+     * to the server. Uses native AES-256-GCM.
      *
      * @param profileKey 32-byte profile key
      * @param data data to encrypt
@@ -157,22 +134,63 @@ object SealedSender {
      */
     fun encryptProfileData(profileKey: ByteArray, data: ByteArray): ByteArray {
         require(profileKey.size == 32) { "Profile key must be 32 bytes" }
-        return CryptoPrimitives.encryptAesGcm(data, profileKey)
+
+        val nonce = CryptoPrimitives.generateRandomKey(EnchantCrypto.AES_GCM_NONCE_SIZE)
+        val ciphertext = ByteArray(data.size + EnchantCrypto.AES_GCM_TAG_SIZE)
+        val ciphertextLen = LongArray(1)
+        val rc = EnchantCrypto.enchant_aes_256_gcm_encrypt(
+            profileKey, nonce,
+            data, data.size.toLong(),
+            ByteArray(0), 0L,
+            ciphertext, ciphertextLen
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("encryptProfileData failed: $rc")
+        }
+
+        return ByteArray(nonce.size + ciphertextLen[0].toInt()).apply {
+            nonce.copyInto(this)
+            ciphertext.copyInto(this, nonce.size, 0, ciphertextLen[0].toInt())
+        }
     }
 
     /**
      * Decrypt profile data encrypted with a profile key.
      *
      * @param profileKey 32-byte profile key
-     * @param encryptedData encrypted data
+     * @param encryptedData encrypted data [nonce(12) | ciphertext | tag(16)]
      * @return decrypted data, or null on failure
      */
     fun decryptProfileData(profileKey: ByteArray, encryptedData: ByteArray): ByteArray? {
         require(profileKey.size == 32) { "Profile key must be 32 bytes" }
+        if (encryptedData.size < EnchantCrypto.AES_GCM_NONCE_SIZE + EnchantCrypto.AES_GCM_TAG_SIZE) {
+            return null
+        }
+
+        val nonce = encryptedData.copyOfRange(0, EnchantCrypto.AES_GCM_NONCE_SIZE)
+        val ciphertext = encryptedData.copyOfRange(
+            EnchantCrypto.AES_GCM_NONCE_SIZE, encryptedData.size
+        )
+        val plaintext = ByteArray(ciphertext.size)
+        val plaintextLen = LongArray(1)
+
         return try {
-            CryptoPrimitives.decryptAesGcm(encryptedData, profileKey)
-        } catch (e: Exception) {
+            val rc = EnchantCrypto.enchant_aes_256_gcm_decrypt(
+                profileKey, nonce,
+                ciphertext, ciphertext.size.toLong(),
+                ByteArray(0), 0L,
+                plaintext, plaintextLen
+            )
+            if (rc != EnchantCrypto.SUCCESS) null
+            else plaintext.copyOf(plaintextLen[0].toInt())
+        } catch (_: Exception) {
             null
         }
+    }
+
+    private fun veilV1CiphertextSize(plaintextLen: Int): Int {
+        // Header: eph_pub(32) + enc_sender(48) + enc_sender_mac(16) + enc_sender_nonce(24) + msg_nonce(24) + msg_mac(16) = 160
+        // Message: plaintext + 16-byte Poly1305 tag
+        return 160 + plaintextLen + EnchantCrypto.XCHACHA20_TAG_SIZE
     }
 }

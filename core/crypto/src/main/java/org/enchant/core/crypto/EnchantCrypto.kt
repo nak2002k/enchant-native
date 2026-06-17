@@ -136,6 +136,35 @@ object EnchantCrypto {
     external fun enchant_safety_number_compare(safetyNumberA: ByteArray, lenA: Long, safetyNumberB: ByteArray, lenB: Long, matchOut: IntArray): Int
 
     // ──────────────────────────────────────────────
+    // Veil (anonymous sender)
+    // ──────────────────────────────────────────────
+    external fun enchant_veil_encrypt_v1(recipientPublicKey: ByteArray, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, plaintext: ByteArray, plaintextLen: Long, output: ByteArray, outputLen: Long): Int
+    external fun enchant_veil_decrypt_v1(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long, senderIdentityKeyOut: ByteArray): Int
+    external fun enchant_veil_encrypt_v2(senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, recipientPublicKeys: ByteArray, numRecipients: Long, usmcData: ByteArray, usmcLen: Long, output: ByteArray, outputLen: Long): Int
+    external fun enchant_veil_decrypt_v2(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long, senderIdentityKeyOut: ByteArray): Int
+
+    // ──────────────────────────────────────────────
+    // Unidentified Sender Message Content (USMC)
+    // ──────────────────────────────────────────────
+    external fun enchant_usmc_create(msgType: Int, senderCertData: ByteArray, senderCertLen: Long, plaintext: ByteArray, plaintextLen: Long, contentHint: Int, groupId: ByteArray, groupIdLen: Long, usmcOut: ByteArray, usmcLen: LongArray): Int
+    external fun enchant_usmc_serialize(usmcData: ByteArray, usmcLen: Long, output: ByteArray, outputLen: LongArray): Int
+    external fun enchant_usmc_deserialize(data: ByteArray, dataLen: Long, usmcOut: ByteArray, usmcLen: LongArray, msgTypeOut: IntArray): Int
+    external fun enchant_usmc_get_sender_uuid(usmcData: ByteArray, usmcLen: Long, senderUuidOut: ByteArray, senderUuidLen: Long): Int
+    external fun enchant_usmc_get_sender_device_id(usmcData: ByteArray, usmcLen: Long, deviceIdOut: IntArray): Int
+    external fun enchant_usmc_get_content_hint(usmcData: ByteArray, usmcLen: Long, contentHintOut: IntArray): Int
+    external fun enchant_usmc_get_message_type(usmcData: ByteArray, usmcLen: Long, messageTypeOut: IntArray): Int
+    external fun enchant_usmc_get_contents(usmcData: ByteArray, usmcLen: Long, contentsOut: ByteArray, contentsLen: Long): Int
+    external fun enchant_usmc_get_group_id(usmcData: ByteArray, usmcLen: Long, groupIdOut: ByteArray, groupIdLen: Long): Int
+
+    // ──────────────────────────────────────────────
+    // Server / Sender certificates
+    // ──────────────────────────────────────────────
+    external fun enchant_server_certificate_create(keyId: Int, publicKey: ByteArray, privateKey: ByteArray, certOut: ByteArray, certLen: Long): Int
+    external fun enchant_server_certificate_validate(certData: ByteArray, certLen: Long, trustRoot: ByteArray, validOut: IntArray): Int
+    external fun enchant_sender_certificate_create(senderUuid: String, senderE164: ByteArray, senderDeviceId: Int, expiration: Long, identityKey: ByteArray, serverCertData: ByteArray, serverCertLen: Long, serverPrivateKey: ByteArray, certOut: ByteArray, certLen: Long): Int
+    external fun enchant_sender_certificate_validate(certData: ByteArray, certLen: Long, serverTrustRoot: ByteArray, validationTime: Long, validOut: IntArray): Int
+
+    // ──────────────────────────────────────────────
     // Veil Session
     // ──────────────────────────────────────────────
     external fun enchant_veil_session_create(sessionOut: LongArray): Int
