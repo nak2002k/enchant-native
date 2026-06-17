@@ -288,12 +288,9 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun zeroBytes(data: ByteArray) {
-        var i = 0
-        val n = data.size
-        while (i < n) {
-            data[i] = 0
-            i++
-        }
+        if (data.isEmpty()) return
+        // Native sodium_memzero cannot be optimized away by the JIT.
+        EnchantCrypto.enchant_secure_zero(data, data.size.toLong())
     }
 
     // ──────────────────────────────────────────────

@@ -935,19 +935,17 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1hpke_1open(
 
 JNIEXPORT void JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1secure_1zero(
-    JNIEnv* env, jclass clazz, jlong ptr, jlong len) {
+    JNIEnv* env, jclass clazz, jbyteArray data, jlong len) {
     (void)clazz;
 
     // Get input arrays
-
-    // Declare output variables
+    jbyte* data_jbyte = env->GetByteArrayElements(data, nullptr);
 
     // Call native function
-    enchant_secure_zero((void*)(long)(ptr), len);
+    enchant_secure_zero(reinterpret_cast<void*>(data_jbyte), static_cast<size_t>(len));
 
     // Release and copy back
-
-    // Copy output values back to Java
+    env->ReleaseByteArrayElements(data, data_jbyte, 0);
 }
 
 JNIEXPORT jint JNICALL
@@ -4030,21 +4028,24 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1usmc_1deserialize(
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1prekey_1generate_1batch(
-    JNIEnv* env, jclass clazz, jint count, jint start_id, jbyteArray keys_out, jlong keys_len) {
+    JNIEnv* env, jclass clazz, jint count, jint start_id, jbyteArray keys_out, jlongArray keys_len) {
     (void)clazz;
 
     // Get input arrays
     jbyte* keys_out_jbyte = env->GetByteArrayElements(keys_out, nullptr);
     uint8_t* keys_out_ptr = reinterpret_cast<uint8_t*>(keys_out_jbyte);
+    jlong* keys_len_elems = env->GetLongArrayElements(keys_len, nullptr);
 
     // Declare output variables
-    size_t keys_len_val = 0;
+    size_t keys_len_val = static_cast<size_t>(env->GetArrayLength(keys_out));
 
     // Call native function
     int rc = enchant_prekey_generate_batch(count, start_id, keys_out_ptr, &keys_len_val);
 
     // Release and copy back
     env->ReleaseByteArrayElements(keys_out, keys_out_jbyte, 0);
+    keys_len_elems[0] = static_cast<jlong>(keys_len_val);
+    env->ReleaseLongArrayElements(keys_len, keys_len_elems, 0);
 
     // Copy output values back to Java
     return rc;
@@ -4054,6 +4055,7 @@ JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1prekey_1generate_1signed(
     JNIEnv* env, jclass clazz, jint prekey_id, jbyteArray identity_private_key, jbyteArray signed_prekey_public, jbyteArray signed_prekey_private, jbyteArray signature, jlong signature_len) {
     (void)clazz;
+    (void)signature_len;
 
     // Get input arrays
     jbyte* identity_private_key_jbyte = env->GetByteArrayElements(identity_private_key, nullptr);
@@ -4065,7 +4067,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1prekey_1generate_1signed(
     uint8_t* signature_ptr = reinterpret_cast<uint8_t*>(signature_jbyte);
 
     // Declare output variables
-    size_t signature_len_val = 0;
+    size_t signature_len_val = static_cast<size_t>(env->GetArrayLength(signature));
 
     // Call native function
     int rc = enchant_prekey_generate_signed(prekey_id, reinterpret_cast<const uint8_t*>(identity_private_key_jbyte), signed_prekey_public_ptr, signed_prekey_private_ptr, signature_ptr, &signature_len_val);
