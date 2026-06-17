@@ -58,12 +58,19 @@ class PreKeyStore {
     suspend fun generateSignedPreKey(identityKeyPair: CryptoPrimitives.KeyPair): SignedPreKeyRecord {
         return mutex.withLock {
             val id = nextId.incrementAndGet()
-            val keyPair = CryptoPrimitives.generateX25519KeyPair()
-            val signature = CryptoPrimitives.signEd25519(keyPair.publicKey, identityKeyPair.privateKey)
+            val publicKey = ByteArray(32)
+            val privateKey = ByteArray(32)
+            val signature = ByteArray(64)
+            val rc = EnchantCrypto.enchant_prekey_generate_signed(
+                id, identityKeyPair.privateKey, publicKey, privateKey, signature, signature.size.toLong()
+            )
+            if (rc != EnchantCrypto.SUCCESS) {
+                throw IllegalStateException("enchant_prekey_generate_signed failed: $rc")
+            }
             val record = SignedPreKeyRecord(
                 id = id,
-                publicKey = keyPair.publicKey,
-                privateKey = keyPair.privateKey,
+                publicKey = publicKey,
+                privateKey = privateKey,
                 signature = signature,
                 timestamp = System.currentTimeMillis()
             )
@@ -126,18 +133,31 @@ class PreKeyStore {
             } else {
                 nextId.incrementAndGet()
             }
+            val buffer = ByteArray(count * 68)
+            val len = LongArray(1)
+            val rc = EnchantCrypto.enchant_prekey_generate_batch(count, firstId, buffer, len)
+            if (rc != EnchantCrypto.SUCCESS) {
+                throw IllegalStateException("enchant_prekey_generate_batch failed: $rc")
+            }
             val records = (0 until count).map { offset ->
-                val id = firstId + offset
-                val keyPair = CryptoPrimitives.generateX25519KeyPair()
+                val base = offset * 68
+                val id = (buffer[base].toInt() and 0xFF) or
+                        ((buffer[base + 1].toInt() and 0xFF) shl 8) or
+                        ((buffer[base + 2].toInt() and 0xFF) shl 16) or
+                        ((buffer[base + 3].toInt() and 0xFF) shl 24)
+                val publicKey = buffer.copyOfRange(base + 4, base + 36)
+                val privateKey = buffer.copyOfRange(base + 36, base + 68)
                 val record = OneTimePreKeyRecord(
                     id = id,
-                    publicKey = keyPair.publicKey,
-                    privateKey = keyPair.privateKey,
+                    publicKey = publicKey,
+                    privateKey = privateKey,
                     timestamp = System.currentTimeMillis()
                 )
                 oneTimePreKeys[id] = record
                 record
             }
+            // Clear native buffer of private key material
+            EnchantCrypto.enchant_secure_zero(buffer, buffer.size.toLong())
             dao?.storeOneTimePreKeys(records)
             records
         }
@@ -151,11 +171,19 @@ class PreKeyStore {
     suspend fun generateLastResortPreKey(): OneTimePreKeyRecord {
         return mutex.withLock {
             val id = nextId.incrementAndGet()
-            val keyPair = CryptoPrimitives.generateX25519KeyPair()
+            val buffer = ByteArray(68)
+            val len = LongArray(1)
+            val rc = EnchantCrypto.enchant_prekey_generate_batch(1, id, buffer, len)
+            if (rc != EnchantCrypto.SUCCESS) {
+                throw IllegalStateException("enchant_prekey_generate_batch failed: $rc")
+            }
+            val publicKey = buffer.copyOfRange(4, 36)
+            val privateKey = buffer.copyOfRange(36, 68)
+            EnchantCrypto.enchant_secure_zero(buffer, buffer.size.toLong())
             val record = OneTimePreKeyRecord(
                 id = id,
-                publicKey = keyPair.publicKey,
-                privateKey = keyPair.privateKey,
+                publicKey = publicKey,
+                privateKey = privateKey,
                 timestamp = System.currentTimeMillis(),
                 isLastResort = true
             )
