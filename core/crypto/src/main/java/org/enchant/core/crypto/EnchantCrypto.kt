@@ -225,7 +225,7 @@ object EnchantCrypto {
     // ──────────────────────────────────────────────
     // Fingerprint (future)
     // ──────────────────────────────────────────────
-    external fun enchant_fingerprint_generate(version: Int, iterations: Int, localName: String, localKey: ByteArray, remoteName: String, remoteKey: ByteArray, displayableOut: ByteArray, displayableOutLen: Long, scannableOut: ByteArray, scannableLen: Long): Int
+    external fun enchant_fingerprint_generate(version: Int, iterations: Int, localName: String, localKey: ByteArray, remoteName: String, remoteKey: ByteArray, displayableOut: ByteArray, scannableLen: LongArray, scannableOut: ByteArray): Int
     external fun enchant_fingerprint_compare(scannableA: ByteArray, lenA: Long, scannableB: ByteArray, lenB: Long, matchOut: IntArray): Int
 
     // ──────────────────────────────────────────────

@@ -3417,7 +3417,7 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1kem_1deserialize_1ciphertext
 
 JNIEXPORT jint JNICALL
 Java_org_enchant_core_crypto_EnchantCrypto_enchant_1fingerprint_1generate(
-    JNIEnv* env, jclass clazz, jint version, jint iterations, jstring local_name, jbyteArray local_key, jstring remote_name, jbyteArray remote_key, jbyteArray displayable_out, jlong displayable_out_len, jbyteArray scannable_out, jlong scannable_len) {
+    JNIEnv* env, jclass clazz, jint version, jint iterations, jstring local_name, jbyteArray local_key, jstring remote_name, jbyteArray remote_key, jbyteArray displayable_out, jlongArray scannable_len, jbyteArray scannable_out) {
     (void)clazz;
 
     // Get input arrays
@@ -3427,11 +3427,13 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1fingerprint_1generate(
     jbyte* remote_key_jbyte = env->GetByteArrayElements(remote_key, nullptr);
     jbyte* displayable_out_jbyte = env->GetByteArrayElements(displayable_out, nullptr);
     uint8_t* displayable_out_ptr = reinterpret_cast<uint8_t*>(displayable_out_jbyte);
+    jlong* scannable_len_elems = env->GetLongArrayElements(scannable_len, nullptr);
     jbyte* scannable_out_jbyte = env->GetByteArrayElements(scannable_out, nullptr);
     uint8_t* scannable_out_ptr = reinterpret_cast<uint8_t*>(scannable_out_jbyte);
 
     // Declare output variables
-    size_t scannable_len_val = 0;
+    size_t displayable_out_len = static_cast<size_t>(env->GetArrayLength(displayable_out));
+    size_t scannable_len_val = static_cast<size_t>(env->GetArrayLength(scannable_out));
 
     // Call native function
     int rc = enchant_fingerprint_generate(version, iterations, local_name_str, reinterpret_cast<const uint8_t*>(local_key_jbyte), remote_name_str, reinterpret_cast<const uint8_t*>(remote_key_jbyte), displayable_out_ptr, displayable_out_len, scannable_out_ptr, &scannable_len_val);
@@ -3442,6 +3444,8 @@ Java_org_enchant_core_crypto_EnchantCrypto_enchant_1fingerprint_1generate(
     env->ReleaseStringUTFChars(remote_name, remote_name_str);
     env->ReleaseByteArrayElements(remote_key, remote_key_jbyte, JNI_ABORT);
     env->ReleaseByteArrayElements(displayable_out, displayable_out_jbyte, 0);
+    scannable_len_elems[0] = static_cast<jlong>(scannable_len_val);
+    env->ReleaseLongArrayElements(scannable_len, scannable_len_elems, 0);
     env->ReleaseByteArrayElements(scannable_out, scannable_out_jbyte, 0);
 
     // Copy output values back to Java
