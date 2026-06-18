@@ -1,5 +1,6 @@
 package org.enchant.core.crypto
 
+import android.util.Log
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -25,6 +26,7 @@ import org.enchant.core.database.dao.SignedPreKeyRecord
  * - :core:protos (generated protobuf classes) for wire format
  */
 object KeyManager {
+    private const val TAG = "KeyManager"
     private val mutex = Mutex()
     private var initialized = false
     private var identityKeyPair: CryptoPrimitives.KeyPair? = null
@@ -315,25 +317,44 @@ object KeyManager {
      * preventing ID collision with previously consumed OPKs (e.g., after restart).
      */
     suspend fun topUpOpks() {
-        val client = apiClient ?: return
-        val store = preKeyStore ?: return
+        val client = apiClient ?: run {
+            Log.w(TAG, "topUpOpks: no ApiClient configured")
+            return
+        }
+        val store = preKeyStore ?: run {
+            Log.w(TAG, "topUpOpks: no PreKeyStore configured")
+            return
+        }
         try {
             val countResponse = client.get("/v1/keys/opk-count")
             val remaining = countResponse.getOrNull()?.let { json ->
                 json["remaining"]?.jsonPrimitive?.int ?: 100
-            } ?: return
+            } ?: run {
+                Log.w(TAG, "topUpOpks: failed to parse opk-count response")
+                return
+            }
 
             if (remaining < 10) {
-                val consumed = 100 - remaining
                 val existingCount = store.getOneTimePreKeyCount()
                 val needed = maxOf(20, 100 - existingCount)
-                val startId = existingCount
+
+                // Use server-side consumed count as startId to prevent ID collision
+                val consumed = 100 - remaining
+                val startId = maxOf(existingCount, consumed).also {
+                    if (existingCount < consumed) {
+                        Log.w(TAG, "topUpOpks: local OPK count ($existingCount) < server consumed ($consumed), using server counter to avoid overwrite")
+                    }
+                }
+
+                Log.d(TAG, "topUpOpks: generating $needed OPKs starting at id $startId (local=$existingCount, server_remaining=$remaining)")
                 val opks = store.generateOneTimePreKeys(needed, startId = startId)
                 val uploadResult = uploadOpks(client, opks)
                 if (uploadResult.isFailure) {
+                    Log.e(TAG, "topUpOpks: upload failed", uploadResult.exceptionOrNull())
                 }
             }
         } catch (e: Exception) {
+            Log.e(TAG, "topUpOpks: unexpected error", e)
         }
     }
 
