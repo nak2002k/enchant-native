@@ -472,9 +472,9 @@ class VeilSession private constructor(
         }
     }
 
-    fun hasIdentityChanged(userId: String): Boolean {
-        // TODO: Implement proper identity change detection via native store
-        return false
+    fun hasIdentityChanged(userId: String, newIdentityKey: ByteArray): Boolean {
+        val existing = identityKeys[userId] ?: return false
+        return !existing.contentEquals(newIdentityKey)
     }
 
     // ──────────────────────────────────────────────

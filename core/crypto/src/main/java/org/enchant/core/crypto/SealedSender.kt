@@ -79,9 +79,6 @@ object SealedSender {
             message, message.size.toLong(),
             output, output.size.toLong()
         )
-        System.err.println("DEBUG kt enchant_veil_encrypt_v1 rc=$rc outputSize=${output.size}")
-        System.err.println("DEBUG kt encrypt eph_pub bytes 0-4: " + output.sliceArray(0 until 4).joinToString("") { "%02x".format(it) })
-        System.err.println("DEBUG kt encrypt output bytes 80-96: " + output.sliceArray(80 until 96).joinToString("") { "%02x".format(it) })
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_veil_encrypt_v1 failed: $rc")
         }
@@ -113,9 +110,6 @@ object SealedSender {
             plaintext, plaintext.size.toLong(),
             senderIdentityKeyOut
         )
-        System.err.println("DEBUG kt enchant_veil_decrypt_v1 rc=$rc sealedSize=${sealedPayload.size}")
-        System.err.println("DEBUG kt decrypt eph_pub bytes 0-4: " + sealedPayload.sliceArray(0 until 4).joinToString("") { "%02x".format(it) })
-        System.err.println("DEBUG kt decrypt input bytes 80-96: " + sealedPayload.sliceArray(80 until 96).joinToString("") { "%02x".format(it) })
         if (rc != EnchantCrypto.SUCCESS) {
             return null
         }

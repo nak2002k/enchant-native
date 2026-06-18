@@ -148,8 +148,4 @@ object UsmcHelper {
         }
         return groupIdOut
     }
-
-    private fun usmcSize(cert: ByteArray, plaintext: ByteArray, groupId: ByteArray): Int {
-        return 4 + 4 + 4 + cert.size + plaintext.size + groupId.size
-    }
 }

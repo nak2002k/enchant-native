@@ -221,11 +221,25 @@ class VeilSessionTest {
             assertNull(veilSession.getIdentityKey("nobody"))
         }
 
-        @Test @DisplayName("hasIdentityChanged returns false (placeholder implementation)")
-        fun `has identity changed returns false`() = runTest {
+        @Test @DisplayName("hasIdentityChanged detects changed identity key")
+        fun `has identity changed returns true`() = runTest {
+            val ik1 = CryptoPrimitives.generateEd25519KeyPair().publicKey
+            val ik2 = CryptoPrimitives.generateEd25519KeyPair().publicKey
+            veilSession.setIdentityKey("peer", ik1)
+            assertTrue(veilSession.hasIdentityChanged("peer", ik2))
+        }
+
+        @Test @DisplayName("hasIdentityChanged returns false for same key")
+        fun `has identity changed same key`() = runTest {
+            val ik1 = CryptoPrimitives.generateEd25519KeyPair().publicKey
+            veilSession.setIdentityKey("peer", ik1)
+            assertFalse(veilSession.hasIdentityChanged("peer", ik1))
+        }
+
+        @Test @DisplayName("hasIdentityChanged returns false for unknown user")
+        fun `has identity changed unknown user`() = runTest {
             val ik = CryptoPrimitives.generateEd25519KeyPair().publicKey
-            veilSession.setIdentityKey("peer", ik)
-            assertFalse(veilSession.hasIdentityChanged("peer"))
+            assertFalse(veilSession.hasIdentityChanged("unknown", ik))
         }
     }
 
