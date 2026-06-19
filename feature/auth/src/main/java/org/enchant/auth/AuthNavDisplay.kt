@@ -44,9 +44,8 @@ fun AuthNavDisplay(
                 }
             }
             is RegistrationState.KeyGeneration -> {
-                if (backStack.lastOrNull() !is AuthNavKey.ProfileSetup) {
-                    backStack.add(AuthNavKey.ProfileSetup)
-                }
+                // Key generation is in progress - KeyGeneration entry is already on the
+                // backstack (added when state was Permissions). Don't add ProfileSetup yet.
             }
             is RegistrationState.Permissions -> {
                 if (backStack.lastOrNull() !is AuthNavKey.KeyGeneration) {
@@ -54,13 +53,13 @@ fun AuthNavDisplay(
                 }
             }
             is RegistrationState.UsernamePicker -> {
-                if (backStack.lastOrNull() !is AuthNavKey.AppLock) {
-                    backStack.add(AuthNavKey.AppLock)
+                if (backStack.lastOrNull() !is AuthNavKey.UsernamePicker) {
+                    backStack.add(AuthNavKey.UsernamePicker)
                 }
             }
             is RegistrationState.Complete -> {
-                if (backStack.lastOrNull() !is AuthNavKey.AppLock) {
-                    backStack.add(AuthNavKey.AppLock)
+                if (backStack.lastOrNull() !is AuthNavKey.ProfileSetup) {
+                    backStack.add(AuthNavKey.ProfileSetup)
                 }
             }
             is RegistrationState.Error -> {}
@@ -115,14 +114,17 @@ fun AuthNavDisplay(
             }
 
             entry<AuthNavKey.PhoneEntry> {
+                val isLoading = registrationState is RegistrationState.Loading
+                val errorMessage = (registrationState as? RegistrationState.Error)?.message
                 PhoneEntryScreen(
                     onCountrySelected = { backStack.add(AuthNavKey.CountryCodePicker) },
                     onPhoneNumberChanged = {},
                     onPhoneNumberSubmitted = { phone ->
                         viewModel.requestOtp(phone)
-                        backStack.add(AuthNavKey.OtpVerify(identifier = phone))
                     },
-                    onNavigateBack = { if (backStack.size > 1) backStack.removeAt(backStack.size - 1) }
+                    onNavigateBack = { if (backStack.size > 1) backStack.removeAt(backStack.size - 1) },
+                    isLoading = isLoading,
+                    errorMessage = errorMessage
                 )
             }
 
@@ -134,6 +136,8 @@ fun AuthNavDisplay(
             }
 
             entry<AuthNavKey.OtpVerify> { key ->
+                val isLoading = registrationState is RegistrationState.Loading
+                val errorMessage = (registrationState as? RegistrationState.Error)?.message
                 OtpVerifyScreen(
                     identifier = key.identifier,
                     onCodeSubmitted = { viewModel.verifyOtp(it) },
@@ -142,14 +146,32 @@ fun AuthNavDisplay(
                         while (backStack.size > 1 && backStack.get(backStack.size - 1) !is AuthNavKey.PhoneEntry) {
                             backStack.removeAt(backStack.size - 1)
                         }
-                    }
+                    },
+                    isLoading = isLoading,
+                    errorMessage = errorMessage
                 )
             }
 
             entry<AuthNavKey.KeyGeneration> {
+                val isGenerating = registrationState is RegistrationState.KeyGeneration
+                val isError = registrationState is RegistrationState.Error
+                val errorMessage = (registrationState as? RegistrationState.Error)?.message
+
+                LaunchedEffect(Unit) {
+                    viewModel.registerKeys()
+                }
+
                 KeyGenerationScreen(
-                    onKeysGenerated = { backStack.add(AuthNavKey.ProfileSetup) },
-                    onRetry = { viewModel.registerKeys() }
+                    onKeysGenerated = { },
+                    onRetry = { viewModel.registerKeys() },
+                    progress = when {
+                        isError -> 0f
+                        isGenerating -> 0.5f
+                        registrationState is RegistrationState.Complete -> 1f
+                        else -> 0f
+                    },
+                    isError = isError,
+                    errorMessage = errorMessage
                 )
             }
 

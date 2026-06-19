@@ -116,6 +116,7 @@ object EnchantCrypto {
 
     // --- Session store ---
     external fun enchant_session_store_create(storeOut: LongArray): Int
+    external fun enchant_session_store_create_sqlite(storeOut: LongArray, dbPath: String): Int
     external fun enchant_session_store_destroy(store: Long)
 
     // --- Session manager ---

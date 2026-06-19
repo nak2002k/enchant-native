@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
 import org.enchant.auth.AuthNavDisplay
 import org.enchant.auth.AuthViewModel
 import org.enchant.core.auth.AuthState
+import org.enchant.core.auth.RegistrationState
 import org.enchant.ui.theme.NotionTheme
 
 class MainActivity : ComponentActivity() {
@@ -81,8 +82,10 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     var diReady by remember { mutableStateOf(false) }
     var initFailed by remember { mutableStateOf(false) }
+    var authFlowComplete by remember { mutableStateOf(false) }
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
+    val registrationState by authViewModel.registrationState.collectAsState()
 
     LaunchedEffect(Unit) {
         var attempts = 0
@@ -94,6 +97,17 @@ fun AppNavigation() {
             initFailed = true
         } else {
             diReady = true
+        }
+    }
+
+    // On first composition, if the user was already fully registered (returning user),
+    // skip the auth flow and go straight to the main app.
+    LaunchedEffect(diReady) {
+        if (diReady &&
+            authState is AuthState.Authenticated &&
+            registrationState is RegistrationState.Complete
+        ) {
+            authFlowComplete = true
         }
     }
 
@@ -116,15 +130,10 @@ fun AppNavigation() {
                 CircularProgressIndicator()
             }
         }
-        authState is AuthState.Authenticated -> MainNavDisplay()
-        authState is AuthState.Unauthenticated -> AuthNavDisplay(
+        authFlowComplete -> MainNavDisplay()
+        else -> AuthNavDisplay(
             viewModel = authViewModel,
-            onAuthComplete = { }
+            onAuthComplete = { authFlowComplete = true }
         )
-        else -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        }
     }
 }
