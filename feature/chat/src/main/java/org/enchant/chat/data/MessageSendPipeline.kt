@@ -202,6 +202,11 @@ object MessageSendPipeline {
     suspend fun sendMediaMessage(
         conversationId: String, recipientUserId: String,
         fileUri: Uri, mimeType: String
+    ): SendResult = sendFileMessage(conversationId, recipientUserId, fileUri, "file", mimeType)
+
+    suspend fun sendFileMessage(
+        conversationId: String, recipientUserId: String,
+        fileUri: Uri, fileName: String, mimeType: String
     ): SendResult {
         checkInit()
         val repo = repository!!
@@ -225,7 +230,7 @@ object MessageSendPipeline {
                 val selfId = SecurePreferences.getString("auth.user_id") ?: return@withContext SendResult.Failed(SendError.NETWORK)
                 val envelopeId = UUID.randomUUID().toString()
                 val now = System.currentTimeMillis()
-                val payloadText = "📎 $mimeType"
+                val payloadText = "📎 $fileName"
 
                 repo.insertMessage(MessageEntity(
                     conversationId = conversationId, senderId = selfId,

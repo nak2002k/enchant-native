@@ -51,6 +51,7 @@ import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
 import org.enchant.stickers.StickerPicker
 import org.enchant.stickers.StickerViewModel
+import org.enchant.location.LocationPickerScreen
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +93,9 @@ fun ConversationScreen(
     val translatedMessage by viewModel.translatedMessage.collectAsState()
     val stickerVM = remember { StickerViewModel() }
     val stickerState by stickerVM.uiState.collectAsState()
+    var showLocationPicker by remember { mutableStateOf(false) }
+    var showContactShareDialog by remember { mutableStateOf(false) }
+    var contactShareUserId by remember { mutableStateOf("") }
 
     LaunchedEffect(searchQuery) {
         if (showSearch) viewModel.searchInConversation(searchQuery)
@@ -373,6 +377,63 @@ fun ConversationScreen(
             },
             onLocation = {
                 showAttachments = false
+                showLocationPicker = true
+            },
+            onContact = {
+                showAttachments = false
+                showContactShareDialog = true
+            }
+        )
+    }
+
+    if (showLocationPicker) {
+        LocationPickerScreen(
+            onLocationSelected = { lat, lng, label ->
+                viewModel.sendLocationMessage(lat, lng, label)
+                showLocationPicker = false
+            },
+            onBack = { showLocationPicker = false }
+        )
+    }
+
+    if (showContactShareDialog) {
+        AlertDialog(
+            onDismissRequest = { showContactShareDialog = false },
+            title = { Text("Share Contact") },
+            text = {
+                Column {
+                    Text("Enter the user ID to share:", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = contactShareUserId,
+                        onValueChange = { contactShareUserId = it },
+                        label = { Text("User ID") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (contactShareUserId.isNotBlank()) {
+                            viewModel.sendContactCard(contactShareUserId, conversationId)
+                            contactShareUserId = ""
+                            showContactShareDialog = false
+                        }
+                    },
+                    enabled = contactShareUserId.isNotBlank()
+                ) {
+                    Text("Share")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    contactShareUserId = ""
+                    showContactShareDialog = false
+                }) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -880,7 +941,8 @@ private fun AttachmentSheet(
     onGallery: () -> Unit,
     onCamera: () -> Unit,
     onDocument: () -> Unit,
-    onLocation: () -> Unit
+    onLocation: () -> Unit,
+    onContact: () -> Unit = {}
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -894,6 +956,7 @@ private fun AttachmentSheet(
                 AttachmentButton(Icons.Default.CameraAlt, "Camera", onCamera)
                 AttachmentButton(Icons.Default.Description, "Document", onDocument)
                 AttachmentButton(Icons.Default.LocationOn, "Location", onLocation)
+                AttachmentButton(Icons.Default.Person, "Contact", onContact)
             }
         },
         confirmButton = {},
