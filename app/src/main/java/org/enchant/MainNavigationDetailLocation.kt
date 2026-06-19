@@ -41,6 +41,9 @@ sealed interface MainNavigationDetailLocation : NavKey {
     @Serializable data object Contacts : MainNavigationDetailLocation
     @Serializable data object CreateGroup : MainNavigationDetailLocation
     @Serializable data class GroupInfo(val groupId: String) : MainNavigationDetailLocation
+    @Serializable data object JoinGroup : MainNavigationDetailLocation
+    @Serializable data object JoinRequests : MainNavigationDetailLocation
+    @Serializable data class GroupSettings(val groupId: String) : MainNavigationDetailLocation
     @Serializable data object Channels : MainNavigationDetailLocation
     @Serializable data object Stickers : MainNavigationDetailLocation
     @Serializable data class Profile(val userId: String) : MainNavigationDetailLocation

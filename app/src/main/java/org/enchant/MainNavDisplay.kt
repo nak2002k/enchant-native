@@ -2,24 +2,44 @@ package org.enchant
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import org.enchant.auth.AuthViewModel
 import org.enchant.calls.CallViewModel
 import org.enchant.chatlist.ChatListNavDisplay
 import org.enchant.chatlist.ConversationListViewModel
+import org.enchant.core.calls.CallManager
 import org.enchant.core.calls.CallStatus
 import org.enchant.main.EmptyDetailScreen
 import org.enchant.main.MainNavigationBar
@@ -42,6 +62,9 @@ import org.enchant.calls.screens.CallDetailScreen
 import org.enchant.core.calls.CallLogFilter
 import org.enchant.window.AppScaffold
 import org.enchant.window.rememberAppScaffoldNavigator
+import org.enchant.profile.screens.ProfileScreen
+import org.enchant.channels.screens.ChannelFeedScreen
+import org.enchant.stickers.screens.StickerStoreScreen
 
 @Composable
 fun MainNavDisplay(
@@ -197,6 +220,9 @@ private fun DetailPaneContent(
     val settingsViewModel: SettingsViewModel = viewModel()
     LaunchedEffect(Unit) { settingsViewModel.loadSettings() }
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
 
     AnimatedContent(
         targetState = detailStack.lastOrNull(),
@@ -340,7 +366,7 @@ private fun DetailPaneContent(
                     error = groupsState.error,
                     onGroupClick = { groupId -> onNavigate(MainNavigationDetailLocation.GroupInfo(groupId)) },
                     onCreateGroup = { onNavigate(MainNavigationDetailLocation.CreateGroup) },
-                    onJoinGroup = { /* TODO: join group via code */ },
+                    onJoinGroup = { onNavigate(MainNavigationDetailLocation.JoinGroup) },
                     onRefresh = { groupsViewModel.loadGroups() }
                 )
             }
@@ -371,13 +397,13 @@ private fun DetailPaneContent(
                     error = groupsState.error,
                     inviteLink = groupsState.inviteLink,
                     onNavigateBack = onNavigateBack,
-                    onAddMembers = { /* TODO: add members dialog */ },
+                    onAddMembers = { onNavigate(MainNavigationDetailLocation.Contacts) },
                     onRemoveMember = { userId -> groupsViewModel.removeMember(topDetail.groupId, userId) },
                     onUpdateRole = { userId, role -> groupsViewModel.updateMemberRole(topDetail.groupId, userId, role) },
                     onUpdateGroup = { name, desc -> groupsViewModel.updateGroup(topDetail.groupId, name, desc) },
                     onCreateInviteLink = { groupsViewModel.createInviteLink(topDetail.groupId) },
-                    onCopyInviteLink = { link -> /* TODO: copy to clipboard */ },
-                    onViewJoinRequests = { /* TODO: view join requests */ },
+                    onCopyInviteLink = { link -> clipboardManager.setText(AnnotatedString(link)) },
+                    onViewJoinRequests = { onNavigate(MainNavigationDetailLocation.JoinRequests) },
                     onLeaveGroup = { groupsViewModel.leaveGroup(topDetail.groupId); onNavigateBack() },
                     onDeleteGroup = { groupsViewModel.deleteGroup(topDetail.groupId); onNavigateBack() },
                     onRefresh = { groupsViewModel.loadGroupInfo(topDetail.groupId) }
@@ -417,13 +443,21 @@ private fun DetailPaneContent(
             }
             topDetail is MainNavigationDetailLocation.StatusCreate -> {
                 val statusViewModel: StatusViewModel = viewModel()
+                val mediaLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.GetContent()
+                ) { uri ->
+                    uri?.let {
+                        statusViewModel.createMediaStatus(it.toString(), StatusPrivacy.AllContacts)
+                        onNavigateBack()
+                    }
+                }
                 StatusCreateScreen(
                     onCreateText = { text, bgColor, privacy ->
                         statusViewModel.createTextStatus(text, bgColor, privacy)
                         onNavigateBack()
                     },
                     onCreateMedia = { caption, privacy ->
-                        // TODO: media status creation
+                        mediaLauncher.launch("image/*")
                     },
                     onBack = onNavigateBack
                 )
@@ -433,23 +467,140 @@ private fun DetailPaneContent(
                 LaunchedEffect(Unit) { statusViewModel.loadFeed() }
                 val statusState by statusViewModel.uiState.collectAsStateWithLifecycle()
                 val index = statusState.feed.indexOfFirst { it.statusId == topDetail.statusId }.coerceAtLeast(0)
+                var showInfoSheet by remember { mutableStateOf(false) }
+                var infoStatusId by remember { mutableStateOf("") }
+                val currentStatus = statusState.feed.getOrNull(index)
                 StatusViewerScreen(
                     statuses = statusState.feed,
                     initialIndex = index,
-                    onReply = { /* TODO: reply to status */ },
+                    onReply = { statusId ->
+                        val entry = statusState.feed.find { it.statusId == statusId }
+                        entry?.let {
+                            onNavigate(MainNavigationDetailLocation.Conversation(it.userId))
+                        }
+                    },
                     onClose = onNavigateBack,
-                    onViewInfo = { /* TODO: view info */ }
+                    onViewInfo = { statusId ->
+                        infoStatusId = statusId
+                        showInfoSheet = true
+                    }
                 )
+                if (showInfoSheet) {
+                    val sheetState = rememberModalBottomSheetState()
+                    ModalBottomSheet(
+                        onDismissRequest = { showInfoSheet = false },
+                        sheetState = sheetState
+                    ) {
+                        val infoEntry = statusState.feed.find { it.statusId == infoStatusId }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text("Status Info", style = MaterialTheme.typography.titleMedium)
+                            HorizontalDivider()
+                            if (infoEntry != null) {
+                                Text("From: ${infoEntry.username}", style = MaterialTheme.typography.bodyMedium)
+                                Text("Type: ${infoEntry.type}", style = MaterialTheme.typography.bodyMedium)
+                                Text("Created: ${infoEntry.createdAt}", style = MaterialTheme.typography.bodyMedium)
+                                Text("Viewed: ${if (infoEntry.isViewed) "Yes" else "No"}", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
             }
             // Other
             topDetail is MainNavigationDetailLocation.Channels -> {
-                PlaceholderScreen("Channels")
+                ChannelFeedScreen(
+                    channelId = "default",
+                    channelName = "Channels",
+                    isSubscribed = false,
+                    posts = emptyList(),
+                    pinnedPost = null,
+                    onSubscribe = {},
+                    onShare = {},
+                    onLoadMore = {}
+                )
             }
             topDetail is MainNavigationDetailLocation.Stickers -> {
-                PlaceholderScreen("Stickers")
+                StickerStoreScreen(
+                    featured = emptyList(),
+                    searchResults = emptyList(),
+                    isLoading = false,
+                    error = null,
+                    onInstall = {},
+                    onSearch = {},
+                    onPackClick = {},
+                    onBack = onNavigateBack
+                )
             }
             topDetail is MainNavigationDetailLocation.Profile -> {
-                PlaceholderScreen("Profile: ${topDetail.userId}")
+                val profileViewModel: org.enchant.profile.ProfileViewModel = viewModel()
+                LaunchedEffect(topDetail.userId) { profileViewModel.loadProfile(topDetail.userId) }
+                val profileState by profileViewModel.uiState.collectAsStateWithLifecycle()
+                val isOwn = topDetail.userId == "self"
+                ProfileScreen(
+                    userId = topDetail.userId,
+                    isOwnProfile = isOwn,
+                    profile = profileState.profile,
+                    onBack = onNavigateBack,
+                    onEdit = {},
+                    onMessage = { onNavigate(MainNavigationDetailLocation.Conversation(topDetail.userId)) },
+                    onCall = {
+                        scope.launch { CallManager.startOutgoingCall(topDetail.userId, false) }
+                    },
+                    onBlock = { profileViewModel.blockUser(topDetail.userId) },
+                    isBlocked = false
+                )
+            }
+            // Group join
+            topDetail is MainNavigationDetailLocation.JoinGroup -> {
+                var inviteCode by remember { mutableStateOf("") }
+                val groupsViewModel: GroupsViewModel = viewModel()
+                AlertDialog(
+                    onDismissRequest = { onNavigateBack() },
+                    title = { Text("Join Group") },
+                    text = {
+                        OutlinedTextField(
+                            value = inviteCode,
+                            onValueChange = { inviteCode = it },
+                            label = { Text("Invite code") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            if (inviteCode.isNotBlank()) {
+                                groupsViewModel.joinViaLink(inviteCode)
+                                onNavigateBack()
+                            }
+                        }) { Text("Join") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onNavigateBack) { Text("Cancel") }
+                    }
+                )
+            }
+            // Join requests
+            topDetail is MainNavigationDetailLocation.JoinRequests -> {
+                JoinRequestsScreen(onBack = onNavigateBack)
+            }
+            // Group settings
+            topDetail is MainNavigationDetailLocation.GroupSettings -> {
+                val groupsViewModel: GroupsViewModel = viewModel()
+                val groupsState by groupsViewModel.uiState.collectAsStateWithLifecycle()
+                GroupSettingsScreen(
+                    disappearingMessagesEnabled = groupsState.disappearingMessagesEnabled,
+                    disappearingMessagesDurationSeconds = groupsState.disappearingMessagesDurationSeconds,
+                    isLoading = groupsState.isLoading,
+                    error = groupsState.error,
+                    onDisappearingMessagesToggle = { enabled, duration ->
+                        groupsViewModel.updateDisappearingMessages(topDetail.groupId, enabled, duration)
+                    },
+                    onBack = onNavigateBack
+                )
             }
             // Call log
             topDetail is MainNavigationDetailLocation.Calls.EditCallLinkName -> {
@@ -462,7 +613,13 @@ private fun DetailPaneContent(
                 val entry = callLogState.entries.find { it.callId == topDetail.callId }
                 CallDetailScreen(
                     entry = entry,
-                    onCall = { /* TODO: initiate call */ },
+                    onCall = {
+                        entry?.let {
+                            scope.launch {
+                                CallManager.startOutgoingCall(it.remoteUserId, false)
+                            }
+                        }
+                    },
                     onMessage = { entry?.let { onNavigate(MainNavigationDetailLocation.Conversation(it.remoteUserId)) } },
                     onNavigateBack = onNavigateBack
                 )
