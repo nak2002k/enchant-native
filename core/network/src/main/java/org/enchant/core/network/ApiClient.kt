@@ -24,20 +24,23 @@ class ApiClient {
         fun getInstance(): ApiClient = _instance ?: error("ApiClient not initialized")
         fun setInstance(client: ApiClient) { _instance = client }
 
+        // Certificate pinner: for alpha, trusts system CAs only.
+        // Before production, call updatePins() with real SHA-256 hashes from:
+        //   openssl s_client -connect api.enchant.chat:443 </dev/null 2>/dev/null \
+        //   | openssl x509 -fingerprint -sha256 -noout
         private val certificatePinner: CertificatePinner by lazy {
-            CertificatePinner.Builder()
-                .add("api.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-                .add("api.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
-                .add("api.enchant.chat", "sha256/CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=")
-                .add("*.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-                .add("*.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
-                .build()
+            CertificatePinner.Builder().build()
         }
 
         fun updatePins(host: String, pins: List<String>) {
             val builder = CertificatePinner.Builder()
             pins.forEach { pin -> builder.add(host, pin) }
+            _certificatePinner = builder.build()
         }
+
+        @Volatile
+        private var _certificatePinner: CertificatePinner? = null
+        internal fun getPinner(): CertificatePinner = _certificatePinner ?: certificatePinner
 
         private fun buildSecureClient(): OkHttpClient {
             val spec = ConnectionSpecBuilder(ConnectionSpec.RESTRICTED_TLS)
@@ -49,7 +52,7 @@ class ApiClient {
                 .build()
             val builder = OkHttpClient.Builder()
                 .connectionSpecs(listOf(spec))
-                .certificatePinner(certificatePinner)
+                .certificatePinner(getPinner())
             return DomainFronting.applyToClient(builder).build()
         }
     }

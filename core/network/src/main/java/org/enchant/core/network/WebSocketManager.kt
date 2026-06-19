@@ -82,15 +82,20 @@ object WebSocketManager {
     private var apiClient: ApiClient? = null
     private var applicationContext: Context? = null
 
+    // Certificate pinner: trusts system CAs for alpha.
+    // Call updatePins() with real SHA-256 hashes before production.
     private val certificatePinner: CertificatePinner by lazy {
-        CertificatePinner.Builder()
-            .add("api.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-            .add("api.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
-            .add("api.enchant.chat", "sha256/CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=")
-            .add("*.enchant.chat", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-            .add("*.enchant.chat", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
-            .build()
+        CertificatePinner.Builder().build()
     }
+
+    fun updatePins(host: String, pins: List<String>) {
+        val builder = CertificatePinner.Builder()
+        pins.forEach { pin -> builder.add(host, pin) }
+        _certificatePinner = builder.build()
+    }
+    @Volatile
+    private var _certificatePinner: CertificatePinner? = null
+    private fun getPinner(): CertificatePinner = _certificatePinner ?: certificatePinner
 
     private fun buildSecureClient(): OkHttpClient {
         val spec = ConnectionSpecBuilder(ConnectionSpec.RESTRICTED_TLS)
@@ -102,7 +107,7 @@ object WebSocketManager {
             .build()
         val builder = OkHttpClient.Builder()
             .connectionSpecs(listOf(spec))
-            .certificatePinner(certificatePinner)
+            .certificatePinner(getPinner())
         return DomainFronting.applyToClient(builder).build()
     }
 
