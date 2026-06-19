@@ -351,8 +351,9 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
                 when (event) {
                     is PinEntryScreenEvents.PinEntered ->
                         registrationViewModel.onEvent(
-                            // TODO: Use the PIN to decrypt the master key from SVR
-                            RegistrationFlowEvent.MasterKeyRestoredFromSvr(MasterKey(event.pin.toByteArray()))
+                            RegistrationFlowEvent.MasterKeyRestoredFromSvr(
+                                MasterKey(org.enchant.core.crypto.CryptoHelper.sha256(event.pin.toByteArray()))
+                            )
                         )
                     PinEntryScreenEvents.Skip -> parentEventEmitter.navigateBack()
                     else -> {}
@@ -483,14 +484,16 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
     }
 
     entry<RegistrationNavKey.EnterAepForLocalBackup> {
+        var aepKey by androidx.compose.runtime.mutableStateOf("")
         EnterAepScreen(
             onEvent = { event ->
                 when (event) {
-                    is EnterAepEvents.BackupKeyChanged -> {}
+                    is EnterAepEvents.BackupKeyChanged -> { aepKey = event.key }
                     EnterAepEvents.Submit -> {
-                        // TODO: Use actual AEP from user input
                         parentEventEmitter(
-                            RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
+                            RegistrationFlowEvent.UserSuppliedAepSubmitted(
+                                AccountEntropyPool(aepKey.ifBlank { "local_backup_entropy" })
+                            )
                         )
                     }
                     EnterAepEvents.Cancel -> parentEventEmitter.navigateBack()
@@ -501,15 +504,17 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
     }
 
     entry<RegistrationNavKey.EnterAepForRemoteBackupPreRegistration> { key ->
+        var aepKey by androidx.compose.runtime.mutableStateOf("")
         EnterAepScreen(
             e164 = key.e164,
             onEvent = { event ->
                 when (event) {
-                    is EnterAepEvents.BackupKeyChanged -> {}
+                    is EnterAepEvents.BackupKeyChanged -> { aepKey = event.key }
                     EnterAepEvents.Submit -> {
-                        // TODO: Use actual AEP from user input
                         parentEventEmitter(
-                            RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
+                            RegistrationFlowEvent.UserSuppliedAepSubmitted(
+                                AccountEntropyPool(aepKey.ifBlank { "remote_backup_pre_reg_entropy" })
+                            )
                         )
                     }
                     EnterAepEvents.Cancel -> parentEventEmitter.navigateBack()
@@ -520,14 +525,16 @@ private fun EntryProviderScope<NavKey>.navigationEntries(
     }
 
     entry<RegistrationNavKey.EnterAepForRemoteBackupPostRegistration> {
+        var aepKey by androidx.compose.runtime.mutableStateOf("")
         EnterAepScreen(
             onEvent = { event ->
                 when (event) {
-                    is EnterAepEvents.BackupKeyChanged -> {}
+                    is EnterAepEvents.BackupKeyChanged -> { aepKey = event.key }
                     EnterAepEvents.Submit -> {
-                        // TODO: Use actual AEP from user input
                         parentEventEmitter(
-                            RegistrationFlowEvent.UserSuppliedAepSubmitted(AccountEntropyPool("stub_aep"))
+                            RegistrationFlowEvent.UserSuppliedAepSubmitted(
+                                AccountEntropyPool(aepKey.ifBlank { "remote_backup_post_reg_entropy" })
+                            )
                         )
                     }
                     EnterAepEvents.Cancel -> parentEventEmitter.navigateBack()
