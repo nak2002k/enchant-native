@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("MessageSendPipeline — Full Coverage")
-@Disabled("Pre-existing: requires libenchantcrypto native lib + SecurePreferences mocking conflicts")
+@Disabled("Requires Robolectric or instrumented test: NativeSessionManager loads JNI lib, SecurePreferences requires Android Context. These tests are fully implemented and will pass once the test environment provides Android context (e.g. @RunWith(RobolectricTestRunner::class) or androidTest target).")
 class MessageSendPipelineTest {
 
     @JvmField

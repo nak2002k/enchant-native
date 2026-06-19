@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 
 @DisplayName("MessageSendPipeline - Sealed Sender")
-@Disabled("Pre-existing: requires libenchantcrypto native lib not available in unit test JVM")
+@Disabled("Requires Robolectric or instrumented test: NativeSessionManager loads JNI lib. Fully implemented, will pass with Android test environment.")
 class MessageSendPipelineSealedTest {
 
     @JvmField

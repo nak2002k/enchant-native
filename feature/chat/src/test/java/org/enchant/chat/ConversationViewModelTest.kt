@@ -118,8 +118,7 @@ class ConversationViewModelTest {
         }
 
         @Test @DisplayName("sendTextMessage updates sending state to SENDING then SENT")
-        @Disabled("Pre-existing: async state transition, test checks synchronously after transition completes")
-        fun `send state transitions`() {
+        fun `send state transitions`() = runTest {
             viewModel.init("conv-1")
             coEvery { pipeline.sendMessage(any(), any(), any(), any(), any()) } returns SendResult.Success("env-1")
             viewModel.sendTextMessage("Hello")
@@ -152,8 +151,7 @@ class ConversationViewModelTest {
         }
 
         @Test @DisplayName("sendMediaMessage sets UPLOADING state")
-        @Disabled("Pre-existing: async state transition, test checks synchronously after transition completes")
-        fun `send media state`() {
+        fun `send media state`() = runTest {
             mockkStatic(android.net.Uri::class)
             every { android.net.Uri.parse(any()) } returns mockk(relaxed = true)
             viewModel.init("conv-1")
@@ -380,8 +378,10 @@ class ConversationViewModelTest {
     @Nested @DisplayName("View Once")
     inner class ViewOnceTest {
         @Test @DisplayName("markViewOnceViewed deletes media and marks deleted")
-        @Disabled("Pre-existing: UncaughtExceptionsBeforeTest - SecurePreferences mock conflict")
         fun `mark view once viewed`() = runTest {
+            coEvery { apiClient.post(any(), any()) } returns kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {})
+            coEvery { repo.deleteLocalMedia(any()) } returns Unit
+            coEvery { repo.markMessageDeleted(any()) } returns Unit
             viewModel.init("conv-1")
             viewModel.markViewOnceViewed("env-1")
             testScheduler.advanceUntilIdle()
@@ -389,8 +389,8 @@ class ConversationViewModelTest {
         }
 
         @Test @DisplayName("deleteViewOnceMedia deletes local media")
-        @Disabled("Pre-existing: UncaughtExceptionsBeforeTest - SecurePreferences mock conflict")
         fun `delete view once media`() = runTest {
+            coEvery { repo.deleteLocalMedia(any()) } returns Unit
             viewModel.init("conv-1")
             viewModel.deleteViewOnceMedia("env-1")
             testScheduler.advanceUntilIdle()

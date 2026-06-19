@@ -205,10 +205,18 @@ private fun CallsListContent(onNavigate: (MainNavigationDetailLocation) -> Unit 
 }
 
 @Composable
-private fun StoriesListContent() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Stories", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
-    }
+private fun StoriesListContent(onNavigate: (MainNavigationDetailLocation) -> Unit = {}) {
+    val statusViewModel: StatusViewModel = viewModel()
+    LaunchedEffect(Unit) { statusViewModel.loadFeed() }
+    val statusState by statusViewModel.uiState.collectAsStateWithLifecycle()
+    StatusFeedScreen(
+        myStatus = statusState.myStatus,
+        feed = statusState.feed,
+        onStatusTap = { statusId ->
+            onNavigate(MainNavigationDetailLocation.StatusViewer(statusId))
+        },
+        onCreateStatus = { onNavigate(MainNavigationDetailLocation.StatusCreate) }
+    )
 }
 
 @Composable
@@ -512,26 +520,43 @@ private fun DetailPaneContent(
             }
             // Other
             topDetail is MainNavigationDetailLocation.Channels -> {
+                val channelViewModel: ChannelViewModel = viewModel()
+                LaunchedEffect(Unit) { channelViewModel.loadFeed("default"); channelViewModel.loadMyChannels() }
+                val channelState by channelViewModel.uiState.collectAsStateWithLifecycle()
+                val myChannel = channelState.myChannels.firstOrNull()
                 ChannelFeedScreen(
-                    channelId = "default",
-                    channelName = "Channels",
-                    isSubscribed = false,
-                    posts = emptyList(),
-                    pinnedPost = null,
-                    onSubscribe = {},
+                    channelId = myChannel?.channelId ?: "default",
+                    channelName = myChannel?.name ?: "Channels",
+                    isSubscribed = myChannel?.isSubscribed ?: false,
+                    isAdmin = myChannel?.isAdmin ?: false,
+                    posts = channelState.feed,
+                    pinnedPost = channelState.pinnedPost,
+                    onSubscribe = {
+                        val ch = myChannel
+                        if (ch != null) {
+                            if (ch.isSubscribed) channelViewModel.unsubscribe(ch.channelId)
+                            else channelViewModel.subscribe(ch.channelId)
+                        }
+                    },
                     onShare = {},
-                    onLoadMore = {}
+                    onLoadMore = { channelViewModel.loadMore("default") },
+                    onEditPost = { channelId, postId, content -> channelViewModel.editPost(channelId, postId, content) },
+                    onDeletePost = { channelId, postId -> channelViewModel.deletePost(channelId, postId) },
+                    onPinPost = { channelId, postId, pinned -> channelViewModel.pinPost(channelId, postId, pinned) }
                 )
             }
             topDetail is MainNavigationDetailLocation.Stickers -> {
+                val stickerViewModel: StickerViewModel = viewModel()
+                LaunchedEffect(Unit) { stickerViewModel.loadFeatured() }
+                val stickerState by stickerViewModel.uiState.collectAsStateWithLifecycle()
                 StickerStoreScreen(
-                    featured = emptyList(),
-                    searchResults = emptyList(),
-                    isLoading = false,
-                    error = null,
-                    onInstall = {},
-                    onSearch = {},
-                    onPackClick = {},
+                    featured = stickerState.featured,
+                    searchResults = stickerState.searchResults,
+                    isLoading = stickerState.isLoading,
+                    error = stickerState.error,
+                    onInstall = { stickerViewModel.installPack(it) },
+                    onSearch = { if (it.isNotBlank()) stickerViewModel.searchPacks(it) },
+                    onPackClick = { stickerViewModel.loadPackDetail(it) },
                     onBack = onNavigateBack
                 )
             }
@@ -654,8 +679,78 @@ private fun ConversationDetailContent(conversationId: String) {
 
 @Composable
 private fun CallLinkDetailContent(roomId: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Call Link: $roomId", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
+    val scope = rememberCoroutineScope()
+    var callLinkData by remember { mutableStateOf<org.enchant.core.calls.CallLinkData?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val callLinkManager = remember { org.enchant.calls.calllinks.CallLinkManager(org.enchant.core.network.ApiClient.getInstance()) }
+
+    LaunchedEffect(roomId) {
+        isLoading = true
+        error = null
+        val result = callLinkManager.getCallLink(roomId)
+        result.fold(
+            onSuccess = { callLinkData = it; isLoading = false },
+            onFailure = { error = it.message; isLoading = false }
+        )
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator()
+        } else if (error != null) {
+            Text("Error: $error", color = MaterialTheme.colorScheme.error)
+        } else {
+            val data = callLinkData
+            Icon(
+                Icons.Default.Link,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                data?.name ?: "Call Link",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Room: $roomId",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (data != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "By: ${data.creatorId.take(12)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    if (data.isActive) "Active" else "Inactive",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (data.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = {
+                    scope.launch {
+                        org.enchant.core.calls.CallManager.startOutgoingCall(roomId, false)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Join Call")
+            }
+        }
     }
 }
 
