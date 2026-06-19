@@ -49,6 +49,8 @@ import org.enchant.chat.components.MediaViewerScreen
 import org.enchant.core.model.DisappearTimerPresets
 import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
+import org.enchant.stickers.StickerPicker
+import org.enchant.stickers.StickerViewModel
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +81,7 @@ fun ConversationScreen(
     var replyToId by remember { mutableStateOf<String?>(null) }
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    var showStickerPicker by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val searchResults by viewModel.searchResults.collectAsState()
@@ -87,6 +90,8 @@ fun ConversationScreen(
     var forwardDialogMessageId by remember { mutableStateOf<String?>(null) }
     var translateDialogEnvelopeId by remember { mutableStateOf<String?>(null) }
     val translatedMessage by viewModel.translatedMessage.collectAsState()
+    val stickerVM = remember { StickerViewModel() }
+    val stickerState by stickerVM.uiState.collectAsState()
 
     LaunchedEffect(searchQuery) {
         if (showSearch) viewModel.searchInConversation(searchQuery)
@@ -321,6 +326,7 @@ fun ConversationScreen(
                     },
                     onAttach = { showAttachments = true },
                     onEmoji = { showEmojiPicker = true },
+                    onSticker = { showStickerPicker = true },
                     viewOnceMode = viewOnceMode,
                     onViewOnceToggle = { viewOnceMode = !viewOnceMode },
                     onVoiceStart = {
@@ -378,6 +384,21 @@ fun ConversationScreen(
                 showEmojiPicker = false
             },
             onDismiss = { showEmojiPicker = false }
+        )
+    }
+
+    if (showStickerPicker) {
+        StickerPicker(
+            library = stickerState.library,
+            recent = stickerState.recent,
+            onStickerSelected = { packId, stickerId ->
+                viewModel.sendSticker(packId, stickerId)
+                stickerVM.recordStickerUse(packId, stickerId)
+                showStickerPicker = false
+            },
+            onDismiss = { showStickerPicker = false },
+            onLoadLibrary = { stickerVM.loadLibrary() },
+            onLoadRecent = { stickerVM.loadRecent() }
         )
     }
 
@@ -542,6 +563,7 @@ private fun ComposerBar(
     onSend: () -> Unit,
     onAttach: () -> Unit,
     onEmoji: () -> Unit,
+    onSticker: () -> Unit = {},
     viewOnceMode: Boolean = false,
     onViewOnceToggle: () -> Unit = {},
     onVoiceStart: () -> Unit,
@@ -620,6 +642,12 @@ IconButton(
                     modifier = Modifier.semantics { this.contentDescription = "Open emoji picker" }
                 ) {
                     Icon(Icons.Default.EmojiEmotions, "Emoji")
+                }
+                IconButton(
+                    onClick = onSticker,
+                    modifier = Modifier.semantics { this.contentDescription = "Open sticker picker" }
+                ) {
+                    Icon(Icons.Default.Face, "Sticker")
                 }
             } else {
                 IconButton(
