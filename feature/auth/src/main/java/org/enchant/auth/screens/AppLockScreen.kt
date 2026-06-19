@@ -21,6 +21,33 @@ private const val TAG = "AppLockScreen"
 
 private enum class AppLockStep { Create, Confirm, Verify }
 
+private fun triggerBiometricAuth(
+    context: android.content.Context,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit
+) {
+    if (context !is FragmentActivity) return
+    val executor = ContextCompat.getMainExecutor(context)
+    val callback = object : BiometricPrompt.AuthenticationCallback() {
+        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+            onSuccess()
+        }
+        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+            onError(errString.toString())
+        }
+        override fun onAuthenticationFailed() {
+            onError("Biometric not recognized")
+        }
+    }
+    val prompt = BiometricPrompt(context as FragmentActivity, executor, callback)
+    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+        .setTitle("Unlock Enchant")
+        .setSubtitle("Verify your identity")
+        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+        .build()
+    prompt.authenticate(promptInfo)
+}
+
 @Composable
 fun AppLockScreen(
     onVerified: () -> Unit = {},
@@ -54,7 +81,15 @@ fun AppLockScreen(
     LaunchedEffect(step) {
         if (step == AppLockStep.Verify && canAuthenticateWithBiometric && useBiometricUnlock && !biometricTriggered) {
             biometricTriggered = true
-            authenticateWithBiometric()
+            triggerBiometricAuth(
+                context = context,
+                onSuccess = {
+                    SecurePreferences.putBoolean("applock.biometric", true)
+                    SecurePreferences.putBoolean("applock.enabled", true)
+                    onVerified()
+                },
+                onError = { errMsg -> error = errMsg }
+            )
         }
     }
 
@@ -80,28 +115,15 @@ fun AppLockScreen(
     }
 
     fun authenticateWithBiometric() {
-        if (context !is FragmentActivity) return
-        val executor = ContextCompat.getMainExecutor(context)
-        val callback = object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+        triggerBiometricAuth(
+            context = context,
+            onSuccess = {
                 SecurePreferences.putBoolean("applock.biometric", true)
                 SecurePreferences.putBoolean("applock.enabled", true)
                 onVerified()
-            }
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                error = errString.toString()
-            }
-            override fun onAuthenticationFailed() {
-                error = "Biometric not recognized"
-            }
-        }
-        val prompt = BiometricPrompt(context as FragmentActivity, executor, callback)
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Enchant")
-            .setSubtitle("Verify your identity")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .build()
-        prompt.authenticate(promptInfo)
+            },
+            onError = { errMsg -> error = errMsg }
+        )
     }
 
     fun handleDigit(digit: String) {

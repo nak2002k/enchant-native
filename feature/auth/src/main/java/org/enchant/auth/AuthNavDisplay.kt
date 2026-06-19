@@ -21,6 +21,7 @@ import org.enchant.auth.screens.RestorePromptScreen
 import org.enchant.auth.screens.TwoStepPinScreen
 import org.enchant.auth.screens.UsernamePickerScreen
 import org.enchant.auth.screens.WelcomeScreen
+import org.enchant.core.auth.AuthManager
 import org.enchant.core.auth.AuthState
 import org.enchant.core.auth.RegistrationState
 import org.enchant.core.ui.navigation.TransitionSpecs
