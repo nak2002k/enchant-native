@@ -190,10 +190,10 @@ class ConversationViewModel(
                 recipientUserId = recipientUserId,
                 plaintext = text.encodeToByteArray()
             )
-            if (result is SendResult.Success || result is SendResult.Queued) {
+            if (result is SendResult.Success) {
                 try {
                     apiClient.post("/v1/location", buildJsonObject {
-                        put("envelope_id", JsonPrimitive((result as? SendResult.Success)?.envelopeId ?: ""))
+                        put("envelope_id", JsonPrimitive(result.envelopeId))
                     })
                 } catch (e: Exception) { android.util.Log.w("Enchant", "location share failed") }
             }
@@ -430,15 +430,16 @@ class ConversationViewModel(
         viewModelScope.launch {
             val vcard = "BEGIN:VCARD\nVERSION:3.0\nFN:$contactUserId\nUID:$contactUserId\nEND:VCARD"
             val text = "VCARD_JSON:$contactUserId"
-            pipeline.sendMessage(
+            val result = pipeline.sendMessage(
                 conversationId = targetConversationId,
                 recipientUserId = targetConversationId,
                 plaintext = "$text\n$vcard".encodeToByteArray()
             )
+            val envelopeId = (result as? SendResult.Success)?.envelopeId ?: return@launch
             try {
                     apiClient.post("/v1/contacts/share", buildJsonObject {
                         put("contact_user_id", JsonPrimitive(contactUserId))
-                        put("envelope_id", JsonPrimitive(conversationId))
+                        put("envelope_id", JsonPrimitive(envelopeId))
                     })
                 } catch (e: Exception) { android.util.Log.w("Enchant", "contact share failed") }
         }
