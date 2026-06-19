@@ -6,4 +6,5 @@ interface SignalingClient {
     suspend fun sendIceCandidate(remoteUserId: String, candidate: String): Boolean
     suspend fun sendHangup(remoteUserId: String): Boolean
     suspend fun fetchTurnServers(): Result<List<org.enchant.core.calls.model.IceServer>>
+    suspend fun peekGroupCall(groupId: String): Int { return 0 }
 }

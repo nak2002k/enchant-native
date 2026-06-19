@@ -279,7 +279,16 @@ class DefaultCallManager(
     }
 
     suspend fun peekGroupCall(groupId: String): PeekInfo? {
-        return null
+        try {
+            val activeParticipants = signalingClient.peekGroupCall(groupId)
+            return PeekInfo(
+                activeParticipants = activeParticipants,
+                maxParticipants = 32,
+                isActive = activeParticipants > 0
+            )
+        } catch (_: Exception) {
+            return PeekInfo(activeParticipants = 0, maxParticipants = 32, isActive = false)
+        }
     }
 
     fun shutdown() {
