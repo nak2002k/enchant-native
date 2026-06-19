@@ -38,6 +38,15 @@ object AuthManager {
     @Volatile
     var pendingAbout: String? = null
 
+    fun setPendingProfile(displayName: String, about: String?) {
+        pendingDisplayName = displayName
+        pendingAbout = about
+    }
+
+    fun getPendingProfile(): Pair<String, String?> {
+        return Pair(pendingDisplayName ?: "", pendingAbout)
+    }
+
     val currentState: StateFlow<RegistrationState> = _currentState.asStateFlow()
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
@@ -140,7 +149,7 @@ object AuthManager {
                 SecurePreferences.putString(AuthConstants.USER_ID_KEY, authResponse.userId)
                 SecurePreferences.putString(AuthConstants.DEVICE_ID_KEY, authResponse.deviceId)
                 _authState.value = AuthState.Authenticated(authResponse.userId, authResponse.deviceId)
-                _currentState.value = RegistrationState.Permissions
+                _currentState.value = RegistrationState.ProfileSetup
                 Result.success(Unit)
             },
             onFailure = { error ->
@@ -227,7 +236,7 @@ object AuthManager {
             _currentState.value = RegistrationState.KeyGeneration
             val result = KeyManager.generateAndUploadKeys()
             if (result.isSuccess) {
-                _currentState.value = RegistrationState.Complete
+                _currentState.value = RegistrationState.PinCreation
             } else {
                 val error = result.exceptionOrNull()
                 _currentState.value = RegistrationState.Error(
@@ -305,5 +314,9 @@ object AuthManager {
             _currentState.value = RegistrationState.Error(message = e.message ?: "Restore failed")
             Result.failure(e)
         }
+    }
+
+    fun completeRegistration() {
+        _currentState.value = RegistrationState.Complete
     }
 }

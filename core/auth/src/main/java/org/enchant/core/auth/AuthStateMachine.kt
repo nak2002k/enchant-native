@@ -109,7 +109,7 @@ object AuthStateMachine {
                 else -> state
             }
             is RegistrationState.KeyGeneration -> when (event) {
-                is RegistrationEvent.KeysGenerated -> RegistrationState.Complete
+                is RegistrationEvent.KeysGenerated -> RegistrationState.PinCreation
                 else -> state
             }
             is RegistrationState.PinCreation -> when (event) {

@@ -58,7 +58,7 @@ object TwoStepPinScreen {
                                     val client = ApiClient()
                                     client.init()
                                     client.put("/v1/auth/pin", buildJsonObject {
-                                        put("pin", hash)
+                                        put("pin", pin)
                                     })
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Failed to register PIN with server: ${e.message}")

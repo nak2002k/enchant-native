@@ -43,13 +43,9 @@ fun AuthNavDisplay(
                     backStack.add(AuthNavKey.OtpVerify(identifier = state.identifier))
                 }
             }
-            is RegistrationState.KeyGeneration -> {
-                // Key generation is in progress - KeyGeneration entry is already on the
-                // backstack (added when state was Permissions). Don't add ProfileSetup yet.
-            }
             is RegistrationState.Permissions -> {
-                if (backStack.lastOrNull() !is AuthNavKey.KeyGeneration) {
-                    backStack.add(AuthNavKey.KeyGeneration)
+                if (backStack.lastOrNull() !is AuthNavKey.ProfileSetup) {
+                    backStack.add(AuthNavKey.ProfileSetup)
                 }
             }
             is RegistrationState.UsernamePicker -> {
@@ -57,9 +53,18 @@ fun AuthNavDisplay(
                     backStack.add(AuthNavKey.UsernamePicker)
                 }
             }
+            is RegistrationState.KeyGeneration -> {
+                // Key generation runs automatically via LaunchedEffect inside KeyGenerationScreen.
+                // Don't add anything here — the entry is already on the backstack from UsernamePicker.
+            }
+            is RegistrationState.PinCreation -> {
+                if (backStack.lastOrNull() !is AuthNavKey.TwoStepPin) {
+                    backStack.add(AuthNavKey.TwoStepPin)
+                }
+            }
             is RegistrationState.Complete -> {
-                if (backStack.lastOrNull() !is AuthNavKey.ProfileSetup) {
-                    backStack.add(AuthNavKey.ProfileSetup)
+                if (backStack.lastOrNull() !is AuthNavKey.AppLock) {
+                    backStack.add(AuthNavKey.AppLock)
                 }
             }
             is RegistrationState.Error -> {}
@@ -167,6 +172,7 @@ fun AuthNavDisplay(
                     progress = when {
                         isError -> 0f
                         isGenerating -> 0.5f
+                        registrationState is RegistrationState.PinCreation -> 1f
                         registrationState is RegistrationState.Complete -> 1f
                         else -> 0f
                     },
@@ -177,14 +183,16 @@ fun AuthNavDisplay(
 
             entry<AuthNavKey.TwoStepPin> {
                 TwoStepPinScreen.Screen(
-                    onPinCreated = { backStack.add(AuthNavKey.KeyGeneration) }
+                    onPinCreated = {
+                        AuthManager.completeRegistration()
+                    }
                 )
             }
 
             entry<AuthNavKey.ProfileSetup> {
                 ProfileSetupScreen(
                     onProfileDataEntered = { displayName, about, avatarUri ->
-                        viewModel.updateProfile(username = displayName, displayName = displayName, about = about)
+                        AuthManager.setPendingProfile(displayName, about)
                         backStack.add(AuthNavKey.UsernamePicker)
                     }
                 )
@@ -193,8 +201,9 @@ fun AuthNavDisplay(
             entry<AuthNavKey.UsernamePicker> {
                 UsernamePickerScreen(
                     onUsernameEntered = { username ->
-                        viewModel.updateProfile(username = username, displayName = username, about = null)
-                        backStack.add(AuthNavKey.AppLock)
+                        val (displayName, about) = AuthManager.getPendingProfile()
+                        viewModel.updateProfile(username = username, displayName = displayName, about = about)
+                        backStack.add(AuthNavKey.KeyGeneration)
                     },
                     onSkip = { backStack.add(AuthNavKey.AppLock) },
                     onCheckAvailability = { username -> viewModel.checkUsernameAvailability(username) }
