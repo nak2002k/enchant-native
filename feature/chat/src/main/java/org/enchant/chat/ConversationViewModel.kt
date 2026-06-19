@@ -246,9 +246,17 @@ class ConversationViewModel(
         viewModelScope.launch {
             if (forEveryone) {
                 pipeline.deleteForEveryone(envelopeId, recipientUserId)
+                pipeline.deleteMessageOnServer(envelopeId)
             } else {
                 pipeline.deleteForSelf(envelopeId)
             }
+        }
+    }
+
+    fun deleteMessageForEveryone(envelopeId: String) {
+        viewModelScope.launch {
+            pipeline.deleteForEveryone(envelopeId, recipientUserId)
+            pipeline.deleteMessageOnServer(envelopeId)
         }
     }
 

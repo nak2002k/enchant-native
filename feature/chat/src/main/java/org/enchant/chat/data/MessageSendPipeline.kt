@@ -399,6 +399,17 @@ object MessageSendPipeline {
         }
     }
 
+    suspend fun deleteMessageOnServer(envelopeId: String): Result<Unit> {
+        checkInit()
+        return withContext(Dispatchers.Default) {
+            try {
+                apiClient!!.del("/v1/messages/$envelopeId")
+                repository?.markMessageDeleted(envelopeId)
+                Result.success(Unit)
+            } catch (e: Exception) { Result.failure(e) }
+        }
+    }
+
     suspend fun deleteForSelf(envelopeId: String) {
         repository?.markMessageDeleted(envelopeId)
     }

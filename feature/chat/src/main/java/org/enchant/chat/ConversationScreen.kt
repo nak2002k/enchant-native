@@ -97,6 +97,9 @@ fun ConversationScreen(
     var showLocationPicker by remember { mutableStateOf(false) }
     var showContactShareDialog by remember { mutableStateOf(false) }
     var contactShareUserId by remember { mutableStateOf("") }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var deleteEnvelopeId by remember { mutableStateOf("") }
+    var deleteForEveryone by remember { mutableStateOf(false) }
 
     LaunchedEffect(searchQuery) {
         if (showSearch) viewModel.searchInConversation(searchQuery)
@@ -319,8 +322,16 @@ fun ConversationScreen(
                                 message = message,
                                 isOutgoing = message.senderId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
                                 onReply = { replyToId = it },
-                                onDelete = { viewModel.deleteMessage(it, false) },
-                                onDeleteEveryone = { viewModel.deleteMessage(it, true) },
+                                onDelete = {
+                                    deleteEnvelopeId = it
+                                    deleteForEveryone = false
+                                    showDeleteConfirmDialog = true
+                                },
+                                onDeleteEveryone = {
+                                    deleteEnvelopeId = it
+                                    deleteForEveryone = true
+                                    showDeleteConfirmDialog = true
+                                },
                                 onEdit = { envelopeId ->
                                     val newText = messageText.ifBlank { null }
                                     if (newText != null) {
@@ -614,6 +625,39 @@ fun ConversationScreen(
                     viewModel.clearTranslation()
                 }) {
                     Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text(if (deleteForEveryone) "Delete for everyone" else "Delete message") },
+            text = {
+                Text(
+                    if (deleteForEveryone) "This message will be deleted for everyone in the conversation."
+                    else "This message will be deleted from your device.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (deleteForEveryone) {
+                            viewModel.deleteMessageForEveryone(deleteEnvelopeId)
+                        } else {
+                            viewModel.deleteMessage(deleteEnvelopeId, false)
+                        }
+                        showDeleteConfirmDialog = false
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel")
                 }
             }
         )
