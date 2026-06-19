@@ -9,7 +9,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.biometric.BiometricManager
 import org.enchant.core.base.SecurePreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,6 +24,14 @@ fun SecuritySettingsScreen(
 ) {
     var appLockEnabled by remember { mutableStateOf(SecurePreferences.getBoolean("applock.enabled", false)) }
     val biometricAvailable = SecurePreferences.getBoolean("applock.biometric", false)
+    var useBiometric by remember { mutableStateOf(SecurePreferences.getBoolean("applock.biometric", false)) }
+    val context = LocalContext.current
+    val canUseBiometric = remember {
+        try {
+            BiometricManager.from(context)
+                .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+        } catch (_: Exception) { false }
+    }
     var showTwoStepDialog by remember { mutableStateOf(false) }
     var twoStepPin by remember { mutableStateOf("") }
     var twoStepMode by remember { mutableStateOf("setup") }
@@ -57,11 +67,11 @@ fun SecuritySettingsScreen(
                     ) {
                         Column {
                             Text("PIN lock", style = MaterialTheme.typography.bodyMedium)
-                            if (biometricAvailable) {
+                            if (canUseBiometric && useBiometric) {
                                 Text(
-                                    "Biometric unlock available",
+                                    "Biometric unlock active",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -72,10 +82,35 @@ fun SecuritySettingsScreen(
                                 SecurePreferences.putBoolean("applock.enabled", enabled)
                                 if (!enabled) {
                                     SecurePreferences.remove("applock.pin_hash")
-                                    SecurePreferences.remove("applock.biometric")
+                                    SecurePreferences.putBoolean("applock.biometric", false)
+                                    useBiometric = false
                                 }
                             }
                         )
+                    }
+                    if (appLockEnabled && canUseBiometric) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Use biometric unlock", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "Unlock with fingerprint or face",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = useBiometric,
+                                onCheckedChange = { enabled ->
+                                    useBiometric = enabled
+                                    SecurePreferences.putBoolean("applock.biometric", enabled)
+                                }
+                            )
+                        }
                     }
                 }
             }

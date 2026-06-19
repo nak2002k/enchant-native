@@ -47,6 +47,17 @@ fun AppLockScreen(
         biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
+    val useBiometricUnlock = SecurePreferences.getBoolean("applock.biometric", false)
+
+    var biometricTriggered by remember { mutableStateOf(false) }
+
+    LaunchedEffect(step) {
+        if (step == AppLockStep.Verify && canAuthenticateWithBiometric && useBiometricUnlock && !biometricTriggered) {
+            biometricTriggered = true
+            authenticateWithBiometric()
+        }
+    }
+
     fun verifyPin(pin: String): Boolean {
         val storedHash = SecurePreferences.getString("applock.pin_hash") ?: return false
         return try {
