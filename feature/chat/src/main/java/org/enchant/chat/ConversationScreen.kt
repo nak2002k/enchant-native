@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.enchant.chat.components.EmojiPickerSheet
 import org.enchant.chat.components.MediaViewerScreen
@@ -75,35 +76,75 @@ fun ConversationScreen(
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
-    }
-    val conversations by viewModel.conversations.collectAsState()
-    var messageText by remember { mutableStateOf("") }
-    var replyToId by remember { mutableStateOf<String?>(null) }
-    var showAttachments by remember { mutableStateOf(false) }
-    var showEmojiPicker by remember { mutableStateOf(false) }
-    var showStickerPicker by remember { mutableStateOf(false) }
-    var showSearch by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-    val searchResults by viewModel.searchResults.collectAsState()
-    var showDisappearDialog by remember { mutableStateOf(false) }
-    var viewOnceMode by remember { mutableStateOf(false) }
-    var forwardDialogMessageId by remember { mutableStateOf<String?>(null) }
-    var translateDialogEnvelopeId by remember { mutableStateOf<String?>(null) }
-    val translatedMessage by viewModel.translatedMessage.collectAsState()
-    val stickerVM = remember { StickerViewModel() }
-    val stickerState by stickerVM.uiState.collectAsState()
-    val pinnedMessages by viewModel.pinnedMessages.collectAsState()
-    var showLocationPicker by remember { mutableStateOf(false) }
-    var showContactShareDialog by remember { mutableStateOf(false) }
-    var contactShareUserId by remember { mutableStateOf("") }
-    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var deleteEnvelopeId by remember { mutableStateOf("") }
-    var deleteForEveryone by remember { mutableStateOf(false) }
-
-    LaunchedEffect(searchQuery) {
-        if (showSearch) viewModel.searchInConversation(searchQuery)
-    }
+                        }
+                    }
+                } else if (message.mediaMimeType != null && message.isViewOnce) {
+                    if (viewOnceRevealed && viewOnceCountdown > 0) {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text(
+                                "📎 ${message.mediaMimeType}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Surface(
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.matchParentSize()
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        "$viewOnceCountdown",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    LaunchedEffect(viewOnceCountdown) {
+                                        while (viewOnceCountdown > 0) {
+                                            delay(1000L)
+                                            viewOnceCountdown--
+                                        }
+                                        onViewOnceViewed(message.envelopeId ?: "")
+                                    }
+                                }
+                            }
+                        }
+                    } else if (!viewOnceRevealed) {
+                        Surface(
+                            onClick = {
+                                viewOnceRevealed = true
+                                viewOnceCountdown = 5
+                            },
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.VisibilityOff,
+                                    contentDescription = "View once",
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Tap to view",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            "View once media viewed",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
 
     LaunchedEffect(conversationId) {
         viewModel.init(conversationId)
@@ -127,7 +168,7 @@ fun ConversationScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        uri?.let { viewModel.sendMediaMessage(it, "image/*") }
+        uri?.let { viewModel.sendFileMessage(it, "image", "image/*", viewOnceMode) }
     }
 
     var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -136,7 +177,7 @@ fun ConversationScreen(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success && cameraUri != null) {
-            viewModel.sendMediaMessage(cameraUri!!, "image/jpeg")
+            viewModel.sendFileMessage(cameraUri!!, "camera_photo", "image/jpeg", viewOnceMode)
         }
     }
 
@@ -343,7 +384,8 @@ fun ConversationScreen(
                                 onCopy = { viewModel.copyToClipboard(message.content) },
                                 onReact = { viewModel.setReaction(message.localId, it) },
                                 onReport = { viewModel.reportMessage(it) },
-                                onTranslate = { translateDialogEnvelopeId = it }
+                                onTranslate = { translateDialogEnvelopeId = it },
+                                onViewOnceViewed = { viewModel.markViewOnceViewed(it) }
                             )
                         }
                     }
@@ -814,12 +856,15 @@ fun MessageBubble(
     onCopy: (String) -> Unit,
     onReact: (String) -> Unit,
     onReport: (String) -> Unit = {},
-    onTranslate: (String) -> Unit = {}
+    onTranslate: (String) -> Unit = {},
+    onViewOnceViewed: (String) -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val bubbleColor = if (isOutgoing) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surfaceVariant
     val alignment = if (isOutgoing) Arrangement.End else Arrangement.Start
+    var viewOnceRevealed by remember { mutableStateOf(false) }
+    var viewOnceCountdown by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = Modifier
@@ -840,7 +885,7 @@ fun MessageBubble(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                         )
-                    } else if (message.mediaMimeType != null) {
+                    } else if (message.mediaMimeType != null && !message.isViewOnce) {
                     val mimeType = message.mediaMimeType
                     if (mimeType != null && mimeType.startsWith("audio/")) {
                         VoiceMessageContent(

@@ -140,7 +140,7 @@ class ConversationViewModel(
 
     fun sendMediaMessage(uri: Uri, mimeType: String): Boolean = sendFileMessage(uri, "file", mimeType)
 
-    fun sendFileMessage(uri: Uri, fileName: String, mimeType: String): Boolean {
+    fun sendFileMessage(uri: Uri, fileName: String, mimeType: String, isViewOnce: Boolean = false): Boolean {
         _sendingState.value = SendState.UPLOADING
         viewModelScope.launch {
             val result = pipeline.sendFileMessage(
@@ -148,7 +148,8 @@ class ConversationViewModel(
                 recipientUserId = recipientUserId,
                 fileUri = uri,
                 fileName = fileName,
-                mimeType = mimeType
+                mimeType = mimeType,
+                isViewOnce = isViewOnce
             )
             _sendingState.value = when (result) {
                 is SendResult.Success -> SendState.SENT

@@ -206,7 +206,8 @@ object MessageSendPipeline {
 
     suspend fun sendFileMessage(
         conversationId: String, recipientUserId: String,
-        fileUri: Uri, fileName: String, mimeType: String
+        fileUri: Uri, fileName: String, mimeType: String,
+        isViewOnce: Boolean = false
     ): SendResult {
         checkInit()
         val repo = repository!!
@@ -237,7 +238,8 @@ object MessageSendPipeline {
                     envelopeId = envelopeId, messageType = "ENCRYPTED_MESSAGE",
                     content = payloadText, status = "sending", timestamp = now,
                     mediaKey = CryptoHelper.base64UrlEncode(mediaKey),
-                    mediaMimeType = mimeType, mediaSize = fileBytes.size.toLong()
+                    mediaMimeType = mimeType, mediaSize = fileBytes.size.toLong(),
+                    isViewOnce = isViewOnce
                 ))
 
                 val encryptedMediaKey = NativeSessionManager.encryptWithSessionKey(recipientUserId, mediaKey)
