@@ -93,6 +93,7 @@ fun ConversationScreen(
     val translatedMessage by viewModel.translatedMessage.collectAsState()
     val stickerVM = remember { StickerViewModel() }
     val stickerState by stickerVM.uiState.collectAsState()
+    val pinnedMessages by viewModel.pinnedMessages.collectAsState()
     var showLocationPicker by remember { mutableStateOf(false) }
     var showContactShareDialog by remember { mutableStateOf(false) }
     var contactShareUserId by remember { mutableStateOf("") }
@@ -101,7 +102,10 @@ fun ConversationScreen(
         if (showSearch) viewModel.searchInConversation(searchQuery)
     }
 
-    LaunchedEffect(conversationId) { viewModel.init(conversationId) }
+    LaunchedEffect(conversationId) {
+        viewModel.init(conversationId)
+        viewModel.loadPinnedMessages()
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty() && listState.firstVisibleItemIndex < 2) {
@@ -260,6 +264,38 @@ fun ConversationScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp)
                         )
+                    }
+                }
+                if (pinnedMessages.isNotEmpty()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.PushPin,
+                                contentDescription = "Pinned",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Pinned message",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(
+                                pinnedMessages.first().content.take(40),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
                 if (messages.isEmpty()) {

@@ -306,14 +306,30 @@ class ConversationViewModel(
     fun pinMessage(messageId: Long) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            repo.pinMessage(msg.envelopeId ?: msg.localId.toString(), true)
+            pinMessageByEnvelopeId(msg.envelopeId ?: msg.localId.toString())
         }
     }
 
     fun unpinMessage(messageId: Long) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
-            repo.pinMessage(msg.envelopeId ?: msg.localId.toString(), false)
+            unpinMessageByEnvelopeId(msg.envelopeId ?: msg.localId.toString())
+        }
+    }
+
+    fun pinMessageByEnvelopeId(envelopeId: String) {
+        viewModelScope.launch {
+            repo.pinMessage(envelopeId, true)
+            pipeline.pinMessageRequest(envelopeId)
+            loadPinnedMessages()
+        }
+    }
+
+    fun unpinMessageByEnvelopeId(envelopeId: String) {
+        viewModelScope.launch {
+            repo.pinMessage(envelopeId, false)
+            pipeline.unpinMessageRequest(envelopeId)
+            loadPinnedMessages()
         }
     }
 

@@ -403,6 +403,26 @@ object MessageSendPipeline {
         repository?.markMessageDeleted(envelopeId)
     }
 
+    suspend fun pinMessageRequest(envelopeId: String): Result<Unit> {
+        checkInit()
+        return withContext(Dispatchers.Default) {
+            try {
+                apiClient!!.post("/v1/messages/$envelopeId/pin", buildJsonObject { })
+                Result.success(Unit)
+            } catch (e: Exception) { Result.failure(e) }
+        }
+    }
+
+    suspend fun unpinMessageRequest(envelopeId: String): Result<Unit> {
+        checkInit()
+        return withContext(Dispatchers.Default) {
+            try {
+                apiClient!!.del("/v1/messages/$envelopeId/pin")
+                Result.success(Unit)
+            } catch (e: Exception) { Result.failure(e) }
+        }
+    }
+
     suspend fun forwardMessage(
         originalConversationId: String, originalEnvelopeId: String,
         targetConversationId: String, targetUserId: String
