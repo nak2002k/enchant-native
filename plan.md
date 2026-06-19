@@ -3,7 +3,7 @@
 Last updated: 2026-06-19
 
 ## Test Status
-- **libenchantcrypto: 24/24 passing (100%)**
+- **libenchantcrypto: 1869/1869 passing (100%)** across 23 test suites
 - All working tree clean across 3 repos
 - Zero `TODO`/`FIXME`/stub code remaining in source
 - Zero `# placeholder` comments in CMakeLists
@@ -12,7 +12,7 @@ Last updated: 2026-06-19
 
 ## What's DONE (Committed & Pushed)
 
-### libenchantcrypto (16 commits)
+### libenchantcrypto (18 commits)
 - Veil V1/V2 sealed sender — full roundtrip working
 - TripleRatchet with PQ, OutgoingRatchet, error aggregation
 - Identity store: alternate identity signing, direction-aware trust
@@ -20,16 +20,20 @@ Last updated: 2026-06-19
 - Session management: stale detection, prekey wrap, trial decrypt
 - Key transparency: prefix tree + VRF
 - SVR v3/v4/SVRB, MLS, agent sessions
-- 247 FFI functions, 14+ new tests added
+- 247+ FFI functions, 14+ new tests added
+- **SQLite session persistence** — sessions survive restart (P0 fix)
+- **Previous chain storage in TripleRatchet** — out-of-order messages across ratchet steps (P1 fix)
+- **Streaming file encryption** — XChaCha20-Poly1305 chunked API prevents OOM on large files (P1 fix)
 
-### Backend (12 commits)
+### Backend (14 commits)
 - 22 microservices all running
 - Raw libsodium → enchant migration complete
 - Contact discovery (CDSI-like)
 - Message pin/delete endpoints
 - App-level PIN/biometric auth
 - Call signaling endpoints (offer/answer/ice/end)
-- Translation API via libcurl
+- **Server-side translation removed** — client-side only for E2EE compliance (P0 fix)
+- **Search service cleaned up** — metadata-only, no preview field (P0 fix)
 - Security: auth bypass, XSS, command injection all fixed
 - Export with profile enrichment
 - Media 302 redirect path
