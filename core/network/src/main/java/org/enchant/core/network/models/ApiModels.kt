@@ -66,7 +66,7 @@ data class SendMessageRequest(
 )
 
 @Serializable
-data class SendMessageResponse(val envelopeIds: List<String>)
+data class SendMessageResponse(val envelope_ids: List<String>)
 
 @Serializable
 data class SealedSendRequest(
@@ -78,7 +78,7 @@ data class SealedSendRequest(
 )
 
 @Serializable
-data class SealedSendResponse(val envelopeIds: List<String>, val sealed: Boolean)
+data class SealedSendResponse(val envelope_ids: List<String>, val sealed: Boolean)
 
 @Serializable
 data class MediaUploadResponse(val mediaId: String, val downloadUrl: String, val expiresTs: Long)

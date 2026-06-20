@@ -126,7 +126,8 @@ object MessageSendPipeline {
 
                 response.fold(
                     onSuccess = { json ->
-                        val serverId = json["envelope_id"]?.jsonPrimitive?.content ?: envelopeId
+                        val ids = json["envelope_ids"]?.jsonArray
+                        val serverId = ids?.firstOrNull()?.jsonPrimitive?.content ?: envelopeId
                         repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
                         SendResult.Success(serverId)
                     },
