@@ -41,10 +41,24 @@ sealed class ScrollEvent {
 }
 
 class ConversationViewModel(
-    private val repo: ConversationRepository,
-    private val apiClient: ApiClient,
+    private val repo: ConversationRepository = ConversationViewModel.defaultRepo(),
+    private val apiClient: ApiClient = ApiClient.getInstance(),
     private val pipeline: MessageSendPipeline = MessageSendPipeline
 ) : ViewModel() {
+
+    companion object {
+        internal fun defaultRepo(): ConversationRepository {
+            val pool = org.enchant.core.database.DatabasePool.instance
+                ?: error("DatabasePool not initialized")
+            return ConversationRepository(
+                messageDao = org.enchant.core.database.dao.MessageDao(pool),
+                conversationDao = org.enchant.core.database.dao.ConversationDao(pool),
+                recipientDao = org.enchant.core.database.dao.RecipientDao(pool),
+                pool = pool
+            )
+        }
+    }
+
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 

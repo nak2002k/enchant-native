@@ -57,8 +57,9 @@ data class PollUiState(
 )
 
 class PollViewModel(
-    private val apiClient: ApiClient
+    private val apiClient: ApiClient = ApiClient.getInstance()
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(PollUiState())
     val uiState: StateFlow<PollUiState> = _uiState.asStateFlow()
 

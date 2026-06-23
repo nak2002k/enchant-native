@@ -72,79 +72,38 @@ fun ConversationScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
+    var messageText by remember { mutableStateOf("") }
+    var replyToId by remember { mutableStateOf<String?>(null) }
+    var viewOnceMode by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showDisappearDialog by remember { mutableStateOf(false) }
+    var showAttachments by remember { mutableStateOf(false) }
+    var showEmojiPicker by remember { mutableStateOf(false) }
+    var showStickerPicker by remember { mutableStateOf(false) }
+    var showLocationPicker by remember { mutableStateOf(false) }
+    var showContactShareDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var deleteEnvelopeId by remember { mutableStateOf("") }
+    var deleteForEveryone by remember { mutableStateOf(false) }
+    var forwardDialogMessageId by remember { mutableStateOf<String?>(null) }
+    var contactShareUserId by remember { mutableStateOf("") }
+    var translateDialogEnvelopeId by remember { mutableStateOf<String?>(null) }
+
+    val pinnedMessages by viewModel.pinnedMessages.collectAsState()
+    val conversations by viewModel.conversations.collectAsState()
+    val translatedMessage by viewModel.translatedMessage.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+
+    val stickerVM: StickerViewModel = viewModel()
+    val stickerState by stickerVM.uiState.collectAsState()
+
     DisposableEffect(Unit) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                        }
-                    }
-                } else if (message.mediaMimeType != null && message.isViewOnce) {
-                    if (viewOnceRevealed && viewOnceCountdown > 0) {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text(
-                                "📎 ${message.mediaMimeType}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Surface(
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                                shape = MaterialTheme.shapes.small,
-                                modifier = Modifier.matchParentSize()
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        "$viewOnceCountdown",
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    LaunchedEffect(viewOnceCountdown) {
-                                        while (viewOnceCountdown > 0) {
-                                            delay(1000L)
-                                            viewOnceCountdown--
-                                        }
-                                        onViewOnceViewed(message.envelopeId ?: "")
-                                    }
-                                }
-                            }
-                        }
-                    } else if (!viewOnceRevealed) {
-                        Surface(
-                            onClick = {
-                                viewOnceRevealed = true
-                                viewOnceCountdown = 5
-                            },
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = MaterialTheme.shapes.small
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    Icons.Default.VisibilityOff,
-                                    contentDescription = "View once",
-                                    modifier = Modifier.size(32.dp),
-                                    tint = MaterialTheme.colorScheme.tertiary
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    "Tap to view",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    } else {
-                        Text(
-                            "View once media viewed",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                        )
-                    }
+        }
+    }
 
     LaunchedEffect(conversationId) {
         viewModel.init(conversationId)

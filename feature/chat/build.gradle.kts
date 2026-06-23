@@ -53,6 +53,8 @@ dependencies {
     implementation(project(":core:protos"))
     implementation(project(":core:jobmanager"))
     implementation(project(":core:calls"))
+    implementation(project(":feature:stickers"))
+    implementation(project(":feature:location"))
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.protobuf.javalite)
     implementation("androidx.paging:paging-runtime-ktx:3.3.5")

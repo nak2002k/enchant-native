@@ -106,18 +106,33 @@ object DI {
                     android.util.Log.w("DI", "DB key init failed: ${e.message}")
                     org.enchant.core.crypto.CryptoPrimitives.generateRandomKey(32)
                 }
-                val pool = try {
-                    DatabasePool(context, dbPassphrase, emptyList()).also {
+                var pool: org.enchant.core.database.DatabasePool? = null
+                try {
+                    pool = org.enchant.core.database.DatabasePool(context, dbPassphrase, emptyList()).also {
                         _databasePool = it
-DatabasePool.instance = it
-                    if (SecurePreferences.getBoolean("fts_needs_reset", false)) {
-                        resetFtsIndex(it)
-                        SecurePreferences.remove("fts_needs_reset")
+                        org.enchant.core.database.DatabasePool.instance = it
+                        if (SecurePreferences.getBoolean("fts_needs_reset", false)) {
+                            resetFtsIndex(it)
+                            SecurePreferences.remove("fts_needs_reset")
+                        }
                     }
-                }
                 } catch (e: Exception) {
                     android.util.Log.w("DI", "DatabasePool init failed: ${e.message}")
-                    null
+                    try {
+                        context.deleteDatabase("enchant.db")
+                        java.io.File(context.getDatabasePath("enchant.db").path).delete()
+                        java.io.File(context.getDatabasePath("enchant.db").path + "-wal").delete()
+                        java.io.File(context.getDatabasePath("enchant.db").path + "-shm").delete()
+                        SecurePreferences.remove("db.passphrase")
+                        android.util.Log.w("DI", "Deleted corrupt DB, retrying...")
+                        pool = org.enchant.core.database.DatabasePool(context, dbPassphrase, emptyList()).also {
+                            _databasePool = it
+                            org.enchant.core.database.DatabasePool.instance = it
+                        }
+                    } catch (e2: Exception) {
+                        android.util.Log.w("DI", "DatabasePool retry also failed: ${e2.message}")
+                        null
+                    }
                 }
                 if (pool != null) {
                     _messageDao = MessageDao(pool)
@@ -152,7 +167,7 @@ DatabasePool.instance = it
                     override suspend fun put(path: String, body: kotlinx.serialization.json.JsonObject): Result<kotlinx.serialization.json.JsonObject> =
                         client.put(path, body)
                 })
-                KeyManager.setPreKeyStore(preKeyStore)
+                _preKeyStore?.let { KeyManager.setPreKeyStore(it) }
                 NativeSessionManager.init(
                     selfUserId = SecurePreferences.getString("auth.user_id") ?: "self"
                 )
@@ -182,9 +197,9 @@ DatabasePool.instance = it
                 }
 
                 _initialized = true
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 reset()
-                throw IllegalStateException("DI init failed: ${e.message}", e)
+                throw IllegalStateException("DI init failed: ${e.message}", e as? Exception ?: Exception(e))
             }
         }
     }

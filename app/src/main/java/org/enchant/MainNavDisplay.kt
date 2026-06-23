@@ -5,12 +5,23 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -55,6 +67,7 @@ import org.enchant.contacts.ContactsViewModel
 import org.enchant.groups.GroupsViewModel
 import org.enchant.groups.screens.*
 import org.enchant.status.StatusViewModel
+import org.enchant.status.StatusPrivacy
 import org.enchant.status.screens.*
 import org.enchant.calls.CallLogViewModel
 import org.enchant.calls.screens.CallLogScreen
@@ -63,9 +76,12 @@ import org.enchant.core.calls.CallLogFilter
 import org.enchant.window.AppScaffold
 import org.enchant.window.rememberAppScaffoldNavigator
 import org.enchant.profile.screens.ProfileScreen
+import org.enchant.channels.ChannelViewModel
 import org.enchant.channels.screens.ChannelFeedScreen
+import org.enchant.stickers.StickerViewModel
 import org.enchant.stickers.screens.StickerStoreScreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainNavDisplay(
     callViewModel: CallViewModel = viewModel(),
@@ -430,7 +446,7 @@ private fun DetailPaneContent(
                     error = contactsState.error,
                     onContactClick = { userId -> onNavigate(MainNavigationDetailLocation.Profile(userId)) },
                     onSearchQueryChange = { contactsViewModel.searchContacts(it) },
-                    onAddContact = { /* navigate to add contact */ },
+                    onAddContact = { userId -> contactsViewModel.addContact(userId) },
                     onRefresh = { contactsViewModel.loadContacts() }
                 )
             }

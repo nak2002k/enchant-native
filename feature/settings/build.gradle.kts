@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.navigation3)
     implementation(libs.coil.core)
     implementation(libs.coil.compose)
+    implementation(libs.biometric)
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
     implementation(project(":core:model"))

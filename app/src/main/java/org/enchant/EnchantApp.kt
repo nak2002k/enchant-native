@@ -22,10 +22,6 @@ class EnchantApp : Application() {
         super.onCreate()
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            try {
-                SecurePreferences.clearAll()
-            } catch (_: Exception) {
-            }
             val scrubbed = Scrubber.scrub(throwable.message)
             android.util.Log.e("EnchantApp", "Uncaught crash on ${thread.name}: $scrubbed", throwable)
             CrashHandler.recordException(throwable)
@@ -47,8 +43,8 @@ class EnchantApp : Application() {
     private suspend fun initDi() {
         try {
             DI.init(this@EnchantApp)
-        } catch (e: Exception) {
-            android.util.Log.e("EnchantApp", "DI init failed", e)
+        } catch (e: Throwable) {
+            android.util.Log.e("EnchantApp", "DI init failed", e as? Exception ?: Exception(e))
         }
     }
 

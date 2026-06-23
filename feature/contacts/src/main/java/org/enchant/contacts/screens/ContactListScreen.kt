@@ -24,31 +24,21 @@ fun ContactListScreen(
     error: String?,
     onContactClick: (String) -> Unit,
     onSearchQueryChange: (String) -> Unit,
-    onAddContact: () -> Unit,
+    onAddContact: (String) -> Unit,
     onRefresh: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Contacts") },
-                actions = {
-                    IconButton(onClick = onAddContact) {
-                        Icon(Icons.Default.PersonAdd, "Add Contact")
-                    }
-                }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddContact) {
-                Icon(Icons.Default.PersonAdd, "Add Contact")
-            }
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                placeholder = { Text("Search users") },
+                placeholder = { Text("Search by username") },
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Default.Search, "Search") },
@@ -72,6 +62,7 @@ fun ContactListScreen(
             }
 
             val displayList = if (searchQuery.isNotBlank()) searchResults else contacts
+            val isSearchMode = searchQuery.isNotBlank()
 
             if (displayList.isEmpty() && !isLoading) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -79,23 +70,72 @@ fun ContactListScreen(
                         Icon(Icons.Default.People, null, modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                         Spacer(Modifier.height(16.dp))
-                        Text(if (searchQuery.isNotBlank()) "No users found" else "No contacts yet",
+                        Text(if (isSearchMode) "No users found" else "No contacts yet",
                             style = MaterialTheme.typography.titleMedium)
-                        if (searchQuery.isBlank()) {
-                            Spacer(Modifier.height(8.dp))
-                            TextButton(onClick = onAddContact) { Text("Add your first contact") }
-                        }
+                        Text(if (isSearchMode) "Try a different search" else "Search for users to add them",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
                 LazyColumn(modifier = Modifier.weight(1f)) {
+                    if (isSearchMode) {
+                        item {
+                            Text("Search results", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                        }
+                    }
                     items(displayList, key = { it.userId }) { contact ->
-                        ContactTile(contact, onClick = { onContactClick(contact.userId) })
+                        if (isSearchMode) {
+                            SearchResultTile(
+                                contact = contact,
+                                onAdd = { onAddContact(contact.userId) },
+                                onClick = { onContactClick(contact.userId) }
+                            )
+                        } else {
+                            ContactTile(contact, onClick = { onContactClick(contact.userId) })
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SearchResultTile(contact: Contact, onAdd: () -> Unit, onClick: () -> Unit) {
+    Surface(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Text((contact.displayName ?: contact.username ?: contact.userId).take(2).uppercase(),
+                        style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(contact.displayName ?: contact.username ?: "Unknown", style = MaterialTheme.typography.titleSmall)
+                if (contact.username != null) {
+                    Text("@${contact.username}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (contact.userId.isNotBlank()) {
+                    Text(contact.userId.take(8) + "...", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                }
+            }
+            FilledTonalButton(onClick = onAdd) {
+                Icon(Icons.Default.PersonAdd, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Add")
+            }
+        }
+    }
+    HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
 }
 
 @Composable

@@ -44,7 +44,10 @@ object CrashHandler {
 
     private fun blockUntilWritesFinish() {
         try {
-            EnchantStore.blockUntilAllWritesFinished()
+            val thread = Thread({ EnchantStore.blockUntilAllWritesFinished() }, "crash-block-writer")
+            thread.isDaemon = true
+            thread.start()
+            thread.join(2000)
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Failed to block on writes", e)
         }

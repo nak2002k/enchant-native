@@ -14,11 +14,23 @@ import org.enchant.core.model.Conversation
 import org.enchant.core.network.ApiClient
 
 class ConversationListViewModel(
-    private val repo: ConversationRepository,
-    private val apiClient: ApiClient
+    private val repo: ConversationRepository = ConversationListViewModel.defaultRepo(),
+    private val apiClient: ApiClient = ApiClient.getInstance()
 ) : ViewModel() {
+
     companion object {
         private const val SEARCH_DEBOUNCE_MS = 300L
+
+        internal fun defaultRepo(): ConversationRepository {
+            val pool = org.enchant.core.database.DatabasePool.instance
+                ?: error("DatabasePool not initialized")
+            return ConversationRepository(
+                messageDao = org.enchant.core.database.dao.MessageDao(pool),
+                conversationDao = org.enchant.core.database.dao.ConversationDao(pool),
+                recipientDao = org.enchant.core.database.dao.RecipientDao(pool),
+                pool = pool
+            )
+        }
     }
 
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())

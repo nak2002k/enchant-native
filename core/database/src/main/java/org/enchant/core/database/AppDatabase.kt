@@ -40,10 +40,16 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     private val openHelper: SQLiteOpenHelper by lazy {
         object : SQLiteOpenHelper(context, "enchant.db", null, DB_VERSION, hook) {
             override fun onCreate(db: SQLiteDatabase) {
-                db.execSQL("PRAGMA journal_mode = WAL")
-                db.execSQL("PRAGMA synchronous = NORMAL")
-                db.execSQL("PRAGMA foreign_keys = ON")
-                createTables(db)
+                try {
+                    db.rawQuery("PRAGMA journal_mode = WAL", null).close()
+                    db.rawQuery("PRAGMA synchronous = NORMAL", null).close()
+                    db.rawQuery("PRAGMA foreign_keys = ON", null).close()
+                } catch (_: Exception) {}
+                try {
+                    createTables(db)
+                } catch (e: Exception) {
+                    android.util.Log.w("DatabasePool", "createTables failed: ${e.message}")
+                }
             }
             override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
                 if (newVersion > oldVersion) {

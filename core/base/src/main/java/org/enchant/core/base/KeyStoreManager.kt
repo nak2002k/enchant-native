@@ -52,37 +52,37 @@ object KeyStoreManager {
     ): Boolean {
         val ks = getKeyStore()
         if (ks.containsAlias(alias)) return false
-        when (purpose) {
-            KeyProperties.PURPOSE_SIGN, KeyProperties.PURPOSE_VERIFY -> {
-                val spec = KeyGenParameterSpec.Builder(alias, purpose)
-                    .setAlgorithmParameterSpec(java.security.spec.ECGenParameterSpec("secp256r1"))
-                    .setKeySize(256)
-                    .apply {
-                        if (_isHardwareBacked) setIsStrongBoxBacked(true)
-                        if (requireAuth) {
-                            setUserAuthenticationRequired(true)
-                            setUserAuthenticationValidityDurationSeconds(300)
-                        }
+        val hasSignOrVerify = (purpose and (KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)) != 0
+        val hasEncryptOrDecrypt = (purpose and (KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)) != 0
+        if (hasSignOrVerify) {
+            val spec = KeyGenParameterSpec.Builder(alias, purpose)
+                .setAlgorithmParameterSpec(java.security.spec.ECGenParameterSpec("secp256r1"))
+                .setKeySize(256)
+                .apply {
+                    if (_isHardwareBacked) setIsStrongBoxBacked(true)
+                    if (requireAuth) {
+                        setUserAuthenticationRequired(true)
+                        setUserAuthenticationValidityDurationSeconds(300)
                     }
-                    .build()
-                val kg = KeyPairGenerator.getInstance("EC", ANDROID_KEYSTORE)
-                kg.initialize(spec)
-                kg.generateKeyPair()
-            }
-            KeyProperties.PURPOSE_ENCRYPT, KeyProperties.PURPOSE_DECRYPT -> {
-                val spec = KeyGenParameterSpec.Builder(alias, purpose)
-                    .setKeySize(256)
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .apply {
-                        if (_isHardwareBacked) setIsStrongBoxBacked(true)
-                    }
-                    .build()
-                val kg = KeyGenerator.getInstance("AES", ANDROID_KEYSTORE)
-                kg.init(spec)
-                kg.generateKey()
-            }
-            else -> throw IllegalArgumentException("Unsupported key purpose: $purpose")
+                }
+                .build()
+            val kg = KeyPairGenerator.getInstance("EC", ANDROID_KEYSTORE)
+            kg.initialize(spec)
+            kg.generateKeyPair()
+        } else if (hasEncryptOrDecrypt) {
+            val spec = KeyGenParameterSpec.Builder(alias, purpose)
+                .setKeySize(256)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .apply {
+                    if (_isHardwareBacked) setIsStrongBoxBacked(true)
+                }
+                .build()
+            val kg = KeyGenerator.getInstance("AES", ANDROID_KEYSTORE)
+            kg.init(spec)
+            kg.generateKey()
+        } else {
+            throw IllegalArgumentException("Unsupported key purpose: $purpose")
         }
         return true
     }

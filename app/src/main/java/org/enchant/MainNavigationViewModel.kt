@@ -19,9 +19,10 @@ import org.enchant.main.MainNavigationRepository
 import org.enchant.window.AppScaffoldNavigator
 
 class MainNavigationViewModel(
-    savedStateHandle: SavedStateHandle,
-    private val repository: MainNavigationRepository = MainNavigationRepository
+    savedStateHandle: SavedStateHandle
 ) : ViewModel(), MainNavigationRouter {
+
+    private val repository = MainNavigationRepository
 
     private val _mainNavigationState = MutableStateFlow(
         MainNavigationState(

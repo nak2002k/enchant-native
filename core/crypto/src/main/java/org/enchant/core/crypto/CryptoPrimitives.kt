@@ -311,11 +311,15 @@ object CryptoPrimitives {
     }
 
     fun base64UrlDecode(encoded: String): ByteArray {
-        val out = ByteArray(encoded.length)
-        val decodedLen = longArrayOf(0)
-        val rc = EnchantCrypto.enchant_base64_decode(encoded, encoded.length.toLong(), out, out.size.toLong(), decodedLen)
-        if (rc != 0) throw IllegalArgumentException("base64UrlDecode failed: $rc")
-        return out.copyOf(decodedLen[0].toInt())
+        return try {
+            java.util.Base64.getUrlDecoder().decode(encoded)
+        } catch (e: Exception) {
+            val out = ByteArray(encoded.length)
+            val decodedLen = longArrayOf(0)
+            val rc = EnchantCrypto.enchant_base64_decode(encoded, encoded.length.toLong(), out, out.size.toLong(), decodedLen)
+            if (rc != 0) throw IllegalArgumentException("base64UrlDecode failed: $rc")
+            out.copyOf(decodedLen[0].toInt())
+        }
     }
 
     fun hexEncode(data: ByteArray): String =

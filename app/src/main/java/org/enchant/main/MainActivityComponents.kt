@@ -73,7 +73,7 @@ fun MainNavigationDetailLocationEffect(
     mainNavigationViewModel: MainNavigationViewModel,
     onWillFocusPrimary: suspend () -> Unit = {}
 ) {
-    var state by rememberSaveable {
+    var state by remember {
         mutableStateOf(
             mainNavigationViewModel.earlyNavigationDetailLocationRequested
                 ?: MainNavigationDetailLocation.Empty

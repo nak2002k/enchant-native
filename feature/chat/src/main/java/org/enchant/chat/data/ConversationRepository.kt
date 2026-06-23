@@ -219,6 +219,7 @@ class ConversationRepository(
     fun getUnreadCount(): Flow<Int> = callbackFlow {
         val count = conversationDao.getUnreadCount()
         trySend(count)
+        awaitClose { }
     }
 
     suspend fun getConversationUnreadCount(conversationId: String): Int {

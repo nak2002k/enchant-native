@@ -1,47 +1,83 @@
 package org.enchant.core.calls
 
+import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.enchant.core.calls.model.CallState
+
 object CallManagerProvider {
     fun getInstance(): DefaultCallManager = CallsModule.getCallManager()
 }
 
 object CallManager {
-    val callState get() = CallsModule.getCallManager().callState
+    private val _fallbackState = MutableStateFlow(CallState())
+
+    val callState: StateFlow<CallState>
+        get() = try {
+            CallsModule.getCallManager().callState
+        } catch (e: IllegalStateException) {
+            Log.w("CallManager", "CallManager not initialized, returning idle state")
+            _fallbackState
+        }
+
+    private fun <T> safeCall(default: T, block: DefaultCallManager.() -> T): T {
+        return try {
+            CallsModule.getCallManager().let(block)
+        } catch (e: IllegalStateException) {
+            Log.w("CallManager", "CallManager not initialized")
+            default
+        }
+    }
 
     fun registerObserver(observer: org.enchant.core.calls.observer.CallObserver) =
-        CallsModule.getCallManager().registerObserver(observer)
+        safeCall(Unit) { registerObserver(observer) }
 
     fun unregisterObserver(observer: org.enchant.core.calls.observer.CallObserver) =
-        CallsModule.getCallManager().unregisterObserver(observer)
+        safeCall(Unit) { unregisterObserver(observer) }
 
-    fun toggleMute() = CallsModule.getCallManager().toggleMute()
-    fun toggleSpeaker() = CallsModule.getCallManager().toggleSpeaker()
-    fun flipCamera() = CallsModule.getCallManager().flipCamera()
-    fun endCall() = CallsModule.getCallManager().endCall()
+    fun toggleMute() = safeCall(Unit) { toggleMute() }
+    fun toggleSpeaker() = safeCall(Unit) { toggleSpeaker() }
+    fun flipCamera() = safeCall(Unit) { flipCamera() }
+    fun endCall() = safeCall(Unit) { endCall() }
 
-    fun denyCall() = CallsModule.getCallManager().denyCall()
+    fun denyCall() = safeCall(Unit) { denyCall() }
     suspend fun acceptCall(withVideo: Boolean) {
-        CallsModule.getCallManager().acceptCall(withVideo)
+        try {
+            CallsModule.getCallManager().acceptCall(withVideo)
+        } catch (e: IllegalStateException) {
+            Log.w("CallManager", "CallManager not initialized")
+        }
     }
 
     suspend fun startOutgoingCall(remoteUserId: String, isVideo: Boolean) {
-        CallsModule.getCallManager().startOutgoingCall(remoteUserId, isVideo)
+        try {
+            CallsModule.getCallManager().startOutgoingCall(remoteUserId, isVideo)
+        } catch (e: IllegalStateException) {
+            Log.w("CallManager", "CallManager not initialized")
+        }
     }
 
     fun handleReceivedOffer(senderUserId: String, sdp: String, callId: String, isVideo: Boolean) {
-        CallsModule.getCallManager().handleReceivedOffer(senderUserId, sdp, callId, isVideo)
+        safeCall(Unit) { handleReceivedOffer(senderUserId, sdp, callId, isVideo) }
     }
 
     fun handleReceivedHangup() {
-        CallsModule.getCallManager().handleReceivedHangup()
+        safeCall(Unit) { handleReceivedHangup() }
     }
 
     fun toggleVideo() {
-        CallsModule.getCallManager().toggleVideo()
+        safeCall(Unit) { toggleVideo() }
     }
 
     suspend fun getCallLogs(limit: Int = 100): List<org.enchant.core.calls.model.CallLogEntry> =
-        CallsModule.getCallManager().getCallLogs(limit)
+        try {
+            CallsModule.getCallManager().getCallLogs(limit)
+        } catch (e: IllegalStateException) {
+            Log.w("CallManager", "CallManager not initialized")
+            emptyList()
+        }
 
-    fun setOnHold(hold: Boolean) = CallsModule.getCallManager().setOnHold(hold)
-    fun raiseHand(raised: Boolean) = CallsModule.getCallManager().raiseHand(raised)
+    fun setOnHold(hold: Boolean) = safeCall(Unit) { setOnHold(hold) }
+    fun raiseHand(raised: Boolean) = safeCall(Unit) { raiseHand(raised) }
 }
