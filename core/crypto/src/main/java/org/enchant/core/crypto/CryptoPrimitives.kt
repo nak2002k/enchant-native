@@ -62,6 +62,8 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun x25519DiffieHellman(privateKey: ByteArray, publicKey: ByteArray): ByteArray {
+        require(privateKey.size == 32) { "X25519 private key must be 32 bytes, got ${privateKey.size}" }
+        require(publicKey.size == 32) { "X25519 public key must be 32 bytes, got ${publicKey.size}" }
         val secret = ByteArray(32)
         val rc = EnchantCrypto.enchant_x25519_dh(privateKey, publicKey, secret)
         if (rc != 0) throw RuntimeException("x25519_dh failed: $rc")
@@ -73,6 +75,7 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun ed25519SkToX25519(sk: ByteArray): ByteArray {
+        require(sk.size == 32) { "Ed25519 seed must be 32 bytes, got ${sk.size}" }
         val out = ByteArray(32)
         val rc = EnchantCrypto.enchant_ed25519_sk_to_x25519(sk, out)
         if (rc != 0) throw RuntimeException("ed25519_sk_to_x25519 failed: $rc")
@@ -80,6 +83,7 @@ object CryptoPrimitives {
     }
 
     fun ed25519PkToX25519(pk: ByteArray): ByteArray {
+        require(pk.size == 32) { "Ed25519 public key must be 32 bytes, got ${pk.size}" }
         val out = ByteArray(32)
         val rc = EnchantCrypto.enchant_ed25519_pk_to_x25519(pk, out)
         if (rc != 0) throw RuntimeException("ed25519_pk_to_x25519 failed: $rc")
@@ -91,6 +95,7 @@ object CryptoPrimitives {
     // ──────────────────────────────────────────────
 
     fun signEd25519(message: ByteArray, privateKey: ByteArray): ByteArray {
+        require(privateKey.size == 32) { "Ed25519 seed must be 32 bytes, got ${privateKey.size}" }
         val sig = ByteArray(EnchantCrypto.ED25519_SIGNATURE_SIZE)
         val rc = EnchantCrypto.enchant_ed25519_sign(message, message.size.toLong(), privateKey, sig)
         if (rc != 0) throw RuntimeException("ed25519_sign failed: $rc")
@@ -98,6 +103,8 @@ object CryptoPrimitives {
     }
 
     fun verifyEd25519(message: ByteArray, signature: ByteArray, publicKey: ByteArray): Boolean {
+        if (signature.size != EnchantCrypto.ED25519_SIGNATURE_SIZE) return false
+        if (publicKey.size != 32) return false
         val rc = EnchantCrypto.enchant_ed25519_verify(message, message.size.toLong(), signature, publicKey)
         return rc == 0
     }
@@ -311,14 +318,10 @@ object CryptoPrimitives {
     }
 
     fun base64UrlDecode(encoded: String): ByteArray {
-        return try {
-            java.util.Base64.getUrlDecoder().decode(encoded)
+        try {
+            return java.util.Base64.getUrlDecoder().decode(encoded)
         } catch (e: Exception) {
-            val out = ByteArray(encoded.length)
-            val decodedLen = longArrayOf(0)
-            val rc = EnchantCrypto.enchant_base64_decode(encoded, encoded.length.toLong(), out, out.size.toLong(), decodedLen)
-            if (rc != 0) throw IllegalArgumentException("base64UrlDecode failed: $rc")
-            out.copyOf(decodedLen[0].toInt())
+            throw IllegalArgumentException("base64UrlDecode failed: ${e.message}")
         }
     }
 

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.enchant.core.ui.navigation.ResultEventBus
 
 class RegistrationViewModel(
-    private val repository: Any
+    private val repository: Any = Any()
 ) : EventDrivenViewModel<RegistrationFlowEvent>("RegistrationViewModel") {
 
     private val _state = MutableStateFlow(RegistrationFlowState())
