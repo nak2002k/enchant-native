@@ -127,6 +127,13 @@ object WebSocketManager {
     val incomingMessages: SharedFlow<IncomingEnvelope> = _incomingMessages.asSharedFlow()
     val connectionErrors: SharedFlow<ConnectionError> = _connectionErrors.asSharedFlow()
 
+    /**
+     * Hook invoked for every incoming envelope. Set by the app layer (which has access to
+     * the message processor) so this network module stays decoupled from feature modules.
+     */
+    @Volatile
+    var incomingHandler: (suspend (IncomingEnvelope) -> Unit)? = null
+
     fun init(context: Context) {
         if (initialized) return
         applicationContext = context.applicationContext

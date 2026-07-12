@@ -46,6 +46,24 @@ class WebSocketForegroundService : Service() {
 
         scope.launch {
             try {
+                WebSocketManager.connect()
+            } catch (e: Exception) {
+                android.util.Log.e("WebSocketService", "Connection failed", e)
+            }
+        }
+
+        scope.launch {
+            WebSocketManager.incomingMessages.collect { envelope ->
+                runCatching {
+                    WebSocketManager.incomingHandler?.invoke(envelope)
+                }.onFailure { e ->
+                    android.util.Log.e("WebSocketService", "Failed to process incoming envelope", e)
+                }
+            }
+        }
+
+        scope.launch {
+            try {
                 WebSocketManager.connectionState.collect { state ->
                     when (state) {
                         ConnectionState.CONNECTED -> {

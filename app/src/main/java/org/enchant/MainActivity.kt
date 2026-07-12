@@ -86,6 +86,14 @@ fun AppNavigation() {
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.authState.collectAsState()
     val registrationState by authViewModel.registrationState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Authenticated) {
+            val intent = Intent(context, org.enchant.core.network.WebSocketForegroundService::class.java)
+            runCatching { context.startForegroundService(intent) }
+        }
+    }
 
     LaunchedEffect(Unit) {
         var attempts = 0

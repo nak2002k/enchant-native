@@ -180,6 +180,9 @@ object DI {
                 if (_conversationRepository != null) {
                     MessageSendPipeline.init(_apiClient!!, _conversationRepository!!)
                     IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client, _conversationDao!!, _messageDao!!)
+                    WebSocketManager.incomingHandler = { envelope ->
+                        runCatching { IncomingMessageProcessor.processIncoming(envelope) }
+                    }
                     MediaService.init(_apiClient!!)
                     ContentPreProcessor.init(_apiClient!!)
 
