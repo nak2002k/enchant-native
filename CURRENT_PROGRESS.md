@@ -1,8 +1,48 @@
 # Enchant Native — Current Progress
 
-**Last Updated:** 2026-06-15
+**Last Updated:** 2026-08-02
 **Status:** Phase 8 — Android Frontend | Crypto integration complete, alpha release-ready
 **Purpose:** Track implementation state vs Signal/WhatsApp parity
+
+---
+
+## 🔗 BACKEND INTEGRATION AUDIT (2026-08-02)
+
+Full frontend↔backend contract audit against the live podman backend (28 services, gateway :8080, Cloudflare tunnel).
+
+### Fixed in this session
+
+| Issue | Location | Status |
+|-------|---------|--------|
+| Default gateway URL pointed at dead tunnel (`university-supposed-deal-casey`) | `strings.xml:4` | ✅ FIXED → live `https://venture-fotos-solid-whom.trycloudflare.com` (commit `694d524b`) |
+| Status media URLs hardcoded to unresolvable `https://api.enchant.local/v1/media/...` | `StatusViewerScreen.kt:161,169` | ✅ FIXED → `${AppConfig.gatewayUrl}/v1/media/...` |
+
+### Confirmed aligned with backend (no change needed)
+
+- Auth OTP flow: `POST /v1/auth/request-otp`, `POST /v1/auth/verify-otp` (`challenge_id` + `otp`)
+- JWKS path, key registration/rotation paths, media upload/download
+- WebSocket protocol: `POST /v1/auth`, `POST /api/v1/message`, `GET /v1/keepalive` (matches MRS `ws_session.cpp`)
+- `/v1/connect` → proxied by gateway nginx to `mrs:8003` raw TCP
+- `GET /v1/backup/latest` matches backend
+
+### 🔴 LIVE CODE CALLING MISSING BACKEND ROUTES (real gaps — need backend work)
+
+| Frontend caller | Endpoint(s) called | Backend status |
+|-----------------|-------------------|----------------|
+| `CallLinkManager.kt` | `POST/GET/PUT /v1/calls/links*` | MISSING (backend has only offer/answer/ice/end/turn-credentials) |
+| `SettingsViewModel.kt:85,153,163,262,281` | `GET /v1/settings`, `PUT /v1/settings/theme`, `PUT /v1/settings/font-size`, `POST /v1/security/twostep`, `POST /v1/security/twostep/disable` | MISSING (no settings or security routes) |
+| `ChannelViewModel.kt:276,333` | `GET /v1/channels/discover`, `GET /v1/channels/my` | MISSING (backend has search/posts/subscribe/invite/admins only) |
+| `ConversationListViewModel.kt:162` | `POST /v1/messages/read` | MISSING |
+| `NotificationReplyReceiver.kt:72` | `POST /v1/messages/read` | MISSING |
+| `ContentPreProcessor.kt:82` | `GET /v1/chats/link-preview` | MISSING (chat media preview depends on it) |
+| `AuthManager.kt:298` (`restoreFromBackup`) | `POST /v1/backup/restore` | MISSING (backend has no restore route) |
+
+### 🟡 DEAD/ORPHANED CODE (no callers anywhere in app)
+
+| Module | Status |
+|--------|--------|
+| `feature/backup` — `BackupViewModel`, `BackupExporter` | ORPHANED — zero callers; wired into build (`:feature:backup`) but unreachable. Its API paths also mismatch backend: frontend `POST /v1/backup/{id}/chunks/{i}` + `PUT /v1/backup/{id}/finalize` vs backend `PUT /v1/backup/chunk/{id}` (headers `X-Chunk-Index`, `X-Byte-Offset`) + `POST /v1/backup/finalize/{id}` |
+| `AuthConstants.PATH_WHOAMI` (`/v1/accounts/whoami`) | DEAD — defined, never called |
 
 ---
 
@@ -209,6 +249,7 @@ See `TODO.md` for detailed breakdown with code snippets, fix plans, and priority
 
 | Commit | Description |
 |--------|-------------|
+| `694d524b` | [fix] Gateway URL → live tunnel in default config (unpushed, per user instruction) |
 | `c97a8b1` | [fix+test] Fix upload queue stuck bug, add logging, add argon2id + safety number tests |
 | `b9688ff` | [crypto] Fix all JCA duplications, add missing functions, remove dead code, statically link libsodium |
 | `4b5aa83` | [crypto] Remove all duplicated crypto implementations, use native only |

@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
+import org.enchant.core.base.AppConfig
 import org.enchant.status.StatusFeedEntry
 
 @Composable
@@ -158,7 +159,7 @@ fun StatusViewerScreen(
                     )
                 } else if (currentStatus.type == "image" && currentStatus.mediaId != null) {
                     AsyncImage(
-                        model = "https://api.enchant.local/v1/media/${currentStatus.mediaId}",
+                        model = "${AppConfig.gatewayUrl}/v1/media/${currentStatus.mediaId}",
                         contentDescription = "Status image",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -166,7 +167,7 @@ fun StatusViewerScreen(
                 } else if (currentStatus.type == "video" && currentStatus.mediaId != null) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
-                            model = "https://api.enchant.local/v1/media/${currentStatus.mediaId}/thumbnail",
+                            model = "${AppConfig.gatewayUrl}/v1/media/${currentStatus.mediaId}/thumbnail",
                             contentDescription = "Video thumbnail",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
