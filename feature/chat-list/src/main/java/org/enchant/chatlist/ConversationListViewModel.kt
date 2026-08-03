@@ -194,6 +194,7 @@ class ConversationListViewModel(
                                 payload = env.payload.toByteArray(),
                                 serverTimestamp = if (env.hasServerTs()) env.serverTs else null,
                                 ephemeral = env.ephemeral,
+                                sealed = env.sealed,
                                 replyToken = env.replyToken.ifEmpty { null },
                                 requestId = null
                             )

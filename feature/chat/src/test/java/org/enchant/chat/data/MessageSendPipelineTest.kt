@@ -66,6 +66,8 @@ class MessageSendPipelineTest {
             publicKey = "pubkey".encodeToByteArray(),
             privateKey = "seckey".encodeToByteArray()
         )
+        mockkObject(org.enchant.core.crypto.SealedSender)
+        every { org.enchant.core.crypto.SealedSender.encryptSealed(any(), any(), any(), any()) } returns "sealed".encodeToByteArray()
     }
 
     @AfterEach
@@ -74,6 +76,7 @@ class MessageSendPipelineTest {
         unmockkObject(ConnectivityMonitor)
         unmockkObject(NativeSessionManager)
         unmockkObject(org.enchant.core.crypto.KeyManager)
+        unmockkObject(org.enchant.core.crypto.SealedSender)
     }
 
     @Nested @DisplayName("Send Message")
@@ -200,20 +203,22 @@ class MessageSendPipelineTest {
             assertEquals(SendError.PAYLOAD_TOO_LARGE, (result as SendResult.Failed).error)
         }
 
-        @Test @DisplayName("sendSealedMessage fails with ENCRYPTION_FAILED when no identity key")
+        @Test @DisplayName("sendSealedMessage fails with KEY_BUNDLE_MISSING when recipient key unavailable")
         fun `sealed no identity key`() = runTest {
-            coEvery { NativeSessionManager.encryptMessage(any(), any()) } returns null
+            every { NativeSessionManager.getIdentityKey(any()) } returns null
+            every { apiClient.get(any()) } returns kotlin.Result.failure(Exception("bundle unavailable"))
             val result = MessageSendPipeline.sendSealedMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user-1",
                 plaintext = "Hello".encodeToByteArray()
             )
             assertTrue(result is SendResult.Failed)
-            assertEquals(SendError.ENCRYPTION_FAILED, (result as SendResult.Failed).error)
+            assertEquals(SendError.KEY_BUNDLE_MISSING, (result as SendResult.Failed).error)
         }
 
         @Test @DisplayName("sendSealedMessage returns Success on API success")
         fun `sealed success`() = runTest {
+            every { NativeSessionManager.getIdentityKey(any()) } returns "recipient-pub".encodeToByteArray()
             coEvery { apiClient.postAnonymous(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.success(kotlinx.serialization.json.buildJsonObject {
                     put("envelope_ids", kotlinx.serialization.json.buildJsonArray {

@@ -47,6 +47,7 @@ data class IncomingEnvelope(
     val payload: ByteArray,
     val serverTimestamp: Long?,
     val ephemeral: Boolean,
+    val sealed: Boolean = false,
     val replyToken: String? = null,
     val requestId: Long? = null
 )
@@ -385,6 +386,7 @@ object WebSocketManager {
                                 payload = envelope.payload.toByteArray(),
                                 serverTimestamp = if (envelope.hasServerTs()) envelope.serverTs else null,
                                 ephemeral = if (isSealed) true else envelope.ephemeral,
+                                sealed = isSealed,
                                 replyToken = if (replyToken != null) replyToken else envelope.replyToken.ifEmpty { null },
                                 requestId = request.id
                             ))

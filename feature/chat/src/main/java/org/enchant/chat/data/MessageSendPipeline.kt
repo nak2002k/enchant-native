@@ -167,16 +167,52 @@ object MessageSendPipeline {
 
                 val identityKeyPair = KeyManager.getIdentityKeyPair()
                 if (identityKeyPair == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
-                val senderIdentityB64 = CryptoHelper.base64UrlEncode(identityKeyPair.publicKey)
 
-                val contentBytes = MessageProtobufHelper.buildDataMessageContent(
-                    body = plaintext.decodeToString(),
-                    timestamp = System.currentTimeMillis()
+                val recipientPublicKey = NativeSessionManager.getIdentityKey(recipientUserId)
+                    ?: fetchRecipientIdentityKey(recipientUserId)
+                    ?: return@withContext SendResult.Failed(SendError.KEY_BUNDLE_MISSING)
+
+                val selfId = SecurePreferences.getString("auth.user_id")
+                    ?: return@withContext SendResult.Failed(SendError.NETWORK)
+
+                val parsedContent = runCatching {
+                    org.enchant.protos.ContentProtos.Content.parseFrom(plaintext)
+                }.getOrNull()
+                val content = if (parsedContent != null && (
+                        parsedContent.hasDataMessage() ||
+                        parsedContent.hasReceiptMessage() ||
+                        parsedContent.hasTypingMessage() ||
+                        parsedContent.hasCallMessage() ||
+                        parsedContent.hasNullMessage() ||
+                        parsedContent.hasEditMessage() ||
+                        parsedContent.hasSyncMessage() ||
+                        parsedContent.hasStoryMessage()
+                    )) {
+                    parsedContent
+                } else {
+                    MessageProtobufHelper.buildDataMessageContent(
+                        body = plaintext.decodeToString(),
+                        timestamp = System.currentTimeMillis()
+                    )
+                }
+
+                val wrapper = org.enchant.protos.SignalServiceContentProto.newBuilder()
+                    .setLocalAddress(
+                        org.enchant.protos.AddressProto.newBuilder()
+                            .setUuid(com.google.protobuf.ByteString.copyFrom(selfId.toByteArray(Charsets.UTF_8)))
+                            .build()
+                    )
+                    .setContent(content)
+                    .build()
+
+                val sealedPayload = org.enchant.core.crypto.SealedSender.encryptSealed(
+                    recipientPublicKey = recipientPublicKey,
+                    senderIdentityPrivate = identityKeyPair.privateKey,
+                    senderIdentityPublic = identityKeyPair.publicKey,
+                    message = wrapper.toByteArray()
                 )
-                val encrypted = NativeSessionManager.encryptMessage(recipientUserId, contentBytes)
-                if (encrypted == null) return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
 
-                val ciphertextB64 = CryptoHelper.base64UrlEncode(encrypted.payload)
+                val ciphertextB64 = CryptoHelper.base64UrlEncode(sealedPayload)
 
                 val client = apiClient!!
                 val response = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {
@@ -197,6 +233,28 @@ object MessageSendPipeline {
             } catch (e: Exception) {
                 SendResult.Failed(SendError.NETWORK)
             }
+        }
+    }
+
+    private suspend fun fetchRecipientIdentityKey(recipientUserId: String): ByteArray? {
+        return try {
+            val response = apiClient?.get("/v1/keys/bundle/$recipientUserId") ?: return null
+            response.fold(
+                onSuccess = { json ->
+                    val devices = json["devices"] as? kotlinx.serialization.json.JsonArray
+                    val device = devices?.firstOrNull()
+                    val obj = device as? kotlinx.serialization.json.JsonObject
+                    val ik = obj?.get("identity_key")
+                        ?.let { it as? kotlinx.serialization.json.JsonPrimitive }
+                        ?.content ?: return null
+                    val ikBytes = CryptoHelper.base64UrlDecode(ik)
+                    NativeSessionManager.setIdentityKey(recipientUserId, ikBytes)
+                    ikBytes
+                },
+                onFailure = { null }
+            )
+        } catch (_: Exception) {
+            null
         }
     }
 

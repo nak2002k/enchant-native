@@ -91,6 +91,10 @@ object IncomingMessageProcessor {
                     return@withContext processUnidentifiedSender(envelope, repo)
                 }
 
+                if (envelope.sealed) {
+                    return@withContext processUnidentifiedSender(envelope, repo)
+                }
+
                 val senderId = envelope.senderUserId ?: return@withContext ProcessResult.Ignored
 
                 val blocked = recipientDao!!.getBlocked()
@@ -375,10 +379,31 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val content = org.enchant.protos.ContentProtos.Content.parseFrom(envelope.payload)
-                val senderUserId = envelope.senderUserId
-                    ?: return@withContext ProcessResult.Error("Missing senderUserId in unidentified envelope")
+                val identityKeyPair = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
+                    ?: return@withContext ProcessResult.Error("Local identity key missing")
+                val decrypted = org.enchant.core.crypto.SealedSender.decryptSealed(
+                    recipientPrivateKey = identityKeyPair.privateKey,
+                    recipientPublicKey = identityKeyPair.publicKey,
+                    sealedPayload = envelope.payload
+                ) ?: return@withContext ProcessResult.Error("Sealed decrypt failed")
 
+                val recoveredSenderKey = decrypted.first
+                val wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(decrypted.second)
+                val senderUserId = wrapper.localAddress.uuid.toStringUtf8()
+                if (senderUserId.isEmpty()) {
+                    return@withContext ProcessResult.Error("Missing sender identity in sealed payload")
+                }
+
+                val knownKey = NativeSessionManager.getIdentityKey(senderUserId)
+                if (knownKey != null && !knownKey.contentEquals(recoveredSenderKey)) {
+                    android.util.Log.w("IncomingMsg", "Sealed sender identity key mismatch for $senderUserId")
+                    return@withContext ProcessResult.Error("Sender identity key mismatch")
+                }
+                if (knownKey == null) {
+                    NativeSessionManager.setIdentityKey(senderUserId, recoveredSenderKey)
+                }
+
+                val content = wrapper.content
                 val now = System.currentTimeMillis()
 
                 return@withContext when {
@@ -418,7 +443,7 @@ object IncomingMessageProcessor {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("IncomingMsg", "Unidentified sender processing failed")
+                android.util.Log.e("IncomingMsg", "Unidentified sender processing failed: ${e.message}")
                 ProcessResult.Error("Unidentified sender processing failed")
             }
         }
