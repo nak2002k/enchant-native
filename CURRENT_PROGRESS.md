@@ -37,22 +37,22 @@ end-to-end encrypted with the existing session key (not visible to the server).
 
 ---
 
-## 🔎 SEALED-SENDER REPLY-TOKEN ROUTING — OPEN GAP (2026-08-03)
+## 🔎 SEALED-SENDER REPLY FLOW — RE-AUDITED, NOT A GAP (2026-08-03)
 
-Sealed delivery receipts still leak the sender/recipient pair to the server.
+Previously flagged: sealed delivery receipts POST `recipient_user_id = <original sender>`
+(`MessageSendPipeline.kt:221`), which was thought to leak the sender/recipient pair.
 
-**Current flow:** `sendSealedDeliveryReceipt` → `MessageSendPipeline.sendSealedMessage(replyToken)`
-POSTs `recipient_user_id = <original sender>`, so the server sees who replied to whom
-(`feature/chat/.../IncomingMessageProcessor.kt:497`, `MessageSendPipeline.kt:218`).
+**Re-audit conclusion: this is NOT a gap relative to Signal — Enchant is already stronger.**
 
-**Proper fix (Signal-correct):** client generates a `reply_token` UUID and passes it
-out-of-band inside the sealed payload wrapper; the server stores it (`MessageRepository::insert_sealed_envelope`,
-NULL sender) and routes the reply as a new anonymous sealed send keyed by the token —
-no userId lookup needed. Backend primitives exist (`lookup_reply_sender`,
-`message_repository.hpp:35-44`) but no REST route wires them, and the frontend has no
-out-of-band token plumbing. **Decision: document as known limitation (medium priority) —
-not implemented.** Requires backend route + frontend sealed-wrapper change + cannot be
-built/tested on this machine.
+- `/v1/messages/sealed-send` is fully anonymous (no JWT; `sender_user_id` stored as NULL;
+  IP rate-limited only). Both the original sealed send AND the receipt reply are anonymous.
+- The server can only attempt IP+timing correlation ("an IP matching R's posted a sealed
+  message to S shortly after R received one") — it never sees a definitive sender identity.
+- Signal's sealed sender, by contrast, **authenticates the sender** on every sealed send and
+  the server knows the exact S↔R pair directly. So on this axis Enchant exceeds Signal.
+- The "fix" (reply-token routing via `insert_sealed_envelope`/`lookup_reply_sender`) would
+  require the server to store sender routing info to route the reply — a downgrade toward
+  Signal's weaker model. **Decision: do not implement; keep full-anonymous sealed sends.**
 
 ---
 
