@@ -120,7 +120,8 @@ class DefaultCallManager(
 
         val sdp = sdpHandler.createOffer(peerConnection!!)
         if (sdp != null) {
-            signalingClient.sendOffer(remoteUserId, sdp)
+            val callId = _serviceState.value.callState.callId ?: UUID.randomUUID().toString()
+            signalingClient.sendOffer(remoteUserId, sdp, callId)
             observerRegistry.notifyOfferSent(remoteUserId, sdp)
         }
 
@@ -179,7 +180,8 @@ class DefaultCallManager(
         if (sdp != null) {
             val remoteId = _serviceState.value.callState.remoteUserId
             if (remoteId != null) {
-                signalingClient.sendAnswer(remoteId, sdp)
+                val callId = _serviceState.value.callState.callId ?: UUID.randomUUID().toString()
+                signalingClient.sendAnswer(remoteId, sdp, callId)
                 observerRegistry.notifyAnswerSent(remoteId, sdp)
             }
         }
@@ -191,7 +193,8 @@ class DefaultCallManager(
         val remoteId = _serviceState.value.callState.remoteUserId ?: return
         incomingTimeoutJob?.cancel()
         serviceScope.launch(Dispatchers.IO) {
-            signalingClient.sendHangup(remoteId)
+            val callId = _serviceState.value.callState.callId ?: UUID.randomUUID().toString()
+            signalingClient.sendHangup(remoteId, callId)
             observerRegistry.notifyHangup(remoteId)
         }
         ringtonePlayer.stopRingtone()
@@ -365,7 +368,8 @@ class DefaultCallManager(
                 val remoteId = _serviceState.value.callState.remoteUserId ?: return
                 val serialized = iceHandler.serialize(candidate)
                 serviceScope.launch(Dispatchers.IO) {
-                    signalingClient.sendIceCandidate(remoteId, serialized)
+                    val callId = _serviceState.value.callState.callId ?: UUID.randomUUID().toString()
+                    signalingClient.sendIceCandidate(remoteId, serialized, callId)
                     observerRegistry.notifyIceSent(remoteId, serialized)
                 }
             }

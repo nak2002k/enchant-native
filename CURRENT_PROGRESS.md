@@ -1,8 +1,39 @@
 # Enchant Native — Current Progress
 
-**Last Updated:** 2026-08-02
+**Last Updated:** 2026-08-03
 **Status:** Phase 8 — Android Frontend | Crypto integration complete, alpha release-ready
 **Purpose:** Track implementation state vs Signal/WhatsApp parity
+
+---
+
+## 📞 CALL-SIGNALING ENCRYPTION (2026-08-03)
+
+Closed the plaintext call-signaling gap: SDP offers/answers and ICE candidates are now
+end-to-end encrypted with the existing session key (not visible to the server).
+
+### Fixed in this session
+
+| Issue | Location | Status |
+|-------|---------|--------|
+| Call signaling was plaintext JSON (`sdp`/`candidate` readable by server) | `WebSocketSignalingClient.kt`, `IncomingMessageProcessor.processCallMessage` | ✅ FIXED — session-key encrypted, base64url-wrapped `{"c":1,"mt":"E"\|"P","d":...}` |
+| Caller never sent `call_id`, so backend `validate_call_frame` would 400 every frame (calls could not connect at all) | `SignalingClient.kt`, `WebSocketSignalingClient.kt`, `CallManager.kt` | ✅ FIXED — `callId` threaded through `sendOffer`/`sendAnswer`/`sendIceCandidate`/`sendHangup`; `call_id` also read back on receive for correlation |
+| ICE candidates/answers were sent without correlation id | `CallManager.kt` (4 send sites) | ✅ FIXED — `_serviceState.value.callState.callId` (fallback new UUID) passed to every send |
+
+### Design notes
+
+- Payload wrapped as `{"c":1,"mt":"P"|"E","d":"<base64url>"}` — `mt` records pre-key
+  (new-session, X3DH) vs regular session message so the receiver picks
+  `decryptPreKeyMessage` vs `decryptMessage` (mirrors the message pipeline).
+- `encryptSignal` uses `NativeSessionManager.encryptMessage` which auto-establishes a
+  session via key-bundle fetch when none exists; returns null → frame not sent (fail closed).
+- Server sees only routing metadata (`call_id`, `recipient_user_id`, `type`) + opaque payload;
+  backend relay logic needed no change.
+- Sender resolution comes from the envelope (`sender_user_id`), so no sender leak.
+
+### Known limitation
+
+- First ever call to a user with no published key bundle will fail to encrypt → frame dropped.
+- `call_id` remains visible to the server (routing metadata, same as Signal).
 
 ---
 

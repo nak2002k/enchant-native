@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.javaxinject)
     implementation(project(":core:base"))
     implementation(project(":core:network"))
+    implementation(project(":core:crypto"))
     implementation(project(":core:database"))
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)

@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.crypto.CryptoHelper
+import org.enchant.core.crypto.CryptoPrimitives
 import org.enchant.core.crypto.NativeSessionManager
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.MessageDao
@@ -325,28 +326,38 @@ object IncomingMessageProcessor {
                     kotlinx.serialization.json.Json.parseToJsonElement(envelope.payload.decodeToString())
                 }.getOrNull() ?: return@withContext ProcessResult.Error("Invalid call payload")
 
+                val callId = json.jsonObject["call_id"]?.jsonPrimitive?.content
+                    ?: envelope.envelopeId
+                    ?: senderUserId
+
                 when (envelope.messageType) {
                     "CALL_OFFER" -> {
-                        val sdp = json.jsonObject["sdp"]?.jsonPrimitive?.content
+                        val rawSdp = json.jsonObject["sdp"]?.jsonPrimitive?.content
                             ?: return@withContext ProcessResult.Error("Missing sdp in CALL_OFFER")
+                        val sdp = decryptSignal(senderUserId, rawSdp)
+                            ?: return@withContext ProcessResult.Error("Failed to decrypt CALL_OFFER sdp")
                         val isVideo = sdp.contains("m=video", ignoreCase = true)
                         org.enchant.core.calls.CallManager.handleReceivedOffer(
                             senderUserId = senderUserId,
                             sdp = sdp,
-                            callId = envelope.envelopeId ?: senderUserId,
+                            callId = callId,
                             isVideo = isVideo
                         )
                         ProcessResult.Handled
                     }
                     "CALL_ANSWER" -> {
-                        val sdp = json.jsonObject["sdp"]?.jsonPrimitive?.content
+                        val rawSdp = json.jsonObject["sdp"]?.jsonPrimitive?.content
                             ?: return@withContext ProcessResult.Error("Missing sdp in CALL_ANSWER")
+                        val sdp = decryptSignal(senderUserId, rawSdp)
+                            ?: return@withContext ProcessResult.Error("Failed to decrypt CALL_ANSWER sdp")
                         org.enchant.core.calls.CallManager.handleReceivedAnswer(sdp)
                         ProcessResult.Handled
                     }
                     "CALL_ICE" -> {
-                        val candidate = json.jsonObject["candidate"]?.jsonPrimitive?.content
+                        val rawCandidate = json.jsonObject["candidate"]?.jsonPrimitive?.content
                             ?: return@withContext ProcessResult.Error("Missing candidate in CALL_ICE")
+                        val candidate = decryptSignal(senderUserId, rawCandidate)
+                            ?: return@withContext ProcessResult.Error("Failed to decrypt CALL_ICE candidate")
                         org.enchant.core.calls.CallManager.handleReceivedIce(candidate)
                         ProcessResult.Handled
                     }
@@ -360,6 +371,30 @@ object IncomingMessageProcessor {
                 ProcessResult.Error("Call message processing failed: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Decrypts a signaling payload (SDP / ICE candidate) that was wrapped by
+     * [WebSocketSignalingClient.encryptSignal]. Returns null when the payload
+     * is not a valid encrypted wrapper or decryption fails.
+     */
+    private suspend fun decryptSignal(senderUserId: String, raw: String): String? {
+        val wrapper = runCatching {
+            kotlinx.serialization.json.Json.parseToJsonElement(raw).jsonObject
+        }.getOrNull() ?: return null
+
+        if (wrapper["c"]?.jsonPrimitive?.content != "1") return null
+
+        val marker = wrapper["mt"]?.jsonPrimitive?.content
+        val data = wrapper["d"]?.jsonPrimitive?.content ?: return null
+        val ciphertext = runCatching { CryptoPrimitives.base64UrlDecode(data) }.getOrNull() ?: return null
+
+        val decrypted = when (marker) {
+            "P" -> NativeSessionManager.decryptPreKeyMessage(senderUserId, ciphertext)
+            else -> NativeSessionManager.decryptMessage(senderUserId, ciphertext)
+        } ?: return null
+
+        return decrypted.plaintext.toString(Charsets.UTF_8)
     }
 
     private suspend fun applyDisappearTimer(conversationId: String, envelopeId: String?, serverTs: Long?) {
