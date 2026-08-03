@@ -5,31 +5,22 @@ package enchant;
 option java_package = "org.enchant.protos";
 option java_outer_classname = "EnvelopeProtos";
 
+// Wire format must match backend src/proto/Envelope.proto exactly.
+// Enchant uses its own custom envelope layout (not Signal's) — the backend
+// relays this envelope verbatim between devices. The server does NOT inspect
+// the payload; it only reads the routing/flag fields.
 message Envelope {
-    enum Type {
-        UNKNOWN = 0;
-        DOUBLE_RATCHET = 1;
-        PREKEY_MESSAGE = 3;
-        SERVER_DELIVERY_RECEIPT = 5;
-        UNIDENTIFIED_SENDER = 6;
-        PLAINTEXT_CONTENT = 8;
-    }
-
-    optional Type type = 1;
-    optional string sourceServiceId = 11;
-    optional uint32 sourceDeviceId = 7;
-    optional string destinationServiceId = 13;
-    optional uint64 clientTimestamp = 5;
-    optional bytes content = 8;
-    optional string serverGuid = 9;
-    optional uint64 serverTimestamp = 10;
-    optional bool ephemeral = 12;
-    optional bool urgent = 14 [default = true];
-    optional string updatedPni = 15;
-    optional bool story = 16;
-    optional bytes reportSpamToken = 17;
-    optional bytes sourceServiceIdBinary = 19;
-    optional bytes destinationServiceIdBinary = 20;
-    optional bytes serverGuidBinary = 21;
-    optional bytes updatedPniBinary = 22;
+    optional string envelope_id = 1;
+    optional string sender_user_id = 2;
+    optional string sender_device_id = 3;
+    optional string recipient_user_id = 4;
+    optional string recipient_device_id = 5; // empty = any device
+    optional string message_type = 6;        // e.g. ENCRYPTED_MESSAGE, PREKEY_MESSAGE
+    optional bytes payload = 7;              // serialized Content protobuf
+    optional uint64 server_ts = 8;           // server timestamp (Unix ms)
+    optional string sender_ts = 9;           // sender timestamp (Unix ms)
+    optional bool sealed = 10;               // sealed sender (anonymous)
+    optional string reply_token = 11;        // sealed sender reply token
+    optional bool ephemeral = 12;            // true for typing — server does NOT persist
+    optional bool urgent = 13 [default = false]; // call offers — push even if silent
 }

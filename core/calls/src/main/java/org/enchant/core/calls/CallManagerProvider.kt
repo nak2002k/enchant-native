@@ -66,6 +66,18 @@ object CallManager {
         safeCall(Unit) { handleReceivedHangup() }
     }
 
+    suspend fun handleReceivedAnswer(sdp: String) {
+        try {
+            CallsModule.getCallManager().handleReceivedAnswer(sdp)
+        } catch (e: IllegalStateException) {
+            Log.w("CallManager", "CallManager not initialized")
+        }
+    }
+
+    fun handleReceivedIce(candidate: String) {
+        safeCall(Unit) { handleReceivedIce(candidate) }
+    }
+
     fun toggleVideo() {
         safeCall(Unit) { toggleVideo() }
     }

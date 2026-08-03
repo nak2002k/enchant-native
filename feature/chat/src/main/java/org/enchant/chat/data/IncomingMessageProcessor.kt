@@ -106,6 +106,17 @@ object IncomingMessageProcessor {
                     return@withContext processEncryptedMessage(envelope, senderId, repo)
                 }
 
+                if (envelope.messageType == "ENVELOPE") {
+                    return@withContext processEnvelopeMessage(envelope, senderId, repo)
+                }
+
+                if (envelope.messageType == "CALL_OFFER" ||
+                    envelope.messageType == "CALL_ANSWER" ||
+                    envelope.messageType == "CALL_ICE" ||
+                    envelope.messageType == "CALL_END") {
+                    return@withContext processCallMessage(envelope, senderId)
+                }
+
                 ProcessResult.Handled
             } catch (e: Exception) {
                 ProcessResult.Error(e.message ?: "Unknown error")
@@ -227,6 +238,122 @@ object IncomingMessageProcessor {
                 }
             } catch (e: Exception) {
                 ProcessResult.Error("Encrypted message processing failed: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun processEnvelopeMessage(
+        envelope: IncomingEnvelope, senderUserId: String, repo: ConversationRepository
+    ): ProcessResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val decrypted = NativeSessionManager.decryptMessage(senderUserId, envelope.payload)
+                    ?: NativeSessionManager.decryptPreKeyMessage(senderUserId, envelope.payload)
+                    ?: return@withContext ProcessResult.Error("Decryption failed")
+
+                val now = System.currentTimeMillis()
+                val parsed = MessageProtobufHelper.parseContent(decrypted.plaintext)
+
+                return@withContext when (parsed) {
+                    is MessageProtobufHelper.ParsedContent.DataMessage -> {
+                        repo.insertMessageAndUpdateConversation(
+                            MessageEntity(
+                                conversationId = senderUserId,
+                                senderId = senderUserId,
+                                messageType = "ENCRYPTED_MESSAGE",
+                                content = parsed.body,
+                                status = "delivered",
+                                timestamp = envelope.serverTimestamp ?: now,
+                                serverTs = now,
+                                envelopeId = envelope.envelopeId
+                            ),
+                            conversationType = "direct"
+                        )
+                        applyDisappearTimer(senderUserId, envelope.envelopeId, envelope.serverTimestamp)
+                        MessageSendPipeline.sendDeliveryReceipt(
+                            envelopeId = envelope.envelopeId ?: "",
+                            senderUserId = senderUserId
+                        )
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Receipt -> {
+                        val status = when (parsed.type) {
+                            MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
+                            MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
+                        }
+                        parsed.timestamps.forEach { ts ->
+                            val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                            repo.updateMessageStatus(envId, status)
+                        }
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Typing -> {
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Delete -> {
+                        if (parsed.targetTimestamp > 0) {
+                            val envId = messageDao?.getEnvelopeIdByServerTs(parsed.targetTimestamp)
+                            if (envId != null) {
+                                messageDao?.markDeleted(envId)
+                            }
+                        }
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Null -> {
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Unknown -> {
+                        ProcessResult.Error("Unknown content type")
+                    }
+                }
+            } catch (e: Exception) {
+                ProcessResult.Error("Envelope message processing failed: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun processCallMessage(
+        envelope: IncomingEnvelope, senderUserId: String
+    ): ProcessResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val json = runCatching {
+                    kotlinx.serialization.json.Json.parseToJsonElement(envelope.payload.decodeToString())
+                }.getOrNull() ?: return@withContext ProcessResult.Error("Invalid call payload")
+
+                when (envelope.messageType) {
+                    "CALL_OFFER" -> {
+                        val sdp = json.jsonObject["sdp"]?.jsonPrimitive?.content
+                            ?: return@withContext ProcessResult.Error("Missing sdp in CALL_OFFER")
+                        val isVideo = sdp.contains("m=video", ignoreCase = true)
+                        org.enchant.core.calls.CallManager.handleReceivedOffer(
+                            senderUserId = senderUserId,
+                            sdp = sdp,
+                            callId = envelope.envelopeId ?: senderUserId,
+                            isVideo = isVideo
+                        )
+                        ProcessResult.Handled
+                    }
+                    "CALL_ANSWER" -> {
+                        val sdp = json.jsonObject["sdp"]?.jsonPrimitive?.content
+                            ?: return@withContext ProcessResult.Error("Missing sdp in CALL_ANSWER")
+                        org.enchant.core.calls.CallManager.handleReceivedAnswer(sdp)
+                        ProcessResult.Handled
+                    }
+                    "CALL_ICE" -> {
+                        val candidate = json.jsonObject["candidate"]?.jsonPrimitive?.content
+                            ?: return@withContext ProcessResult.Error("Missing candidate in CALL_ICE")
+                        org.enchant.core.calls.CallManager.handleReceivedIce(candidate)
+                        ProcessResult.Handled
+                    }
+                    "CALL_END" -> {
+                        org.enchant.core.calls.CallManager.handleReceivedHangup()
+                        ProcessResult.Handled
+                    }
+                    else -> ProcessResult.Handled
+                }
+            } catch (e: Exception) {
+                ProcessResult.Error("Call message processing failed: ${e.message}")
             }
         }
     }

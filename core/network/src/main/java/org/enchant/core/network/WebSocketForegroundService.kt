@@ -54,11 +54,10 @@ class WebSocketForegroundService : Service() {
 
         scope.launch {
             WebSocketManager.incomingMessages.collect { envelope ->
-                runCatching {
-                    WebSocketManager.incomingHandler?.invoke(envelope)
-                }.onFailure { e ->
-                    android.util.Log.e("WebSocketService", "Failed to process incoming envelope", e)
-                }
+                val processed = runCatching {
+                    WebSocketManager.incomingHandler?.invoke(envelope) ?: true
+                }.getOrDefault(false)
+                WebSocketManager.sendEnvelopeAck(envelope.requestId, processed)
             }
         }
 

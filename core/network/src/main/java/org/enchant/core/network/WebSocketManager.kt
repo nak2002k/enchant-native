@@ -47,7 +47,8 @@ data class IncomingEnvelope(
     val payload: ByteArray,
     val serverTimestamp: Long?,
     val ephemeral: Boolean,
-    val replyToken: String? = null
+    val replyToken: String? = null,
+    val requestId: Long? = null
 )
 
 data class ConnectionError(val code: Int, val message: String)
@@ -130,9 +131,13 @@ object WebSocketManager {
     /**
      * Hook invoked for every incoming envelope. Set by the app layer (which has access to
      * the message processor) so this network module stays decoupled from feature modules.
+     *
+     * Return true to ack the envelope (message processed/persisted), false to NACK it
+     * (server will redeliver). The ack must only be sent AFTER processing completes so
+     * failures trigger redelivery instead of silent message loss.
      */
     @Volatile
-    var incomingHandler: (suspend (IncomingEnvelope) -> Unit)? = null
+    var incomingHandler: (suspend (IncomingEnvelope) -> Boolean)? = null
 
     fun init(context: Context) {
         if (initialized) return
@@ -241,10 +246,10 @@ object WebSocketManager {
 
         val content = com.google.protobuf.ByteString.copyFrom(payload)
         val envelope = EnvelopeProtos.Envelope.newBuilder()
-            .setType(EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET)
-            .setDestinationServiceId(recipientUserId)
-            .setContent(content)
-            .setClientTimestamp(senderTs ?: System.currentTimeMillis())
+            .setMessageType("ENCRYPTED_MESSAGE")
+            .setRecipientUserId(recipientUserId)
+            .setPayload(content)
+            .setSenderTs((senderTs ?: System.currentTimeMillis()).toString())
             .setEphemeral(ephemeral)
             .build()
 
@@ -294,19 +299,19 @@ object WebSocketManager {
     }
 
     suspend fun sendCallOffer(recipientUserId: String, sdp: String): Boolean {
-        return sendCallMessage(recipientUserId, sdp.toByteArray())
+        return sendCallMessage(recipientUserId, sdp.toByteArray(), "CALL_OFFER")
     }
 
     suspend fun sendCallAnswer(recipientUserId: String, sdp: String): Boolean {
-        return sendCallMessage(recipientUserId, sdp.toByteArray())
+        return sendCallMessage(recipientUserId, sdp.toByteArray(), "CALL_ANSWER")
     }
 
     suspend fun sendCallIce(recipientUserId: String, candidate: String): Boolean {
-        return sendCallMessage(recipientUserId, candidate.toByteArray())
+        return sendCallMessage(recipientUserId, candidate.toByteArray(), "CALL_ICE")
     }
 
     suspend fun sendCallEnd(recipientUserId: String): Boolean {
-        return sendCallMessage(recipientUserId, ByteArray(0))
+        return sendCallMessage(recipientUserId, ByteArray(0), "CALL_END")
     }
 
     suspend fun requestRESTFallback(message: OutgoingMessage): Result<Any> {
@@ -370,37 +375,22 @@ object WebSocketManager {
                             val envelope = EnvelopeProtos.Envelope.parseFrom(request.body)
                             val replyToken = request.headersList.firstOrNull { it.startsWith("X-Reply-Token:") }
                                 ?.substringAfter("X-Reply-Token:")?.trim()?.ifEmpty { null }
-                            val isUnidentified = envelope.type == EnvelopeProtos.Envelope.Type.UNIDENTIFIED_SENDER
+                            val isSealed = envelope.sealed
+                            val messageType = envelope.messageType
                             _incomingMessages.tryEmit(IncomingEnvelope(
-                                envelopeId = envelope.serverGuid,
-                                senderUserId = if (isUnidentified) null else envelope.sourceServiceId.ifEmpty { null },
-                                senderDeviceId = if (envelope.hasSourceDeviceId()) envelope.sourceDeviceId.toString() else null,
-                                messageType = envelope.type.name,
-                                payload = envelope.content.toByteArray(),
-                                serverTimestamp = if (envelope.hasServerTimestamp()) envelope.serverTimestamp else null,
-                                ephemeral = if (isUnidentified) true else envelope.ephemeral,
-                                replyToken = replyToken
+                                envelopeId = envelope.envelopeId.ifEmpty { null },
+                                senderUserId = if (isSealed) null else envelope.senderUserId.ifEmpty { null },
+                                senderDeviceId = envelope.senderDeviceId.ifEmpty { null },
+                                messageType = messageType,
+                                payload = envelope.payload.toByteArray(),
+                                serverTimestamp = if (envelope.hasServerTs()) envelope.serverTs else null,
+                                ephemeral = if (isSealed) true else envelope.ephemeral,
+                                replyToken = if (replyToken != null) replyToken else envelope.replyToken.ifEmpty { null },
+                                requestId = request.id
                             ))
-                            val ack = WebSocketResources.WebSocketMessage.newBuilder()
-                                .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
-                                .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
-                                    .setId(request.id)
-                                    .setStatus(200)
-                                    .setMessage("OK")
-                                    .build())
-                                .build()
-                            webSocket?.send(ack.toByteArray().toByteString())
                         } catch (e: Exception) {
                             Log.w("WS", "Envelope parse failed, sending NACK")
-                            val nack = WebSocketResources.WebSocketMessage.newBuilder()
-                                .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
-                                .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
-                                    .setId(request.id)
-                                    .setStatus(400)
-                                    .setMessage("Parse error: ${e.message}")
-                                    .build())
-                                .build()
-                            webSocket?.send(nack.toByteArray().toByteString())
+                            sendResponse(request.id, 400, "Parse error: ${e.message}")
                         }
                     }
                 }
@@ -409,6 +399,32 @@ object WebSocketManager {
         } catch (e: Exception) {
             Log.e("Enchant", "handleFrame error", e)
             _connectionErrors.tryEmit(ConnectionError(5000, "Frame processing failed: ${e.message}"))
+        }
+    }
+
+    /**
+     * Send an ack (200) or NACK (400) for an incoming message envelope.
+     * Must only be called after the envelope has been processed (decrypted + persisted),
+     * so a processing failure causes the server to redeliver instead of losing the message.
+     */
+    fun sendEnvelopeAck(requestId: Long?, success: Boolean) {
+        if (requestId == null) return
+        sendResponse(requestId, if (success) 200 else 400, if (success) "OK" else "Processing failed")
+    }
+
+    private fun sendResponse(requestId: Long, status: Int, message: String) {
+        try {
+            val response = WebSocketResources.WebSocketMessage.newBuilder()
+                .setType(WebSocketResources.WebSocketMessage.Type.RESPONSE)
+                .setResponse(WebSocketResources.WebSocketResponseMessage.newBuilder()
+                    .setId(requestId)
+                    .setStatus(status)
+                    .setMessage(message)
+                    .build())
+                .build()
+            webSocket?.send(response.toByteArray().toByteString())
+        } catch (e: Exception) {
+            Log.w("WS", "Failed to send response", e)
         }
     }
 
@@ -448,17 +464,12 @@ object WebSocketManager {
     private suspend fun sendEnchantMessage(recipientUserId: String, payload: ByteArray, messageType: String) {
         if (_connectionState.value != ConnectionState.CONNECTED) return
         val content = com.google.protobuf.ByteString.copyFrom(payload)
-        val type = when (messageType) {
-            "TYPING_START", "TYPING_STOP" -> EnvelopeProtos.Envelope.Type.PLAINTEXT_CONTENT
-            "DELIVERY_RECEIPT", "READ_RECEIPT" -> EnvelopeProtos.Envelope.Type.SERVER_DELIVERY_RECEIPT
-            else -> EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET
-        }
         val envelope = EnvelopeProtos.Envelope.newBuilder()
-            .setType(type)
-            .setDestinationServiceId(recipientUserId)
-            .setContent(content)
+            .setMessageType(messageType)
+            .setRecipientUserId(recipientUserId)
+            .setPayload(content)
             .setEphemeral(messageType.startsWith("TYPING_"))
-            .setClientTimestamp(System.currentTimeMillis())
+            .setSenderTs(System.currentTimeMillis().toString())
             .build()
 
         val id = nextRequestId()
@@ -474,14 +485,15 @@ object WebSocketManager {
         webSocket?.send(frame.toByteArray().toByteString())
     }
 
-    private suspend fun sendCallMessage(recipientUserId: String, data: ByteArray): Boolean {
+    private suspend fun sendCallMessage(recipientUserId: String, data: ByteArray, messageType: String): Boolean {
         if (_connectionState.value != ConnectionState.CONNECTED) return false
         val content = com.google.protobuf.ByteString.copyFrom(data)
         val envelope = EnvelopeProtos.Envelope.newBuilder()
-            .setType(EnvelopeProtos.Envelope.Type.DOUBLE_RATCHET)
-            .setDestinationServiceId(recipientUserId)
-            .setContent(content)
-            .setClientTimestamp(System.currentTimeMillis())
+            .setMessageType(messageType)
+            .setRecipientUserId(recipientUserId)
+            .setPayload(content)
+            .setSenderTs(System.currentTimeMillis().toString())
+            .setUrgent(true)
             .build()
 
         val id = nextRequestId()

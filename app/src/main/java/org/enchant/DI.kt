@@ -19,6 +19,8 @@ import org.enchant.core.base.AppConfig
 import org.enchant.core.base.KeyStoreManager
 import org.enchant.core.base.SecurePreferences
 import org.enchant.core.calls.CallManager
+import org.enchant.core.calls.CallsModule
+import org.enchant.core.calls.WebSocketSignalingClient
 import org.enchant.core.crypto.KeyManager
 import org.enchant.core.crypto.PreKeyStore
 import org.enchant.core.crypto.PreKeyWorker
@@ -181,10 +183,17 @@ object DI {
                     MessageSendPipeline.init(_apiClient!!, _conversationRepository!!)
                     IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client, _conversationDao!!, _messageDao!!)
                     WebSocketManager.incomingHandler = { envelope ->
-                        runCatching { IncomingMessageProcessor.processIncoming(envelope) }
+                        val result = runCatching { IncomingMessageProcessor.processIncoming(envelope) }
+                        result.getOrElse { null }?.let { it !is org.enchant.chat.data.ProcessResult.Error } ?: false
                     }
                     MediaService.init(_apiClient!!)
                     ContentPreProcessor.init(_apiClient!!)
+
+                    CallsModule.initialize(context)
+                    val signalingClient = WebSocketSignalingClient(client)
+                    CallsModule.setCallManager(
+                        CallsModule.provideCallManager(signalingClient, pool!!)
+                    )
 
                     _workerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
                     _workerScope?.launch {

@@ -8,10 +8,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.chat.data.ConversationFilter
 import org.enchant.chat.data.ConversationRepository
 import org.enchant.core.model.Conversation
 import org.enchant.core.network.ApiClient
+import org.enchant.core.network.IncomingEnvelope
+import org.enchant.core.network.WebSocketManager
+import org.enchant.protos.EnvelopeProtos
 
 class ConversationListViewModel(
     private val repo: ConversationRepository = ConversationListViewModel.defaultRepo(),
@@ -173,7 +178,31 @@ class ConversationListViewModel(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                apiClient.get("/v1/messages/pending")
+                apiClient.get("/v1/messages/pending").onSuccess { json ->
+                    val messages = json["messages"]?.jsonArray ?: return@onSuccess
+                    for (raw in messages) {
+                        val bytes = raw.jsonArray.mapNotNull { it.jsonPrimitive.content.toIntOrNull() }
+                            .map { it.toByte() }.toByteArray()
+                        if (bytes.isEmpty()) continue
+                        try {
+                            val env = EnvelopeProtos.Envelope.parseFrom(bytes)
+                            val envelope = IncomingEnvelope(
+                                envelopeId = env.envelopeId.ifEmpty { null },
+                                senderUserId = env.senderUserId.ifEmpty { null },
+                                senderDeviceId = env.senderDeviceId.ifEmpty { null },
+                                messageType = env.messageType.ifEmpty { "ENVELOPE" },
+                                payload = env.payload.toByteArray(),
+                                serverTimestamp = if (env.hasServerTs()) env.serverTs else null,
+                                ephemeral = env.ephemeral,
+                                replyToken = env.replyToken.ifEmpty { null },
+                                requestId = null
+                            )
+                            WebSocketManager.incomingHandler?.invoke(envelope)
+                        } catch (e: Exception) {
+                            android.util.Log.e("Enchant", "Pending envelope parse failed", e)
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 android.util.Log.e("Enchant", "refresh failed", e)
             } finally {
