@@ -190,9 +190,11 @@ object MessageSendPipeline {
                     )) {
                     parsedContent
                 } else {
-                    MessageProtobufHelper.buildDataMessageContent(
-                        body = plaintext.decodeToString(),
-                        timestamp = System.currentTimeMillis()
+                    org.enchant.protos.ContentProtos.Content.parseFrom(
+                        MessageProtobufHelper.buildDataMessageContent(
+                            body = plaintext.decodeToString(),
+                            timestamp = System.currentTimeMillis()
+                        )
                     )
                 }
 

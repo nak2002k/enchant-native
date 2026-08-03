@@ -206,7 +206,7 @@ class MessageSendPipelineTest {
         @Test @DisplayName("sendSealedMessage fails with KEY_BUNDLE_MISSING when recipient key unavailable")
         fun `sealed no identity key`() = runTest {
             every { NativeSessionManager.getIdentityKey(any()) } returns null
-            every { apiClient.get(any()) } returns kotlin.Result.failure(Exception("bundle unavailable"))
+            coEvery { apiClient.get(any()) } returns kotlin.Result.failure(Exception("bundle unavailable"))
             val result = MessageSendPipeline.sendSealedMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user-1",
