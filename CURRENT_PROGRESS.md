@@ -37,6 +37,25 @@ end-to-end encrypted with the existing session key (not visible to the server).
 
 ---
 
+## 🔎 SEALED-SENDER REPLY-TOKEN ROUTING — OPEN GAP (2026-08-03)
+
+Sealed delivery receipts still leak the sender/recipient pair to the server.
+
+**Current flow:** `sendSealedDeliveryReceipt` → `MessageSendPipeline.sendSealedMessage(replyToken)`
+POSTs `recipient_user_id = <original sender>`, so the server sees who replied to whom
+(`feature/chat/.../IncomingMessageProcessor.kt:497`, `MessageSendPipeline.kt:218`).
+
+**Proper fix (Signal-correct):** client generates a `reply_token` UUID and passes it
+out-of-band inside the sealed payload wrapper; the server stores it (`MessageRepository::insert_sealed_envelope`,
+NULL sender) and routes the reply as a new anonymous sealed send keyed by the token —
+no userId lookup needed. Backend primitives exist (`lookup_reply_sender`,
+`message_repository.hpp:35-44`) but no REST route wires them, and the frontend has no
+out-of-band token plumbing. **Decision: document as known limitation (medium priority) —
+not implemented.** Requires backend route + frontend sealed-wrapper change + cannot be
+built/tested on this machine.
+
+---
+
 ## 🔗 BACKEND INTEGRATION AUDIT (2026-08-02)
 
 Full frontend↔backend contract audit against the live podman backend (28 services, gateway :8080, Cloudflare tunnel).
