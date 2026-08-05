@@ -6,8 +6,8 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-@DisplayName("SealedSender — Native Veil anonymous sender encryption")
-class SealedSenderTest {
+@DisplayName("VeilSender — Native Veil anonymous sender encryption")
+class VeilSenderTest {
 
     companion object {
         @JvmStatic
@@ -23,7 +23,7 @@ class SealedSenderTest {
         fun `access key 16 bytes`() {
             val profileKey = ByteArray(32) { 1 }
             val senderIk = ByteArray(32) { 2 }
-            val accessKey = SealedSender.deriveAccessKey(profileKey, senderIk)
+            val accessKey = VeilSender.deriveAccessKey(profileKey, senderIk)
             assertEquals(16, accessKey.size)
         }
 
@@ -31,8 +31,8 @@ class SealedSenderTest {
         fun `access key deterministic`() {
             val profileKey = ByteArray(32) { 1 }
             val senderIk = ByteArray(32) { 2 }
-            val ak1 = SealedSender.deriveAccessKey(profileKey, senderIk)
-            val ak2 = SealedSender.deriveAccessKey(profileKey, senderIk)
+            val ak1 = VeilSender.deriveAccessKey(profileKey, senderIk)
+            val ak2 = VeilSender.deriveAccessKey(profileKey, senderIk)
             assertArrayEquals(ak1, ak2)
         }
 
@@ -41,22 +41,22 @@ class SealedSenderTest {
             val profileKey = ByteArray(32) { 1 }
             val senderIk1 = ByteArray(32) { 2 }
             val senderIk2 = ByteArray(32) { 3 }
-            val ak1 = SealedSender.deriveAccessKey(profileKey, senderIk1)
-            val ak2 = SealedSender.deriveAccessKey(profileKey, senderIk2)
+            val ak1 = VeilSender.deriveAccessKey(profileKey, senderIk1)
+            val ak2 = VeilSender.deriveAccessKey(profileKey, senderIk2)
             assertFalse(ak1.contentEquals(ak2))
         }
 
         @Test @DisplayName("wrong profile key size throws")
         fun `access key wrong profile size`() {
             assertThrows(IllegalArgumentException::class.java) {
-                SealedSender.deriveAccessKey(ByteArray(16), ByteArray(32))
+                VeilSender.deriveAccessKey(ByteArray(16), ByteArray(32))
             }
         }
 
         @Test @DisplayName("wrong sender key size throws")
         fun `access key wrong sender size`() {
             assertThrows(IllegalArgumentException::class.java) {
-                SealedSender.deriveAccessKey(ByteArray(32), ByteArray(16))
+                VeilSender.deriveAccessKey(ByteArray(32), ByteArray(16))
             }
         }
     }
@@ -69,13 +69,13 @@ class SealedSenderTest {
             val sender = CryptoPrimitives.generateX25519KeyPair()
             val message = "sealed message".encodeToByteArray()
 
-            val sealed = SealedSender.encryptSealed(
+            val sealed = VeilSender.encryptVeiled(
                 recipient.publicKey,
                 sender.privateKey,
                 sender.publicKey,
                 message
             )
-            val (decryptedSenderKey, decryptedMessage) = SealedSender.decryptSealed(
+            val (decryptedSenderKey, decryptedMessage) = VeilSender.decryptVeiled(
                 recipient.privateKey,
                 recipient.publicKey,
                 sealed
@@ -92,14 +92,14 @@ class SealedSenderTest {
             val sender = CryptoPrimitives.generateX25519KeyPair()
             val message = "sealed message".encodeToByteArray()
 
-            val sealed = SealedSender.encryptSealed(
+            val sealed = VeilSender.encryptVeiled(
                 recipient.publicKey,
                 sender.privateKey,
                 sender.publicKey,
                 message
             )
             assertNull(
-                SealedSender.decryptSealed(
+                VeilSender.decryptVeiled(
                     wrongRecipient.privateKey,
                     recipient.publicKey,
                     sealed
@@ -113,7 +113,7 @@ class SealedSenderTest {
             val sender = CryptoPrimitives.generateX25519KeyPair()
             val message = "sealed message".encodeToByteArray()
 
-            val sealed = SealedSender.encryptSealed(
+            val sealed = VeilSender.encryptVeiled(
                 recipient.publicKey,
                 sender.privateKey,
                 sender.publicKey,
@@ -122,7 +122,7 @@ class SealedSenderTest {
             sealed[sealed.size / 2] = (sealed[sealed.size / 2].toInt() xor 0xFF).toByte()
 
             assertNull(
-                SealedSender.decryptSealed(
+                VeilSender.decryptVeiled(
                     recipient.privateKey,
                     recipient.publicKey,
                     sealed
@@ -133,7 +133,7 @@ class SealedSenderTest {
         @Test @DisplayName("wrong key sizes throw")
         fun `sealed wrong key size`() {
             assertThrows(IllegalArgumentException::class.java) {
-                SealedSender.encryptSealed(
+                VeilSender.encryptVeiled(
                     ByteArray(8), ByteArray(32), ByteArray(32), ByteArray(10)
                 )
             }
@@ -147,8 +147,8 @@ class SealedSenderTest {
             val profileKey = ByteArray(32) { 1 }
             val data = "My Profile Name".encodeToByteArray()
 
-            val encrypted = SealedSender.encryptProfileData(profileKey, data)
-            val decrypted = SealedSender.decryptProfileData(profileKey, encrypted)
+            val encrypted = VeilSender.encryptProfileData(profileKey, data)
+            val decrypted = VeilSender.decryptProfileData(profileKey, encrypted)
 
             assertArrayEquals(data, decrypted)
         }
@@ -159,14 +159,14 @@ class SealedSenderTest {
             val wrongKey = ByteArray(32) { 2 }
             val data = "Profile".encodeToByteArray()
 
-            val encrypted = SealedSender.encryptProfileData(profileKey, data)
-            assertNull(SealedSender.decryptProfileData(wrongKey, encrypted))
+            val encrypted = VeilSender.encryptProfileData(profileKey, data)
+            assertNull(VeilSender.decryptProfileData(wrongKey, encrypted))
         }
 
         @Test @DisplayName("wrong profile key size throws")
         fun `profile data wrong size`() {
             assertThrows(IllegalArgumentException::class.java) {
-                SealedSender.encryptProfileData(ByteArray(16), ByteArray(10))
+                VeilSender.encryptProfileData(ByteArray(16), ByteArray(10))
             }
         }
     }

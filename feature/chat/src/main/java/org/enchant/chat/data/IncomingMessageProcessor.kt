@@ -119,11 +119,11 @@ object IncomingMessageProcessor {
         return withContext(Dispatchers.Default) {
             try {
                 if (envelope.messageType == "UNIDENTIFIED_SENDER") {
-                    return@withContext processUnidentifiedSender(envelope, repo)
+                    return@withContext processVeiledSender(envelope, repo)
                 }
 
                 if (envelope.sealed) {
-                    return@withContext processUnidentifiedSender(envelope, repo)
+                    return@withContext processVeiledSender(envelope, repo)
                 }
 
                 val senderId = envelope.senderUserId ?: return@withContext ProcessResult.Ignored
@@ -492,17 +492,20 @@ object IncomingMessageProcessor {
         }
     }
 
-    private suspend fun processUnidentifiedSender(
+    private suspend fun processVeiledSender(
         envelope: IncomingEnvelope, repo: ConversationRepository
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
                 val identityKeyPair = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
                     ?: return@withContext ProcessResult.Error("Local identity key missing")
-                val decrypted = org.enchant.core.crypto.SealedSender.decryptSealed(
+                // The wire payload is base64url-encoded text; decode before
+                // handing the veil ciphertext to the native decryptor.
+                val veiledPayload = decodeWirePayload(envelope.payload)
+                val decrypted = org.enchant.core.crypto.VeilSender.decryptVeiled(
                     recipientPrivateKey = identityKeyPair.privateKey,
                     recipientPublicKey = identityKeyPair.publicKey,
-                    sealedPayload = envelope.payload
+                    sealedPayload = veiledPayload
                 ) ?: return@withContext ProcessResult.Error("Sealed decrypt failed")
 
                 val recoveredSenderKey = decrypted.first
@@ -539,7 +542,7 @@ object IncomingMessageProcessor {
                             ),
                             conversationType = "direct"
                         )
-                        sendSealedDeliveryReceipt(envelope, senderUserId)
+                        sendVeiledDeliveryReceipt(envelope, senderUserId)
                         ProcessResult.Handled
                     }
                     content.hasReceiptMessage() -> {
@@ -567,7 +570,7 @@ object IncomingMessageProcessor {
         }
     }
 
-    private suspend fun sendSealedDeliveryReceipt(
+    private suspend fun sendVeiledDeliveryReceipt(
         envelope: IncomingEnvelope, senderUserId: String
     ) {
         val replyToken = envelope.replyToken ?: return
@@ -577,11 +580,10 @@ object IncomingMessageProcessor {
             timestamps = listOf(ts),
             type = MessageProtobufHelper.ReceiptType.DELIVERY
         )
-        MessageSendPipeline.sendSealedMessage(
+        MessageSendPipeline.sendVeiledMessage(
             conversationId = senderUserId,
             recipientUserId = senderUserId,
-            plaintext = contentBytes,
-            replyToken = replyToken
+            plaintext = contentBytes
         )
     }
 

@@ -157,7 +157,7 @@ class IncomingMessageProcessorTest {
 
     @Nested @DisplayName("Process Unidentified Sender")
     inner class ProcessUnidentifiedTest {
-        @Test @DisplayName("processUnidentifiedSender returns Error when senderUserId missing")
+        @Test @DisplayName("processVeiledSender returns Error when senderUserId missing")
         fun `process unidentified missing sender`() = runTest {
             val envelope = IncomingEnvelope(
                 envelopeId = "env-sealed-1",

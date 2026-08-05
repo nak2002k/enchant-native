@@ -47,6 +47,7 @@ data class SettingsUiState(
     val avatarVisibility: String = "contacts",
     val aboutVisibility: String = "contacts",
     val readReceipts: Boolean = true,
+    val veilSender: Boolean = true,
     // Security
     val appLockEnabled: Boolean = false,
     val twoStepEnabled: Boolean = false,
@@ -235,8 +236,12 @@ class SettingsViewModel(
         }
     }
 
-    // ─── Security ───
+    fun setVeilSender(enabled: Boolean) {
+        org.enchant.core.base.SecurePreferences.putBoolean("veil_sender_enabled", enabled)
+        _uiState.value = _uiState.value.copy(veilSender = enabled)
+    }
 
+    // ─── Security ───
     fun loadSecuritySettings() {
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {

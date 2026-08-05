@@ -505,7 +505,7 @@ class EnchantAgentBridge : AgentAppBridge {
             conversationId = conversationId,
             recipientUserId = recipientUserId,
             plaintext = text.encodeToByteArray(),
-            useSealedSender = sealed
+            useVeil = sealed
         )
         return when (result) {
             is SendResult.Success -> {
@@ -794,7 +794,7 @@ class EnchantAgentBridge : AgentAppBridge {
             conversationId = conversationId,
             recipientUserId = recipientUserId,
             plaintext = stickerPayload.encodeToByteArray(),
-            useSealedSender = false
+            useVeil = false
         )
         return sendResultToJson(result, recipientUserId, "sticker")
     }

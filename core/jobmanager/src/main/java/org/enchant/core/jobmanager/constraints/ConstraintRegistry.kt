@@ -23,7 +23,7 @@ object ConstraintRegistry {
         factories["NotInCallConstraint"] = NotInCallConstraint.Factory
         factories["RegisteredConstraint"] = RegisteredConstraint.Factory
         factories["DiskSpaceNotLowConstraint"] = DiskSpaceNotLowConstraint.Factory
-        factories["SealedSenderConstraint"] = SealedSenderConstraint.Factory
+        factories["VeilSenderConstraint"] = VeilSenderConstraint.Factory
         factories["NetworkOrCellServiceConstraint"] = NetworkOrCellServiceConstraint.Factory
         factories["ChangeNumberConstraint"] = ChangeNumberConstraint.Factory
         factories["DataRestoreConstraint"] = DataRestoreConstraint.Factory

@@ -16,9 +16,9 @@ class MessageSendPipelineSealedTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `sendSealedMessage throws when not initialized`() = runTest {
+    fun `sendVeiledMessage throws when not initialized`() = runTest {
         try {
-            MessageSendPipeline.sendSealedMessage(
+            MessageSendPipeline.sendVeiledMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user1",
                 plaintext = "test".encodeToByteArray()
@@ -30,13 +30,13 @@ class MessageSendPipelineSealedTest {
     }
 
     @Test
-    fun `sendMessage with useSealedSender throws when not initialized`() = runTest {
+    fun `sendMessage with useVeil throws when not initialized`() = runTest {
         try {
             MessageSendPipeline.sendMessage(
                 conversationId = "conv1",
                 recipientUserId = "user1",
                 plaintext = "test".encodeToByteArray(),
-                useSealedSender = true
+                useVeil = true
             )
             assert(false) { "Expected IllegalStateException" }
         } catch (e: IllegalStateException) {

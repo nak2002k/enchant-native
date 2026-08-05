@@ -20,11 +20,13 @@ fun PrivacySettingsScreen(
     aboutVisibility: String,
     blockedUsers: List<String>,
     readReceipts: Boolean,
+    veilSender: Boolean,
     onLastSeenChange: (String) -> Unit,
     onOnlineVisibilityChange: (Boolean) -> Unit,
     onAvatarVisibilityChange: (String) -> Unit,
     onAboutVisibilityChange: (String) -> Unit,
     onReadReceiptsChange: (Boolean) -> Unit,
+    onVeilSenderChange: (Boolean) -> Unit,
     onViewBlockedUsers: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -103,6 +105,29 @@ fun PrivacySettingsScreen(
                         Switch(
                             checked = readReceipts,
                             onCheckedChange = onReadReceiptsChange
+                        )
+                    }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Veil sender", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "Hide your identity from the server when messaging",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = veilSender,
+                            onCheckedChange = onVeilSenderChange
                         )
                     }
                 }

@@ -66,8 +66,8 @@ class MessageSendPipelineTest {
             publicKey = "pubkey".encodeToByteArray(),
             privateKey = "seckey".encodeToByteArray()
         )
-        mockkObject(org.enchant.core.crypto.SealedSender)
-        every { org.enchant.core.crypto.SealedSender.encryptSealed(any(), any(), any(), any()) } returns "sealed".encodeToByteArray()
+        mockkObject(org.enchant.core.crypto.VeilSender)
+        every { org.enchant.core.crypto.VeilSender.encryptVeiled(any(), any(), any(), any()) } returns "sealed".encodeToByteArray()
     }
 
     @AfterEach
@@ -76,7 +76,7 @@ class MessageSendPipelineTest {
         unmockkObject(ConnectivityMonitor)
         unmockkObject(NativeSessionManager)
         unmockkObject(org.enchant.core.crypto.KeyManager)
-        unmockkObject(org.enchant.core.crypto.SealedSender)
+        unmockkObject(org.enchant.core.crypto.VeilSender)
     }
 
     @Nested @DisplayName("Send Message")
@@ -192,9 +192,9 @@ class MessageSendPipelineTest {
 
     @Nested @DisplayName("Send Sealed Message")
     inner class SendSealedTest {
-        @Test @DisplayName("sendSealedMessage fails with PAYLOAD_TOO_LARGE for > 64KB")
+        @Test @DisplayName("sendVeiledMessage fails with PAYLOAD_TOO_LARGE for > 64KB")
         fun `sealed payload too large`() = runTest {
-            val result = MessageSendPipeline.sendSealedMessage(
+            val result = MessageSendPipeline.sendVeiledMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user-1",
                 plaintext = ByteArray(65 * 1024)
@@ -203,11 +203,11 @@ class MessageSendPipelineTest {
             assertEquals(SendError.PAYLOAD_TOO_LARGE, (result as SendResult.Failed).error)
         }
 
-        @Test @DisplayName("sendSealedMessage fails with KEY_BUNDLE_MISSING when recipient key unavailable")
+        @Test @DisplayName("sendVeiledMessage fails with KEY_BUNDLE_MISSING when recipient key unavailable")
         fun `sealed no identity key`() = runTest {
             every { NativeSessionManager.getIdentityKey(any()) } returns null
             coEvery { apiClient.get(any()) } returns kotlin.Result.failure(Exception("bundle unavailable"))
-            val result = MessageSendPipeline.sendSealedMessage(
+            val result = MessageSendPipeline.sendVeiledMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user-1",
                 plaintext = "Hello".encodeToByteArray()
@@ -216,7 +216,7 @@ class MessageSendPipelineTest {
             assertEquals(SendError.KEY_BUNDLE_MISSING, (result as SendResult.Failed).error)
         }
 
-        @Test @DisplayName("sendSealedMessage returns Success on API success")
+        @Test @DisplayName("sendVeiledMessage returns Success on API success")
         fun `sealed success`() = runTest {
             every { NativeSessionManager.getIdentityKey(any()) } returns "recipient-pub".encodeToByteArray()
             coEvery { apiClient.postAnonymous(any(), any()) } returns kotlinx.coroutines.runBlocking {
@@ -227,7 +227,7 @@ class MessageSendPipelineTest {
                     put("sealed", kotlinx.serialization.json.JsonPrimitive(true))
                 })
             }
-            val result = MessageSendPipeline.sendSealedMessage(
+            val result = MessageSendPipeline.sendVeiledMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user-1",
                 plaintext = "Hello".encodeToByteArray()
@@ -235,12 +235,12 @@ class MessageSendPipelineTest {
             assertTrue(result is SendResult.Success)
         }
 
-        @Test @DisplayName("sendSealedMessage returns Failed on network error")
+        @Test @DisplayName("sendVeiledMessage returns Failed on network error")
         fun `sealed network error`() = runTest {
             coEvery { apiClient.postAnonymous(any(), any()) } returns kotlinx.coroutines.runBlocking {
                 kotlin.Result.failure(Exception("Network error"))
             }
-            val result = MessageSendPipeline.sendSealedMessage(
+            val result = MessageSendPipeline.sendVeiledMessage(
                 conversationId = "conv-1",
                 recipientUserId = "user-1",
                 plaintext = "Hello".encodeToByteArray()

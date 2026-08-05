@@ -339,11 +339,13 @@ private fun DetailPaneContent(
                     aboutVisibility = settingsState.aboutVisibility,
                     blockedUsers = settingsState.blockedUsers,
                     readReceipts = settingsState.readReceipts,
+                    veilSender = settingsState.veilSender,
                     onLastSeenChange = { settingsViewModel.updatePrivacy(it, settingsState.onlineVisibility, settingsState.avatarVisibility, settingsState.aboutVisibility, settingsState.readReceipts) },
                     onOnlineVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, it, settingsState.avatarVisibility, settingsState.aboutVisibility, settingsState.readReceipts) },
                     onAvatarVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, it, settingsState.aboutVisibility, settingsState.readReceipts) },
                     onAboutVisibilityChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, settingsState.avatarVisibility, it, settingsState.readReceipts) },
                     onReadReceiptsChange = { settingsViewModel.updatePrivacy(settingsState.lastSeenVisibility, settingsState.onlineVisibility, settingsState.avatarVisibility, settingsState.aboutVisibility, it) },
+                    onVeilSenderChange = { settingsViewModel.setVeilSender(it) },
                     onViewBlockedUsers = { onNavigate(MainNavigationDetailLocation.BlockedUsers) },
                     onBack = onNavigateBack
                 )

@@ -199,7 +199,14 @@ object DI {
                     IncomingMessageProcessor.init(_conversationRepository!!, _recipientDao!!, client, _conversationDao!!, _messageDao!!)
                     WebSocketManager.incomingHandler = { envelope ->
                         val result = runCatching { IncomingMessageProcessor.processIncoming(envelope) }
-                        result.getOrElse { null }?.let { it !is org.enchant.chat.data.ProcessResult.Error } ?: false
+                        val outcome = result.getOrElse {
+                            android.util.Log.e("IncomingMsg", "processIncoming THREW: ${it.message}", it)
+                            null
+                        }?.let { it !is org.enchant.chat.data.ProcessResult.Error } ?: false
+                        if (!outcome && result.getOrNull() is org.enchant.chat.data.ProcessResult.Error) {
+                            android.util.Log.e("IncomingMsg", "processIncoming ERROR: ${(result.getOrNull() as org.enchant.chat.data.ProcessResult.Error).reason}")
+                        }
+                        outcome
                     }
                     MediaService.init(_apiClient!!)
                     ContentPreProcessor.init(_apiClient!!)

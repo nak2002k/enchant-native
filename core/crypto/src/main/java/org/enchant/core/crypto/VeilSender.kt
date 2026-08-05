@@ -17,9 +17,9 @@ package org.enchant.core.crypto
  *
  * Profile data encryption uses native AES-256-GCM directly.
  */
-object SealedSender {
+object VeilSender {
 
-    private const val VEIL_ACCESS_KEY_INFO = "EnchantSealedSenderAccessKey"
+    private const val VEIL_ACCESS_KEY_INFO = "EnchantVeilSenderAccessKey"
 
     /**
      * Derive an unidentified access key from a profile key and sender identity.
@@ -61,7 +61,7 @@ object SealedSender {
      * @param message plaintext message
      * @return opaque veil ciphertext
      */
-    fun encryptSealed(
+    fun encryptVeiled(
         recipientPublicKey: ByteArray,
         senderIdentityPrivate: ByteArray,
         senderIdentityPublic: ByteArray,
@@ -91,10 +91,10 @@ object SealedSender {
      *
      * @param recipientPrivateKey recipient's 32-byte X25519 private key
      * @param recipientPublicKey recipient's 32-byte X25519 public key
-     * @param sealedPayload veil ciphertext from [encryptSealed]
+     * @param sealedPayload veil ciphertext from [encryptVeiled]
      * @return Pair(senderIdentityKey, plaintext) or null on failure
      */
-    fun decryptSealed(
+    fun decryptVeiled(
         recipientPrivateKey: ByteArray,
         recipientPublicKey: ByteArray,
         sealedPayload: ByteArray

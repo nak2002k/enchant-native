@@ -20,17 +20,17 @@ class ConstraintTest {
     }
 
     @Test
-    fun `SealedSenderConstraint is always met`() {
-        val constraint = SealedSenderConstraint()
-        assertEquals("SealedSenderConstraint", constraint.factoryKey)
+    fun `VeilSenderConstraint is always met`() {
+        val constraint = VeilSenderConstraint()
+        assertEquals("VeilSenderConstraint", constraint.factoryKey)
         assertTrue(constraint.isMet())
     }
 
     @Test
-    fun `SealedSenderConstraint Factory creates instance`() {
-        val constraint = SealedSenderConstraint.Factory.create()
+    fun `VeilSenderConstraint Factory creates instance`() {
+        val constraint = VeilSenderConstraint.Factory.create()
         assertNotNull(constraint)
-        assertEquals("SealedSenderConstraint", constraint.factoryKey)
+        assertEquals("VeilSenderConstraint", constraint.factoryKey)
     }
 
     @Test
@@ -163,7 +163,7 @@ class ConstraintTest {
     fun `all domain constraint factory keys are unique`() {
         val keys = listOf(
             RegisteredConstraint().factoryKey,
-            SealedSenderConstraint().factoryKey,
+            VeilSenderConstraint().factoryKey,
             ChangeNumberConstraint().factoryKey,
             DataRestoreConstraint().factoryKey,
             RestoreAttachmentConstraint().factoryKey,
@@ -181,7 +181,7 @@ class ConstraintTest {
     fun `all domain constraints implement Constraint interface`() {
         val constraints: List<Constraint> = listOf(
             RegisteredConstraint(),
-            SealedSenderConstraint(),
+            VeilSenderConstraint(),
             ChangeNumberConstraint(),
             DataRestoreConstraint(),
             RestoreAttachmentConstraint(),

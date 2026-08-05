@@ -337,7 +337,8 @@ object WebSocketManager {
         message.recipientDeviceId?.let { deviceId ->
             jsonMap["recipient_device_id"] = kotlinx.serialization.json.JsonPrimitive(deviceId)
         }
-        return apiClient?.post("/v1/messages/send", kotlinx.serialization.json.JsonObject(jsonMap))
+        val path = if (message.messageType == "UNIDENTIFIED_SENDER") "/v1/messages/sealed-send" else "/v1/messages/send"
+        return apiClient?.post(path, kotlinx.serialization.json.JsonObject(jsonMap))
             ?: Result.failure(Exception("ApiClient not initialized"))
     }
 

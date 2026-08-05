@@ -69,7 +69,7 @@ object MessageSendPipeline {
         recipientUserId: String,
         plaintext: ByteArray,
         replyTo: String? = null,
-        useSealedSender: Boolean = false
+        useVeil: Boolean = false
     ): SendResult {
         checkInit()
         val repo = repository!!
@@ -78,8 +78,19 @@ object MessageSendPipeline {
             try {
                 if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
 
-                if (useSealedSender) {
-                    return@withContext sendSealedMessage(conversationId, recipientUserId, plaintext, null)
+                // Veil (anonymous sender) is the default when enabled and the
+                // recipient's identity key is known. Falls back to the normal
+                // prekey/encrypted path on any failure.
+                val veilEnabled = SecurePreferences.getBoolean("veil_sender_enabled", true)
+                if (useVeil || veilEnabled) {
+                    val recipientKey = NativeSessionManager.getIdentityKey(recipientUserId)
+                        ?: fetchRecipientIdentityKey(recipientUserId)
+                    if (recipientKey != null) {
+                        val veilResult = sendVeiledMessage(conversationId, recipientUserId, plaintext, replyTo)
+                        if (veilResult is SendResult.Success || veilResult is SendResult.Queued) {
+                            return@withContext veilResult
+                        }
+                    }
                 }
 
                 val contentBytes = MessageProtobufHelper.buildDataMessageContent(
@@ -155,13 +166,14 @@ object MessageSendPipeline {
         }
     }
 
-    suspend fun sendSealedMessage(
+    suspend fun sendVeiledMessage(
         conversationId: String,
         recipientUserId: String,
         plaintext: ByteArray,
-        replyToken: String? = null
+        replyTo: String? = null
     ): SendResult {
         checkInit()
+        val repo = repository!!
         return withContext(Dispatchers.Default) {
             try {
                 if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
@@ -176,28 +188,20 @@ object MessageSendPipeline {
                 val selfId = SecurePreferences.getString("auth.user_id")
                     ?: return@withContext SendResult.Failed(SendError.NETWORK)
 
-                val parsedContent = runCatching {
+                val content = runCatching {
                     org.enchant.protos.ContentProtos.Content.parseFrom(plaintext)
-                }.getOrNull()
-                val content = if (parsedContent != null && (
-                        parsedContent.hasDataMessage() ||
-                        parsedContent.hasReceiptMessage() ||
-                        parsedContent.hasTypingMessage() ||
-                        parsedContent.hasCallMessage() ||
-                        parsedContent.hasNullMessage() ||
-                        parsedContent.hasEditMessage() ||
-                        parsedContent.hasSyncMessage() ||
-                        parsedContent.hasStoryMessage()
-                    )) {
-                    parsedContent
-                } else {
-                    org.enchant.protos.ContentProtos.Content.parseFrom(
-                        MessageProtobufHelper.buildDataMessageContent(
-                            body = plaintext.decodeToString(),
-                            timestamp = System.currentTimeMillis()
-                        )
+                }.getOrNull()?.let { parsed ->
+                    if (parsed.hasDataMessage() || parsed.hasReceiptMessage() ||
+                        parsed.hasTypingMessage() || parsed.hasCallMessage() ||
+                        parsed.hasNullMessage() || parsed.hasEditMessage() ||
+                        parsed.hasSyncMessage() || parsed.hasStoryMessage()
+                    ) parsed else null
+                } ?: org.enchant.protos.ContentProtos.Content.parseFrom(
+                    MessageProtobufHelper.buildDataMessageContent(
+                        body = plaintext.decodeToString(),
+                        timestamp = System.currentTimeMillis()
                     )
-                }
+                )
 
                 val wrapper = org.enchant.protos.SignalServiceContentProto.newBuilder()
                     .setLocalAddress(
@@ -208,30 +212,58 @@ object MessageSendPipeline {
                     .setContent(content)
                     .build()
 
-                val sealedPayload = org.enchant.core.crypto.SealedSender.encryptSealed(
+                val veiledPayload = org.enchant.core.crypto.VeilSender.encryptVeiled(
                     recipientPublicKey = recipientPublicKey,
                     senderIdentityPrivate = identityKeyPair.privateKey,
                     senderIdentityPublic = identityKeyPair.publicKey,
                     message = wrapper.toByteArray()
                 )
 
-                val ciphertextB64 = CryptoHelper.base64UrlEncode(sealedPayload)
+                val envelopeId = UUID.randomUUID().toString()
+                val now = System.currentTimeMillis()
+                val replyToken = UUID.randomUUID().toString()
+
+                repo.insertMessageAndUpdateConversation(MessageEntity(
+                    conversationId = conversationId, senderId = selfId,
+                    envelopeId = envelopeId,
+                    messageType = "ENCRYPTED_MESSAGE",
+                    content = plaintext.decodeToString(), status = "sending",
+                    timestamp = now, replyToEnvelopeId = replyTo
+                ))
+
+                if (!ConnectivityMonitor.isOnline.value) {
+                    OfflineQueue.enqueue(QueuedMessage(
+                        recipientUserId = recipientUserId,
+                        recipientDeviceId = "",
+                        messageType = "UNIDENTIFIED_SENDER",
+                        payload = veiledPayload, senderTs = now
+                    ))
+                    repo.updateMessageStatus(envelopeId, MessageStatus.PENDING)
+                    return@withContext SendResult.Queued(envelopeId)
+                }
+
+                val ciphertextB64 = CryptoHelper.base64UrlEncode(veiledPayload)
 
                 val client = apiClient!!
                 val response = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {
                     put("recipient_user_id", recipientUserId)
                     put("message_type", "UNIDENTIFIED_SENDER")
                     put("payload", ciphertextB64)
-                    if (replyToken != null) put("reply_token", replyToken)
+                    put("reply_token", replyToken)
+                    put("sender_ts", now.toString())
                 })
 
                 response.fold(
                     onSuccess = { json ->
                         val ids = json["envelope_ids"]?.jsonArray
-                        val serverId = ids?.firstOrNull()?.jsonPrimitive?.content
-                        SendResult.Success(serverId ?: java.util.UUID.randomUUID().toString())
+                        val serverId = ids?.firstOrNull()?.jsonPrimitive?.content ?: envelopeId
+                        repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
+                        SendResult.Success(serverId)
                     },
-                    onFailure = { SendResult.Failed(SendError.NETWORK) }
+                    onFailure = {
+                        repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
+                        SendResult.Failed(SendError.NETWORK)
+                    }
                 )
             } catch (e: Exception) {
                 SendResult.Failed(SendError.NETWORK)
