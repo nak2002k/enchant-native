@@ -23,6 +23,8 @@ fun AppScaffold(
     val navigationType = rememberNavigationType()
     val scope = rememberCoroutineScope()
     val canGoBack by navigator.canNavigateBack.collectAsState()
+    val currentDetail by navigator.currentDetail.collectAsState()
+    val isTablet = navigationType.isRail() || navigator.scaffoldDirective.maxHorizontalPartitions >= 2
 
     BackHandler(enabled = canGoBack) {
         scope.launch { navigator.navigateBack() }
@@ -33,18 +35,35 @@ fun AppScaffold(
             navRailContent()
         }
 
-        Column(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+        if (isTablet) {
+            // Split-pane (tablet/landscape): list + detail side by side.
+            Column(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+                Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+                    secondaryContent()
+                }
+                if (!navigationType.isRail()) {
+                    bottomNavContent()
+                }
+            }
             Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
-                secondaryContent()
+                primaryContent()
             }
-
-            if (!navigationType.isRail()) {
-                bottomNavContent()
+        } else {
+            // Phone: single pane. The list is shown until a detail is
+            // opened (mirrors Signal's phone navigation), then the detail
+            // takes the full screen.
+            Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+                if (currentDetail == null) {
+                    Column(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+                        Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
+                            secondaryContent()
+                        }
+                        bottomNavContent()
+                    }
+                } else {
+                    primaryContent()
+                }
             }
-        }
-
-        Box(modifier = androidx.compose.ui.Modifier.weight(1f)) {
-            primaryContent()
         }
     }
 }

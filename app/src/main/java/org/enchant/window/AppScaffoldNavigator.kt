@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.enchant.window.rememberNavigationType
 
 interface AppScaffoldNavigator<T> {
     val canNavigateBack: StateFlow<Boolean>
@@ -26,7 +27,9 @@ data class ScaffoldDirective(
 fun rememberAppScaffoldNavigator(
     defaultPanePreferredWidth: Int = 400
 ): AppScaffoldNavigator<Any> {
-    val isSplitPane = true
+    // Split-pane only on tablet-size windows (rail navigation); phones get a
+    // single pane that switches between list and detail (Signal-style).
+    val isSplitPane = rememberNavigationType().isRail()
     return remember(isSplitPane) {
         AppScaffoldNavigatorImpl(
             maxHorizontalPartitions = if (isSplitPane) 2 else 1,
