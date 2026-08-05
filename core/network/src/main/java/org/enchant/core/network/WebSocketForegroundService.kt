@@ -76,6 +76,11 @@ class WebSocketForegroundService : Service() {
                         ConnectionState.CONNECTED -> {
                             isConnected = true
                             updateNotification("Connected")
+                            // Pull any messages that arrived while offline /
+                            // during a reconnect so nothing stays stuck.
+                            scope.launch {
+                                runCatching { PendingMessageFetcher.fetchAndProcess() }
+                            }
                         }
                         ConnectionState.DISCONNECTED, ConnectionState.AUTH_FAILED -> {
                             isConnected = false

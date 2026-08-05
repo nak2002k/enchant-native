@@ -34,7 +34,7 @@ class ConversationDao(private val pool: DatabasePool) {
 
     fun getAll(): Flow<List<ConversationEntity>> = callbackFlow {
         fun queryDb(): List<ConversationEntity> = pool.readWith { db ->
-            db.rawQuery("SELECT * FROM conversations ORDER BY last_message_timestamp DESC", null)
+            db.rawQuery("SELECT c.*, m.sender_id AS last_message_sender_id FROM conversations c LEFT JOIN messages m ON c.last_message_envelope_id = m.envelope_id ORDER BY c.last_message_timestamp DESC", null)
                 .use { CursorMapper.mapToList<ConversationEntity>(it) }
         }
         trySend(queryDb())
@@ -50,7 +50,7 @@ class ConversationDao(private val pool: DatabasePool) {
     }
 
     suspend fun getById(conversationId: String): ConversationEntity? = pool.readWith { db ->
-        db.rawQuery("SELECT * FROM conversations WHERE conversation_id = ?", arrayOf(conversationId))
+        db.rawQuery("SELECT c.*, m.sender_id AS last_message_sender_id FROM conversations c LEFT JOIN messages m ON c.last_message_envelope_id = m.envelope_id WHERE c.conversation_id = ?", arrayOf(conversationId))
             .use { CursorMapper.mapTo<ConversationEntity>(it) }
     }
 

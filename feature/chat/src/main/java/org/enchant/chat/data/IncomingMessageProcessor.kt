@@ -542,22 +542,25 @@ object IncomingMessageProcessor {
      * is not a valid encrypted wrapper or decryption fails.
      */
     private suspend fun decryptSignal(senderUserId: String, raw: String): String? {
-        val wrapper = runCatching {
-            kotlinx.serialization.json.Json.parseToJsonElement(raw).jsonObject
-        }.getOrNull() ?: return null
+        // The wrapper is not JSON: call signaling now rides the Veil seal.
+        val payload = runCatching { CryptoPrimitives.base64UrlDecode(raw) }.getOrNull()
+            ?: return null
+        val identity = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
+            ?: return null
+        val decrypted = org.enchant.core.crypto.VeilSender.decryptVeiled(
+            recipientPrivateKey = identity.privateKey,
+            recipientPublicKey = identity.publicKey,
+            sealedPayload = payload
+        ) ?: return null
 
-        if (wrapper["c"]?.jsonPrimitive?.content != "1") return null
+        val recoveredSenderKey = decrypted.first
+        val knownKey = NativeSessionManager.getIdentityKey(senderUserId)
+        if (knownKey != null && !knownKey.contentEquals(recoveredSenderKey)) {
+            android.util.Log.w("IncomingMsg", "Call signaling sender key mismatch for $senderUserId")
+            return null
+        }
 
-        val marker = wrapper["mt"]?.jsonPrimitive?.content
-        val data = wrapper["d"]?.jsonPrimitive?.content ?: return null
-        val ciphertext = runCatching { CryptoPrimitives.base64UrlDecode(data) }.getOrNull() ?: return null
-
-        val decrypted = when (marker) {
-            "P" -> NativeSessionManager.decryptPreKeyMessage(senderUserId, ciphertext)
-            else -> NativeSessionManager.decryptMessage(senderUserId, ciphertext)
-        } ?: return null
-
-        return decrypted.plaintext.toString(Charsets.UTF_8)
+        return decrypted.second.toString(Charsets.UTF_8)
     }
 
     private suspend fun applyDisappearTimer(conversationId: String, envelopeId: String?, serverTs: Long?) {
@@ -627,6 +630,12 @@ object IncomingMessageProcessor {
                 ProcessResult.Error("Group sender key request failed: ${e.message}")
             }
         }
+    }
+
+    /** Fetch undelivered messages from the server and process them (used on
+     *  WS (re)connect so nothing stays stuck after a disconnect/restart). */
+    suspend fun fetchPendingMessagesPublic() {
+        fetchPendingMessages()
     }
 
     private suspend fun fetchPendingMessages() {
@@ -779,8 +788,10 @@ object IncomingMessageProcessor {
 
                 val knownKey = NativeSessionManager.getIdentityKey(senderUserId)
                 if (knownKey != null && !knownKey.contentEquals(recoveredSenderKey)) {
-                    android.util.Log.w("IncomingMsg", "Sealed sender identity key mismatch for $senderUserId")
-                    return@withContext ProcessResult.Error("Sender identity key mismatch")
+                    // The sender re-registered (new identity). Accept the new
+                    // key so the conversation keeps flowing.
+                    android.util.Log.w("IncomingMsg", "Sealed sender re-keyed for $senderUserId; adopting new identity")
+                    NativeSessionManager.setIdentityKey(senderUserId, recoveredSenderKey)
                 }
                 if (knownKey == null) {
                     NativeSessionManager.setIdentityKey(senderUserId, recoveredSenderKey)

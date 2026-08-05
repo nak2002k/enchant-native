@@ -886,7 +886,25 @@ class EnchantAgentBridge : AgentAppBridge {
     }
 
     override suspend fun startCall(remoteUserId: String, isVideo: Boolean): JsonObject {
-        CallManager.startOutgoingCall(remoteUserId, isVideo)
+        // The calls module is wired late in DI.init (after the WebRTC engine
+        // boots); wait for it so the first call doesn't race initialization.
+        var attempts = 0
+        while (!DI.isInitialized && attempts < 40) {
+            attempts++
+            kotlinx.coroutines.delay(500)
+        }
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            var ready = false
+            for (i in 0 until 40) {
+                if (runCatching { org.enchant.core.calls.CallsModule.getCallManager() }.isSuccess) {
+                    ready = true
+                    break
+                }
+                kotlinx.coroutines.delay(500)
+            }
+            if (!ready) return@withContext err("CallManager not ready")
+            CallManager.startOutgoingCall(remoteUserId, isVideo)
+        }
         AgentEventLog.emit("call_started", data = buildJsonObject {
             put("remote_user_id", remoteUserId)
             put("video", isVideo)

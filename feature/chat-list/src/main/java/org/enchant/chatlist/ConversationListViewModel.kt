@@ -44,6 +44,8 @@ class ConversationListViewModel(
 
     private val _titles = MutableStateFlow<Map<String, String>>(emptyMap())
     val titles: StateFlow<Map<String, String>> = _titles.asStateFlow()
+    private val _senderNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    val senderNames: StateFlow<Map<String, String>> = _senderNames.asStateFlow()
 
     private val _filter = MutableStateFlow(ConversationFilter.ALL)
     val filter: StateFlow<ConversationFilter> = _filter.asStateFlow()
@@ -99,6 +101,20 @@ class ConversationListViewModel(
                 val name = repo.resolveDisplayName(id)
                 if (name != null) {
                     _titles.update { it + (id to name) }
+                }
+            }
+        }
+    }
+
+    /** Resolve the senders of the last group messages (preview prefixes). */
+    fun resolveSenderNames(senderIds: List<String>) {
+        viewModelScope.launch {
+            val need = senderIds.distinct().filter { it != null && it !in _senderNames.value }
+            if (need.isEmpty()) return@launch
+            need.forEach { id ->
+                val name = repo.resolveDisplayName(id)
+                if (name != null) {
+                    _senderNames.update { it + (id to name) }
                 }
             }
         }

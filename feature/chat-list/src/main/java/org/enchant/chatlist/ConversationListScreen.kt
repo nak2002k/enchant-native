@@ -48,6 +48,7 @@ fun ConversationListScreen(
 ) {
     val conversations by viewModel.conversations.collectAsState()
     val titles by viewModel.titles.collectAsState()
+    val senderNames by viewModel.senderNames.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
@@ -64,6 +65,7 @@ fun ConversationListScreen(
 
     LaunchedEffect(conversations) {
         viewModel.resolveTitles(conversations.map { it.id })
+        viewModel.resolveSenderNames(conversations.mapNotNull { it.lastMessageSenderId })
     }
 
     LaunchedEffect(navigationEvent) {
@@ -236,6 +238,7 @@ fun ConversationListScreen(
                             ConversationTile(
                                 conversation = conversation,
                                 title = titles[conversation.id],
+                                lastSenderName = conversation.lastMessageSenderId?.let { senderNames[it] },
                                 onClick = { viewModel.selectConversation(conversation.id) },
                         onArchive = {
                             if (conversation.isArchived) viewModel.unarchiveConversation(conversation.id)
@@ -298,6 +301,7 @@ private fun FilterChipsRow(
 private fun ConversationTile(
     conversation: Conversation,
     title: String?,
+    lastSenderName: String? = null,
     onClick: () -> Unit,
     onArchive: () -> Unit,
     onMute: () -> Unit,
@@ -323,12 +327,13 @@ private fun ConversationTile(
                 Surface(
                     modifier = Modifier.size(52.dp),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
+                    color = avatarColorFor(conversation.id)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = (title?.take(1)?.uppercase() ?: conversation.type.name.take(1)),
                         style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
                         modifier = Modifier.semantics { contentDescription = "Avatar" }
                     )
                     }
@@ -386,7 +391,12 @@ private fun ConversationTile(
                         text = run {
                             val draft = conversation.draftContent
                             if (!draft.isNullOrBlank()) "Draft: $draft"
-                            else conversation.lastMessage ?: "No messages yet"
+                            else if (conversation.type == org.enchant.core.model.ConversationType.GROUP &&
+                                     conversation.lastMessageSenderId != null &&
+                                     lastSenderName != null) {
+                                // WhatsApp-style: "Sender: last message" on groups.
+                                "$lastSenderName: ${conversation.lastMessage}"
+                            } else conversation.lastMessage ?: "No messages yet"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (!conversation.draftContent.isNullOrBlank()) MaterialTheme.colorScheme.primary
@@ -483,6 +493,18 @@ private fun EmptyState(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+// WhatsApp-style: a stable distinct hue per conversation.
+private val avatarPalette = listOf(
+    Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7), Color(0xFF3F51B5),
+    Color(0xFF2196F3), Color(0xFF009688), Color(0xFF4CAF50), Color(0xFFFF9800),
+    Color(0xFF795548), Color(0xFF607D8B)
+)
+
+private fun avatarColorFor(id: String): Color {
+    val hash = id.fold(0) { acc, c -> (acc * 31 + c.code) and 0x7FFFFFFF }
+    return avatarPalette[hash % avatarPalette.size]
 }
 
 private fun formatTimestamp(timestamp: Long?): String {

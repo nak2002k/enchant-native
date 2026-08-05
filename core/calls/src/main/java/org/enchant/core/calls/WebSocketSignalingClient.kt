@@ -68,17 +68,19 @@ class WebSocketSignalingClient(
      * opaque payload; the media content stays end-to-end encrypted.
      */
     private suspend fun encryptSignal(remoteUserId: String, plaintext: String): String? {
-        val encrypted = NativeSessionManager.encryptMessage(remoteUserId, plaintext.toByteArray(Charsets.UTF_8))
+        // Call signaling rides the Veil seal (the same proven path as
+        // messaging) instead of the 1:1 session ratchet.
+        val recipientPublicKey = NativeSessionManager.getIdentityKey(remoteUserId)
             ?: return null
-        val marker = when (encrypted.messageType) {
-            NativeSessionManager.MessageType.PREKEY_MESSAGE -> "P"
-            NativeSessionManager.MessageType.ENCRYPTED_MESSAGE -> "E"
-        }
-        return buildJsonObject {
-            put("c", 1)
-            put("mt", marker)
-            put("d", CryptoPrimitives.base64UrlEncode(encrypted.payload))
-        }.toString()
+        val identity = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
+            ?: return null
+        val veiled = org.enchant.core.crypto.VeilSender.encryptVeiled(
+            recipientPublicKey = recipientPublicKey,
+            senderIdentityPrivate = identity.privateKey,
+            senderIdentityPublic = identity.publicKey,
+            message = plaintext.toByteArray(Charsets.UTF_8)
+        )
+        return CryptoPrimitives.base64UrlEncode(veiled)
     }
 
     private suspend fun post(path: String, body: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): Boolean =

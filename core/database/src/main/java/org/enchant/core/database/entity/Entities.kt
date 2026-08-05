@@ -33,6 +33,7 @@ data class ConversationEntity(
     val type: String,
     val lastMessage: String? = null,
     val lastMessageEnvelopeId: String? = null,
+    val lastMessageSenderId: String? = null,
     val lastMessageTimestamp: Long? = null,
     val unreadCount: Int = 0,
     val isPinned: Boolean = false,
