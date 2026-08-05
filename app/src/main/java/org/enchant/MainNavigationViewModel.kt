@@ -145,6 +145,7 @@ class MainNavigationViewModel(
     }
 
     override fun goTo(location: MainNavigationDetailLocation) {
+        android.util.Log.e("NavDiag", "goTo(detail) ${location::class.simpleName} isContentRoot=${location.isContentRoot}")
         lockPaneToSecondary = false
         val currentTab = _mainNavigationState.value.currentListLocation
         val targetStack = getDetailStackForTab(currentTab)

@@ -197,14 +197,18 @@ object AuthManager {
                     true
                 },
                 onFailure = {
-                    _currentState.value = RegistrationState.Welcome
-                    _authState.value = AuthState.Unauthenticated
+                    val msg = it.message.orEmpty()
+                    // Transient failures must not log the user out (Signal
+                    // parity); only a hard auth rejection resets the session.
+                    if (msg.contains("401") || msg.contains("403") || msg.contains("Unauthorized")) {
+                        _currentState.value = RegistrationState.Welcome
+                        _authState.value = AuthState.Unauthenticated
+                    }
                     false
                 }
             )
         } catch (e: Exception) {
-            _currentState.value = RegistrationState.Welcome
-            _authState.value = AuthState.Unauthenticated
+            Log.w("AuthManager", "Token refresh failed (transient): ${e.message}")
             false
         }
     }

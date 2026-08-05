@@ -172,6 +172,8 @@ class AgentDebugServer(
                 bridge.getCryptoStatus()
             root == "crypto" && method == Method.GET && segments.getOrNull(1) == "test-jni" ->
                 bridge.testJniSequence()
+            root == "crypto" && method == Method.POST && segments.getOrNull(1) == "reset-session" ->
+                bridge.resetSession(body.string("user_id"))
             root == "groups" && method == Method.GET && segments.size == 1 ->
                 bridge.listGroups()
             root == "groups" && method == Method.POST && segments.getOrNull(1) == "create" ->

@@ -140,8 +140,21 @@ fun MainNavDisplay(
             )
         },
         primaryContent = {
+            // The detail stacks must be observed as Compose state: pushing a
+            // second detail (e.g. Contacts -> Profile) leaves currentDetail
+            // unchanged ("Primary" -> "Primary"), so the stack read has to be
+            // the recomposition trigger itself.
+            val chatsStack by mainNavViewModel.chatsDetailStack.collectAsStateWithLifecycle()
+            val archiveStack by mainNavViewModel.archiveDetailStack.collectAsStateWithLifecycle()
+            val callsStack by mainNavViewModel.callsDetailStack.collectAsStateWithLifecycle()
+            val storiesStack by mainNavViewModel.storiesDetailStack.collectAsStateWithLifecycle()
             DetailPaneContent(
-                detailStack = getDetailStackForLocation(mainNavState.currentListLocation, mainNavViewModel),
+                detailStack = when (mainNavState.currentListLocation) {
+                    MainNavigationListLocation.CHATS -> chatsStack
+                    MainNavigationListLocation.ARCHIVE -> archiveStack
+                    MainNavigationListLocation.CALLS -> callsStack
+                    MainNavigationListLocation.STORIES -> storiesStack
+                },
                 onNavigate = { mainNavViewModel.goTo(it) },
                 onNavigateBack = { mainNavViewModel.goBackInCurrentTab() }
             )
@@ -787,17 +800,5 @@ private fun CallLinkDetailContent(roomId: String) {
                 Text("Join Call")
             }
         }
-    }
-}
-
-private fun getDetailStackForLocation(
-    location: MainNavigationListLocation,
-    viewModel: MainNavigationViewModel
-): List<MainNavigationDetailLocation> {
-    return when (location) {
-        MainNavigationListLocation.CHATS -> viewModel.chatsDetailStack.value
-        MainNavigationListLocation.ARCHIVE -> viewModel.archiveDetailStack.value
-        MainNavigationListLocation.CALLS -> viewModel.callsDetailStack.value
-        MainNavigationListLocation.STORIES -> viewModel.storiesDetailStack.value
     }
 }

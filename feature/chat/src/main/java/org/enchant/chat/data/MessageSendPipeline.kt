@@ -387,6 +387,11 @@ object MessageSendPipeline {
 
     suspend fun sendTypingIndicator(recipientUserId: String, isTyping: Boolean) {
         checkInit()
+        // Typing frames are E2EE messages. Without an established session
+        // there is nothing to encrypt with — sending one would establish a
+        // session client-side that the peer can never decrypt (they never
+        // received the prekey). Skip until a real message creates the session.
+        if (!NativeSessionManager.hasSession(recipientUserId)) return
         val now = System.currentTimeMillis()
         if (isTyping && now - lastTypingTs < 3000) return
         if (isTyping) lastTypingTs = now

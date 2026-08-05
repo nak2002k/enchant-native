@@ -123,4 +123,5 @@ interface AgentAppBridge {
     suspend fun disconnectWebSocket(): JsonObject
     suspend fun getCryptoStatus(): JsonObject
     suspend fun testJniSequence(): JsonObject
+    suspend fun resetSession(userId: String): JsonObject
 }

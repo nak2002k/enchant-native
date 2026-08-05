@@ -607,6 +607,16 @@ class EnchantAgentBridge : AgentAppBridge {
      * Debug-only: run the exact JNI sequence used by key registration step by
      * step, returning each result so a crash can be pinned to one call.
      */
+    override suspend fun resetSession(userId: String): JsonObject {
+        if (userId.isBlank()) return err("user_id is required")
+        return try {
+            org.enchant.core.crypto.VeilSession.get().deleteSession(userId)
+            ok(buildJsonObject { put("session_reset", true) })
+        } catch (e: Throwable) {
+            err(e.message ?: "reset failed")
+        }
+    }
+
     override suspend fun testJniSequence(): JsonObject {
         val steps = mutableListOf<kotlinx.serialization.json.JsonObject>()
         try {
