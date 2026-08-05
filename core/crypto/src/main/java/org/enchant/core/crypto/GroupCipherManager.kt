@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 object GroupCipherManager {
 
     private const val TAG = "GroupCipher"
-    private const val KEY_PREFIX = "group_cipher_state.v3."
+    private const val KEY_PREFIX = "group_cipher_state.v5."
     private val mutex = Mutex()
 
     private val stateCache = mutableMapOf<String, ByteArray>()
@@ -31,53 +31,64 @@ object GroupCipherManager {
         stateCache.containsKey(groupKey(groupId, senderUserId)) ||
             SecurePrefs.get(KEY_PREFIX + groupKey(groupId, senderUserId)) != null
 
-    /** Load (or create) the local sending state for a group we created/joined. */
+    /**
+     * Load (or create) the local sending state. MUST be called while holding
+     * [mutex] — the callers (encrypt/createDistribution) already lock, and
+     * this mutex is not reentrant.
+     */
+    private suspend fun loadOrCreateSendingState(groupId: String, myUserId: String): ByteArray? {
+        val key = groupKey(groupId, myUserId)
+        stateCache[key]?.let { return it }
+        SecurePrefs.get(KEY_PREFIX + key)?.let { cached ->
+            stateCache[key] = cached
+            return cached
+        }
+        // Fresh session: sender id is the local user id, key id 1.
+        val groupIdBytes = groupId.toByteArray(Charsets.UTF_8).let { id ->
+            if (id.size == 32) id else id.copyOf(32)
+        }
+        val identity = KeyManager.getIdentityKeyPair()?.publicKey ?: return null
+        val state = ByteArray(4096)
+        val stateLen = longArrayOf(state.size.toLong())
+        val rc = EnchantCrypto.enchant_group_cipher_create_session(
+            groupIdBytes, groupIdBytes.size.toLong(),
+            identity, myUserId, 1, state, stateLen
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            Log.e(TAG, "create_session rc=$rc")
+            return null
+        }
+        val blob = state.copyOf(stateLen[0].toInt())
+        stateCache[key] = blob
+        SecurePrefs.put(KEY_PREFIX + key, blob)
+        return blob
+    }
+
+    /** Public entry point for the distribution path (owns the lock). */
     suspend fun getOrCreateSendingState(groupId: String, myUserId: String): ByteArray? =
         withContext(Dispatchers.Default) {
             mutex.withLock {
-                val key = groupKey(groupId, myUserId)
-                stateCache[key]?.let { return@withLock it }
-                SecurePrefs.get(KEY_PREFIX + key)?.let { cached ->
-                    stateCache[key] = cached
-                    return@withLock cached
-                }
-                // Fresh session: sender id is the local user id, key id 1.
-                val groupIdBytes = groupId.toByteArray(Charsets.UTF_8).let { id ->
-                    if (id.size == 32) id else id.copyOf(32)
-                }
-                val identity = KeyManager.getIdentityKeyPair()?.publicKey ?: return@withLock null
-                val state = ByteArray(4096)
-                val stateLen = longArrayOf(state.size.toLong())
-                val rc = EnchantCrypto.enchant_group_cipher_create_session(
-                    groupIdBytes, groupIdBytes.size.toLong(),
-                    identity, myUserId, 1, state, stateLen
-                )
-                if (rc != EnchantCrypto.SUCCESS) {
-                    Log.e(TAG, "create_session rc=$rc")
-                    return@withLock null
-                }
-                val blob = state.copyOf(stateLen[0].toInt())
-                stateCache[key] = blob
-                SecurePrefs.put(KEY_PREFIX + key, blob)
-                blob
+                loadOrCreateSendingState(groupId, myUserId)
             }
         }
 
     /** Create the distribution message for a new member. */
     suspend fun createDistribution(groupId: String, myUserId: String): ByteArray? =
         withContext(Dispatchers.Default) {
-            val state = getOrCreateSendingState(groupId, myUserId) ?: return@withContext null
-            val identity = KeyManager.getIdentityKeyPair() ?: return@withContext null
-            val dist = ByteArray(4096)
-            val distLen = longArrayOf(dist.size.toLong())
-            val rc = EnchantCrypto.enchant_group_cipher_create_distribution(
-                state, state.size.toLong(), identity.privateKey, dist, distLen
-            )
-            if (rc != EnchantCrypto.SUCCESS) {
-                Log.e(TAG, "create_distribution rc=$rc")
-                return@withContext null
+            mutex.withLock {
+                val state = loadOrCreateSendingState(groupId, myUserId) ?: return@withLock null
+                val identity = KeyManager.getIdentityKeyPair() ?: return@withLock null
+                val dist = ByteArray(4096)
+                val distLen = longArrayOf(dist.size.toLong())
+                val rc = EnchantCrypto.enchant_group_cipher_create_distribution(
+                    state, state.size.toLong(), identity.privateKey, dist, distLen
+                )
+                if (rc != EnchantCrypto.SUCCESS) {
+                    Log.e(TAG, "create_distribution rc=$rc")
+                    return@withLock null
+                }
+                dist.copyOf(distLen[0].toInt())
             }
-            dist.copyOf(distLen[0].toInt())
         }
 
     /** Process a received distribution message for [senderUserId]'s chain. */
@@ -127,7 +138,7 @@ object GroupCipherManager {
             val key = groupKey(groupId, senderUserId)
             val state = stateCache[key] ?: SecurePrefs.get(KEY_PREFIX + key)
                 ?: run {
-                    val created = getOrCreateSendingState(groupId, senderUserId)
+                    val created = loadOrCreateSendingState(groupId, senderUserId)
                     if (created == null) return@withLock null else created
                 }
             val msg = ByteArray(4096 + plaintext.size)
@@ -180,6 +191,44 @@ object GroupCipherManager {
 
     fun clear() {
         stateCache.clear()
+    }
+
+    /** Drop a (group, sender) chain — used to recover from replay desyncs. */
+    suspend fun resetState(groupId: String, senderUserId: String) {
+        mutex.withLock {
+            val key = groupKey(groupId, senderUserId)
+            stateCache.remove(key)
+            org.enchant.core.base.SecurePreferences.remove(KEY_PREFIX + key)
+        }
+    }
+
+    /**
+     * Create a distribution from a FRESH chain (iteration 0). Members that
+     * process it catch up to the sender's current chain via forward jumps.
+     */
+    suspend fun createFreshDistribution(groupId: String, myUserId: String): ByteArray? =
+        withContext(Dispatchers.Default) {
+            mutex.withLock {
+                resetStateLocked(groupId, myUserId)
+                val state = loadOrCreateSendingState(groupId, myUserId) ?: return@withLock null
+                val identity = KeyManager.getIdentityKeyPair() ?: return@withLock null
+                val dist = ByteArray(4096)
+                val distLen = longArrayOf(dist.size.toLong())
+                val rc = EnchantCrypto.enchant_group_cipher_create_distribution(
+                    state, state.size.toLong(), identity.privateKey, dist, distLen
+                )
+                if (rc != EnchantCrypto.SUCCESS) {
+                    Log.e(TAG, "fresh_distribution rc=$rc")
+                    return@withLock null
+                }
+                dist.copyOf(distLen[0].toInt())
+            }
+        }
+
+    private fun resetStateLocked(groupId: String, senderUserId: String) {
+        val key = groupKey(groupId, senderUserId)
+        stateCache.remove(key)
+        org.enchant.core.base.SecurePreferences.remove(KEY_PREFIX + key)
     }
 
     private object SecurePrefs {

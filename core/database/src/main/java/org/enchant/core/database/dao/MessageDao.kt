@@ -182,7 +182,7 @@ class MessageDao(private val pool: DatabasePool) {
     }
 
     suspend fun getEnvelopeIdByServerTs(serverTs: Long): String? = pool.readWith { db ->
-        db.rawQuery("SELECT envelope_id FROM messages WHERE server_ts = ? LIMIT 1", arrayOf(serverTs.toString()))
+        db.rawQuery("SELECT envelope_id FROM messages WHERE server_ts = ? OR timestamp = ? LIMIT 1", arrayOf(serverTs.toString(), serverTs.toString()))
             .use { if (it.moveToFirst()) it.getString(0) else null }
     }
 

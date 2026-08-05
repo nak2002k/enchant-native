@@ -146,6 +146,10 @@ object IncomingMessageProcessor {
                     return@withContext processGroupSenderKey(envelope, senderId)
                 }
 
+                if (envelope.messageType == "GROUP_SENDER_KEY_REQUEST") {
+                    return@withContext processGroupSenderKeyRequest(envelope, senderId)
+                }
+
                 if (envelope.messageType == "GROUP_MESSAGE") {
                     return@withContext processGroupMessage(envelope, senderId, repo)
                 }
@@ -524,6 +528,24 @@ object IncomingMessageProcessor {
         }
     }
 
+    private suspend fun processGroupSenderKeyRequest(
+        envelope: IncomingEnvelope, senderUserId: String
+    ): ProcessResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val wire = decodeWirePayload(envelope.payload)
+                if (wire.size < 1) return@withContext ProcessResult.Error("Bad request payload")
+                val groupId = String(wire.let { b ->
+                    b.takeWhile { it != 0.toByte() }.toByteArray()
+                }, Charsets.UTF_8)
+                org.enchant.chat.data.MessageSendPipeline.handleGroupSenderKeyRequest(groupId, senderUserId)
+                ProcessResult.Handled
+            } catch (e: Exception) {
+                ProcessResult.Error("Group sender key request failed: ${e.message}")
+            }
+        }
+    }
+
     private suspend fun processGroupMessage(
         envelope: IncomingEnvelope, senderUserId: String, repo: ConversationRepository
     ): ProcessResult {
@@ -547,16 +569,27 @@ object IncomingMessageProcessor {
                     (ciphertext[33].toInt() and 0xFF) or ((ciphertext[34].toInt() and 0xFF) shl 8) or
                     ((ciphertext[35].toInt() and 0xFF) shl 16) or ((ciphertext[36].toInt() and 0xFF) shl 24) else -1
                 val dedupKey = "$groupId|$senderUserId|$msgIter"
-                if (msgIter >= 0 && !processedGroupIterations.add(dedupKey)) {
+                // Only skip duplicates AFTER the message was stored successfully;
+                // marking on failure would ack the frame and lose the message.
+                if (msgIter >= 0 && processedGroupIterations.contains(dedupKey)) {
                     return@withContext ProcessResult.Handled
                 }
 
                 val plaintext = org.enchant.core.crypto.GroupCipherManager.decrypt(groupId, senderUserId, ciphertext)
-                    ?: return@withContext ProcessResult.Error("Group decrypt failed for sender=$senderUserId group=$groupId")
+                    ?: run {
+                        // Chain desync (e.g. a missed distribution): ask the
+                        // sender to re-broadcast their sender key so we can
+                        // decrypt subsequent messages.
+                        runCatching {
+                            org.enchant.chat.data.MessageSendPipeline.requestGroupSenderKey(groupId, senderUserId)
+                        }
+                        return@withContext ProcessResult.Error("Group decrypt failed for sender=$senderUserId group=$groupId")
+                    }
                 val content = org.enchant.protos.ContentProtos.Content.parseFrom(plaintext)
                 val now = System.currentTimeMillis()
                 return@withContext when {
                     content.hasDataMessage() -> {
+                        if (msgIter >= 0) processedGroupIterations.add(dedupKey)
                         val dataMsg = content.dataMessage
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
@@ -565,11 +598,17 @@ object IncomingMessageProcessor {
                                 messageType = "GROUP_MESSAGE",
                                 content = dataMsg.body,
                                 status = "delivered",
-                                timestamp = envelope.serverTimestamp ?: now,
+                                timestamp = envelope.senderTimestamp ?: envelope.serverTimestamp ?: now,
                                 serverTs = now
                             ),
                             conversationType = "group"
                         )
+                        // Delivery receipt so the sender sees the double tick.
+                        runCatching {
+                            org.enchant.chat.data.MessageSendPipeline.sendDeliveryReceipt(
+                                envelope.envelopeId ?: "", senderUserId
+                            )
+                        }
                         ProcessResult.Handled
                     }
                     content.hasReceiptMessage() -> {

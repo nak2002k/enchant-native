@@ -310,6 +310,7 @@ object MessageSendPipeline {
     ): SendResult {
         checkInit()
         val repo = repository!!
+        var envelopeId = ""
         return withContext(Dispatchers.Default) {
             try {
                 if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
@@ -327,7 +328,7 @@ object MessageSendPipeline {
 
                 val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
                 val groupConversationId = groupId
-                val envelopeId = UUID.randomUUID().toString()
+                envelopeId = UUID.randomUUID().toString()
                 val now = System.currentTimeMillis()
                 repo.insertMessageAndUpdateConversation(MessageEntity(
                     conversationId = groupConversationId, senderId = selfId,
@@ -341,22 +342,25 @@ object MessageSendPipeline {
                 val payloadB64 = CryptoHelper.base64UrlEncode(wirePayload)
                 val client = apiClient!!
 
-                val targets = if (members.isNotEmpty()) members else fetchGroupMembers(groupId)
-                var allOk = true
-                targets.filter { it != selfId }.forEach { memberId ->
-                    val result = client.post("/v1/messages/send", buildJsonObject {
-                        put("recipient_user_id", memberId)
+                // One request: the backend fans the sealed message out to
+                // every member and pushes online.
+                val result = runCatching {
+                    client.post("/v1/groups/$groupId/messages", buildJsonObject {
                         put("message_type", "GROUP_MESSAGE")
                         put("payload", payloadB64)
                         put("sender_ts", now.toString())
-                        put("envelope_id", UUID.randomUUID().toString())
+                        put("envelope_id", envelopeId)
                     })
-                    if (result.isFailure) allOk = false
-                }
+                }.getOrNull()
 
-                repo.updateMessageStatus(envelopeId, if (allOk) MessageStatus.SENT else MessageStatus.PENDING)
-                if (allOk) SendResult.Success(envelopeId) else SendResult.Queued(envelopeId)
+                val ok = result?.isSuccess == true
+                repo.updateMessageStatus(envelopeId, if (ok) MessageStatus.SENT else MessageStatus.PENDING)
+                if (ok) SendResult.Success(envelopeId) else SendResult.Queued(envelopeId)
             } catch (e: Exception) {
+                // Never leave the message stuck in "sending".
+                if (envelopeId.isNotEmpty()) {
+                    runCatching { repo.updateMessageStatus(envelopeId, MessageStatus.FAILED) }
+                }
                 SendResult.Failed(SendError.NETWORK)
             }
         }
@@ -414,6 +418,46 @@ object MessageSendPipeline {
             } ?: emptyList()
         } catch (_: Exception) {
             emptyList()
+        }
+    }
+
+    /** Ask a group member to re-broadcast their sender-key distribution. */
+    suspend fun requestGroupSenderKey(groupId: String, senderUserId: String) {
+        checkInit()
+        val client = apiClient ?: return
+        val now = System.currentTimeMillis()
+        val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
+        val payloadB64 = CryptoHelper.base64UrlEncode(groupIdBytes)
+        runCatching {
+            client.post("/v1/messages/send", buildJsonObject {
+                put("recipient_user_id", senderUserId)
+                put("message_type", "GROUP_SENDER_KEY_REQUEST")
+                put("payload", payloadB64)
+                put("sender_ts", now.toString())
+                put("envelope_id", UUID.randomUUID().toString())
+            })
+        }
+    }
+
+    /** Re-broadcast a FRESH sender-key distribution to the requesting member. */
+    suspend fun handleGroupSenderKeyRequest(groupId: String, requesterId: String) {
+        checkInit()
+        val client = apiClient ?: return
+        val selfId = SecurePreferences.getString("auth.user_id") ?: return
+        val identity = org.enchant.core.crypto.KeyManager.getIdentityKeyPair() ?: return
+        val distribution = org.enchant.core.crypto.GroupCipherManager.createFreshDistribution(groupId, selfId) ?: return
+        val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
+        val signingPublic = org.enchant.core.crypto.CryptoPrimitives.ed25519PubFromSeed(identity.privateKey)
+        val wirePayload = groupIdBytes + signingPublic + distribution
+        val payloadB64 = CryptoHelper.base64UrlEncode(wirePayload)
+        runCatching {
+            client.post("/v1/messages/send", buildJsonObject {
+                put("recipient_user_id", requesterId)
+                put("message_type", "GROUP_SENDER_KEY")
+                put("payload", payloadB64)
+                put("sender_ts", System.currentTimeMillis().toString())
+                put("envelope_id", UUID.randomUUID().toString())
+            })
         }
     }
 
