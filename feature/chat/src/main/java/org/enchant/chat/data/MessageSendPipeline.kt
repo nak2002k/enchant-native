@@ -95,7 +95,7 @@ object MessageSendPipeline {
                 val now = System.currentTimeMillis()
                 val selfId = SecurePreferences.getString("auth.user_id") ?: return@withContext SendResult.Failed(SendError.NETWORK)
 
-                repo.insertMessage(MessageEntity(
+                repo.insertMessageAndUpdateConversation(MessageEntity(
                     conversationId = conversationId, senderId = selfId,
                     envelopeId = envelopeId,
                     messageType = if (hasSession) "ENCRYPTED_MESSAGE" else "PREKEY_MESSAGE",

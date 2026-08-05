@@ -127,19 +127,21 @@ class ConversationViewModel(
         // see them (the backend stores reactions but never pushes them).
         viewModelScope.launch {
             val selfId = SecurePreferences.getString("auth.user_id") ?: ""
-            val synced = mutableSetOf<String>()
+            val lastSync = mutableMapOf<String, String>()
             _messages.collect { messages ->
-                delay(500)
+                delay(600)
                 messages.takeLast(20).forEach { msg ->
                     val eid = msg.envelopeId ?: return@forEach
-                    if (!synced.add(eid)) return@forEach
                     try {
-                        val json = apiClient.get("/v1/reactions/$eid").getOrNull()
-                        android.util.Log.e("ReactionSync", "fetch $eid -> ${json?.toString()?.take(120)}")
-                        if (json == null) return@forEach
+                        val json = apiClient.get("/v1/reactions/$eid").getOrNull() ?: return@forEach
                         val reactions = json["reactions"]?.jsonObject ?: return@forEach
-                        reactions.forEach { (emoji, count) ->
-                            if ((count.jsonPrimitive.intOrNull ?: 0) > 0) {
+                        val sig = reactions.entries.joinToString { (e, c) -> "$e:$c" }
+                        if (lastSync[eid] == sig) return@forEach
+                        lastSync[eid] = sig
+                        reactions.forEach { (emoji, agg) ->
+                            val count = agg.jsonObject["count"]?.jsonPrimitive?.intOrNull
+                                ?: agg.jsonPrimitive.intOrNull ?: 0
+                            if (count > 0) {
                                 repo.addReaction(convId, msg.localId, emoji, selfId)
                                 android.util.Log.e("ReactionSync", "stored $emoji on $eid")
                             }
@@ -391,6 +393,8 @@ class ConversationViewModel(
     fun setReaction(messageId: Long, emoji: String) {
         viewModelScope.launch {
             val msg = repo.getMessageByLocalId(messageId) ?: return@launch
+            val selfId = SecurePreferences.getString("auth.user_id") ?: return@launch
+            repo.addReaction(msg.conversationId, messageId, emoji, selfId)
             pipeline.sendReaction(msg.envelopeId ?: msg.localId.toString(), emoji, msg.conversationId)
         }
     }
