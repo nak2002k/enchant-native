@@ -16,7 +16,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -345,7 +347,9 @@ fun ConversationScreen(
                                 onReact = { viewModel.setReaction(message.localId, it) },
                                 onReport = { viewModel.reportMessage(it) },
                                 onTranslate = { translateDialogEnvelopeId = it },
-                                onViewOnceViewed = { viewModel.markViewOnceViewed(it) }
+                                onViewOnceViewed = { viewModel.markViewOnceViewed(it) },
+                                onStar = { viewModel.starMessage(it, !message.isStarred) },
+                                onPin = { viewModel.pinMessage(it) }
                             )
                         }
                     }
@@ -804,6 +808,7 @@ IconButton(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageBubble(
     message: Message,
@@ -817,6 +822,8 @@ fun MessageBubble(
     onReact: (String) -> Unit,
     onReport: (String) -> Unit = {},
     onTranslate: (String) -> Unit = {},
+    onStar: (Long) -> Unit = {},
+    onPin: (Long) -> Unit = {},
     onViewOnceViewed: (String) -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -835,7 +842,12 @@ fun MessageBubble(
         Surface(
             shape = MaterialTheme.shapes.medium,
             color = bubbleColor,
-            modifier = Modifier.widthIn(max = 300.dp)
+            modifier = Modifier
+                .widthIn(max = 300.dp)
+                .combinedClickable(
+                    onClick = { },
+                    onLongClick = { showMenu = true }
+                )
         ) {
             Column(modifier = Modifier.padding(10.dp)) {
                     if (message.isDeleted) {
@@ -1002,12 +1014,12 @@ fun MessageBubble(
             DropdownMenuItem(text = { Text("Forward") }, onClick = { onForward(message.envelopeId ?: ""); showMenu = false })
             DropdownMenuItem(
                 text = { Text(if (message.isStarred) "Unstar" else "Star") },
-                onClick = { onReact(message.envelopeId ?: ""); showMenu = false },
+                onClick = { onStar(message.localId); showMenu = false },
                 leadingIcon = { Icon(if (message.isStarred) Icons.Default.Star else Icons.Default.StarBorder, null) }
             )
             DropdownMenuItem(
                 text = { Text("Pin") },
-                onClick = { onReact(message.envelopeId ?: ""); showMenu = false },
+                onClick = { onPin(message.localId); showMenu = false },
                 leadingIcon = { Icon(Icons.Default.PushPin, null) }
             )
             if (isOutgoing) {
