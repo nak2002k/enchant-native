@@ -113,6 +113,21 @@ class SettingsViewModel(
                 },
                 onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
             )
+            // The settings endpoint may omit profile fields — fill the bio
+            // from the own profile when needed.
+            if (_uiState.value.displayName.isBlank() || _uiState.value.username == null) {
+                val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: return@launch
+                apiClient.get("/v1/profile/$selfId").onSuccess { json ->
+                    _uiState.value = _uiState.value.copy(
+                        displayName = json["display_name"]?.jsonPrimitive?.content
+                            ?: _uiState.value.displayName,
+                        username = json["username"]?.jsonPrimitive?.content
+                            ?: _uiState.value.username,
+                        about = json["about"]?.jsonPrimitive?.content
+                            ?: _uiState.value.about
+                    )
+                }
+            }
         }
     }
 

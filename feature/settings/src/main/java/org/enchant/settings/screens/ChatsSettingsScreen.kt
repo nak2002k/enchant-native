@@ -42,91 +42,63 @@ fun ChatsSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Default Disappearing Timer",
-                        style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    var expanded by remember { mutableStateOf(false) }
-                    val selectedLabel = DisappearTimerPresets.SETTINGS_OPTIONS.find { it.seconds == defaultDisappearingTimer }?.label ?: "Off"
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = selectedLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            DisappearTimerPresets.SETTINGS_OPTIONS.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option.label) },
-                                    onClick = {
-                                        onDisappearingTimerChange(option.seconds)
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Card(onClick = onBackupSettings, modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Text(
+                "Default disappearing timer",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+            )
+            var expanded by remember { mutableStateOf(false) }
+            val selectedLabel = DisappearTimerPresets.SETTINGS_OPTIONS.find { it.seconds == defaultDisappearingTimer }?.label ?: "Off"
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                OutlinedTextField(
+                    value = selectedLabel,
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
                 ) {
-                    Icon(Icons.Default.Backup, null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Backup", style = MaterialTheme.typography.bodyMedium)
-                        Text("Manage chat backups",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DisappearTimerPresets.SETTINGS_OPTIONS.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.label) },
+                            onClick = {
+                                onDisappearingTimerChange(option.seconds)
+                                expanded = false
+                            }
+                        )
                     }
-                    Icon(Icons.Default.ChevronRight, "Open",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Media Auto-Download",
-                        style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Wi-Fi", style = MaterialTheme.typography.bodyMedium)
-                        Switch(checked = autoDownloadWifi,
-                            onCheckedChange = onAutoDownloadWifiChange)
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Cellular", style = MaterialTheme.typography.bodyMedium)
-                        Switch(checked = autoDownloadCellular,
-                            onCheckedChange = onAutoDownloadCellularChange)
-                    }
-                }
-            }
+            SignalSettingsDivider()
+
+            SignalSettingsRow(
+                icon = Icons.Default.Backup,
+                title = "Backup",
+                label = "Manage chat backups",
+                onClick = onBackupSettings
+            )
+
+            SignalSettingsDivider()
+
+            SignalSettingsSwitchRow(
+                title = "Auto-download on Wi-Fi",
+                checked = autoDownloadWifi,
+                onCheckedChange = onAutoDownloadWifiChange
+            )
+            SignalSettingsSwitchRow(
+                title = "Auto-download on cellular",
+                checked = autoDownloadCellular,
+                onCheckedChange = onAutoDownloadCellularChange
+            )
         }
     }
 }

@@ -300,6 +300,10 @@ private fun DetailPaneContent(
             // Settings routes
             topDetail is MainNavigationDetailLocation.Settings -> {
                 SettingsHomeScreen(
+                    displayName = settingsState.displayName ?: "User",
+                    username = settingsState.username,
+                    about = settingsState.about,
+                    onOpenProfile = { onNavigate(MainNavigationDetailLocation.Profile("self")) },
                     onNavigateToAccount = { onNavigate(MainNavigationDetailLocation.AccountSettings) },
                     onNavigateToSecurity = { onNavigate(MainNavigationDetailLocation.SecuritySettings) },
                     onNavigateToPrivacy = { onNavigate(MainNavigationDetailLocation.PrivacySettings) },
@@ -307,7 +311,8 @@ private fun DetailPaneContent(
                     onNavigateToAppearance = { onNavigate(MainNavigationDetailLocation.AppearanceSettings) },
                     onNavigateToChats = { onNavigate(MainNavigationDetailLocation.ChatsSettings) },
                     onNavigateToStorage = { onNavigate(MainNavigationDetailLocation.StorageSettings) },
-                    onNavigateToAbout = { onNavigate(MainNavigationDetailLocation.About) }
+                    onNavigateToAbout = { onNavigate(MainNavigationDetailLocation.About) },
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.AccountSettings -> {

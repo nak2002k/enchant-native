@@ -1,5 +1,6 @@
 package org.enchant.settings.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -49,121 +50,123 @@ fun StorageSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Storage Usage", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    if (storageInfo != null) {
-                        val used = storageInfo.messagesBytes + storageInfo.mediaBytes + storageInfo.cacheBytes
-                        val totalDisplay = if (storageInfo.totalBytes > 0)
-                            " / ${formatBytes(storageInfo.totalBytes)}" else ""
+            Text(
+                "Storage usage",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+            )
+            if (storageInfo != null) {
+                val used = storageInfo.messagesBytes + storageInfo.mediaBytes + storageInfo.cacheBytes
+                val totalDisplay = if (storageInfo.totalBytes > 0)
+                    " / ${formatBytes(storageInfo.totalBytes)}" else ""
 
-                        Text(
-                            "${formatBytes(used)}$totalDisplay used",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                Text(
+                    "${formatBytes(used)}$totalDisplay used",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
 
-                        Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
 
-                        StorageBar(
-                            label = "Messages",
-                            bytes = storageInfo.messagesBytes,
-                            total = used,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        StorageBar(
-                            label = "Media",
-                            bytes = storageInfo.mediaBytes,
-                            total = used,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                        StorageBar(
-                            label = "Cache",
-                            bytes = storageInfo.cacheBytes,
-                            total = used,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    } else {
-                        Text(
-                            "Loading storage info...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                StorageBar(
+                    label = "Messages",
+                    bytes = storageInfo.messagesBytes,
+                    total = used,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                StorageBar(
+                    label = "Media",
+                    bytes = storageInfo.mediaBytes,
+                    total = used,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                StorageBar(
+                    label = "Cache",
+                    bytes = storageInfo.cacheBytes,
+                    total = used,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            } else {
+                Text(
+                    "Loading storage info...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("Clear Cache", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "Remove temporary files",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (isProcessing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        FilledTonalButton(onClick = onClearCache) {
-                            Text("Clear")
-                        }
-                    }
-                }
-            }
+            SignalSettingsDivider()
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Clear cache", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Message Retention",
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Automatically delete messages older than the selected period.",
+                        "Remove temporary files",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(12.dp))
-
-                    retentionOptions.forEach { (days, label) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = messageRetentionDays == days,
-                                onClick = { onRetentionChange(days) }
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(label, style = MaterialTheme.typography.bodyMedium)
-                        }
+                }
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    FilledTonalButton(onClick = onClearCache) {
+                        Text("Clear")
                     }
+                }
+            }
 
-                    if (messageRetentionDays > 0) {
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = { showTrimDialog = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Trim Now")
-                        }
-                    }
+            SignalSettingsDivider()
+
+            Text(
+                "Message retention",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+            Text(
+                "Automatically delete messages older than the selected period.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+
+            retentionOptions.forEach { (days, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onRetentionChange(days) }
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = messageRetentionDays == days,
+                        onClick = { onRetentionChange(days) }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            if (messageRetentionDays > 0) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { showTrimDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Trim Now")
                 }
             }
         }

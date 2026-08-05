@@ -1,5 +1,6 @@
 package org.enchant.settings.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,108 +46,104 @@ fun AccountSettingsScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Profile", style = MaterialTheme.typography.titleSmall)
-                            TextButton(onClick = { showEditProfile = true }) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Edit")
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text("Display name: $displayName", style = MaterialTheme.typography.bodyMedium)
-                        if (username != null) {
-                            Text(
-                                "@$username", style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (about != null) {
-                            Text(
-                                about, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                SignalSettingsBioRow(
+                    initial = displayName.take(2).uppercase().ifBlank { "?" },
+                    displayName = displayName.ifBlank { "User" },
+                    username = username,
+                    about = about,
+                    onClick = { showEditProfile = true }
+                )
             }
 
+            item { SignalSettingsDivider() }
+
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Devices", style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
-                        if (devices.isEmpty() && !isLoading) {
-                            Text(
-                                "No linked devices",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                SignalSettingsRow(
+                    icon = Icons.Default.Edit,
+                    title = "Edit profile",
+                    onClick = { showEditProfile = true }
+                )
+            }
+
+            item { SignalSettingsDivider() }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Devices", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     }
                 }
             }
 
             items(devices, key = { it.deviceId }) { device ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Devices, null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(device.name, style = MaterialTheme.typography.bodyMedium)
-                            if (device.lastSeen != null) {
-                                Text(
-                                    "Last seen: ${device.lastSeen}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (device.isCurrent) {
-                                Text(
-                                    "Current device",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Devices, null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(24.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(device.name, style = MaterialTheme.typography.bodyLarge)
+                        if (device.lastSeen != null) {
+                            Text(
+                                "Last seen: ${device.lastSeen}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        if (!device.isCurrent) {
-                            TextButton(onClick = { onRevokeDevice(device.deviceId) }) {
-                                Text("Revoke", color = MaterialTheme.colorScheme.error)
-                            }
+                        if (device.isCurrent) {
+                            Text(
+                                "Current device",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    if (!device.isCurrent) {
+                        TextButton(onClick = { onRevokeDevice(device.deviceId) }) {
+                            Text("Revoke", color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
+                androidx.compose.material3.HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.padding(start = 64.dp)
+                )
             }
 
-            item { Spacer(Modifier.height(16.dp)) }
+            item { SignalSettingsDivider() }
 
             item {
-                Button(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDeleteConfirm = true }
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Delete Account")
+                    Icon(
+                        Icons.Default.DeleteForever, null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(24.dp))
+                    Text("Delete account", color = MaterialTheme.colorScheme.error)
                 }
             }
         }

@@ -48,126 +48,95 @@ fun NotificationsSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("Notifications", style = MaterialTheme.typography.titleSmall)
-                        Text("Master toggle for all notifications",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = masterEnabled, onCheckedChange = onMasterToggle)
-                }
-            }
+            SignalSettingsSwitchRow(
+                title = "Notifications",
+                label = "Master toggle for all notifications",
+                checked = masterEnabled,
+                onCheckedChange = onMasterToggle
+            )
 
             if (masterEnabled) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Message Notifications",
-                            style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Message notifications",
-                                style = MaterialTheme.typography.bodyMedium)
-                            Switch(
-                                checked = messageNotifications,
-                                onCheckedChange = onMessageNotificationsChange
-                            )
-                        }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Show preview", style = MaterialTheme.typography.bodyMedium)
-                            Switch(
-                                checked = showPreview,
-                                onCheckedChange = onShowPreviewChange
-                            )
-                        }
-                    }
+                SignalSettingsDivider()
+
+                SignalSettingsSwitchRow(
+                    title = "Message notifications",
+                    checked = messageNotifications,
+                    onCheckedChange = onMessageNotificationsChange
+                )
+                SignalSettingsSwitchRow(
+                    title = "Show preview",
+                    checked = showPreview,
+                    onCheckedChange = onShowPreviewChange
+                )
+
+                SignalSettingsDivider()
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Start time", style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f))
+                    OutlinedTextField(
+                        value = dndStartTime,
+                        onValueChange = onDndStartTimeChange,
+                        modifier = Modifier.width(100.dp),
+                        singleLine = true,
+                        placeholder = { Text("HH:mm") }
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("End time", style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f))
+                    OutlinedTextField(
+                        value = dndEndTime,
+                        onValueChange = onDndEndTimeChange,
+                        modifier = Modifier.width(100.dp),
+                        singleLine = true,
+                        placeholder = { Text("HH:mm") }
+                    )
                 }
 
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Do Not Disturb Schedule",
-                            style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Start time", style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f))
-                            OutlinedTextField(
-                                value = dndStartTime,
-                                onValueChange = onDndStartTimeChange,
-                                modifier = Modifier.width(100.dp),
-                                singleLine = true,
-                                placeholder = { Text("HH:mm") }
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("End time", style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f))
-                            OutlinedTextField(
-                                value = dndEndTime,
-                                onValueChange = onDndEndTimeChange,
-                                modifier = Modifier.width(100.dp),
-                                singleLine = true,
-                                placeholder = { Text("HH:mm") }
-                            )
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-                        Text("Repeat on", style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(4.dp))
-                        val dayNames = listOf("S", "M", "T", "W", "T", "F", "S")
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            dayNames.forEachIndexed { index, name ->
-                                FilterChip(
-                                    selected = index in dndDaysOfWeek,
-                                    onClick = {
-                                        val newDays = if (index in dndDaysOfWeek) {
-                                            dndDaysOfWeek - index
-                                        } else {
-                                            dndDaysOfWeek + index
-                                        }
-                                        onDndDaysChange(newDays)
-                                    },
-                                    label = { Text(name) },
-                                    modifier = Modifier.height(32.dp)
-                                )
-                            }
-                        }
+                Text(
+                    "Repeat on",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                val dayNames = listOf("S", "M", "T", "W", "T", "F", "S")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    dayNames.forEachIndexed { index, name ->
+                        FilterChip(
+                            selected = index in dndDaysOfWeek,
+                            onClick = {
+                                val newDays = if (index in dndDaysOfWeek) {
+                                    dndDaysOfWeek - index
+                                } else {
+                                    dndDaysOfWeek + index
+                                }
+                                onDndDaysChange(newDays)
+                            },
+                            label = { Text(name) },
+                            modifier = Modifier.height(32.dp)
+                        )
                     }
                 }
-            }
 
             val context = LocalContext.current
     if (!BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
+                    color = MaterialTheme.colorScheme.errorContainer
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
@@ -198,13 +167,16 @@ fun NotificationsSettingsScreen(
                             }
                             OutlinedButton(
                                 onClick = { BatteryOptimizationHelper.requestDisableBatteryOptimization(context) }
-                            ) {
-                                Text("Disable Optimization")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+                             ) {
+                                 Text("Disable Optimization")
+                          }
+                     }
+                 }
+             }
+          }
+     }
+ }
+
+}
+
 }

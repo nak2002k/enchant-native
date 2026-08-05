@@ -38,75 +38,82 @@ fun AppearanceSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Theme", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(
-                            "light" to "Light",
-                            "dark" to "Dark",
-                            "system" to "System"
-                        ).forEach { (value, label) ->
-                            FilterChip(
-                                selected = currentTheme == value,
-                                onClick = { onThemeChange(value) },
-                                label = { Text(label) },
-                                leadingIcon = {
-                                    Icon(
-                                        when (value) {
-                                            "light" -> Icons.Default.LightMode
-                                            "dark" -> Icons.Default.DarkMode
-                                            else -> Icons.Default.Settings
-                                        },
-                                        null, modifier = Modifier.size(18.dp)
-                                    )
-                                }
+            Text(
+                "Theme",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                listOf(
+                    "light" to "Light",
+                    "dark" to "Dark",
+                    "system" to "System"
+                ).forEach { (value, label) ->
+                    FilterChip(
+                        selected = currentTheme == value,
+                        onClick = { onThemeChange(value) },
+                        label = { Text(label) },
+                        leadingIcon = {
+                            Icon(
+                                when (value) {
+                                    "light" -> Icons.Default.LightMode
+                                    "dark" -> Icons.Default.DarkMode
+                                    else -> Icons.Default.Settings
+                                },
+                                null, modifier = Modifier.size(18.dp)
                             )
                         }
-                    }
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Font Size", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text("${((fontSize - 0.8f) / 0.6f * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.align(Alignment.CenterHorizontally))
-                    Spacer(Modifier.height(8.dp))
-                    Slider(
-                        value = fontSize,
-                        onValueChange = onFontSizeChange,
-                        valueRange = 0.8f..1.4f,
-                        steps = 5
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("A", style = MaterialTheme.typography.bodySmall)
-                        Text("A", style = MaterialTheme.typography.headlineSmall)
-                    }
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Preview", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "This is how messages will appear at the selected font size.",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = MaterialTheme.typography.bodyMedium.fontSize * fontSize
-                        )
                     )
                 }
             }
+
+            SignalSettingsDivider()
+
+            Text(
+                "Font size",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            Text(
+                "${((fontSize - 0.8f) / 0.6f * 100).roundToInt()}%",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+            Slider(
+                value = fontSize,
+                onValueChange = onFontSizeChange,
+                valueRange = 0.8f..1.4f,
+                steps = 5,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("A", style = MaterialTheme.typography.bodySmall)
+                Text("A", style = MaterialTheme.typography.headlineSmall)
+            }
+
+            SignalSettingsDivider()
+
+            Text(
+                "Preview",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            Text(
+                "This is how messages will appear at the selected font size.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = MaterialTheme.typography.bodyMedium.fontSize * fontSize
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
         }
     }
 }

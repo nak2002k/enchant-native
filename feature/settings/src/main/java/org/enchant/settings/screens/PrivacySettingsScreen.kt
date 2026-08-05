@@ -1,13 +1,20 @@
 package org.enchant.settings.screens
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -42,130 +49,88 @@ fun PrivacySettingsScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Last Seen & Online", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Who can see my last seen?",
-                        style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(4.dp))
-                    VisibilitySelector(
-                        selected = lastSeenVisibility,
-                        onSelected = onLastSeenChange
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Show online", style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = onlineVisibility,
-                            onCheckedChange = onOnlineVisibilityChange
-                        )
-                    }
-                }
+            item {
+                VisibilityRow(
+                    title = "Who can see my last seen?",
+                    selected = lastSeenVisibility,
+                    onSelected = onLastSeenChange
+                )
+            }
+            item { SignalSettingsSwitchRow(
+                title = "Show online",
+                checked = onlineVisibility,
+                onCheckedChange = onOnlineVisibilityChange
+            ) }
+
+            item { SignalSettingsDivider() }
+
+            item {
+                VisibilityRow(
+                    title = "Profile photo",
+                    selected = avatarVisibility,
+                    onSelected = onAvatarVisibilityChange
+                )
+            }
+            item {
+                VisibilityRow(
+                    title = "About",
+                    selected = aboutVisibility,
+                    onSelected = onAboutVisibilityChange
+                )
             }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Profile", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Profile photo", style = MaterialTheme.typography.bodyMedium)
-                    VisibilitySelector(
-                        selected = avatarVisibility,
-                        onSelected = onAvatarVisibilityChange
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text("About", style = MaterialTheme.typography.bodyMedium)
-                    VisibilitySelector(
-                        selected = aboutVisibility,
-                        onSelected = onAboutVisibilityChange
-                    )
-                }
-            }
+            item { SignalSettingsDivider() }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Read Receipts", style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = readReceipts,
-                            onCheckedChange = onReadReceiptsChange
-                        )
-                    }
-                }
-            }
+            item { SignalSettingsSwitchRow(
+                title = "Read receipts",
+                checked = readReceipts,
+                onCheckedChange = onReadReceiptsChange
+            ) }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Veil sender", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "Hide your identity from the server when messaging",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = veilSender,
-                            onCheckedChange = onVeilSenderChange
-                        )
-                    }
-                }
-            }
+            item { SignalSettingsDivider() }
 
-            Card(onClick = onViewBlockedUsers, modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Block, null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Blocked Users", style = MaterialTheme.typography.bodyMedium)
-                        Text("${blockedUsers.size} blocked",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Icon(Icons.Default.ChevronRight, "View",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            item { SignalSettingsSwitchRow(
+                title = "Veil sender",
+                label = "Hide your identity from the server when messaging",
+                checked = veilSender,
+                onCheckedChange = onVeilSenderChange
+            ) }
+
+            item { SignalSettingsDivider() }
+
+            item { SignalSettingsRow(
+                icon = Icons.Default.Block,
+                title = "Blocked users",
+                label = if (blockedUsers.isEmpty()) "No blocked users" else "${blockedUsers.size} blocked",
+                onClick = onViewBlockedUsers
+            ) }
+
+            item { androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 24.dp)) }
         }
     }
 }
 
 @Composable
-private fun VisibilitySelector(selected: String, onSelected: (String) -> Unit) {
-    val options = listOf("everyone" to "Everyone", "contacts" to "Contacts", "nobody" to "Nobody")
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { (value, label) ->
-            FilterChip(
-                selected = selected == value,
-                onClick = { onSelected(value) },
-                label = { Text(label) }
-            )
+private fun VisibilityRow(
+    title: String,
+    selected: String,
+    onSelected: (String) -> Unit
+) {
+    androidx.compose.foundation.layout.Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 8.dp))
+        androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            listOf("everyone" to "Everyone", "contacts" to "Contacts", "nobody" to "Nobody").forEach { (value, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = selected == value,
+                    onClick = { onSelected(value) },
+                    label = { Text(label) }
+                )
+            }
         }
     }
 }

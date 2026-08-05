@@ -53,112 +53,61 @@ fun SecuritySettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("App Lock", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("PIN lock", style = MaterialTheme.typography.bodyMedium)
-                            if (canUseBiometric && useBiometric) {
-                                Text(
-                                    "Biometric unlock active",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = appLockEnabled,
-                            onCheckedChange = { enabled ->
-                                appLockEnabled = enabled
-                                SecurePreferences.putBoolean("applock.enabled", enabled)
-                                if (!enabled) {
-                                    SecurePreferences.remove("applock.pin_hash")
-                                    SecurePreferences.putBoolean("applock.biometric", false)
-                                    useBiometric = false
-                                }
-                            }
-                        )
-                    }
-                    if (appLockEnabled && canUseBiometric) {
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Use biometric unlock", style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    "Unlock with fingerprint or face",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = useBiometric,
-                                onCheckedChange = { enabled ->
-                                    useBiometric = enabled
-                                    SecurePreferences.putBoolean("applock.biometric", enabled)
-                                }
-                            )
-                        }
+            SignalSettingsSwitchRow(
+                title = "PIN lock",
+                label = if (canUseBiometric && useBiometric) "Biometric unlock active" else "Lock the app with a PIN",
+                checked = appLockEnabled,
+                onCheckedChange = { enabled ->
+                    appLockEnabled = enabled
+                    SecurePreferences.putBoolean("applock.enabled", enabled)
+                    if (!enabled) {
+                        SecurePreferences.remove("applock.pin_hash")
+                        SecurePreferences.putBoolean("applock.biometric", false)
+                        useBiometric = false
                     }
                 }
+            )
+            if (appLockEnabled && canUseBiometric) {
+                SignalSettingsSwitchRow(
+                    title = "Use biometric unlock",
+                    label = "Unlock with fingerprint or face",
+                    checked = useBiometric,
+                    onCheckedChange = { enabled ->
+                        useBiometric = enabled
+                        SecurePreferences.putBoolean("applock.biometric", enabled)
+                    }
+                )
             }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Safety Number", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    val safetyNumber = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED"
-                    Text(
-                        safetyNumber, style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Verify with contacts to ensure secure communication",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            SignalSettingsDivider()
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("Two-Step Verification", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                if (twoStepEnabled) "Enabled" else "Not set up",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (twoStepEnabled) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        IconButton(onClick = {
-                            twoStepMode = if (twoStepEnabled) "disable" else "setup"
-                            twoStepPin = ""
-                            showTwoStepDialog = true
-                        }) {
-                            Icon(Icons.Default.Edit, "Setup")
-                        }
-                    }
+            SignalSettingsRow(
+                icon = Icons.Default.Shield,
+                title = "Safety number",
+                label = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED",
+                showChevron = false,
+                onClick = null
+            )
+            Text(
+                "Verify with contacts to ensure secure communication",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+
+            SignalSettingsDivider()
+
+            SignalSettingsRow(
+                icon = Icons.Default.Lock,
+                title = "Two-step verification",
+                label = if (twoStepEnabled) "Enabled" else "Not set up",
+                onClick = {
+                    twoStepMode = if (twoStepEnabled) "disable" else "setup"
+                    twoStepPin = ""
+                    showTwoStepDialog = true
                 }
-            }
+            )
         }
     }
 
