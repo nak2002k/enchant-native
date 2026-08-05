@@ -171,14 +171,29 @@ object AuthStateMachine {
                     SecurePreferences.putString(AuthConstants.REFRESH_TOKEN_KEY, response.refreshToken)
                     RegistrationState.Complete
                 } else {
-                    RegistrationState.Welcome
+                    val msg = result.exceptionOrNull()?.message.orEmpty()
+                    // Signal parity: transient/network failures must NOT log the
+                    // user out. Only a hard auth rejection (401/403) from the
+                    // server returns to Welcome.
+                    if (msg.contains("401") || msg.contains("403") || msg.contains("Unauthorized")) {
+                        RegistrationState.Welcome
+                    } else {
+                        RegistrationState.Complete
+                    }
                 }
             } catch (e: Exception) {
                 Log.w("AuthSM", "Token refresh failed: ${e.message}")
-                RegistrationState.Welcome
+                RegistrationState.Complete
             }
         } else {
-            RegistrationState.Welcome
+            // No refresh token: if a stored identity still exists, stay
+            // logged in — a later flow can restore the token. Only a truly
+            // absent identity is Welcome.
+            if (SecurePreferences.getString(AuthConstants.USER_ID_KEY).isNullOrBlank()) {
+                RegistrationState.Welcome
+            } else {
+                RegistrationState.Complete
+            }
         }
     }
 }

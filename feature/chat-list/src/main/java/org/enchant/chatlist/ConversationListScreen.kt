@@ -123,6 +123,13 @@ fun ConversationListScreen(
                             horizontalAlignment = Alignment.End
                         ) {
                             SmallFloatingActionButton(
+                                onClick = { showFabMenu = false; onNewChat() },
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Icon(Icons.Default.Person, "New Chat")
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            SmallFloatingActionButton(
                                 onClick = { showFabMenu = false; onNewGroup() },
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer
                             ) {
@@ -285,11 +292,11 @@ private fun ConversationTile(
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = (conversation.lastMessage?.take(2)?.uppercase() ?: conversation.type.name.take(1)),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.semantics { contentDescription = "Avatar" }
-                        )
+                    Text(
+                        text = (title?.take(1)?.uppercase() ?: conversation.type.name.take(1)),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.semantics { contentDescription = "Avatar" }
+                    )
                     }
                 }
                 if (conversation.isPinned) {
@@ -355,12 +362,6 @@ private fun ConversationTile(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-
-        DropdownMenuItem(
-            text = { Text(if (conversation.isMuted) "Unmute" else "Mute") },
-            onClick = { onMute(); showMenu = false },
-            leadingIcon = { Icon(if (conversation.isMuted) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null) }
-        )
         if (conversation.unreadCount > 0) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
@@ -391,6 +392,11 @@ private fun ConversationTile(
     }
 
     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+        DropdownMenuItem(
+            text = { Text(if (conversation.isMuted) "Unmute" else "Mute") },
+            onClick = { onMute(); showMenu = false },
+            leadingIcon = { Icon(if (conversation.isMuted) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null) }
+        )
         DropdownMenuItem(
             text = { Text(if (conversation.isArchived) "Unarchive" else "Archive") },
             onClick = { onArchive(); showMenu = false },

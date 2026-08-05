@@ -11,6 +11,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -28,6 +32,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -163,18 +168,30 @@ fun ConversationScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = title ?: conversation?.id?.take(16) ?: "Chat",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (typingIndicator) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    (title ?: "?").take(1).uppercase(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
                             Text(
-                                "typing...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
+                                text = title ?: conversation?.id?.take(16) ?: "Chat",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
+                            if (typingIndicator) {
+                                TypingDots()
+                            }
                         }
                     }
                 },
@@ -367,7 +384,16 @@ fun ConversationScreen(
                         state = listState,
                         reverseLayout = true
                     ) {
-                        items(messages, key = { it.localId }) { message ->
+                        itemsIndexed(messages, key = { _, m -> m.localId }) { index, message ->
+                            // List is newest-first; a day group's oldest message
+                            // (the one followed by a different day) gets the
+                            // separator above it.
+                            val nextOlder = messages.getOrNull(index + 1)
+                            if (index > 0 && nextOlder != null &&
+                                formatDayKey(message.timestamp) != formatDayKey(nextOlder.timestamp)
+                            ) {
+                                DaySeparator(timestamp = message.timestamp)
+                            }
                             MessageBubble(
                                 message = message,
                                 isOutgoing = message.senderId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
@@ -779,7 +805,7 @@ private fun ComposerBar(
                 onClick = onAttach,
                 modifier = Modifier.semantics { this.contentDescription = "Attach file" }
             ) {
-                Icon(Icons.Default.Add, "Attach")
+                Icon(Icons.Default.AttachFile, "Attach")
             }
 
             OutlinedTextField(
@@ -1127,6 +1153,63 @@ private fun formatFileSize(bytes: Long): String {
         bytes < 1024 -> "$bytes B"
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
         else -> "${"%.1f".format(bytes.toDouble() / (1024 * 1024))} MB"
+    }
+}
+
+@Composable
+private fun TypingDots() {
+    val transition = rememberInfiniteTransition(label = "typing")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        repeat(3) { i ->
+            val alpha by transition.animateFloat(
+                initialValue = 0.25f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600, delayMillis = i * 200),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dot$i"
+            )
+            Box(
+                modifier = Modifier
+                    .padding(end = 3.dp)
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
+            )
+        }
+    }
+}
+
+@Composable
+private fun DaySeparator(timestamp: Long) {
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+        ) {
+            Text(
+                formatDayLabel(timestamp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+private fun formatDayKey(timestamp: Long): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+    return "${cal.get(java.util.Calendar.YEAR)}-${cal.get(java.util.Calendar.DAY_OF_YEAR)}"
+}
+
+private fun formatDayLabel(timestamp: Long): String {
+    val now = java.util.Calendar.getInstance()
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+    return when {
+        now.get(java.util.Calendar.YEAR) == cal.get(java.util.Calendar.YEAR) &&
+            now.get(java.util.Calendar.DAY_OF_YEAR) == cal.get(java.util.Calendar.DAY_OF_YEAR) -> "Today"
+        else -> java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(timestamp)
     }
 }
 
