@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,7 +42,9 @@ fun ConversationListScreen(
     viewModel: ConversationListViewModel,
     onConversationClick: (String) -> Unit,
     onNewChat: () -> Unit,
-    onNewGroup: () -> Unit
+    onNewGroup: () -> Unit,
+    onProfileClick: () -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     val conversations by viewModel.conversations.collectAsState()
     val titles by viewModel.titles.collectAsState()
@@ -50,6 +53,8 @@ fun ConversationListScreen(
     val unreadCount by viewModel.unreadCount.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val navigationEvent by viewModel.navigationEvent.collectAsState()
+    val ownInitial = org.enchant.core.base.SecurePreferences.getString("profile.display_name")
+        ?.take(1)?.uppercase() ?: "?"
 
     val snackbarHostState = remember { SnackbarHostState() }
     val isOnline by ConnectivityMonitor.isOnline.collectAsState()
@@ -98,12 +103,29 @@ fun ConversationListScreen(
                             )
                         )
                     } else {
-                        Text("Enchant")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                modifier = Modifier.size(32.dp).clickable(onClick = onProfileClick),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        ownInitial,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.semantics { contentDescription = "Profile" }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Enchant")
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(Icons.Default.Refresh, "Refresh")
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, "Settings")
                     }
                     IconButton(onClick = { showSearch = !showSearch; if (!showSearch) viewModel.search("") }) {
                         Icon(if (showSearch) Icons.Default.Close else Icons.Default.Search, "Search")

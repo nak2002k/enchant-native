@@ -53,11 +53,14 @@ class ProfileViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val response = apiClient.get("/v1/profile/$userId")
+                val profileUserId = if (userId == "self") {
+                    org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: userId
+                } else userId
+                val response = apiClient.get("/v1/profile/$profileUserId")
                 response.fold(
                     onSuccess = { json ->
                         val profile = ProfileData(
-                            userId = json["user_id"]?.jsonPrimitive?.content ?: userId,
+                            userId = json["user_id"]?.jsonPrimitive?.content ?: profileUserId,
                             displayName = json["display_name"]?.jsonPrimitive?.content,
                             username = json["username"]?.jsonPrimitive?.content,
                             about = json["about"]?.jsonPrimitive?.content,

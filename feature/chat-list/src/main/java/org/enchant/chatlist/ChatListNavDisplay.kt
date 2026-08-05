@@ -18,7 +18,9 @@ fun ChatListNavDisplay(
     modifier: Modifier = Modifier,
     onNavigateToConversation: (String) -> Unit = {},
     onNewChat: () -> Unit = {},
-    onNewGroup: () -> Unit = {}
+    onNewGroup: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {}
 ) {
     NavDisplay(
         backStack = backStack,
@@ -37,7 +39,9 @@ fun ChatListNavDisplay(
                         onNavigateToConversation(conversationId)
                     },
                     onNewChat = onNewChat,
-                    onNewGroup = onNewGroup
+                    onNewGroup = onNewGroup,
+                    onProfileClick = onProfileClick,
+                    onSettingsClick = onSettingsClick
                 )
             }
 
@@ -51,7 +55,9 @@ fun ChatListNavDisplay(
                         onNavigateToConversation(conversationId)
                     },
                     onNewChat = onNewChat,
-                    onNewGroup = onNewGroup
+                    onNewGroup = onNewGroup,
+                    onProfileClick = onProfileClick,
+                    onSettingsClick = onSettingsClick
                 )
             }
         }

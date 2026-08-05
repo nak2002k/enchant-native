@@ -198,7 +198,9 @@ private fun ListPaneContent(
                     viewModel = listViewModel,
                     onNavigateToConversation = onConversationClick,
                     onNewChat = onNewChat,
-                    onNewGroup = onNewGroup
+                    onNewGroup = onNewGroup,
+                    onProfileClick = { onNavigate(MainNavigationDetailLocation.Profile("self")) },
+                    onSettingsClick = { onNavigate(MainNavigationDetailLocation.Settings) }
                 )
             }
             MainNavigationListLocation.ARCHIVE -> {
