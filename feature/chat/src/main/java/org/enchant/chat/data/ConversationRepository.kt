@@ -118,6 +118,21 @@ class ConversationRepository(
             val name = cached.displayName ?: cached.username
             if (name != null) return name
         }
+        // Group conversations resolve their title from the groups service.
+        if (userId.length <= 36 && !userId.contains("@")) {
+            // Local cache first: the groups feature stores the name in
+            // groups_table (group_id = the full UUID).
+            val cached = pool.readWith { db ->
+                db.rawQuery("SELECT name FROM groups_table WHERE group_id = ?", arrayOf(userId))
+                    .use { if (it.moveToFirst()) it.getString(0) else null }
+            }
+            if (!cached.isNullOrBlank()) return cached
+            val groupResult = runCatching {
+                apiClient?.get("/v1/groups/$userId")
+            }
+            val name = groupResult.getOrNull()?.getOrNull()?.get("name")?.jsonPrimitive?.content
+            if (name != null) return name
+        }
         val client = apiClient ?: org.enchant.core.network.ApiClient.getInstance()
         return try {
             val json = client.get("/v1/profile/$userId").getOrNull() ?: return null

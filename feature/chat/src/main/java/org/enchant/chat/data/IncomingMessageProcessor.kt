@@ -74,6 +74,7 @@ object IncomingMessageProcessor {
     @Volatile
     private var initialized = false
     private val bufferedMessages = java.util.concurrent.ConcurrentLinkedQueue<MessageEntity>()
+    private val processedGroupIterations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private const val BATCH_FLUSH_THRESHOLD = 20
 
     private suspend fun flushBuffer() {
@@ -139,6 +140,14 @@ object IncomingMessageProcessor {
 
                 if (envelope.messageType == "ENCRYPTED_MESSAGE") {
                     return@withContext processEncryptedMessage(envelope, senderId, repo)
+                }
+
+                if (envelope.messageType == "GROUP_SENDER_KEY") {
+                    return@withContext processGroupSenderKey(envelope, senderId)
+                }
+
+                if (envelope.messageType == "GROUP_MESSAGE") {
+                    return@withContext processGroupMessage(envelope, senderId, repo)
                 }
 
                 if (envelope.messageType == "ENVELOPE") {
@@ -489,6 +498,99 @@ object IncomingMessageProcessor {
         if (timer > 0) {
             val baseTs = serverTs ?: System.currentTimeMillis()
             msgDao.updateDisappearAt(envelopeId, baseTs + timer * 1000L)
+        }
+    }
+
+    private suspend fun processGroupSenderKey(
+        envelope: IncomingEnvelope, senderUserId: String
+    ): ProcessResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val wire = decodeWirePayload(envelope.payload)
+                if (wire.size < 68) return@withContext ProcessResult.Error("Group sender key payload too short")
+                val groupId = String(wire.copyOfRange(0, 36).let { b ->
+                    b.takeWhile { it != 0.toByte() }.toByteArray()
+                }, Charsets.UTF_8)
+                val senderIdentityPublic = wire.copyOfRange(36, 68)
+                val distribution = wire.copyOfRange(68, wire.size)
+                val ok = org.enchant.core.crypto.GroupCipherManager.processDistribution(
+                    groupId, senderUserId, senderIdentityPublic, distribution
+                )
+                android.util.Log.i("GroupCipher", "distribution processed for group=$groupId sender=$senderUserId ok=$ok")
+                if (ok) ProcessResult.Handled else ProcessResult.Error("Group sender key processing failed")
+            } catch (e: Exception) {
+                ProcessResult.Error("Group sender key failed: ${e.message}")
+            }
+        }
+    }
+
+    private suspend fun processGroupMessage(
+        envelope: IncomingEnvelope, senderUserId: String, repo: ConversationRepository
+    ): ProcessResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                // Dedup: the same frame may be invoked by both the WS service
+                // and the list refresh. Decrypting twice advances the sender
+                // key ratchet and triggers a replay error.
+                val envId = envelope.envelopeId
+                if (envId != null && messageDao?.getByEnvelopeId(envId) != null) {
+                    return@withContext ProcessResult.Handled
+                }
+                val wire = decodeWirePayload(envelope.payload)
+                if (wire.size <= 36) return@withContext ProcessResult.Error("Group message payload too short")
+                val groupId = String(wire.copyOfRange(0, 36).let { b ->
+                    b.takeWhile { it != 0.toByte() }.toByteArray()
+                }, Charsets.UTF_8)
+                val ciphertext = wire.copyOfRange(36, wire.size)
+                // Serialized GroupCipherMessage: version(1) + chain_id(32) + iteration(4 LE) + ct
+                val msgIter = if (ciphertext.size >= 37)
+                    (ciphertext[33].toInt() and 0xFF) or ((ciphertext[34].toInt() and 0xFF) shl 8) or
+                    ((ciphertext[35].toInt() and 0xFF) shl 16) or ((ciphertext[36].toInt() and 0xFF) shl 24) else -1
+                val dedupKey = "$groupId|$senderUserId|$msgIter"
+                if (msgIter >= 0 && !processedGroupIterations.add(dedupKey)) {
+                    return@withContext ProcessResult.Handled
+                }
+
+                val plaintext = org.enchant.core.crypto.GroupCipherManager.decrypt(groupId, senderUserId, ciphertext)
+                    ?: return@withContext ProcessResult.Error("Group decrypt failed for sender=$senderUserId group=$groupId")
+                val content = org.enchant.protos.ContentProtos.Content.parseFrom(plaintext)
+                val now = System.currentTimeMillis()
+                return@withContext when {
+                    content.hasDataMessage() -> {
+                        val dataMsg = content.dataMessage
+                        repo.insertMessageAndUpdateConversation(
+                            MessageEntity(
+                                conversationId = groupId,
+                                senderId = senderUserId,
+                                messageType = "GROUP_MESSAGE",
+                                content = dataMsg.body,
+                                status = "delivered",
+                                timestamp = envelope.serverTimestamp ?: now,
+                                serverTs = now
+                            ),
+                            conversationType = "group"
+                        )
+                        ProcessResult.Handled
+                    }
+                    content.hasReceiptMessage() -> {
+                        val rm = content.receiptMessage
+                        val status = when (rm.type) {
+                            org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.Type.DELIVERY -> MessageStatus.DELIVERED
+                            org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.Type.READ -> MessageStatus.READ
+                            else -> MessageStatus.DELIVERED
+                        }
+                        rm.timestampList.forEach { ts ->
+                            val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                            repo.updateMessageStatus(envId, status)
+                        }
+                        ProcessResult.Handled
+                    }
+                    else -> ProcessResult.Error("Unknown group content type")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GroupCipher", "group message failed: ${e.message}")
+                ProcessResult.Error("Group message processing failed")
+            }
         }
     }
 

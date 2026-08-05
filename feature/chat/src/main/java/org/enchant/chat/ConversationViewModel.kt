@@ -213,12 +213,21 @@ class ConversationViewModel(
                     return@launch
                 }
             }
-            val result = pipeline.sendMessage(
-                conversationId = conversationId,
-                recipientUserId = recipientUserId,
-                plaintext = text.encodeToByteArray(),
-                replyTo = replyTo
-            )
+            val result = if (conv?.type == org.enchant.core.model.ConversationType.GROUP) {
+                pipeline.sendGroupMessage(
+                    groupId = conversationId,
+                    members = emptyList(),
+                    plaintext = text.encodeToByteArray(),
+                    replyTo = replyTo
+                )
+            } else {
+                pipeline.sendMessage(
+                    conversationId = conversationId,
+                    recipientUserId = recipientUserId,
+                    plaintext = text.encodeToByteArray(),
+                    replyTo = replyTo
+                )
+            }
             _sendingState.value = when (result) {
                 is SendResult.Success -> SendState.SENT
                 is SendResult.Queued -> SendState.SENT

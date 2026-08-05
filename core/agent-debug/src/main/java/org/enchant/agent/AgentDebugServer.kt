@@ -181,12 +181,18 @@ class AgentDebugServer(
                     name = body.string("name"),
                     description = body.optString("description"),
                     initialMemberIds = body.stringList("initial_member_ids"),
-                    addMembersPolicy = body.optString("add_members_policy") ?: "ALL",
+                    addMembersPolicy = body.optString("add_members_policy") ?: "ALL_MEMBERS",
                     joinType = body.optString("join_type") ?: "INVITE_ONLY"
                 )
             root == "groups" && method == Method.POST && segments.size == 3 &&
                 segments[2] == "members" ->
                 bridge.addGroupMembers(segments[1], body.stringListRequired("user_ids"))
+            root == "debug" && method == Method.POST && segments.getOrNull(1) == "clear-conversation" ->
+                bridge.clearConversation(body.string("conversation_id"))
+            root == "groups" && method == Method.POST && segments.getOrNull(1) == "message" ->
+                bridge.sendGroupMessage(body.string("group_id"), body.string("text"))
+            root == "groups" && method == Method.POST && segments.getOrNull(1) == "sender-key" ->
+                bridge.broadcastGroupSenderKey(body.string("group_id"))
             root == "groups" && method == Method.POST && segments.getOrNull(1) == "join" ->
                 bridge.joinGroupViaLink(body.string("link_code"))
             root == "calls" && method == Method.POST && segments.getOrNull(1) == "start" ->

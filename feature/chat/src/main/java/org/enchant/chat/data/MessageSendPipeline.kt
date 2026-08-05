@@ -298,6 +298,125 @@ object MessageSendPipeline {
         fileUri: Uri, mimeType: String
     ): SendResult = sendFileMessage(conversationId, recipientUserId, fileUri, "file", mimeType)
 
+    /**
+     * Send a group message: seal with the group sender key and fan out one
+     * ciphertext to every member via the normal message path.
+     */
+    suspend fun sendGroupMessage(
+        groupId: String,
+        members: List<String>,
+        plaintext: ByteArray,
+        replyTo: String? = null
+    ): SendResult {
+        checkInit()
+        val repo = repository!!
+        return withContext(Dispatchers.Default) {
+            try {
+                if (plaintext.size > 64 * 1024) return@withContext SendResult.Failed(SendError.PAYLOAD_TOO_LARGE)
+                val selfId = SecurePreferences.getString("auth.user_id")
+                    ?: return@withContext SendResult.Failed(SendError.NETWORK)
+
+                val content = org.enchant.protos.ContentProtos.Content.parseFrom(
+                    MessageProtobufHelper.buildDataMessageContent(
+                        body = plaintext.decodeToString(),
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+                val sealed = org.enchant.core.crypto.GroupCipherManager.encrypt(groupId, selfId, content.toByteArray())
+                    ?: return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
+
+                val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
+                val groupConversationId = groupId
+                val envelopeId = UUID.randomUUID().toString()
+                val now = System.currentTimeMillis()
+                repo.insertMessageAndUpdateConversation(MessageEntity(
+                    conversationId = groupConversationId, senderId = selfId,
+                    envelopeId = envelopeId,
+                    messageType = "GROUP_MESSAGE",
+                    content = plaintext.decodeToString(), status = "sending",
+                    timestamp = now, replyToEnvelopeId = replyTo
+                ), conversationType = "group")
+
+                val wirePayload = groupIdBytes + sealed
+                val payloadB64 = CryptoHelper.base64UrlEncode(wirePayload)
+                val client = apiClient!!
+
+                val targets = if (members.isNotEmpty()) members else fetchGroupMembers(groupId)
+                var allOk = true
+                targets.filter { it != selfId }.forEach { memberId ->
+                    val result = client.post("/v1/messages/send", buildJsonObject {
+                        put("recipient_user_id", memberId)
+                        put("message_type", "GROUP_MESSAGE")
+                        put("payload", payloadB64)
+                        put("sender_ts", now.toString())
+                        put("envelope_id", UUID.randomUUID().toString())
+                    })
+                    if (result.isFailure) allOk = false
+                }
+
+                repo.updateMessageStatus(envelopeId, if (allOk) MessageStatus.SENT else MessageStatus.PENDING)
+                if (allOk) SendResult.Success(envelopeId) else SendResult.Queued(envelopeId)
+            } catch (e: Exception) {
+                SendResult.Failed(SendError.NETWORK)
+            }
+        }
+    }
+
+    /**
+     * Broadcast the group sender-key distribution message to all members so
+     * they can build the sender's chain state. Called after group creation or
+     * after members are added.
+     */
+    suspend fun sendGroupSenderKeyDistribution(
+        groupId: String,
+        members: List<String>
+    ): SendResult {
+        checkInit()
+        return withContext(Dispatchers.Default) {
+            try {
+                val selfId = SecurePreferences.getString("auth.user_id")
+                    ?: return@withContext SendResult.Failed(SendError.NETWORK)
+                val identity = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
+                    ?: return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
+                val distribution = org.enchant.core.crypto.GroupCipherManager.createDistribution(groupId, selfId)
+                    ?: return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
+
+                val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
+                val signingPublic = org.enchant.core.crypto.CryptoPrimitives.ed25519PubFromSeed(identity.privateKey)
+                val wirePayload = groupIdBytes + signingPublic + distribution
+                val payloadB64 = CryptoHelper.base64UrlEncode(wirePayload)
+                val client = apiClient!!
+                val now = System.currentTimeMillis()
+
+                var allOk = true
+                members.filter { it != selfId }.forEach { memberId ->
+                    val result = client.post("/v1/messages/send", buildJsonObject {
+                        put("recipient_user_id", memberId)
+                        put("message_type", "GROUP_SENDER_KEY")
+                        put("payload", payloadB64)
+                        put("sender_ts", now.toString())
+                        put("envelope_id", UUID.randomUUID().toString())
+                    })
+                    if (result.isFailure) allOk = false
+                }
+                if (allOk) SendResult.Success(UUID.randomUUID().toString()) else SendResult.Failed(SendError.NETWORK)
+            } catch (e: Exception) {
+                SendResult.Failed(SendError.NETWORK)
+            }
+        }
+    }
+
+    private suspend fun fetchGroupMembers(groupId: String): List<String> {
+        return try {
+            val response = apiClient?.get("/v1/groups/$groupId/members") ?: return emptyList()
+            response.getOrNull()?.get("members")?.jsonArray?.mapNotNull { m ->
+                (m as? kotlinx.serialization.json.JsonObject)?.get("user_id")?.jsonPrimitive?.content
+            } ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     suspend fun sendFileMessage(
         conversationId: String, recipientUserId: String,
         fileUri: Uri, fileName: String, mimeType: String,

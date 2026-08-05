@@ -51,10 +51,17 @@ class GroupsViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
+                val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: ""
                 val result = repository.createGroup(name, description, memberIds)
                 when (result) {
                     is GroupResult.Success -> {
                         loadGroups()
+                        // Distribute the group sender key to all members so
+                        // group messages can be sealed/decrypted end-to-end.
+                        val allMembers = (memberIds ?: emptyList()) + selfId
+                        viewModelScope.launch {
+                            repository.broadcastSenderKeyDistribution(result.groupId, allMembers)
+                        }
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             successMessage = "Group '$name' created"
@@ -106,10 +113,15 @@ class GroupsViewModel(
     fun addMembers(groupId: String, userIds: List<String>) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: ""
             val result = repository.addMembers(groupId, userIds)
             when (result) {
                 is GroupResult.MemberAdded -> {
                     loadMembers(groupId)
+                    // New members need the sender key distribution too.
+                    viewModelScope.launch {
+                        repository.broadcastSenderKeyDistribution(groupId, userIds + selfId)
+                    }
                     _uiState.value = _uiState.value.copy(
                         successMessage = "${result.added} member(s) added"
                     )

@@ -835,6 +835,50 @@ class EnchantAgentBridge : AgentAppBridge {
         return groupResultToJson(repo.addMembers(groupId, userIds))
     }
 
+    override suspend fun sendGroupMessage(groupId: String, text: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        val members = repo.getMembers(groupId).map { it.userId }
+        val result = org.enchant.chat.data.MessageSendPipeline.sendGroupMessage(
+            groupId, members, text.encodeToByteArray()
+        )
+        return if (result is org.enchant.chat.data.SendResult.Success ||
+            result is org.enchant.chat.data.SendResult.Queued) {
+            AgentEventLog.emit("group_message_sent", data = buildJsonObject {
+                put("group_id", groupId); put("members", members.size)
+            })
+            ok(buildJsonObject { put("sent", true); put("members", members.size) })
+        } else {
+            err("group message send failed")
+        }
+    }
+
+    override suspend fun clearConversation(conversationId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val pool = DI.databasePool
+        pool.write { db ->
+            db.execSQL("DELETE FROM messages WHERE conversation_id = ?", arrayOf(conversationId))
+            db.execSQL("DELETE FROM conversations WHERE conversation_id = ?", arrayOf(conversationId))
+        }
+        return ok(buildJsonObject { put("cleared", true) })
+    }
+
+    override suspend fun broadcastGroupSenderKey(groupId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        val members = repo.getMembers(groupId).map { it.userId }
+        val result = org.enchant.chat.data.MessageSendPipeline.sendGroupSenderKeyDistribution(groupId, members)
+        return if (result is org.enchant.chat.data.SendResult.Success) {
+            AgentEventLog.emit("group_sender_key_broadcast", data = buildJsonObject {
+                put("group_id", groupId)
+                put("members", members.size)
+            })
+            ok(buildJsonObject { put("broadcast", true); put("members", members.size) })
+        } else {
+            err("sender key broadcast failed")
+        }
+    }
+
     override suspend fun joinGroupViaLink(linkCode: String): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val repo = GroupsRepository(DI.apiClient, DI.databasePool)

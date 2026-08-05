@@ -79,6 +79,7 @@ object EnchantCrypto {
     external fun enchant_x25519_keypair(publicKey: ByteArray, privateKey: ByteArray): Int
     external fun enchant_x25519_dh(privateKey: ByteArray, publicKey: ByteArray, sharedSecret: ByteArray): Int
     external fun enchant_ed25519_keypair(publicKey: ByteArray, privateSeed: ByteArray): Int
+    external fun enchant_ed25519_pubkey_from_seed(privateSeed: ByteArray, publicKeyOut: ByteArray): Int
     external fun enchant_ed25519_sign(message: ByteArray, messageLen: Long, privateSeed: ByteArray, signature: ByteArray): Int
     external fun enchant_ed25519_verify(message: ByteArray, messageLen: Long, signature: ByteArray, publicKey: ByteArray): Int
     external fun enchant_ed25519_sk_to_x25519(ed25519Sk: ByteArray, x25519Sk: ByteArray): Int
@@ -186,6 +187,34 @@ object EnchantCrypto {
     external fun enchant_veil_session_unseal_and_decrypt(session: Long, recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray, senderIdentityKeyOut: ByteArray): Int
     external fun enchant_veil_session_seal_group_message(session: Long, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, recipientPublicKeys: ByteArray, numRecipients: Long, senderCertData: ByteArray, senderCertLen: Long, senderKeyCiphertext: ByteArray, senderKeyLen: Long, senderKeyId: Int, output: ByteArray, outputLen: LongArray): Int
     external fun enchant_veil_session_unseal_group_message(session: Long, recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, senderKeyOut: ByteArray, senderKeyLen: LongArray, senderKeyIdOut: IntArray): Int
+
+    // ─── Group cipher (sender-key group messaging) ───
+    external fun enchant_group_cipher_create_session(
+        groupId: ByteArray, groupIdLen: Long, senderIdentity: ByteArray,
+        senderId: String, keyId: Int, stateOut: ByteArray, stateOutLen: LongArray
+    ): Int
+
+    external fun enchant_group_cipher_create_distribution(
+        stateIn: ByteArray, stateInLen: Long, signingPrivate: ByteArray,
+        distOut: ByteArray, distOutLen: LongArray
+    ): Int
+
+    external fun enchant_group_cipher_process_distribution(
+        stateIn: ByteArray, stateInLen: Long, distIn: ByteArray, distInLen: Long,
+        senderPublic: ByteArray, stateOut: ByteArray, stateOutLen: LongArray
+    ): Int
+
+    external fun enchant_group_cipher_encrypt(
+        stateIn: ByteArray, stateInLen: Long, plaintext: ByteArray, plaintextLen: Long,
+        msgOut: ByteArray, msgOutLen: LongArray,
+        stateOut: ByteArray, stateOutLen: LongArray
+    ): Int
+
+    external fun enchant_group_cipher_decrypt(
+        stateIn: ByteArray, stateInLen: Long, msgIn: ByteArray, msgInLen: Long,
+        plaintextOut: ByteArray, plaintextOutLen: LongArray,
+        stateOut: ByteArray, stateOutLen: LongArray
+    ): Int
 
     // ──────────────────────────────────────────────
     // Agent session (Phase 7 — future)

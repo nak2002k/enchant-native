@@ -79,6 +79,9 @@ interface AgentAppBridge {
         joinType: String
     ): JsonObject
     suspend fun addGroupMembers(groupId: String, userIds: List<String>): JsonObject
+    suspend fun sendGroupMessage(groupId: String, text: String): JsonObject
+    suspend fun clearConversation(conversationId: String): JsonObject
+    suspend fun broadcastGroupSenderKey(groupId: String): JsonObject
     suspend fun joinGroupViaLink(linkCode: String): JsonObject
 
     // Calls

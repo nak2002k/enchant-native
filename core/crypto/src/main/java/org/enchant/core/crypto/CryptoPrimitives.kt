@@ -50,6 +50,14 @@ object CryptoPrimitives {
         return KeyPair(publicKey = pub, privateKey = seed)
     }
 
+    /** Derive the Ed25519 public key from a 32-byte signing seed. */
+    fun ed25519PubFromSeed(seed: ByteArray): ByteArray {
+        val pub = ByteArray(EnchantCrypto.ED25519_PUBLIC_KEY_SIZE)
+        val rc = EnchantCrypto.enchant_ed25519_pubkey_from_seed(seed, pub)
+        if (rc != 0) throw RuntimeException("ed25519_pubkey_from_seed failed: $rc")
+        return pub
+    }
+
     fun generateRandomKey(size: Int = 32): ByteArray {
         if (size <= 0) throw IllegalArgumentException("Size must be positive")
         val bytes = ByteArray(size)

@@ -96,7 +96,7 @@ class GroupsRepository(
                     put("name", name)
                     if (description != null) put("description", description)
                     if (initialMemberIds != null) {
-                        put("initial_member_ids", initialMemberIds.joinToString(","))
+                        put("initial_member_ids", kotlinx.serialization.json.JsonArray(initialMemberIds.map { kotlinx.serialization.json.JsonPrimitive(it) }))
                     }
                     put("add_members_policy", addMembersPolicy)
                     put("join_type", joinType)
@@ -230,7 +230,7 @@ class GroupsRepository(
         return withContext(Dispatchers.Default) {
             try {
                 val response = apiClient.post("/v1/groups/$groupId/members", buildJsonObject {
-                    put("user_ids", userIds.joinToString(","))
+                    put("user_ids", kotlinx.serialization.json.JsonArray(userIds.map { kotlinx.serialization.json.JsonPrimitive(it) }))
                 })
                 response.fold(
                     onSuccess = { GroupResult.MemberAdded(it["added"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0) },
@@ -474,6 +474,39 @@ class GroupsRepository(
             } catch (e: Exception) {
                 GroupResult.Failed(e.message ?: "Network error")
             }
+        }
+    }
+
+    /**
+     * Broadcast the group sender-key distribution message to [memberIds] so
+     * they can build the creator's sender chain and decrypt group messages.
+     */
+    suspend fun broadcastSenderKeyDistribution(groupId: String, memberIds: List<String>): Boolean {
+        return try {
+            val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: return false
+            val identity = org.enchant.core.crypto.KeyManager.getIdentityKeyPair() ?: return false
+            val distribution = org.enchant.core.crypto.GroupCipherManager.createDistribution(groupId, selfId)
+                ?: return false
+            val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
+            val signingPublic = org.enchant.core.crypto.CryptoPrimitives.ed25519PubFromSeed(identity.privateKey)
+            val wirePayload = groupIdBytes + signingPublic + distribution
+            val payloadB64 = org.enchant.core.crypto.CryptoHelper.base64UrlEncode(wirePayload)
+            val now = System.currentTimeMillis()
+            var allOk = true
+            memberIds.filter { it != selfId }.forEach { memberId ->
+                val body = kotlinx.serialization.json.buildJsonObject {
+                    put("recipient_user_id", kotlinx.serialization.json.JsonPrimitive(memberId))
+                    put("message_type", kotlinx.serialization.json.JsonPrimitive("GROUP_SENDER_KEY"))
+                    put("payload", kotlinx.serialization.json.JsonPrimitive(payloadB64))
+                    put("sender_ts", kotlinx.serialization.json.JsonPrimitive(now.toString()))
+                    put("envelope_id", kotlinx.serialization.json.JsonPrimitive(java.util.UUID.randomUUID().toString()))
+                }
+                val result = apiClient.post("/v1/messages/send", body)
+                if (result.isFailure) allOk = false
+            }
+            allOk
+        } catch (_: Exception) {
+            false
         }
     }
 }
