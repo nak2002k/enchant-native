@@ -122,6 +122,7 @@ object MessageSendPipeline {
                     put("message_type", if (hasSession) "ENCRYPTED_MESSAGE" else "PREKEY_MESSAGE")
                     put("payload", payloadB64)
                     put("sender_ts", System.currentTimeMillis().toString())
+                    put("envelope_id", envelopeId)
                 })
 
                 response.fold(

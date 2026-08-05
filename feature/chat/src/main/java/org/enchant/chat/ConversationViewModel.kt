@@ -19,6 +19,9 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.chat.data.ChatPagingSource
 import org.enchant.chat.data.ConversationRepository
@@ -117,6 +120,34 @@ class ConversationViewModel(
         viewModelScope.launch {
             org.enchant.chat.data.TypingRegistry.typingUsers.collect { typingUsers ->
                 _typingIndicator.value = typingUsers.contains(recipientUserId)
+            }
+        }
+
+        // Pull reactions for visible messages from the server so both sides
+        // see them (the backend stores reactions but never pushes them).
+        viewModelScope.launch {
+            val selfId = SecurePreferences.getString("auth.user_id") ?: ""
+            val synced = mutableSetOf<String>()
+            _messages.collect { messages ->
+                delay(500)
+                messages.takeLast(20).forEach { msg ->
+                    val eid = msg.envelopeId ?: return@forEach
+                    if (!synced.add(eid)) return@forEach
+                    try {
+                        val json = apiClient.get("/v1/reactions/$eid").getOrNull()
+                        android.util.Log.e("ReactionSync", "fetch $eid -> ${json?.toString()?.take(120)}")
+                        if (json == null) return@forEach
+                        val reactions = json["reactions"]?.jsonObject ?: return@forEach
+                        reactions.forEach { (emoji, count) ->
+                            if ((count.jsonPrimitive.intOrNull ?: 0) > 0) {
+                                repo.addReaction(convId, msg.localId, emoji, selfId)
+                                android.util.Log.e("ReactionSync", "stored $emoji on $eid")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ReactionSync", "failed $eid: ${e.message}")
+                    }
+                }
             }
         }
     }

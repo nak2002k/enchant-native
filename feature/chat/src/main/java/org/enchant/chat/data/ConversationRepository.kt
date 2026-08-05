@@ -245,6 +245,7 @@ class ConversationRepository(
             INSERT OR REPLACE INTO reactions (message_local_id, emoji, user_id, conversation_id)
             VALUES (?, ?, ?, ?)
         """, arrayOf(messageId.toString(), emoji, userId, conversationId))
+        DatabaseNotifier.notify("messages")
     }
 
     suspend fun removeReaction(messageId: Long, userId: String) = pool.write { db ->

@@ -20,6 +20,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -717,8 +718,8 @@ private fun ComposerBar(
     onVoiceStart: () -> Unit,
     onVoiceStop: () -> Unit
 ) {
-    var isRecording by remember { mutableStateOf(false) }
-
+    // WhatsApp/Signal composer: [attach] [field] [emoji] [send] — the layout
+    // never changes, nothing appears or disappears while typing.
     Surface(
         tonalElevation = 2.dp,
         modifier = Modifier.fillMaxWidth()
@@ -763,36 +764,20 @@ private fun ComposerBar(
                 Icon(Icons.Default.EmojiEmotions, "Emoji")
             }
 
-            if (text.isBlank()) {
-                IconButton(
-                    onClick = {
-                        if (!isRecording) {
-                            isRecording = true
-                            onVoiceStart()
-                        } else {
-                            isRecording = false
-                            onVoiceStop()
-                        }
-                    },
-                    modifier = Modifier.semantics { this.contentDescription = if (isRecording) "Stop recording voice message" else "Start recording voice message" }
-                ) {
-                    Icon(
-                        Icons.Default.Mic,
-                        "Voice message",
-                        tint = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            } else {
-                IconButton(
-                    onClick = onSend,
-                    modifier = Modifier.semantics { this.contentDescription = "Send message" }
-                ) {
-                    Icon(
-                        Icons.Default.Send,
-                        "Send",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+            IconButton(
+                onClick = onSend,
+                enabled = text.isNotBlank(),
+                modifier = Modifier.semantics { this.contentDescription = "Send message" }
+            ) {
+                Icon(
+                    Icons.Default.Send,
+                    "Send",
+                    tint = if (text.isNotBlank()) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    }
+                )
             }
         }
     }
@@ -830,7 +815,19 @@ fun MessageBubble(
         horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start
     ) {
         Surface(
-            shape = MaterialTheme.shapes.medium,
+            // Signal bubble: 18dp radius, only the tail corner (bottom,
+            // sender side) is tight at 4dp.
+            shape = if (isOutgoing) {
+                RoundedCornerShape(
+                    topStart = 18.dp, topEnd = 18.dp,
+                    bottomStart = 18.dp, bottomEnd = 4.dp
+                )
+            } else {
+                RoundedCornerShape(
+                    topStart = 18.dp, topEnd = 18.dp,
+                    bottomStart = 4.dp, bottomEnd = 18.dp
+                )
+            },
             color = bubbleColor,
             modifier = Modifier
                 .widthIn(max = 300.dp)
