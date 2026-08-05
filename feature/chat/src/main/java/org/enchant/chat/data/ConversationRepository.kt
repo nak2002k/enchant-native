@@ -265,6 +265,8 @@ class ConversationRepository(
     suspend fun markConversationRead(conversationId: String) = pool.write { db ->
         db.execSQL("UPDATE conversations SET unread_count = 0 WHERE conversation_id = ?", arrayOf(conversationId))
         db.execSQL("UPDATE messages SET status = 'read' WHERE conversation_id = ? AND status IN ('delivered', 'sent')", arrayOf(conversationId))
+        DatabaseNotifier.notify("conversations")
+        DatabaseNotifier.notify("messages")
     }
 
     suspend fun setArchived(conversationId: String, archived: Boolean) {

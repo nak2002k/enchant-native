@@ -2,6 +2,7 @@ package org.enchant.chatlist
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -141,7 +143,17 @@ fun ConversationListScreen(
                     FloatingActionButton(
                         onClick = { showFabMenu = !showFabMenu }
                     ) {
-                        Icon(if (showFabMenu) Icons.Default.Close else Icons.Default.Edit, "New Chat")
+                        // Pencil that rotates into an X when the menu opens.
+                        val rotation by animateFloatAsState(
+                            targetValue = if (showFabMenu) 180f else 0f,
+                            animationSpec = tween(250),
+                            label = "fabRotation"
+                        )
+                        Icon(
+                            if (showFabMenu) Icons.Default.Close else Icons.Default.Edit,
+                            "New Chat",
+                            modifier = Modifier.rotate(rotation)
+                        )
                     }
                 }
             }

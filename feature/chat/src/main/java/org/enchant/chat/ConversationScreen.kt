@@ -567,8 +567,10 @@ fun ConversationScreen(
     if (showEmojiPicker) {
         EmojiPickerSheet(
             onEmojiSelected = { emoji ->
-                viewModel.sendTextMessage(emoji)
-                showEmojiPicker = false
+                // Insert into the composer so multiple emoji can be
+                // combined before sending (Signal/WhatsApp behavior).
+                messageText += emoji
+                viewModel.onComposerTextChanged(messageText)
             },
             onDismiss = { showEmojiPicker = false }
         )

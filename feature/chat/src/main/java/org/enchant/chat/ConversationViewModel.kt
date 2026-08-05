@@ -108,6 +108,8 @@ class ConversationViewModel(
         viewModelScope.launch {
             val conv = repo.getConversation(convId)
             _conversation.value = conv
+            // Opening the chat clears its unread count (Signal behavior).
+            repo.markConversationRead(convId)
             if (conv?.type == org.enchant.core.model.ConversationType.DIRECT) {
                 val members = conv.id.split(":")
                 val selfId = SecurePreferences.getString("auth.user_id") ?: ""

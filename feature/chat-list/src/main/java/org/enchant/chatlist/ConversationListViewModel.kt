@@ -157,12 +157,16 @@ class ConversationListViewModel(
 
     fun muteConversation(conversationId: String, until: Long? = null) {
         viewModelScope.launch {
-            repo.setMuted(conversationId, until != null, until)
+            val conv = repo.getConversation(conversationId) ?: return@launch
+            // Toggle when no explicit duration is given (Signal default: 1h).
+            val muted = if (until == null) !conv.isMuted else true
+            val muteUntil = if (muted) (until ?: System.currentTimeMillis() + 3600_000L) else null
+            repo.setMuted(conversationId, muted, muteUntil)
             try {
                 apiClient.put("/v1/notifications/preferences/conversations/$conversationId",
                     kotlinx.serialization.json.buildJsonObject {
-                        put("muted", kotlinx.serialization.json.JsonPrimitive(until != null))
-                        if (until != null) put("mute_duration_seconds", kotlinx.serialization.json.JsonPrimitive((until - System.currentTimeMillis()) / 1000))
+                        put("muted", kotlinx.serialization.json.JsonPrimitive(muted))
+                        if (muteUntil != null) put("mute_duration_seconds", kotlinx.serialization.json.JsonPrimitive((muteUntil - System.currentTimeMillis()) / 1000))
                     }
                 )
             } catch (e: Exception) {

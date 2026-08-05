@@ -56,14 +56,17 @@ class ConversationDao(private val pool: DatabasePool) {
 
     suspend fun setArchived(conversationId: String, archived: Boolean) = pool.write { db ->
         db.execSQL("UPDATE conversations SET is_archived = ? WHERE conversation_id = ?", arrayOf(if (archived) 1 else 0, conversationId))
+        DatabaseNotifier.notify("conversations")
     }
 
     suspend fun setPinned(conversationId: String, pinned: Boolean) = pool.write { db ->
         db.execSQL("UPDATE conversations SET is_pinned = ? WHERE conversation_id = ?", arrayOf(if (pinned) 1 else 0, conversationId))
+        DatabaseNotifier.notify("conversations")
     }
 
     suspend fun setMuted(conversationId: String, muted: Boolean, until: Long?) = pool.write { db ->
         db.execSQL("UPDATE conversations SET is_muted = ?, mute_until = ? WHERE conversation_id = ?", arrayOf(if (muted) 1 else 0, until?.toString(), conversationId))
+        DatabaseNotifier.notify("conversations")
     }
 
     suspend fun incrementUnread(conversationId: String, amount: Int = 1) = pool.write { db ->
