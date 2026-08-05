@@ -82,19 +82,21 @@ fun MainNavigationDetailLocationEffect(
 
     LaunchedEffect(Unit) {
         mainNavigationViewModel.detailLocation.collect { location ->
-            if (state != location) {
-                mainNavigationViewModel.setFocusedPane(
-                    if (location == MainNavigationDetailLocation.Empty) {
-                        "Secondary"
-                    } else {
-                        if (location.isContentRoot) {
-                            onWillFocusPrimary()
-                        }
-                        "Primary"
+            // Always (re)focus on every emission: after a system back the
+            // pane state is out of sync with the detail stack, and a repeated
+            // goTo for the same conversation must still surface the primary
+            // pane on phones.
+            mainNavigationViewModel.setFocusedPane(
+                if (location == MainNavigationDetailLocation.Empty) {
+                    "Secondary"
+                } else {
+                    if (location.isContentRoot) {
+                        onWillFocusPrimary()
                     }
-                )
-                state = location
-            }
+                    "Primary"
+                }
+            )
+            state = location
         }
     }
 }

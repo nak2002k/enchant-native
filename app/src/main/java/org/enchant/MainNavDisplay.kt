@@ -269,7 +269,15 @@ private fun DetailPaneContent(
                 EmptyDetailScreen()
             }
             topDetail is MainNavigationDetailLocation.Conversation -> {
-                ConversationDetailContent(conversationId = topDetail.conversationId)
+                ConversationDetailContent(
+                    conversationId = topDetail.conversationId,
+                    onNavigateBack = onNavigateBack,
+                    onStartCall = { userId, isVideo ->
+                        scope.launch {
+                            org.enchant.core.calls.CallManager.startOutgoingCall(userId, isVideo)
+                        }
+                    }
+                )
             }
             topDetail is MainNavigationDetailLocation.Calls.EditCallLinkName -> {
                 CallLinkDetailContent(roomId = topDetail.callLinkRoomId)
@@ -693,11 +701,15 @@ private fun PlaceholderScreen(title: String) {
 }
 
 @Composable
-private fun ConversationDetailContent(conversationId: String) {
+private fun ConversationDetailContent(
+    conversationId: String,
+    onNavigateBack: () -> Unit,
+    onStartCall: (String, Boolean) -> Unit
+) {
     org.enchant.chat.ConversationScreen(
         conversationId = conversationId,
-        onNavigateBack = { },
-        onStartCall = { _, _ -> }
+        onNavigateBack = onNavigateBack,
+        onStartCall = onStartCall
     )
 }
 

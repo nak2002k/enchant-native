@@ -88,6 +88,8 @@ class ConversationViewModel(
     private var pagingSource: ChatPagingSource? = null
     private var messageJob: CoroutineJob? = null
     private var searchJob: CoroutineJob? = null
+    private var typingJob: CoroutineJob? = null
+    private var lastTypingSentAt = 0L
 
     fun init(convId: String) {
         if (conversationId == convId) return
@@ -110,6 +112,44 @@ class ConversationViewModel(
             }
             _title.value = repo.resolveDisplayName(convId)
         }
+
+        // Live typing indicator for this conversation's peer.
+        viewModelScope.launch {
+            org.enchant.chat.data.TypingRegistry.typingUsers.collect { typingUsers ->
+                _typingIndicator.value = typingUsers.contains(recipientUserId)
+            }
+        }
+    }
+
+    /**
+     * Called from the composer as the user types. Sends a throttled
+     * typing-start and schedules a typing-stop, mirroring Signal.
+     */
+    fun onComposerTextChanged(text: String) {
+        if (recipientUserId.isEmpty()) return
+        typingJob?.cancel()
+        if (text.isBlank()) {
+            typingJob = null
+            if (System.currentTimeMillis() - lastTypingSentAt < 3000) {
+                viewModelScope.launch { pipeline.sendTypingIndicator(recipientUserId, false) }
+            }
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (now - lastTypingSentAt >= 3000) {
+            lastTypingSentAt = now
+            viewModelScope.launch { pipeline.sendTypingIndicator(recipientUserId, true) }
+        }
+        typingJob = viewModelScope.launch {
+            delay(5000)
+            pipeline.sendTypingIndicator(recipientUserId, false)
+        }
+    }
+
+    private fun sendTypingStopped() {
+        typingJob?.cancel()
+        typingJob = null
+        viewModelScope.launch { pipeline.sendTypingIndicator(recipientUserId, false) }
     }
 
     fun loadMoreMessages() {
@@ -125,6 +165,7 @@ class ConversationViewModel(
 
     fun sendTextMessage(text: String, replyTo: String? = null): Boolean {
         if (text.isBlank()) return false
+        sendTypingStopped()
         _sendingState.value = SendState.SENDING
         viewModelScope.launch {
             val selfId = SecurePreferences.getString("auth.user_id") ?: ""

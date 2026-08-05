@@ -216,13 +216,24 @@ class MainNavigationViewModel(
     }
 
     fun goBackInCurrentTab(): Boolean {
+        android.util.Log.e("NavDiag", "goBackInCurrentTab called")
         val currentTab = _mainNavigationState.value.currentListLocation
         val stack = getDetailStackForTab(currentTab).toMutableList()
 
-        if (stack.size <= 1) return false
+        if (stack.size <= 1) {
+            // Nothing to pop on this tab: return to the list pane (phone).
+            navigator?.showList()
+            return false
+        }
 
         stack.removeAt(stack.size - 1)
         setDetailStackForTab(currentTab, stack)
+
+        // On phones the pane follows the navigator's currentDetail; when the
+        // detail stack is back to empty, show the list again.
+        if (stack.isEmpty() || stack.lastOrNull() is MainNavigationDetailLocation.Empty) {
+            navigator?.showList()
+        }
         return true
     }
 

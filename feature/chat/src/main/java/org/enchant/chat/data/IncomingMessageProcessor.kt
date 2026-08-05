@@ -1,6 +1,7 @@
 package org.enchant.chat.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -20,6 +21,22 @@ sealed class ProcessResult {
     data object Handled : ProcessResult()
     data object Ignored : ProcessResult()
     data class Error(val reason: String) : ProcessResult()
+}
+
+/**
+ * Cross-screen registry of peers currently typing. Written by the incoming
+ * processor when a typing message arrives; read by ConversationViewModel to
+ * show the "typing…" indicator in the matching conversation.
+ */
+object TypingRegistry {
+    private val _typingUsers = kotlinx.coroutines.flow.MutableStateFlow<Set<String>>(emptySet())
+    val typingUsers: kotlinx.coroutines.flow.StateFlow<Set<String>> = _typingUsers.asStateFlow()
+
+    fun set(userId: String, isTyping: Boolean) {
+        _typingUsers.value = if (isTyping) _typingUsers.value + userId else _typingUsers.value - userId
+    }
+
+    fun clear(userId: String) = set(userId, false)
 }
 
 /**
@@ -206,7 +223,10 @@ object IncomingMessageProcessor {
                         }
                         ProcessResult.Handled
                     }
-                    is MessageProtobufHelper.ParsedContent.Typing -> ProcessResult.Handled
+                    is MessageProtobufHelper.ParsedContent.Typing -> {
+                        TypingRegistry.set(senderUserId, parsed.isTyping)
+                        ProcessResult.Handled
+                    }
                     is MessageProtobufHelper.ParsedContent.Delete -> {
                         if (parsed.targetTimestamp > 0) {
                             messageDao?.getEnvelopeIdByServerTs(parsed.targetTimestamp)?.let { eid ->
@@ -278,6 +298,7 @@ object IncomingMessageProcessor {
                         ProcessResult.Handled
                     }
                     is MessageProtobufHelper.ParsedContent.Typing -> {
+                        TypingRegistry.set(senderUserId, parsed.isTyping)
                         ProcessResult.Handled
                     }
                     is MessageProtobufHelper.ParsedContent.Delete -> {
@@ -354,6 +375,7 @@ object IncomingMessageProcessor {
                         ProcessResult.Handled
                     }
                     is MessageProtobufHelper.ParsedContent.Typing -> {
+                        TypingRegistry.set(senderUserId, parsed.isTyping)
                         ProcessResult.Handled
                     }
                     is MessageProtobufHelper.ParsedContent.Delete -> {

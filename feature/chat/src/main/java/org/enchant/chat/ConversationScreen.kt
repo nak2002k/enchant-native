@@ -19,6 +19,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -373,7 +374,7 @@ fun ConversationScreen(
     
                 ComposerBar(
                     text = messageText,
-                    onTextChange = { messageText = it },
+                    onTextChange = { messageText = it; viewModel.onComposerTextChanged(it) },
                     onSend = {
                         if (messageText.isNotBlank()) {
                             viewModel.sendTextMessage(messageText, replyToId)
@@ -724,26 +725,15 @@ private fun ComposerBar(
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(horizontal = 8.dp, vertical = 6.dp)
                 .navigationBarsPadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-IconButton(
+            IconButton(
                 onClick = onAttach,
                 modifier = Modifier.semantics { this.contentDescription = "Attach file" }
             ) {
                 Icon(Icons.Default.Add, "Attach")
-            }
-
-IconButton(
-                onClick = onViewOnceToggle,
-                modifier = Modifier.semantics { this.contentDescription = if (viewOnceMode) "View once enabled" else "View once disabled" }
-            ) {
-                Icon(
-                    if (viewOnceMode) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    "View once",
-                    tint = if (viewOnceMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                )
             }
 
             OutlinedTextField(
@@ -759,49 +749,49 @@ IconButton(
                 ),
                 keyboardActions = KeyboardActions(onSend = { onSend() }),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = MaterialTheme.colorScheme.surface
+                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
                 )
             )
 
+            IconButton(
+                onClick = onEmoji,
+                modifier = Modifier.semantics { this.contentDescription = "Open emoji picker" }
+            ) {
+                Icon(Icons.Default.EmojiEmotions, "Emoji")
+            }
+
             if (text.isBlank()) {
-                var isPressed by remember { mutableStateOf(false) }
                 IconButton(
                     onClick = {
-                        if (!isPressed) {
-                            isPressed = true
+                        if (!isRecording) {
+                            isRecording = true
                             onVoiceStart()
                         } else {
-                            isPressed = false
+                            isRecording = false
                             onVoiceStop()
                         }
                     },
-                    modifier = Modifier.semantics { this.contentDescription = if (isPressed) "Stop recording voice message" else "Start recording voice message" }
+                    modifier = Modifier.semantics { this.contentDescription = if (isRecording) "Stop recording voice message" else "Start recording voice message" }
                 ) {
                     Icon(
-                        if (isPressed) Icons.Default.Mic else Icons.Default.Mic,
+                        Icons.Default.Mic,
                         "Voice message",
-                        tint = if (isPressed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        tint = if (isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                     )
-                }
-                IconButton(
-                    onClick = onEmoji,
-                    modifier = Modifier.semantics { this.contentDescription = "Open emoji picker" }
-                ) {
-                    Icon(Icons.Default.EmojiEmotions, "Emoji")
-                }
-                IconButton(
-                    onClick = onSticker,
-                    modifier = Modifier.semantics { this.contentDescription = "Open sticker picker" }
-                ) {
-                    Icon(Icons.Default.Face, "Sticker")
                 }
             } else {
                 IconButton(
                     onClick = onSend,
                     modifier = Modifier.semantics { this.contentDescription = "Send message" }
                 ) {
-                    Icon(Icons.Default.Send, "Send")
+                    Icon(
+                        Icons.Default.Send,
+                        "Send",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -1006,6 +996,23 @@ fun MessageBubble(
         }
 
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE0E", "\uD83D\uDE22", "\uD83D\uDE4F")
+                    .forEach { emoji ->
+                        Text(
+                            text = emoji,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable { onReact(emoji); showMenu = false }
+                                .padding(8.dp)
+                        )
+                    }
+            }
+            HorizontalDivider()
             DropdownMenuItem(text = { Text("Copy") }, onClick = { onCopy(message.envelopeId ?: ""); showMenu = false })
             DropdownMenuItem(text = { Text("Reply") }, onClick = { onReply(message.envelopeId ?: ""); showMenu = false })
             if (isOutgoing) {
