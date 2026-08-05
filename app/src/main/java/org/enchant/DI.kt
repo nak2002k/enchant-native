@@ -228,6 +228,18 @@ object DI {
                             }
                         }
                     }
+                    // Periodic pending-fetch: recovers frames that a silently
+                    // dead WS socket never delivered (REST path is independent).
+                    _workerScope?.launch {
+                        while (true) {
+                            delay(30_000L)
+                            try {
+                                org.enchant.core.network.PendingMessageFetcher.fetchAndProcess()
+                            } catch (e: Exception) {
+                                android.util.Log.w("DI", "Periodic pending fetch failed: ${e.message}")
+                            }
+                        }
+                    }
                 }
 
                 _initialized = true
