@@ -39,9 +39,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -73,6 +75,7 @@ fun ConversationScreen(
     val typingIndicator by viewModel.typingIndicator.collectAsState()
     val sendingState by viewModel.sendingState.collectAsState()
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -92,6 +95,7 @@ fun ConversationScreen(
     var deleteEnvelopeId by remember { mutableStateOf("") }
     var deleteForEveryone by remember { mutableStateOf(false) }
     var forwardDialogMessageId by remember { mutableStateOf<String?>(null) }
+    var showContactInfo by remember { mutableStateOf(false) }
     var contactShareUserId by remember { mutableStateOf("") }
     var translateDialogEnvelopeId by remember { mutableStateOf<String?>(null) }
 
@@ -203,7 +207,10 @@ fun ConversationScreen(
                         Icon(Icons.Default.MoreVert, "More")
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("View contact") }, onClick = { showMenu = false })
+                        DropdownMenuItem(text = { Text("View contact") }, onClick = {
+                            showContactInfo = true
+                            showMenu = false
+                        })
                         DropdownMenuItem(text = { Text("Search") }, onClick = { showSearch = true; showMenu = false })
                         DropdownMenuItem(text = { Text("Disappearing messages") }, onClick = { showDisappearDialog = true; showMenu = false })
                         DropdownMenuItem(text = { Text("Starred messages") }, onClick = { showMenu = false })
@@ -219,6 +226,44 @@ fun ConversationScreen(
                 fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
             }
         ) { convId ->
+            if (showContactInfo) {
+                AlertDialog(
+                    onDismissRequest = { showContactInfo = false },
+                    title = { Text(title ?: "Contact") },
+                    text = {
+                        Column {
+                            Text(
+                                convId,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { onStartCall(convId, false) }) {
+                                    Text("Voice call")
+                                }
+                                OutlinedButton(onClick = { onStartCall(convId, true) }) {
+                                    Text("Video call")
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val clipboard = clipboardManager
+                            clipboard.setText(AnnotatedString(convId))
+                            showContactInfo = false
+                        }) {
+                            Text("Copy ID")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showContactInfo = false }) {
+                            Text("Close")
+                        }
+                    }
+                )
+            }
             Column(modifier = Modifier.padding(padding)) {
                 if (showSearch) {
                     OutlinedTextField(
