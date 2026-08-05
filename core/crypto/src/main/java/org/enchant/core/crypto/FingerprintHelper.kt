@@ -41,8 +41,9 @@ object FingerprintHelper {
             remoteName = remoteName,
             remoteKey = remoteKey,
             displayableOut = displayable,
-            scannableLen = scannableLen,
-            scannableOut = scannable
+            displayableOutLen = DISPLAYABLE_CAPACITY.toLong(),
+            scannableOut = scannable,
+            scannableLen = scannableLen
         )
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_fingerprint_generate failed: $rc")

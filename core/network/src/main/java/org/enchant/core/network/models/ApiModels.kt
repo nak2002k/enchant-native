@@ -15,13 +15,13 @@ data class VerifyOtpRequest(val challengeId: String, val otp: String, val device
 data class DeviceInfo(val deviceId: String? = null, val userAgent: String? = null)
 
 @Serializable
-data class AuthResponse(val userId: String, val accessToken: String, val refreshToken: String, val expiresIn: Int, val deviceId: String = "")
+data class AuthResponse(val userId: String, val accessToken: String, val refreshToken: String, val expiresIn: Int, val deviceId: String = "", val phoneSalt: String? = null)
 
 @Serializable
 data class RefreshRequest(val refreshToken: String)
 
 @Serializable
-data class RefreshResponse(val accessToken: String, val refreshToken: String, val expiresIn: Int)
+data class RefreshResponse(val accessToken: String, val refreshToken: String, val expiresIn: Int, val phoneSalt: String? = null)
 
 @Serializable
 data class KeyRegisterRequest(

@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.*
+import org.enchant.core.base.SecurePreferences
 import org.enchant.core.database.dao.OneTimePreKeyRecord
 import org.enchant.core.database.dao.SignedPreKeyRecord
 
@@ -27,6 +28,11 @@ import org.enchant.core.database.dao.SignedPreKeyRecord
  */
 object KeyManager {
     private const val TAG = "KeyManager"
+
+    /** SecurePreferences keys for the persistent device identity key. */
+    const val KEY_IDENTITY_KEY = "crypto.identity_key"
+    const val KEY_SIGNED_PREKEY = "crypto.signed_prekey"
+
     private val mutex = Mutex()
     private var initialized = false
     private var identityKeyPair: CryptoPrimitives.KeyPair? = null
@@ -48,7 +54,11 @@ object KeyManager {
         val deviceId: String,
         val identityKey: ByteArray,
         val signedPrekey: SignedPrekeyData,
-        val oneTimePrekey: ByteArray?
+        val oneTimePrekey: ByteArray?,
+        // Defaults keep in-memory test fixtures source-compatible. Network
+        // bundles require explicit ids before they are used for X3DH.
+        val signedPrekeyId: Int = 1,
+        val oneTimePrekeyId: Int = 1
     )
 
     data class SignedPrekeyData(
@@ -77,6 +87,19 @@ object KeyManager {
         lastSpkRotationMs = 0L
         initialized = false
         testKeyBundles.clear()
+    }
+
+    /**
+     * Clear the in-memory AND persisted identity key. Called on logout /
+     * account switch so a new account never reuses the previous identity.
+     */
+    fun clearIdentityKey() {
+        identityKeyPair = null
+        try {
+            SecurePreferences.remove(KEY_IDENTITY_KEY)
+            SecurePreferences.remove(KEY_SIGNED_PREKEY)
+        } catch (_: Exception) {
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -109,9 +132,43 @@ object KeyManager {
                 } catch (_: Exception) {
                     identityKeyPair = null
                 }
+            } else {
+                // Restore the persisted identity key so the account identity survives restarts.
+                loadPersistedIdentityKey()
             }
 
             initialized = true
+        }
+    }
+
+    private fun loadPersistedIdentityKey() {
+        try {
+            val stored = SecurePreferences.getString(KEY_IDENTITY_KEY)
+            if (stored.isNullOrEmpty()) return
+            val parts = stored.split(":")
+            if (parts.size != 2) {
+                SecurePreferences.remove(KEY_IDENTITY_KEY)
+                return
+            }
+            val publicKey = CryptoPrimitives.base64UrlDecode(parts[0])
+            val privateKey = CryptoPrimitives.base64UrlDecode(parts[1])
+            if (publicKey.isEmpty() || privateKey.isEmpty()) {
+                SecurePreferences.remove(KEY_IDENTITY_KEY)
+                return
+            }
+            identityKeyPair = CryptoPrimitives.KeyPair(publicKey, privateKey)
+        } catch (_: Exception) {
+            identityKeyPair = null
+        }
+    }
+
+    private fun persistIdentityKey(pair: CryptoPrimitives.KeyPair) {
+        try {
+            val pub = CryptoPrimitives.base64UrlEncode(pair.publicKey)
+            val priv = CryptoPrimitives.base64UrlEncode(pair.privateKey)
+            SecurePreferences.putString(KEY_IDENTITY_KEY, "$pub:$priv")
+        } catch (e: Exception) {
+            Log.w(TAG, "persistIdentityKey: failed to persist identity key", e)
         }
     }
 
@@ -155,6 +212,7 @@ object KeyManager {
                 val uploadResult = uploadKeyBundle(ik, spk, opks)
                 if (uploadResult.isFailure) return@withContext uploadResult
 
+                syncNativeIdentity()
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
@@ -164,8 +222,9 @@ object KeyManager {
 
     private suspend fun ensureIdentityKey(): CryptoPrimitives.KeyPair {
         if (identityKeyPair == null) {
-            val pair = CryptoPrimitives.generateEd25519KeyPair()
+            val pair = CryptoPrimitives.generateX25519KeyPair()
             identityKeyPair = pair
+            persistIdentityKey(pair)
         }
         return identityKeyPair!!
     }
@@ -184,8 +243,9 @@ object KeyManager {
         val count = store.getOneTimePreKeyCount()
         return if (count < 20) {
             val needed = 100 - count
-            val startId = count
-            store.generateOneTimePreKeys(needed, startId = startId)
+            // PreKeyStore reserves ids monotonically. Deriving a start id from
+            // the count would overwrite live keys after any consumption gap.
+            store.generateOneTimePreKeys(needed)
         } else {
             store.getOneTimePreKeyPublicKeys().map { pub ->
                 OneTimePreKeyRecord(
@@ -208,12 +268,17 @@ object KeyManager {
         val body = buildJsonObject {
             put("identity_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(ik.publicKey)))
             put("signed_prekey", buildJsonObject {
+                put("id", spk.id)
                 put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(spk.publicKey)))
                 put("signature", JsonPrimitive(CryptoPrimitives.base64UrlEncode(spk.signature)))
             })
             put("one_time_prekeys", buildJsonArray {
                 opks.forEach { opk ->
                     add(buildJsonObject {
+                        // Carry the client-facing id so IKS can return it in
+                        // bundle fetches and the X3DH responder can resolve the
+                        // exact private key embedded in the prekey header.
+                        put("id", JsonPrimitive(opk.id))
                         put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(opk.publicKey)))
                     })
                 }
@@ -253,6 +318,58 @@ object KeyManager {
 
     suspend fun hasKeys(): Boolean = identityKeyPair != null
 
+    /**
+     * Push the registered identity key into the native session layer so
+     * encrypt/decrypt uses the same key pair uploaded to IKS.
+     */
+    suspend fun syncNativeIdentity() {
+        mutex.withLock {
+            if (identityKeyPair == null) loadPersistedIdentityKey()
+        }
+        val ik = identityKeyPair ?: run {
+            android.util.Log.w("KeyManager", "syncNativeIdentity: no identity key pair")
+            return
+        }
+        try {
+            VeilSession.get().setIdentityKeyPair(ik.publicKey, ik.privateKey)
+            syncNativePrekeys()
+            android.util.Log.i(
+                "KeyManager",
+                "syncNativeIdentity: ok pub=${ik.publicKey.size} priv=${ik.privateKey.size}"
+            )
+        } catch (e: IllegalStateException) {
+            // VeilSession not initialized yet — DI will sync after init
+            android.util.Log.w("KeyManager", "syncNativeIdentity failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Push the signed-prekey and one-time-prekey private keys into the native
+     * identity store so the X3DH responder can decrypt incoming prekey
+     * messages (enchant_session_manager_decrypt_prekey looks them up by the
+     * IDs embedded in the 76-byte prekey header).
+     */
+    private suspend fun syncNativePrekeys() {
+        val store = preKeyStore ?: run {
+            android.util.Log.w("KeyManager", "syncNativePrekeys: no preKeyStore")
+            return
+        }
+        val veil = VeilSession.get()
+        var spkRc = -1
+        store.getCurrentSignedPreKey()?.let { spk ->
+            spkRc = veil.storeSignedPrekey(spk.id, spk.privateKey)
+            android.util.Log.i("KeyManager", "syncNativePrekeys: stored SPK id=${spk.id} rc=$spkRc")
+        } ?: android.util.Log.w("KeyManager", "syncNativePrekeys: no current signed prekey")
+        val opkIds = store.getAllOneTimePreKeyIds()
+        android.util.Log.i("KeyManager", "syncNativePrekeys: opkIds=${opkIds.take(10)}... total=${opkIds.size}")
+        opkIds.forEach { id ->
+            store.getOneTimePreKey(id)?.let { opk ->
+                val rc = veil.storeOneTimePrekey(opk.id, opk.privateKey)
+                if (rc != 0) android.util.Log.w("KeyManager", "syncNativePrekeys: OPK id=${opk.id} rc=$rc")
+            }
+        }
+    }
+
     suspend fun signWithIdentity(data: ByteArray): ByteArray? {
         val ik = identityKeyPair ?: return null
         return CryptoPrimitives.signEd25519(data, ik.privateKey)
@@ -283,12 +400,19 @@ object KeyManager {
                     val spkData = device["signed_prekey"]?.jsonObject ?: return@let null
                     val spkPubStr = spkData["public_key"]?.jsonPrimitive?.content ?: return@let null
                     val spkSigStr = spkData["signature"]?.jsonPrimitive?.content ?: return@let null
-                    val opkData = device["one_time_prekey"]?.jsonObject
-                    val opkBytes = opkData?.let {
-                        it["public_key"]?.jsonPrimitive?.content?.let { keyStr ->
-                            CryptoPrimitives.base64UrlDecode(keyStr)
-                        }
-                    }
+                    val spkId = spkData["key_id"]?.jsonPrimitive?.longOrNull
+                        ?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()
+                        ?: return@let null
+
+                    // An OPK id and public key are inseparable. If the server
+                    // returns an OPK without its id, ignore that OPK rather
+                    // than sending a header that names a different private key.
+                    val opkData = device["one_time_prekey"] as? kotlinx.serialization.json.JsonObject
+                    val opkId = opkData?.get("key_id")?.jsonPrimitive?.longOrNull
+                        ?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()
+                    val opkBytes = opkData?.get("public_key")?.jsonPrimitive?.content
+                        ?.let { CryptoPrimitives.base64UrlDecode(it) }
+                        ?.takeIf { it.size == 32 }
 
                     KeyBundle(
                         deviceId = device["device_id"]?.jsonPrimitive?.content ?: "",
@@ -297,7 +421,9 @@ object KeyManager {
                             publicKey = CryptoPrimitives.base64UrlDecode(spkPubStr),
                             signature = CryptoPrimitives.base64UrlDecode(spkSigStr)
                         ),
-                        oneTimePrekey = opkBytes
+                        oneTimePrekey = opkBytes,
+                        signedPrekeyId = spkId,
+                        oneTimePrekeyId = if (opkBytes != null && opkId != null) opkId else 0
                     )
                 }
             } catch (_: Exception) { null }
@@ -340,10 +466,9 @@ object KeyManager {
 
                 // Use server-side consumed count as startId to prevent ID collision
                 val consumed = 100 - remaining
-                val startId = maxOf(existingCount, consumed).also {
-                    if (existingCount < consumed) {
-                        Log.w(TAG, "topUpOpks: local OPK count ($existingCount) < server consumed ($consumed), using server counter to avoid overwrite")
-                    }
+                val startId = consumed + 1
+                if (existingCount < consumed) {
+                    Log.w(TAG, "topUpOpks: local OPK count ($existingCount) < server consumed ($consumed), requesting ids after server counter")
                 }
 
                 Log.d(TAG, "topUpOpks: generating $needed OPKs starting at id $startId (local=$existingCount, server_remaining=$remaining)")
@@ -400,6 +525,7 @@ object KeyManager {
                 val newSpk = store.generateSignedPreKey(ik)
 
                 val body = buildJsonObject {
+                    put("id", newSpk.id)
                     put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(newSpk.publicKey)))
                     put("signature", JsonPrimitive(CryptoPrimitives.base64UrlEncode(newSpk.signature)))
                 }

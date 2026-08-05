@@ -107,8 +107,18 @@ object WebSocketManager {
                 CipherSuite.TLS_CHACHA20_POLY1305_SHA256
             )
             .build()
+        val useCleartext = try {
+            AppConfig.gatewayUrl.startsWith("http://")
+        } catch (_: IllegalStateException) {
+            false
+        }
+        val specs = if (useCleartext) {
+            listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS, spec)
+        } else {
+            listOf(spec)
+        }
         val builder = OkHttpClient.Builder()
-            .connectionSpecs(listOf(spec))
+            .connectionSpecs(specs)
             .certificatePinner(getPinner())
         return DomainFronting.applyToClient(builder).build()
     }

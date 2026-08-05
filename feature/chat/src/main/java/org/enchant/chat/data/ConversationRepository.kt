@@ -12,6 +12,7 @@ import org.enchant.core.database.dao.MessageDao
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.entity.ConversationEntity
 import org.enchant.core.database.entity.MessageEntity
+import org.enchant.core.database.util.DatabaseNotifier
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.ConversationType
 import org.enchant.core.model.Message
@@ -106,6 +107,34 @@ class ConversationRepository(
         return messageDao.insert(entity)
     }
 
+    /**
+     * Resolve a human-readable name for a direct-conversation peer:
+     * cached recipient (contact) first, then the user profile, cached for
+     * next time. Returns null when the peer is unknown and the profile
+     * cannot be fetched.
+     */
+    suspend fun resolveDisplayName(userId: String): String? {
+        recipientDao.getByUserId(userId)?.let { cached ->
+            val name = cached.displayName ?: cached.username
+            if (name != null) return name
+        }
+        val client = apiClient ?: org.enchant.core.network.ApiClient.getInstance()
+        return try {
+            val json = client.get("/v1/profile/$userId").getOrNull() ?: return null
+            val displayName = json["display_name"]?.jsonPrimitive?.content
+            val username = json["username"]?.jsonPrimitive?.content
+            val name = displayName ?: username ?: return null
+            recipientDao.upsert(
+                org.enchant.core.database.entity.RecipientEntity(
+                    recipientId = userId, displayName = displayName, username = username
+                )
+            )
+            name
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private suspend fun resolveDisappearAt(message: MessageEntity): MessageEntity {
         if (message.disappearAt != null) return message
         val conv = conversationDao.getById(message.conversationId) ?: return message
@@ -155,6 +184,12 @@ class ConversationRepository(
                 db.endTransaction()
             }
         }
+        // This path writes both tables directly, bypassing the DAO methods
+        // that normally publish table-change notifications. Without these
+        // events, an open conversation and the conversation list keep stale
+        // StateFlow snapshots even though the message is in SQLite.
+        DatabaseNotifier.notify("messages")
+        DatabaseNotifier.notify("conversations")
     }
 
     suspend fun getMessage(envelopeId: String): Message? {

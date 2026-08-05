@@ -81,9 +81,10 @@ object UsmcHelper {
 
     fun getSenderUuid(usmcData: ByteArray): String {
         val uuidOut = ByteArray(37)
+        val uuidLen = longArrayOf(uuidOut.size.toLong())
         val rc = EnchantCrypto.enchant_usmc_get_sender_uuid(
             usmcData, usmcData.size.toLong(),
-            uuidOut, uuidOut.size.toLong()
+            uuidOut, uuidLen
         )
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_usmc_get_sender_uuid failed: $rc")
@@ -127,21 +128,23 @@ object UsmcHelper {
 
     fun getContents(usmcData: ByteArray): ByteArray {
         val contentsOut = ByteArray(usmcData.size)
+        val contentsLen = longArrayOf(contentsOut.size.toLong())
         val rc = EnchantCrypto.enchant_usmc_get_contents(
             usmcData, usmcData.size.toLong(),
-            contentsOut, contentsOut.size.toLong()
+            contentsOut, contentsLen
         )
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_usmc_get_contents failed: $rc")
         }
-        return contentsOut
+        return contentsOut.copyOf(contentsLen[0].toInt())
     }
 
     fun getGroupId(usmcData: ByteArray): ByteArray {
         val groupIdOut = ByteArray(usmcData.size)
+        val groupIdLen = longArrayOf(groupIdOut.size.toLong())
         val rc = EnchantCrypto.enchant_usmc_get_group_id(
             usmcData, usmcData.size.toLong(),
-            groupIdOut, groupIdOut.size.toLong()
+            groupIdOut, groupIdLen
         )
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_usmc_get_group_id failed: $rc")

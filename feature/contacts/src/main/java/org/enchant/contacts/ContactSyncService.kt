@@ -13,6 +13,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.enchant.core.network.ApiClient
+import org.enchant.core.base.SecurePreferences
+import org.enchant.core.auth.AuthConstants
 import org.enchant.core.crypto.CryptoPrimitives
 
 data class PhoneContact(
@@ -102,20 +104,16 @@ class ContactSyncService(
     }
 
     /**
-     * Phone hash uses Argon2id for privacy-preserving contact discovery.
-     * Previously used raw SHA-256. Existing contacts need re-discovery after update.
+     * Phone hash uses HMAC-SHA256 keyed by the per-user phone_salt returned at
+     * auth time, so hashes are not dictionary-reversible without the salt.
+     * The backend stores the same base64url(HMAC-SHA256(salt, phone)) value.
      */
     fun hashPhoneNumber(phone: String): String {
-        val salt = CryptoPrimitives.generateRandomKey(16)
-        val hash = CryptoPrimitives.argon2idHashWithParams(
-            phone.toByteArray(Charsets.UTF_8),
-            salt,
-            2,
-            64 * 1024,
-            2,
-            32
-        )
-        return CryptoPrimitives.base64UrlEncode(salt) + ":" + CryptoPrimitives.base64UrlEncode(hash)
+        val saltB64 = SecurePreferences.getString(AuthConstants.PHONE_SALT_KEY)
+            ?: return ""
+        val salt = CryptoPrimitives.base64UrlDecode(saltB64)
+        val mac = CryptoPrimitives.hmacSha256(salt, phone.toByteArray(Charsets.UTF_8))
+        return CryptoPrimitives.base64UrlEncode(mac)
     }
 
     suspend fun readDeviceContacts(): List<PhoneContact> = withContext(Dispatchers.IO) {

@@ -15,7 +15,7 @@ class PrekeyNativeTest {
         val sig = ByteArray(64)
 
         val rc = EnchantCrypto.enchant_prekey_generate_signed(
-            1, identityKeyPair.privateKey, pub, priv, sig, sig.size.toLong()
+            1, identityKeyPair.privateKey, pub, priv, sig, longArrayOf(sig.size.toLong())
         )
 
         assertEquals(EnchantCrypto.SUCCESS, rc)

@@ -41,6 +41,7 @@ include(":core:accessibility")
 include(":core:crash")
 include(":core:config")
 include(":core:ui")
+include(":core:agent-debug")
 
 include(":feature:auth")
 include(":feature:chat")

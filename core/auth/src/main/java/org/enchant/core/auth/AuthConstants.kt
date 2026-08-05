@@ -5,6 +5,7 @@ object AuthConstants {
     const val REFRESH_TOKEN_KEY = "auth.refresh_token"
     const val USER_ID_KEY = "auth.user_id"
     const val DEVICE_ID_KEY = "auth.device_id"
+    const val PHONE_SALT_KEY = "auth.phone_salt"
     const val LAST_OTP_REQUEST_KEY = "auth.last_otp_request"
     const val OTP_COOLDOWN_MS = 30_000L
     const val MAX_REFRESH_RETRIES = 1

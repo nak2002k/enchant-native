@@ -1,6 +1,7 @@
 package org.enchant
 
 import android.app.Application
+import android.content.Context
 import android.os.StrictMode
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
@@ -43,8 +44,21 @@ class EnchantApp : Application() {
     private suspend fun initDi() {
         try {
             DI.init(this@EnchantApp)
+            initAgentDebug()
         } catch (e: Throwable) {
             android.util.Log.e("EnchantApp", "DI init failed", e as? Exception ?: Exception(e))
+        }
+    }
+
+    private fun initAgentDebug() {
+        if (!BuildConfig.DEBUG) return
+        runCatching {
+            val clazz = Class.forName("org.enchant.agent.AgentDebugSetup")
+            val instance = clazz.getField("INSTANCE").get(null)
+            clazz.getDeclaredMethod("init", Context::class.java)
+                .invoke(instance, this@EnchantApp)
+        }.onFailure {
+            Log.w("EnchantApp", "Agent debug not loaded: ${it.message}", it)
         }
     }
 

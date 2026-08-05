@@ -28,6 +28,7 @@ class VeilSession private constructor(
     private var sessionManagerHandle: Long
 ) {
     private val sessionLock = Mutex()
+    private val TAG = "VeilSession"
     private val identityKeys = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
 
     /**
@@ -105,29 +106,18 @@ class VeilSession private constructor(
                 )
 
                 if (hasSession[0] == 0) {
-                    val keyBundle = KeyManager.fetchKeyBundle(recipientUserId) ?: return@withLock null
+                    val keyBundle = KeyManager.fetchKeyBundle(recipientUserId) ?: run {
+                        android.util.Log.w("VeilSession", "no key bundle for $recipientUserId")
+                        return@withLock null
+                    }
                     identityKeys[recipientUserId] = keyBundle.identityKey
 
-                    val rc = EnchantCrypto.enchant_session_manager_establish(
-                        sessionManagerHandle,
-                        recipientUserId,
-                        device,
-                        keyBundle.identityKey,
-                        1,
-                        keyBundle.signedPrekey.publicKey,
-                        keyBundle.signedPrekey.signature,
-                        keyBundle.signedPrekey.signature.size.toLong(),
-                        1,
-                        keyBundle.oneTimePrekey ?: ByteArray(0),
-                        1
-                    )
+                    val rc = nativeEstablish(recipientUserId, device, keyBundle)
                     if (rc != EnchantCrypto.SUCCESS) return@withLock null
 
-                    if (rc == EnchantCrypto.SUCCESS) {
-                        EnchantCrypto.enchant_identity_store_save_identity(
-                            identityStoreHandle, recipientUserId, device, keyBundle.identityKey
-                        )
-                    }
+                    EnchantCrypto.enchant_identity_store_save_identity(
+                        identityStoreHandle, recipientUserId, device, keyBundle.identityKey
+                    )
                 }
 
                 val maxCiphertext = plaintext.size + 512
@@ -229,37 +219,6 @@ class VeilSession private constructor(
     }
 
     /**
-     * Decrypt a pre-key message (establishes new session via X3DH as Bob).
-     */
-    suspend fun decryptPreKeyMessage(senderUserId: String, ciphertext: ByteArray): DecryptedResult? {
-        return withContext(Dispatchers.Default) {
-            sessionLock.withLock {
-                val device = extractDeviceId(senderUserId)
-
-                val maxPlaintext = ciphertext.size + 256
-                val plaintext = ByteArray(maxPlaintext)
-                val plaintextLen = longArrayOf(maxPlaintext.toLong())
-
-                val rc = EnchantCrypto.enchant_session_manager_decrypt(
-                    sessionManagerHandle, senderUserId, device,
-                    ciphertext, ciphertext.size.toLong(),
-                    1,
-                    plaintext, plaintextLen
-                )
-                if (rc != EnchantCrypto.SUCCESS) {
-                    return@withLock null
-                }
-
-                DecryptedResult(
-                    plaintext = plaintext.copyOf(plaintextLen[0].toInt()),
-                    senderDeviceId = null,
-                    isNewSession = true
-                )
-            }
-        }
-    }
-
-    /**
      * Decrypt a first-message prekey from a sender (responder path).
      *
      * This is the X3DH responder: the initiator's first message includes
@@ -268,21 +227,36 @@ class VeilSession private constructor(
      * already be stored in the identity store (via storeSignedPrekey /
      * storeOneTimePrekey).
      *
+     * The signed-prekey and one-time-prekey IDs are read from the 76-byte
+     * prekey header embedded in [ciphertext] (big-endian at offsets 64 and 68),
+     * so callers do not need to supply them.
+     *
      * @param senderUserId the sender's user ID
      * @param ciphertext the prekey message (76-byte header + envelope)
-     * @param ourSignedPrekeyId the signed prekey ID that the initiator used
-     * @param ourOneTimePrekeyId the one-time prekey ID the initiator used (0 if none)
      * @return decrypted plaintext or null on failure
      */
     suspend fun decryptPrekeyMessage(
         senderUserId: String,
-        ciphertext: ByteArray,
-        ourSignedPrekeyId: Int,
-        ourOneTimePrekeyId: Int
+        ciphertext: ByteArray
     ): DecryptedResult? {
         return withContext(Dispatchers.Default) {
             sessionLock.withLock {
                 val device = extractDeviceId(senderUserId)
+
+                if (ciphertext.size < 76) {
+                    android.util.Log.e(TAG, "decryptPrekeyMessage: header too short ctLen=${ciphertext.size} from=$senderUserId dev=$device")
+                    return@withLock null
+                }
+
+                val ourSignedPrekeyId = ((ciphertext[64].toInt() and 0xFF) shl 24) or
+                    ((ciphertext[65].toInt() and 0xFF) shl 16) or
+                    ((ciphertext[66].toInt() and 0xFF) shl 8) or
+                    (ciphertext[67].toInt() and 0xFF)
+                val ourOneTimePrekeyId = ((ciphertext[68].toInt() and 0xFF) shl 24) or
+                    ((ciphertext[69].toInt() and 0xFF) shl 16) or
+                    ((ciphertext[70].toInt() and 0xFF) shl 8) or
+                    (ciphertext[71].toInt() and 0xFF)
+                android.util.Log.d(TAG, "decryptPrekeyMessage: ctLen=${ciphertext.size} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId header=${ciphertext.copyOf(76).joinToString("") { "%02x".format(it) }}")
 
                 val maxPlaintext = ciphertext.size + 256
                 val plaintext = ByteArray(maxPlaintext)
@@ -294,8 +268,9 @@ class VeilSession private constructor(
                     ourSignedPrekeyId, ourOneTimePrekeyId,
                     plaintext, plaintextLen
                 )
+                android.util.Log.d(TAG, "decryptPrekeyMessage: native rc=$rc plaintextLen=${plaintextLen[0]} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId")
                 if (rc != EnchantCrypto.SUCCESS) {
-                    println("decryptPrekeyMessage FAILED: rc=$rc (name=$senderUserId, dev=$device, ctLen=${ciphertext.size})")
+                    android.util.Log.e(TAG, "decryptPrekeyMessage FAILED: rc=$rc (name=$senderUserId, dev=$device, ctLen=${ciphertext.size}) spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId")
                     return@withLock null
                 }
 
@@ -328,6 +303,31 @@ class VeilSession private constructor(
         return EnchantCrypto.enchant_identity_store_store_one_time_prekey(
             identityStoreHandle, prekeyId, privateKey, privateKey.size.toLong()
         )
+    }
+
+    /**
+     * Read back a one-time prekey private key from the native identity store.
+     * Exists so the app can audit that the native responder store holds the
+     * same keys as the Kotlin PreKeyStore (the store is a plain in-memory
+     * copy and can silently diverge if a sync is missed).
+     */
+    fun getNativeOneTimePrekeyPrivate(prekeyId: Int): ByteArray? {
+        val out = ByteArray(32)
+        val rc = EnchantCrypto.enchant_identity_store_get_one_time_prekey_private(
+            identityStoreHandle, prekeyId, out, 32
+        )
+        return if (rc == EnchantCrypto.SUCCESS) out else null
+    }
+
+    /**
+     * Read back the signed prekey private key from the native identity store.
+     */
+    fun getNativeSignedPrekeyPrivate(prekeyId: Int): ByteArray? {
+        val out = ByteArray(32)
+        val rc = EnchantCrypto.enchant_identity_store_get_signed_prekey_private(
+            identityStoreHandle, prekeyId, out, 32
+        )
+        return if (rc == EnchantCrypto.SUCCESS) out else null
     }
 
     // ──────────────────────────────────────────────
@@ -496,19 +496,7 @@ class VeilSession private constructor(
     ): Boolean = sessionLock.withLock {
         identityKeys[peerUserId] = keyBundle.identityKey
 
-        val rc = EnchantCrypto.enchant_session_manager_establish(
-            sessionManagerHandle,
-            peerUserId,
-            device,
-            keyBundle.identityKey,
-            1,
-            keyBundle.signedPrekey.publicKey,
-            keyBundle.signedPrekey.signature,
-            keyBundle.signedPrekey.signature.size.toLong(),
-            1,
-            keyBundle.oneTimePrekey ?: ByteArray(0),
-            1
-        )
+        val rc = nativeEstablish(peerUserId, device, keyBundle)
 
         if (rc == EnchantCrypto.SUCCESS) {
             EnchantCrypto.enchant_identity_store_save_identity(
@@ -532,18 +520,19 @@ class VeilSession private constructor(
         ourEphemeralPrivate: ByteArray
     ): Boolean = sessionLock.withLock {
         identityKeys[peerUserId] = keyBundle.identityKey
+        val opk = keyBundle.oneTimePrekey ?: return@withLock false
 
         val rc = EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
             sessionManagerHandle,
             peerUserId,
             device,
             keyBundle.identityKey,
-            1,
+            keyBundle.signedPrekeyId,
             keyBundle.signedPrekey.publicKey,
             keyBundle.signedPrekey.signature,
             keyBundle.signedPrekey.signature.size.toLong(),
-            1,
-            keyBundle.oneTimePrekey ?: ByteArray(0),
+            keyBundle.oneTimePrekeyId,
+            opk,
             1,
             ourEphemeralPrivate,
             ourEphemeralPrivate.size.toLong()
@@ -556,6 +545,63 @@ class VeilSession private constructor(
         }
 
         rc == EnchantCrypto.SUCCESS
+    }
+
+    /**
+     * X3DH session setup against the peer's key bundle.
+     *
+     * Routed through `establish_with_ephemeral` (null ephemeral = library
+     * generates one) because the bundled libenchantcrypto.so still exports the
+     * pre-0.3 `enchant_session_manager_establish`, which lacks the prekey-id
+     * parameters and misreads the argument list.
+     */
+    private fun nativeEstablish(
+        peerUserId: String,
+        device: Int,
+        keyBundle: KeyManager.KeyBundle
+    ): Int {
+        val ik = keyBundle.identityKey
+        val spk = keyBundle.signedPrekey.publicKey
+        val sig = keyBundle.signedPrekey.signature
+        val opk = keyBundle.oneTimePrekey
+        if (ik.size != 32 || spk.size != 32 || sig.size != 64) {
+            android.util.Log.w(
+                "VeilSession",
+                "establish $peerUserId: bad bundle sizes ik=${ik.size} spk=${spk.size} sig=${sig.size}"
+            )
+            return EnchantCrypto.ERROR_INVALID_FORMAT
+        }
+        if (opk == null || opk.size != 32) {
+            android.util.Log.w("VeilSession", "establish $peerUserId: bad opk size=${opk?.size}")
+            return EnchantCrypto.ERROR_INVALID_FORMAT
+        }
+        run {
+            val p = ByteArray(32); val s = ByteArray(64)
+            val irc = EnchantCrypto.enchant_identity_store_get_key_pair(identityStoreHandle, p, s)
+            android.util.Log.w("VeilSession", "identity_store rc=$irc handle=$identityStoreHandle")
+        }
+        val rc = EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
+            sessionManagerHandle,
+            peerUserId,
+            device,
+            ik,
+            keyBundle.signedPrekeyId,
+            spk,
+            sig,
+            sig.size.toLong(),
+            keyBundle.oneTimePrekeyId,
+            opk,
+            1,
+            null,
+            0L
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            android.util.Log.w(
+                "VeilSession",
+                "establish $peerUserId/$device failed rc=$rc spkId=${keyBundle.signedPrekeyId} opkId=${keyBundle.oneTimePrekeyId}"
+            )
+        }
+        return rc
     }
 
     private suspend fun establishSessionNative(recipientUserId: String, device: Int): Boolean {

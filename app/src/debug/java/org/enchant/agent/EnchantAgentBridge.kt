@@ -1,0 +1,1120 @@
+package org.enchant.agent
+
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import org.enchant.DI
+import org.enchant.MainNavigationDetailLocation
+import org.enchant.MainNavigationListLocation
+import org.enchant.auth.screens.hashPinArgon2
+import org.enchant.auth.screens.verifyPinArgon2
+import org.enchant.backup.BackupExporter
+import org.enchant.backup.BackupSection
+import org.enchant.chat.data.MessageSendPipeline
+import org.enchant.chat.data.SendError
+import org.enchant.chat.data.SendResult
+import org.enchant.contacts.data.ContactsRepository
+import org.enchant.contacts.data.ContactResult
+import org.enchant.core.auth.AuthConstants
+import org.enchant.core.auth.AuthManager
+import org.enchant.core.auth.AuthState
+import org.enchant.core.auth.RegistrationState
+import org.enchant.core.base.AppConfig
+import org.enchant.core.base.SecurePreferences
+import org.enchant.core.calls.CallManager
+import org.enchant.core.crypto.CryptoHelper
+import org.enchant.core.crypto.KeyManager
+import org.enchant.core.network.ConnectivityMonitor
+import org.enchant.core.network.WebSocketManager
+import org.enchant.groups.data.GroupResult
+import org.enchant.groups.data.GroupsRepository
+import org.enchant.status.StatusPrivacy
+import java.io.File
+
+/**
+ * Full app bridge — every endpoint calls the same managers/repositories the UI uses.
+ */
+class EnchantAgentBridge : AgentAppBridge {
+
+    private fun ok(data: JsonObject = buildJsonObject {}): JsonObject = buildJsonObject {
+        put("ok", true)
+        data.forEach { (k, v) -> put(k, v) }
+    }
+
+    private fun err(message: String, extra: JsonObject = buildJsonObject {}): JsonObject = buildJsonObject {
+        put("ok", false)
+        put("error", message)
+        extra.forEach { (k, v) -> put(k, v) }
+    }
+
+    override suspend fun getState(): JsonObject {
+        val auth = AuthManager.authState.value
+        val reg = AuthManager.currentState.value
+        val ws = WebSocketManager.connectionState.value.name
+        val online = ConnectivityMonitor.isOnline.value
+        return ok(buildJsonObject {
+            put("auth", auth.javaClass.simpleName)
+            put("registration", reg.javaClass.simpleName)
+            put("user_id", SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: "")
+            put("device_id", SecurePreferences.getString(AuthConstants.DEVICE_ID_KEY) ?: "")
+            put("websocket", ws)
+            put("network_online", online)
+            put("di_initialized", DI.isInitialized)
+            put("ui", AgentUiTracker.toJson())
+            put("screen", AgentScreenState.toJson())
+            put("agent_debug_running", AgentDebug.isRunning())
+        })
+    }
+
+    override suspend fun getHelp(): JsonObject = ok(buildJsonObject {
+        put("endpoints", buildJsonArray {
+            listOf(
+                "GET /health",
+                "GET /help",
+                "GET /state",
+                "GET /events?since=0&limit=100",
+                "GET /ui/current",
+                "POST /ui/action {action}",
+                "POST /auth/request-otp {identifier}",
+                "POST /auth/accept-terms",
+                "POST /auth/skip-permissions",
+                "POST /auth/skip-pin",
+                "POST /auth/skip-applock",
+                "POST /auth/verify-otp {otp}",
+                "POST /auth/register-keys",
+                "POST /auth/profile {username, display_name, about?}",
+                "POST /auth/complete",
+                "POST /auth/skip-to-main",
+                "POST /auth/logout",
+                "POST /auth/full-flow {identifier, otp, username, display_name, about?}",
+                "POST /nav {target, ...params}",
+                "GET /conversations",
+                "POST /conversations/open {conversation_id}",
+                "GET /conversations/{id}/messages?limit=50",
+                "POST /messages/send {recipient_user_id, text, sealed?}",
+                "POST /messages/media {recipient_user_id, conversation_id, file_path, mime_type, file_name?, view_once?}",
+                "POST /messages/reaction {conversation_id, emoji, envelope_id?, message_local_id?}",
+                "POST /messages/sticker {recipient_user_id, conversation_id, pack_id, sticker_id}",
+                "GET /groups",
+                "POST /groups/create {name, description?, initial_member_ids?, add_members_policy?, join_type?}",
+                "POST /groups/{id}/members {user_ids:[]}",
+                "POST /groups/join {link_code}",
+                "POST /calls/start {remote_user_id, video?}",
+                "GET /calls/log?limit=50",
+                "GET /status/feed",
+                "POST /status/text {text, background_color?, privacy?, selected_contacts?}",
+                "POST /status/media {media_id, privacy?, selected_contacts?}",
+                "POST /status/{id}/view",
+                "GET /stickers/library",
+                "GET /stickers/featured",
+                "POST /stickers/{packId}/install",
+                "POST /backup/cloud/initiate",
+                "GET /backup/cloud/latest",
+                "POST /backup/cloud/restore {backup_id}",
+                "POST /backup/local/export {output_path, backup_key_b64}",
+                "POST /backup/local/import {input_path, backup_key_b64, sections:[]}",
+                "POST /applock/set {pin}",
+                "POST /applock/verify {pin}",
+                "POST /applock/disable",
+                "GET /contacts",
+                "POST /contacts/add {user_id, custom_name?}",
+                "POST /contacts/remove {user_id}",
+                "GET /contacts/blocked",
+                "GET /network/status",
+                "POST /network/ws/connect",
+                "POST /network/ws/disconnect",
+                "GET /crypto/status"
+            ).forEach { add(JsonPrimitive(it)) }
+        })
+        put("adb", "adb forward tcp:19789 tcp:19789")
+    })
+
+    override suspend fun requestOtp(identifier: String): JsonObject {
+        val result = AuthManager.requestOtp(identifier)
+        return result.fold(
+            onSuccess = {
+                AgentEventLog.emit("auth_request_otp", data = buildJsonObject {
+                    put("identifier", identifier)
+                    put("challenge_id", it.challengeId)
+                })
+                ok(buildJsonObject {
+                    put("challenge_id", it.challengeId)
+                    put("expires_in", it.expiresIn)
+                    put("hint", "Read OTP from backend logs, then POST /auth/verify-otp")
+                })
+            },
+            onFailure = {
+                AgentEventLog.emit("auth_request_otp", ok = false, data = buildJsonObject {
+                    put("error", it.message ?: "failed")
+                })
+                err(it.message ?: "request otp failed")
+            }
+        )
+    }
+
+    override suspend fun verifyOtp(otp: String): JsonObject {
+        val result = AuthManager.verifyOtp(otp)
+        return result.fold(
+            onSuccess = {
+                AgentEventLog.emit("auth_verify_otp", data = buildJsonObject {
+                    put("user_id", SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: "")
+                })
+                ok(buildJsonObject {
+                    put("registration_state", AuthManager.currentState.value.javaClass.simpleName)
+                })
+            },
+            onFailure = {
+                AgentEventLog.emit("auth_verify_otp", ok = false, data = buildJsonObject {
+                    put("error", it.message ?: "failed")
+                })
+                err(it.message ?: "verify otp failed")
+            }
+        )
+    }
+
+    override suspend fun registerKeys(): JsonObject {
+        val result = AuthManager.registerKeys()
+        return result.fold(
+            onSuccess = {
+                AgentEventLog.emit("auth_register_keys")
+                ok()
+            },
+            onFailure = {
+                AgentEventLog.emit("auth_register_keys", ok = false, data = buildJsonObject {
+                    put("error", it.message ?: "failed")
+                })
+                err(it.message ?: "register keys failed")
+            }
+        )
+    }
+
+    override suspend fun setProfile(username: String, displayName: String, about: String?): JsonObject {
+        val result = AuthManager.updateProfile(username, displayName, about)
+        return result.fold(
+            onSuccess = {
+                AgentEventLog.emit("auth_profile_set", data = buildJsonObject { put("username", username) })
+                ok()
+            },
+            onFailure = { err(it.message ?: "profile failed") }
+        )
+    }
+
+    override suspend fun completeRegistration(): JsonObject {
+        AuthManager.completeRegistration()
+        AgentNavigationHooks.onShowMainApp?.invoke()
+        AgentEventLog.emit("auth_complete")
+        return ok(buildJsonObject { put("registration", "Complete") })
+    }
+
+    override suspend fun skipToMainIfRegistered(): JsonObject {
+        val reg = AuthManager.currentState.value
+        val auth = AuthManager.authState.value
+        if (auth is AuthState.Authenticated && reg is RegistrationState.Complete) {
+            AgentNavigationHooks.onShowMainApp?.invoke()
+            return ok(buildJsonObject { put("skipped_to", "main") })
+        }
+        return ok(buildJsonObject {
+            put("skipped_to", "none")
+            put("auth", auth.javaClass.simpleName)
+            put("registration", reg.javaClass.simpleName)
+        })
+    }
+
+    override suspend fun logout(): JsonObject {
+        AuthManager.logout()
+        AgentNavigationHooks.onShowAuthFlow?.invoke()
+        AgentEventLog.emit("auth_logout")
+        return ok()
+    }
+
+    override suspend fun getUiCurrent(): JsonObject = ok(buildJsonObject {
+        put("screen", AgentScreenState.toJson())
+        put("tracker", AgentUiTracker.toJson())
+    })
+
+    override suspend fun performUiAction(action: String): JsonObject = withContext(Dispatchers.Main) {
+        val normalized = when (action.lowercase()) {
+            "agree", "agree_and_continue" -> "accept_terms"
+            "grant", "grant_permissions" -> "grant_permissions"
+            "not_now", "skip", "skip_permissions" -> "not_now"
+            else -> action
+        }
+        if (AgentScreenState.runAction(normalized)) {
+            ok(buildJsonObject {
+                put("action", normalized)
+                put("screen", AgentScreenState.toJson())
+            })
+        } else {
+            err(
+                "Action '$normalized' not available on screen '${AgentScreenState.screenId}'",
+                AgentScreenState.toJson()
+            )
+        }
+    }
+
+    override suspend fun submitPhone(phone: String): JsonObject {
+        if (phone.isBlank()) return err("phone is required")
+        val normalized = phone.trim()
+        return AuthManager.requestOtp(normalized).fold(
+            onSuccess = { response ->
+                AgentEventLog.emit("auth_request_otp", data = buildJsonObject {
+                    put("identifier", normalized)
+                    put("challenge_id", response.challengeId)
+                    put("via", "ui/phone")
+                })
+                ok(buildJsonObject {
+                    put("phone", normalized)
+                    put("challenge_id", response.challengeId)
+                    put("screen", AgentScreenState.toJson())
+                })
+            },
+            onFailure = {
+                err(it.message ?: "request otp failed", AgentScreenState.toJson())
+            }
+        )
+    }
+
+    override suspend fun submitOtp(otp: String): JsonObject {
+        if (otp.isBlank()) return err("otp is required")
+        val code = otp.trim()
+        return AuthManager.verifyOtp(code).fold(
+            onSuccess = {
+                AgentEventLog.emit("auth_verify_otp", data = buildJsonObject {
+                    put("user_id", SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: "")
+                    put("via", "ui/otp")
+                })
+                ok(buildJsonObject {
+                    put("otp", code)
+                    put("user_id", SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: "")
+                    put("registration_state", AuthManager.currentState.value.javaClass.simpleName)
+                    put("screen", AgentScreenState.toJson())
+                })
+            },
+            onFailure = {
+                err(it.message ?: "verify otp failed", AgentScreenState.toJson())
+            }
+        )
+    }
+
+    override suspend fun completeAppLock(pin: String?): JsonObject = withContext(Dispatchers.Main) {
+        if (pin != null && (pin.length != 6 || pin.any { !it.isDigit() })) {
+            return@withContext err("PIN must be exactly 6 digits")
+        }
+        if (AgentScreenState.completeAppLock(pin)) {
+            ok(buildJsonObject {
+                put("pin_set", pin != null)
+                put("screen", AgentScreenState.toJson())
+            })
+        } else {
+            err("App lock screen not active", AgentScreenState.toJson())
+        }
+    }
+
+    override suspend fun acceptTerms(): JsonObject = performUiAction("accept_terms")
+
+    override suspend fun skipPermissions(): JsonObject = performUiAction("not_now")
+
+    override suspend fun skipPin(): JsonObject = withContext(Dispatchers.Main) {
+        if (AgentScreenState.runAction("skip_pin")) {
+            ok(buildJsonObject { put("action", "skip_pin"); put("screen", AgentScreenState.toJson()) })
+        } else {
+            AuthManager.completeRegistration()
+            ok(buildJsonObject { put("action", "skip_pin"); put("via", "auth_manager") })
+        }
+    }
+
+    override suspend fun skipAppLock(): JsonObject = performUiAction("skip_applock")
+
+    override suspend fun runRegistrationFlow(
+        identifier: String,
+        otp: String,
+        username: String,
+        displayName: String,
+        about: String?
+    ): JsonObject {
+        performUiAction("skip_to_phone").let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        kotlinx.coroutines.delay(800)
+        submitPhone(identifier).let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        kotlinx.coroutines.delay(1500)
+        submitOtp(otp).let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        kotlinx.coroutines.delay(500)
+        registerKeys().let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        setProfile(username, displayName, about).let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        kotlinx.coroutines.delay(1000)
+        skipPin().let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        kotlinx.coroutines.delay(800)
+        completeAppLock("123456").let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        kotlinx.coroutines.delay(1000)
+        connectWebSocket()
+        return ok(buildJsonObject {
+            put("registered", true)
+            put("user_id", SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: "")
+        })
+    }
+
+    override suspend fun navigate(body: JsonObject): JsonObject {
+        val target = body["target"]?.jsonPrimitive?.content
+            ?: body["route"]?.jsonPrimitive?.content
+            ?: return err("Missing target or route")
+
+        return when (target.lowercase()) {
+            "main", "home" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.ShowMainApp)
+                ok(buildJsonObject { put("navigated", "main") })
+            }
+            "auth", "login" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.ShowAuthFlow)
+                ok(buildJsonObject { put("navigated", "auth") })
+            }
+            "accept_terms", "agree" -> performUiAction("accept_terms")
+            "skip_to_phone" -> performUiAction("skip_to_phone")
+            "skip_permissions", "permissions", "not_now" -> performUiAction("not_now")
+            "grant_permissions", "grant" -> performUiAction("grant_permissions")
+            "skip_pin" -> skipPin()
+            "skip_applock", "skip_app_lock" -> performUiAction("skip_applock")
+            "chats", "calls", "stories", "archive" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainTab(target.uppercase()))
+                ok(buildJsonObject { put("tab", target) })
+            }
+            "conversation", "chat" -> {
+                val id = body["conversation_id"]?.jsonPrimitive?.content
+                    ?: body["user_id"]?.jsonPrimitive?.content
+                    ?: return err("Missing conversation_id or user_id")
+                AgentNavigationHooks.emit(
+                    AgentNavCommand.OpenMainDetail("conversation", buildJsonObject { put("conversation_id", id) })
+                )
+                ok(buildJsonObject { put("conversation_id", id) })
+            }
+            "settings" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("settings"))
+                ok(buildJsonObject { put("detail", "settings") })
+            }
+            "contacts" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("contacts"))
+                ok(buildJsonObject { put("detail", "contacts") })
+            }
+            "security_settings" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("security_settings"))
+                ok()
+            }
+            "groups", "create_group" -> {
+                AgentNavigationHooks.emit(
+                    AgentNavCommand.OpenMainDetail(if (target == "create_group") "create_group" else "groups")
+                )
+                ok(buildJsonObject { put("detail", target) })
+            }
+            "group" -> {
+                val groupId = body["group_id"]?.jsonPrimitive?.content ?: return err("Missing group_id")
+                AgentNavigationHooks.emit(
+                    AgentNavCommand.OpenMainDetail("group_info", buildJsonObject { put("group_id", groupId) })
+                )
+                ok(buildJsonObject { put("group_id", groupId) })
+            }
+            "status", "stories", "status_feed" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainTab("STORIES"))
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("status_feed"))
+                ok(buildJsonObject { put("detail", "status_feed") })
+            }
+            "status_create" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainTab("STORIES"))
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("status_create"))
+                ok()
+            }
+            "stickers" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("stickers"))
+                ok()
+            }
+            "backup", "backup_settings" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("backup_settings"))
+                ok()
+            }
+            "calls" -> {
+                AgentNavigationHooks.emit(AgentNavCommand.OpenMainTab("CALLS"))
+                ok(buildJsonObject { put("tab", "calls") })
+            }
+            "profile" -> {
+                val userId = body["user_id"]?.jsonPrimitive?.content
+                    ?: SecurePreferences.getString(AuthConstants.USER_ID_KEY)
+                    ?: return err("Missing user_id")
+                AgentNavigationHooks.emit(
+                    AgentNavCommand.OpenMainDetail("profile", buildJsonObject { put("user_id", userId) })
+                )
+                ok(buildJsonObject { put("user_id", userId) })
+            }
+            else -> err("Unknown nav target: $target")
+        }
+    }
+
+    override suspend fun listConversations(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val list = DI.conversationRepository.getConversations().first()
+        return ok(buildJsonObject {
+            put("conversations", buildJsonArray {
+                list.forEach { c ->
+                    add(buildJsonObject {
+                        put("conversation_id", c.id)
+                        put("type", c.type.name)
+                        put("unread_count", c.unreadCount)
+                        put("last_message", c.lastMessage ?: "")
+                    })
+                }
+            })
+        })
+    }
+
+    override suspend fun openConversation(conversationId: String): JsonObject {
+        AgentNavigationHooks.emit(
+            AgentNavCommand.OpenMainDetail("conversation", buildJsonObject { put("conversation_id", conversationId) })
+        )
+        AgentNavigationHooks.emit(AgentNavCommand.OpenMainTab("CHATS"))
+        return ok(buildJsonObject { put("conversation_id", conversationId) })
+    }
+
+    override suspend fun listMessages(conversationId: String, limit: Int): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val messages = DI.conversationRepository.getMessages(conversationId, limit).first()
+        return ok(buildJsonObject {
+            put("messages", buildJsonArray {
+                messages.forEach { m ->
+                    add(buildJsonObject {
+                        put("envelope_id", m.envelopeId ?: "")
+                        put("sender_id", m.senderId)
+                        put("content", m.content ?: "")
+                        put("status", m.status.name)
+                        put("timestamp", m.timestamp)
+                    })
+                }
+            })
+        })
+    }
+
+    override suspend fun sendMessage(recipientUserId: String, text: String, sealed: Boolean): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val conversationId = recipientUserId
+        val result = MessageSendPipeline.sendMessage(
+            conversationId = conversationId,
+            recipientUserId = recipientUserId,
+            plaintext = text.encodeToByteArray(),
+            useSealedSender = sealed
+        )
+        return when (result) {
+            is SendResult.Success -> {
+                AgentEventLog.emit("message_sent", data = buildJsonObject {
+                    put("recipient", recipientUserId)
+                    put("envelope_id", result.envelopeId)
+                    put("sealed", sealed)
+                })
+                ok(buildJsonObject { put("envelope_id", result.envelopeId) })
+            }
+            is SendResult.Queued -> {
+                AgentEventLog.emit("message_queued", data = buildJsonObject {
+                    put("recipient", recipientUserId)
+                    put("message_id", result.messageId)
+                })
+                ok(buildJsonObject { put("queued", true); put("message_id", result.messageId) })
+            }
+            is SendResult.Failed -> {
+                AgentEventLog.emit("message_failed", ok = false, data = buildJsonObject {
+                    put("recipient", recipientUserId)
+                    put("error", result.error.name)
+                })
+                err(result.error.name)
+            }
+        }
+    }
+
+    override suspend fun listContacts(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = ContactsRepository(DI.apiClient, DI.databasePool)
+        val contacts = repo.getContacts()
+        return ok(buildJsonObject {
+            put("contacts", buildJsonArray {
+                contacts.forEach { c ->
+                    add(buildJsonObject {
+                        put("user_id", c.userId)
+                        put("username", c.username ?: "")
+                        put("display_name", c.displayName ?: "")
+                    })
+                }
+            })
+        })
+    }
+
+    override suspend fun addContact(userId: String, customName: String?): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = ContactsRepository(DI.apiClient, DI.databasePool)
+        return when (val r = repo.addContact(userId, customName)) {
+            is ContactResult.Added -> ok(buildJsonObject { put("added", r.added) })
+            is ContactResult.Failed -> err(r.error)
+            else -> err("unexpected result")
+        }
+    }
+
+    override suspend fun removeContact(userId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = ContactsRepository(DI.apiClient, DI.databasePool)
+        return when (val r = repo.removeContact(userId)) {
+            is ContactResult.Removed -> ok(buildJsonObject { put("removed", r.removed) })
+            is ContactResult.Failed -> err(r.error)
+            else -> err("unexpected result")
+        }
+    }
+
+    override suspend fun listBlockedUsers(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = ContactsRepository(DI.apiClient, DI.databasePool)
+        val blocked = repo.getBlockedUsers()
+        return ok(buildJsonObject {
+            put("blocked", buildJsonArray {
+                blocked.forEach { c ->
+                    add(buildJsonObject {
+                        put("user_id", c.userId)
+                        put("username", c.username ?: "")
+                    })
+                }
+            })
+        })
+    }
+
+    override suspend fun getNetworkStatus(): JsonObject = ok(buildJsonObject {
+        put("online", ConnectivityMonitor.isOnline.value)
+        put("websocket", WebSocketManager.connectionState.value.name)
+    })
+
+    override suspend fun connectWebSocket(): JsonObject {
+        WebSocketManager.connect()
+        AgentEventLog.emit("ws_connect_requested")
+        return ok(buildJsonObject { put("websocket", WebSocketManager.connectionState.value.name) })
+    }
+
+    override suspend fun disconnectWebSocket(): JsonObject {
+        WebSocketManager.disconnect()
+        AgentEventLog.emit("ws_disconnect")
+        return ok()
+    }
+
+    /**
+     * Debug-only: run the exact JNI sequence used by key registration step by
+     * step, returning each result so a crash can be pinned to one call.
+     */
+    override suspend fun testJniSequence(): JsonObject {
+        val steps = mutableListOf<kotlinx.serialization.json.JsonObject>()
+        try {
+            android.util.Log.e("JNITEST", "step: identity")
+            val ik = org.enchant.core.crypto.CryptoPrimitives.generateX25519KeyPair()
+            steps.add(buildJsonObject { put("step", "identity"); put("ok", true) })
+
+            android.util.Log.e("JNITEST", "step: batch")
+            val batch = ByteArray(100 * 68)
+            val batchLen = longArrayOf(batch.size.toLong())
+            val rc2 = org.enchant.core.crypto.EnchantCrypto.enchant_prekey_generate_batch(100, 1, batch, batchLen)
+            steps.add(buildJsonObject { put("step", "generate_batch"); put("rc", rc2); put("len", batchLen[0]) })
+            if (rc2 != 0) return ok(buildJsonObject { put("steps", buildJsonArray { steps.forEach { add(it) } }) })
+
+            android.util.Log.e("JNITEST", "step: secure_zero")
+            org.enchant.core.crypto.EnchantCrypto.enchant_secure_zero(batch, batch.size.toLong())
+            steps.add(buildJsonObject { put("step", "secure_zero"); put("ok", true) })
+
+            android.util.Log.e("JNITEST", "step: generate_signed")
+            val spkPub = ByteArray(32); val spkPriv = ByteArray(32); val spkSig = ByteArray(64)
+            val sigLen = longArrayOf(64)
+            val rc1 = org.enchant.core.crypto.EnchantCrypto.enchant_prekey_generate_signed(
+                1, ik.privateKey, spkPub, spkPriv, spkSig, sigLen
+            )
+            steps.add(buildJsonObject { put("step", "generate_signed"); put("rc", rc1) })
+            android.util.Log.e("JNITEST", "step: done")
+        } catch (e: Throwable) {
+            android.util.Log.e("JNITEST", "step: EXCEPTION " + e)
+            steps.add(buildJsonObject { put("step", "EXCEPTION"); put("error", e.toString()) })
+        }
+        return ok(buildJsonObject { put("steps", buildJsonArray { steps.forEach { add(it) } }) })
+    }
+
+    override suspend fun getCryptoStatus(): JsonObject {
+        val hasKeys = KeyManager.hasKeys()
+        val pub = KeyManager.getIdentityPublicKeyBase64()
+        val preKeyStore = if (DI.isInitialized) DI.preKeyStore else null
+        val veil = runCatching { org.enchant.core.crypto.VeilSession.get() }.getOrNull()
+        val nativeOpks = buildJsonArray {
+            if (preKeyStore != null) {
+                preKeyStore.getAllOneTimePreKeyIds().sorted().forEach { id ->
+                    val nativePriv = veil?.getNativeOneTimePrekeyPrivate(id)
+                    add(buildJsonObject {
+                        put("id", id)
+                        put("kotlin_fp", preKeyStore.getOneTimePreKey(id)?.let {
+                            org.enchant.core.crypto.CryptoPrimitives.sha256(it.privateKey)
+                                .take(8).joinToString("") { "%02x".format(it) }
+                        } ?: "")
+                        put("native_fp", nativePriv?.let {
+                            org.enchant.core.crypto.CryptoPrimitives.sha256(it)
+                                .take(8).joinToString("") { "%02x".format(it) }
+                        } ?: "MISSING")
+                    })
+                }
+            }
+        }
+        val nativeSpkFp = veil?.let { v ->
+            preKeyStore?.getCurrentSignedPreKey()?.let { spk ->
+                v.getNativeSignedPrekeyPrivate(spk.id)?.let {
+                    org.enchant.core.crypto.CryptoPrimitives.sha256(it)
+                        .take(8).joinToString("") { "%02x".format(it) }
+                }
+            }
+        } ?: ""
+        val nativeIdentity = runCatching {
+            org.enchant.core.crypto.VeilSession.get().getLocalIdentityPublicKey()
+                ?.let { CryptoHelper.base64UrlEncode(it) }
+        }.getOrNull()
+        val peerBundle = runCatching {
+            KeyManager.fetchKeyBundle("793dbb3b-5008-4eea-80f8-5b57c8fb00bb")
+        }.getOrNull()
+        return ok(buildJsonObject {
+            put("has_identity_key", hasKeys)
+            put("identity_public_b64", pub ?: "")
+            put("native_identity_public_b64", nativeIdentity ?: "")
+            put("native_signed_prekey_fp", nativeSpkFp)
+            put("native_one_time_prekeys", nativeOpks)
+            if (peerBundle != null) {
+                put("fetched_bundle", buildJsonObject {
+                    put("device_id", peerBundle.deviceId)
+                    put("ik_pub", CryptoHelper.base64UrlEncode(peerBundle.identityKey))
+                    put("spk_id", peerBundle.signedPrekeyId)
+                    put("spk_pub", CryptoHelper.base64UrlEncode(peerBundle.signedPrekey.publicKey))
+                    peerBundle.oneTimePrekey?.let { put("opk_pub", CryptoHelper.base64UrlEncode(it)) }
+                    put("opk_id", peerBundle.oneTimePrekeyId)
+                })
+            }
+            KeyManager.getIdentityKeyPair()?.let { ik ->
+                put("identity_private_fp", org.enchant.core.crypto.CryptoPrimitives.sha256(ik.privateKey)
+                    .take(8).joinToString("") { "%02x".format(it) })
+            }
+            if (preKeyStore != null) {
+                preKeyStore.getCurrentSignedPreKey()?.let { record ->
+                    put("signed_prekey", buildJsonObject {
+                        put("id", record.id)
+                        put("public_key", CryptoHelper.base64UrlEncode(record.publicKey))
+                        put("private_fp", org.enchant.core.crypto.CryptoPrimitives.sha256(record.privateKey)
+                            .take(8).joinToString("") { "%02x".format(it) })
+                    })
+                }
+                put("one_time_prekeys", buildJsonArray {
+                    preKeyStore.getAllOneTimePreKeyIds().sorted().forEach { id ->
+                        preKeyStore.getOneTimePreKey(id)?.let { record ->
+                            add(buildJsonObject {
+                                put("id", id)
+                                put("public_key", CryptoHelper.base64UrlEncode(record.publicKey))
+                                put("private_fp", org.enchant.core.crypto.CryptoPrimitives.sha256(record.privateKey)
+                                    .take(8).joinToString("") { "%02x".format(it) })
+                            })
+                        }
+                    }
+                })
+            }
+        })
+    }
+
+    override suspend fun sendMediaMessage(
+        recipientUserId: String,
+        conversationId: String,
+        filePath: String,
+        mimeType: String,
+        fileName: String?,
+        isViewOnce: Boolean
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val ctx = AppConfig.applicationContext ?: return err("App context not available")
+        val file = File(filePath)
+        if (!file.exists()) return err("File not found: $filePath")
+        val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+        val name = fileName ?: file.name
+        val result = MessageSendPipeline.sendFileMessage(
+            conversationId = conversationId,
+            recipientUserId = recipientUserId,
+            fileUri = uri,
+            fileName = name,
+            mimeType = mimeType,
+            isViewOnce = isViewOnce
+        )
+        return sendResultToJson(result, recipientUserId, "media")
+    }
+
+    override suspend fun sendReaction(
+        conversationId: String,
+        emoji: String,
+        envelopeId: String?,
+        messageLocalId: Long?
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val messageId = envelopeId ?: messageLocalId?.let { localId ->
+            DI.conversationRepository.getMessageByLocalId(localId)?.envelopeId
+        } ?: return err("Provide envelope_id or message_local_id")
+        return MessageSendPipeline.sendReaction(messageId, emoji, conversationId).fold(
+            onSuccess = {
+                AgentEventLog.emit("reaction_sent", data = buildJsonObject {
+                    put("conversation_id", conversationId)
+                    put("emoji", emoji)
+                    put("envelope_id", messageId)
+                })
+                ok(buildJsonObject { put("envelope_id", messageId) })
+            },
+            onFailure = { err(it.message ?: "reaction failed") }
+        )
+    }
+
+    override suspend fun sendSticker(
+        recipientUserId: String,
+        conversationId: String,
+        packId: String,
+        stickerId: String
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        DI.apiClient.post("/v1/stickers/recent/$stickerId", buildJsonObject { put("pack_id", packId) })
+        val stickerPayload = "STICKER_JSON:$packId:$stickerId"
+        val result = MessageSendPipeline.sendMessage(
+            conversationId = conversationId,
+            recipientUserId = recipientUserId,
+            plaintext = stickerPayload.encodeToByteArray(),
+            useSealedSender = false
+        )
+        return sendResultToJson(result, recipientUserId, "sticker")
+    }
+
+    override suspend fun listGroups(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        val groups = repo.getGroups()
+        return ok(buildJsonObject {
+            put("groups", buildJsonArray {
+                groups.forEach { g ->
+                    add(buildJsonObject {
+                        put("group_id", g.groupId)
+                        put("name", g.name)
+                        put("role", g.myRole.value)
+                        put("member_count", g.memberCount)
+                    })
+                }
+            })
+        })
+    }
+
+    override suspend fun createGroup(
+        name: String,
+        description: String?,
+        initialMemberIds: List<String>?,
+        addMembersPolicy: String,
+        joinType: String
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        return groupResultToJson(repo.createGroup(name, description, initialMemberIds, addMembersPolicy, joinType))
+    }
+
+    override suspend fun addGroupMembers(groupId: String, userIds: List<String>): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        return groupResultToJson(repo.addMembers(groupId, userIds))
+    }
+
+    override suspend fun joinGroupViaLink(linkCode: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        return groupResultToJson(repo.joinViaLink(linkCode))
+    }
+
+    override suspend fun startCall(remoteUserId: String, isVideo: Boolean): JsonObject {
+        CallManager.startOutgoingCall(remoteUserId, isVideo)
+        AgentEventLog.emit("call_started", data = buildJsonObject {
+            put("remote_user_id", remoteUserId)
+            put("video", isVideo)
+        })
+        return ok(buildJsonObject {
+            put("remote_user_id", remoteUserId)
+            put("video", isVideo)
+            put("call_state", CallManager.callState.value.status.name)
+        })
+    }
+
+    override suspend fun listCallLog(limit: Int): JsonObject {
+        val logs = CallManager.getCallLogs(limit)
+        return ok(buildJsonObject {
+            put("calls", buildJsonArray {
+                logs.forEach { entry ->
+                    add(buildJsonObject {
+                        put("call_id", entry.callId)
+                        put("remote_user_id", entry.remoteUserId)
+                        put("remote_name", entry.remoteName ?: "")
+                        put("type", entry.type.name)
+                        put("direction", entry.direction.name)
+                        put("status", entry.status.name)
+                        put("duration_seconds", entry.durationSeconds)
+                        put("timestamp", entry.timestamp)
+                    })
+                }
+            })
+        })
+    }
+
+    override suspend fun listStatusFeed(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.get("/v1/status/feed").fold(
+            onSuccess = { json ->
+                ok(buildJsonObject {
+                    json["feed"]?.let { put("feed", it) }
+                    json["my_status"]?.let { put("my_status", it) }
+                })
+            },
+            onFailure = { err(it.message ?: "status feed failed") }
+        )
+    }
+
+    override suspend fun createTextStatus(
+        text: String,
+        backgroundColor: String,
+        privacy: String,
+        selectedContacts: List<String>?
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        if (text.length > 700) return err("Status text exceeds 700 characters")
+        val privacyObj = parseStatusPrivacy(privacy, selectedContacts)
+        val body = buildJsonObject {
+            put("type", "text")
+            put("text", text)
+            put("background_color", backgroundColor)
+            put("privacy", statusPrivacyToStr(privacyObj))
+            if (privacyObj is StatusPrivacy.Selected && selectedContacts != null) {
+                put("selected_contacts", JsonArray(selectedContacts.map { JsonPrimitive(it) }))
+            }
+        }
+        return DI.apiClient.post("/v1/status", body).fold(
+            onSuccess = {
+                AgentEventLog.emit("status_created", data = buildJsonObject { put("type", "text") })
+                ok(buildJsonObject { put("type", "text") })
+            },
+            onFailure = { err(it.message ?: "create status failed") }
+        )
+    }
+
+    override suspend fun createMediaStatus(
+        mediaId: String,
+        privacy: String,
+        selectedContacts: List<String>?
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val privacyObj = parseStatusPrivacy(privacy, selectedContacts)
+        val body = buildJsonObject {
+            put("type", "media")
+            put("media_id", mediaId)
+            put("privacy", statusPrivacyToStr(privacyObj))
+            if (privacyObj is StatusPrivacy.Selected && selectedContacts != null) {
+                put("selected_contacts", JsonArray(selectedContacts.map { JsonPrimitive(it) }))
+            }
+        }
+        return DI.apiClient.post("/v1/status", body).fold(
+            onSuccess = {
+                AgentEventLog.emit("status_created", data = buildJsonObject { put("type", "media") })
+                ok(buildJsonObject { put("type", "media"); put("media_id", mediaId) })
+            },
+            onFailure = { err(it.message ?: "create status failed") }
+        )
+    }
+
+    override suspend fun viewStatus(statusId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.post("/v1/status/$statusId/view").fold(
+            onSuccess = { ok(buildJsonObject { put("status_id", statusId) }) },
+            onFailure = { err(it.message ?: "view status failed") }
+        )
+    }
+
+    override suspend fun listStickerLibrary(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.get("/v1/stickers/library").fold(
+            onSuccess = { json -> ok(buildJsonObject { json["packs"]?.let { put("packs", it) } }) },
+            onFailure = { err(it.message ?: "sticker library failed") }
+        )
+    }
+
+    override suspend fun listFeaturedStickers(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.get("/v1/stickers/packs/featured").fold(
+            onSuccess = { json -> ok(buildJsonObject { json["packs"]?.let { put("packs", it) } }) },
+            onFailure = { err(it.message ?: "featured stickers failed") }
+        )
+    }
+
+    override suspend fun installStickerPack(packId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.post("/v1/stickers/library/$packId").fold(
+            onSuccess = { ok(buildJsonObject { put("pack_id", packId); put("installed", true) }) },
+            onFailure = { err(it.message ?: "install sticker pack failed") }
+        )
+    }
+
+    override suspend fun backupCloudInitiate(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.post("/v1/backup", buildJsonObject { put("action", "initiate") }).fold(
+            onSuccess = { json ->
+                ok(buildJsonObject {
+                    put("backup_id", json["backup_id"]?.jsonPrimitive?.content ?: "")
+                })
+            },
+            onFailure = { err(it.message ?: "backup initiate failed") }
+        )
+    }
+
+    override suspend fun backupCloudLatest(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.get("/v1/backup/latest").fold(
+            onSuccess = { json ->
+                ok(buildJsonObject {
+                    put("backup_id", json["backup_id"]?.jsonPrimitive?.content ?: "")
+                    put("size_bytes", json["size_bytes"]?.jsonPrimitive?.content ?: "0")
+                    put("section_count", json["section_count"]?.jsonPrimitive?.content ?: "0")
+                    put("created_at", json["created_at"]?.jsonPrimitive?.content ?: "")
+                    put("sections", json["sections"]?.jsonArray ?: buildJsonArray {})
+                })
+            },
+            onFailure = { err(it.message ?: "backup latest failed") }
+        )
+    }
+
+    override suspend fun backupCloudRestore(backupId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.post("/v1/backup/$backupId/restore").fold(
+            onSuccess = { ok(buildJsonObject { put("backup_id", backupId); put("restored", true) }) },
+            onFailure = { err(it.message ?: "backup restore failed") }
+        )
+    }
+
+    override suspend fun backupLocalExport(outputPath: String, backupKeyB64: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val ctx = AppConfig.applicationContext ?: return err("App context not available")
+        return try {
+            val keyBytes = CryptoHelper.base64UrlDecode(backupKeyB64)
+            BackupExporter(DI.databasePool, ctx).exportFullBackup(outputPath, keyBytes).fold(
+                onSuccess = {
+                    AgentEventLog.emit("backup_local_export", data = buildJsonObject { put("path", outputPath) })
+                    ok(buildJsonObject { put("output_path", outputPath) })
+                },
+                onFailure = { err(it.message ?: "local export failed") }
+            )
+        } catch (e: Exception) {
+            err(e.message ?: "invalid backup_key_b64")
+        }
+    }
+
+    override suspend fun backupLocalImport(
+        inputPath: String,
+        backupKeyB64: String,
+        sections: List<String>
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val parsed = sections.mapNotNull { name ->
+            runCatching { BackupSection.valueOf(name.uppercase()) }.getOrNull()
+        }.toSet()
+        if (parsed.isEmpty()) return err("No valid sections (CHATS, CONTACTS, GROUPS, CALLS, SETTINGS)")
+        return try {
+            val keyBytes = CryptoHelper.base64UrlDecode(backupKeyB64)
+            BackupExporter(DI.databasePool, AppConfig.applicationContext!!).importFullBackup(
+                inputPath, keyBytes, parsed
+            ).fold(
+                onSuccess = {
+                    AgentEventLog.emit("backup_local_import", data = buildJsonObject { put("path", inputPath) })
+                    ok(buildJsonObject { put("input_path", inputPath); put("sections", sections.joinToString(",")) })
+                },
+                onFailure = { err(it.message ?: "local import failed") }
+            )
+        } catch (e: Exception) {
+            err(e.message ?: "invalid backup_key_b64")
+        }
+    }
+
+    override suspend fun appLockSetPin(pin: String): JsonObject {
+        if (pin.length != 6 || pin.any { !it.isDigit() }) {
+            return err("PIN must be exactly 6 digits")
+        }
+        return try {
+            val hash = hashPinArgon2(pin)
+            SecurePreferences.putString("applock.pin_hash", hash)
+            SecurePreferences.putBoolean("applock.enabled", true)
+            AgentEventLog.emit("applock_set")
+            ok(buildJsonObject { put("enabled", true) })
+        } catch (e: Exception) {
+            err(e.message ?: "set PIN failed")
+        }
+    }
+
+    override suspend fun appLockVerifyPin(pin: String): JsonObject {
+        val storedHash = SecurePreferences.getString("applock.pin_hash")
+            ?: return err("App lock PIN not set")
+        val valid = verifyPinArgon2(pin, storedHash)
+        AgentEventLog.emit("applock_verify", ok = valid)
+        return if (valid) ok(buildJsonObject { put("verified", true) })
+        else err("Invalid PIN")
+    }
+
+    override suspend fun appLockDisable(): JsonObject {
+        SecurePreferences.putBoolean("applock.enabled", false)
+        SecurePreferences.remove("applock.pin_hash")
+        SecurePreferences.putBoolean("applock.biometric", false)
+        AgentEventLog.emit("applock_disabled")
+        return ok(buildJsonObject { put("enabled", false) })
+    }
+
+    private fun sendResultToJson(result: SendResult, recipient: String, kind: String): JsonObject = when (result) {
+        is SendResult.Success -> {
+            AgentEventLog.emit("${kind}_sent", data = buildJsonObject {
+                put("recipient", recipient)
+                put("envelope_id", result.envelopeId)
+            })
+            ok(buildJsonObject { put("envelope_id", result.envelopeId) })
+        }
+        is SendResult.Queued -> {
+            AgentEventLog.emit("${kind}_queued", data = buildJsonObject {
+                put("recipient", recipient)
+                put("message_id", result.messageId)
+            })
+            ok(buildJsonObject { put("queued", true); put("message_id", result.messageId) })
+        }
+        is SendResult.Failed -> err(result.error.name)
+    }
+
+    private fun groupResultToJson(result: GroupResult): JsonObject = when (result) {
+        is GroupResult.Success -> ok(buildJsonObject {
+            put("group_id", result.groupId)
+            put("name", result.name)
+            put("member_count", result.memberCount)
+            put("role", result.role.value)
+        })
+        is GroupResult.MemberAdded -> ok(buildJsonObject { put("added", result.added) })
+        is GroupResult.Joined -> ok(buildJsonObject {
+            put("group_id", result.groupId)
+            put("name", result.name)
+        })
+        is GroupResult.Failed -> err(result.error)
+        else -> ok(buildJsonObject { put("result", result.javaClass.simpleName) })
+    }
+
+    private fun parseStatusPrivacy(privacy: String, selectedContacts: List<String>?): StatusPrivacy =
+        when (privacy.uppercase()) {
+            "SELECTED" -> StatusPrivacy.Selected(selectedContacts ?: emptyList())
+            "CLOSE_FRIENDS" -> StatusPrivacy.CloseFriends
+            else -> StatusPrivacy.AllContacts
+        }
+
+    private fun statusPrivacyToStr(privacy: StatusPrivacy): String = when (privacy) {
+        StatusPrivacy.AllContacts -> "ALL_CONTACTS"
+        is StatusPrivacy.Selected -> "SELECTED"
+        StatusPrivacy.CloseFriends -> "CLOSE_FRIENDS"
+    }
+}

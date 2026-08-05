@@ -324,35 +324,53 @@ class KeyManagerTest {
             KeyManager.init()
             assertNull(KeyManager.fetchKeyBundle("user"))
         }
+
+        @Test @DisplayName("clearIdentityKey clears in-memory identity key")
+        fun `clear identity key clears memory`() = runTest {
+            KeyManager.init()
+            KeyManager.setTestIdentityKeyPair(CryptoPrimitives.generateEd25519KeyPair())
+            assertTrue(KeyManager.hasKeys())
+            KeyManager.clearIdentityKey()
+            assertFalse(KeyManager.hasKeys())
+        }
     }
 
     @Nested @DisplayName("API Client Integration")
     inner class ApiClientTest {
         @Test @DisplayName("fetchKeyBundle parses server response")
         fun `fetch bundle from api`() = runTest {
-            val ikPair = CryptoPrimitives.generateEd25519KeyPair()
-            val spkPair = CryptoPrimitives.generateX25519KeyPair()
-            val sig = CryptoPrimitives.signEd25519(spkPair.publicKey, ikPair.privateKey)
+             val ikPair = CryptoPrimitives.generateEd25519KeyPair()
+             val spkPair = CryptoPrimitives.generateX25519KeyPair()
+             val sig = CryptoPrimitives.signEd25519(spkPair.publicKey, ikPair.privateKey)
+             val opkPair = CryptoPrimitives.generateX25519KeyPair()
 
-            val responseJson = kotlinx.serialization.json.buildJsonObject {
+             val responseJson = kotlinx.serialization.json.buildJsonObject {
                 put("devices", kotlinx.serialization.json.buildJsonArray {
                     add(kotlinx.serialization.json.buildJsonObject {
                         put("device_id", kotlinx.serialization.json.JsonPrimitive("device-1"))
-                        put("identity_key", kotlinx.serialization.json.JsonPrimitive(CryptoPrimitives.base64UrlEncode(ikPair.publicKey)))
-                        put("signed_prekey", kotlinx.serialization.json.buildJsonObject {
-                            put("public_key", kotlinx.serialization.json.JsonPrimitive(CryptoPrimitives.base64UrlEncode(spkPair.publicKey)))
-                            put("signature", kotlinx.serialization.json.JsonPrimitive(CryptoPrimitives.base64UrlEncode(sig)))
-                        })
-                    })
-                })
+                         put("identity_key", kotlinx.serialization.json.JsonPrimitive(CryptoPrimitives.base64UrlEncode(ikPair.publicKey)))
+                         put("signed_prekey", kotlinx.serialization.json.buildJsonObject {
+                             put("key_id", kotlinx.serialization.json.JsonPrimitive(7))
+                             put("public_key", kotlinx.serialization.json.JsonPrimitive(CryptoPrimitives.base64UrlEncode(spkPair.publicKey)))
+                             put("signature", kotlinx.serialization.json.JsonPrimitive(CryptoPrimitives.base64UrlEncode(sig)))
+                         })
+                         put("one_time_prekey", kotlinx.serialization.json.buildJsonObject {
+                             put("key_id", kotlinx.serialization.json.JsonPrimitive(23))
+                             put("public_key", kotlinx.serialization.json.JsonPrimitive(CryptoPrimitives.base64UrlEncode(opkPair.publicKey)))
+                         })
+                     })
+                 })
             }
             coEvery { mockClient.get("/v1/keys/bundle/user1") } returns Result.success(responseJson)
 
             KeyManager.init(client = mockClient)
-            val bundle = KeyManager.fetchKeyBundle("user1")
-            assertNotNull(bundle)
-            assertEquals("device-1", bundle!!.deviceId)
-        }
+             val bundle = KeyManager.fetchKeyBundle("user1")
+             assertNotNull(bundle)
+             assertEquals("device-1", bundle!!.deviceId)
+             assertEquals(7, bundle.signedPrekeyId)
+             assertEquals(23, bundle.oneTimePrekeyId)
+             assertArrayEquals(opkPair.publicKey, bundle.oneTimePrekey)
+         }
 
         @Test @DisplayName("fetchKeyBundle returns null on API failure")
         fun `fetch bundle api fail`() = runTest {

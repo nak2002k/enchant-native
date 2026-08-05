@@ -72,17 +72,18 @@ object SealedSender {
         require(senderIdentityPublic.size == 32) { "Sender public key must be 32 bytes" }
 
         val output = ByteArray(veilV1CiphertextSize(message.size))
+        val outputLen = longArrayOf(output.size.toLong())
         val rc = EnchantCrypto.enchant_veil_encrypt_v1(
             recipientPublicKey,
             senderIdentityPrivate,
             senderIdentityPublic,
             message, message.size.toLong(),
-            output, output.size.toLong()
+            output, outputLen
         )
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_veil_encrypt_v1 failed: $rc")
         }
-        return output
+        return output.copyOf(outputLen[0].toInt())
     }
 
     /**
@@ -103,17 +104,18 @@ object SealedSender {
 
         val plaintext = ByteArray(sealedPayload.size)
         val senderIdentityKeyOut = ByteArray(32)
+        val plaintextLen = longArrayOf(plaintext.size.toLong())
         val rc = EnchantCrypto.enchant_veil_decrypt_v1(
             recipientPrivateKey,
             recipientPublicKey,
             sealedPayload, sealedPayload.size.toLong(),
-            plaintext, plaintext.size.toLong(),
+            plaintext, plaintextLen,
             senderIdentityKeyOut
         )
         if (rc != EnchantCrypto.SUCCESS) {
             return null
         }
-        return Pair(senderIdentityKeyOut, plaintext)
+        return Pair(senderIdentityKeyOut, plaintext.copyOf(plaintextLen[0].toInt()))
     }
 
     /**

@@ -113,6 +113,8 @@ object EnchantCrypto {
     external fun enchant_identity_store_set_trust(store: Long, addressName: String, deviceId: Int, trusted: Int): Int
     external fun enchant_identity_store_store_signed_prekey(store: Long, prekeyId: Int, privateKey: ByteArray, keyLen: Long): Int
     external fun enchant_identity_store_store_one_time_prekey(store: Long, prekeyId: Int, privateKey: ByteArray, keyLen: Long): Int
+    external fun enchant_identity_store_get_one_time_prekey_private(store: Long, prekeyId: Int, privateKeyOut: ByteArray, keyLen: Long): Int
+    external fun enchant_identity_store_get_signed_prekey_private(store: Long, prekeyId: Int, privateKeyOut: ByteArray, keyLen: Long): Int
 
     // --- Session store ---
     external fun enchant_session_store_create(storeOut: LongArray): Int
@@ -122,6 +124,12 @@ object EnchantCrypto {
     // --- Session manager ---
     external fun enchant_session_manager_create(identityStore: Long, sessionStore: Long, managerOut: LongArray): Int
     external fun enchant_session_manager_destroy(manager: Long)
+    /**
+     * Do not call: resolves to the pre-0.3 nine-parameter symbol still exported by
+     * the bundled libenchantcrypto.so, which misreads the argument list and
+     * segfaults. Use [enchant_session_manager_establish_with_ephemeral] with a
+     * null ephemeral until the prebuilt .so is rebuilt from the current sources.
+     */
     external fun enchant_session_manager_establish(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int): Int
     external fun enchant_session_manager_establish_with_ephemeral(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int, ourEphemeralPrivate: ByteArray?, ourEphemeralPrivateLen: Long): Int
     external fun enchant_session_manager_encrypt(manager: Long, addressName: String, deviceId: Int, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: LongArray, messageTypeOut: IntArray): Int
@@ -139,10 +147,10 @@ object EnchantCrypto {
     // ──────────────────────────────────────────────
     // Veil (anonymous sender)
     // ──────────────────────────────────────────────
-    external fun enchant_veil_encrypt_v1(recipientPublicKey: ByteArray, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, plaintext: ByteArray, plaintextLen: Long, output: ByteArray, outputLen: Long): Int
-    external fun enchant_veil_decrypt_v1(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long, senderIdentityKeyOut: ByteArray): Int
-    external fun enchant_veil_encrypt_v2(senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, recipientPublicKeys: ByteArray, numRecipients: Long, usmcData: ByteArray, usmcLen: Long, output: ByteArray, outputLen: Long): Int
-    external fun enchant_veil_decrypt_v2(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long, senderIdentityKeyOut: ByteArray): Int
+    external fun enchant_veil_encrypt_v1(recipientPublicKey: ByteArray, senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, plaintext: ByteArray, plaintextLen: Long, output: ByteArray, outputLen: LongArray): Int
+    external fun enchant_veil_decrypt_v1(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray, senderIdentityKeyOut: ByteArray): Int
+    external fun enchant_veil_encrypt_v2(senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, recipientPublicKeys: ByteArray, numRecipients: Long, usmcData: ByteArray, usmcLen: Long, output: ByteArray, outputLen: LongArray): Int
+    external fun enchant_veil_decrypt_v2(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray, senderIdentityKeyOut: ByteArray): Int
 
     // ──────────────────────────────────────────────
     // Unidentified Sender Message Content (USMC)
@@ -150,19 +158,19 @@ object EnchantCrypto {
     external fun enchant_usmc_create(msgType: Int, senderCertData: ByteArray, senderCertLen: Long, plaintext: ByteArray, plaintextLen: Long, contentHint: Int, groupId: ByteArray, groupIdLen: Long, usmcOut: ByteArray, usmcLen: LongArray): Int
     external fun enchant_usmc_serialize(usmcData: ByteArray, usmcLen: Long, output: ByteArray, outputLen: LongArray): Int
     external fun enchant_usmc_deserialize(data: ByteArray, dataLen: Long, usmcOut: ByteArray, usmcLen: LongArray, msgTypeOut: IntArray): Int
-    external fun enchant_usmc_get_sender_uuid(usmcData: ByteArray, usmcLen: Long, senderUuidOut: ByteArray, senderUuidLen: Long): Int
+    external fun enchant_usmc_get_sender_uuid(usmcData: ByteArray, usmcLen: Long, senderUuidOut: ByteArray, senderUuidLen: LongArray): Int
     external fun enchant_usmc_get_sender_device_id(usmcData: ByteArray, usmcLen: Long, deviceIdOut: IntArray): Int
     external fun enchant_usmc_get_content_hint(usmcData: ByteArray, usmcLen: Long, contentHintOut: IntArray): Int
     external fun enchant_usmc_get_message_type(usmcData: ByteArray, usmcLen: Long, messageTypeOut: IntArray): Int
-    external fun enchant_usmc_get_contents(usmcData: ByteArray, usmcLen: Long, contentsOut: ByteArray, contentsLen: Long): Int
-    external fun enchant_usmc_get_group_id(usmcData: ByteArray, usmcLen: Long, groupIdOut: ByteArray, groupIdLen: Long): Int
+    external fun enchant_usmc_get_contents(usmcData: ByteArray, usmcLen: Long, contentsOut: ByteArray, contentsLen: LongArray): Int
+    external fun enchant_usmc_get_group_id(usmcData: ByteArray, usmcLen: Long, groupIdOut: ByteArray, groupIdLen: LongArray): Int
 
     // ──────────────────────────────────────────────
     // Server / Sender certificates
     // ──────────────────────────────────────────────
-    external fun enchant_server_certificate_create(keyId: Int, publicKey: ByteArray, privateKey: ByteArray, certOut: ByteArray, certLen: Long): Int
+    external fun enchant_server_certificate_create(keyId: Int, publicKey: ByteArray, privateKey: ByteArray, certOut: ByteArray, certLen: LongArray): Int
     external fun enchant_server_certificate_validate(certData: ByteArray, certLen: Long, trustRoot: ByteArray, validOut: IntArray): Int
-    external fun enchant_sender_certificate_create(senderUuid: String, senderE164: ByteArray, senderDeviceId: Int, expiration: Long, identityKey: ByteArray, serverCertData: ByteArray, serverCertLen: Long, serverPrivateKey: ByteArray, certOut: ByteArray, certLen: Long): Int
+    external fun enchant_sender_certificate_create(senderUuid: String, senderE164: ByteArray, senderDeviceId: Int, expiration: Long, identityKey: ByteArray, serverCertData: ByteArray, serverCertLen: Long, serverPrivateKey: ByteArray, certOut: ByteArray, certLen: LongArray): Int
     external fun enchant_sender_certificate_validate(certData: ByteArray, certLen: Long, serverTrustRoot: ByteArray, validationTime: Long, validOut: IntArray): Int
 
     // ──────────────────────────────────────────────
@@ -185,14 +193,14 @@ object EnchantCrypto {
     external fun enchant_agent_identity_create(publicKey: ByteArray, privateKey: ByteArray): Int
     external fun enchant_agent_session_initiate(agentPrivateKey: ByteArray, serverPublicKey: ByteArray, sharedSecret: ByteArray, ephemeralPublic: ByteArray): Int
     external fun enchant_agent_session_respond(serverPrivateKey: ByteArray, agentPublicKey: ByteArray, agentEphemeralPublic: ByteArray, sharedSecret: ByteArray): Int
-    external fun enchant_agent_encrypt(key: ByteArray, keyLen: Long, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: Long): Int
-    external fun enchant_agent_decrypt(key: ByteArray, keyLen: Long, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long): Int
+    external fun enchant_agent_encrypt(key: ByteArray, keyLen: Long, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: LongArray): Int
+    external fun enchant_agent_decrypt(key: ByteArray, keyLen: Long, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray): Int
 
     // ──────────────────────────────────────────────
     // Multi-recipient encryption
     // ──────────────────────────────────────────────
-    external fun enchant_multi_recipient_encrypt(plaintext: ByteArray, plaintextLen: Long, recipientKeys: Long, numRecipients: Long, ciphertext: ByteArray, ciphertextLen: Long): Int
-    external fun enchant_multi_recipient_decrypt(ciphertext: ByteArray, ciphertextLen: Long, privateKey: ByteArray, plaintext: ByteArray, plaintextLen: Long): Int
+    external fun enchant_multi_recipient_encrypt(plaintext: ByteArray, plaintextLen: Long, recipientKeys: Long, numRecipients: Long, ciphertext: ByteArray, ciphertextLen: LongArray): Int
+    external fun enchant_multi_recipient_decrypt(ciphertext: ByteArray, ciphertextLen: Long, privateKey: ByteArray, plaintext: ByteArray, plaintextLen: LongArray): Int
 
     // ──────────────────────────────────────────────
     // Message keys
@@ -203,16 +211,16 @@ object EnchantCrypto {
     // ──────────────────────────────────────────────
     // Profile
     // ──────────────────────────────────────────────
-    external fun enchant_profile_encrypt(profileKey: ByteArray, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: Long): Int
-    external fun enchant_profile_decrypt(profileKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: Long): Int
+    external fun enchant_profile_encrypt(profileKey: ByteArray, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: LongArray): Int
+    external fun enchant_profile_decrypt(profileKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray): Int
 
     // ──────────────────────────────────────────────
     // SVR / Account
     // ──────────────────────────────────────────────
-    external fun enchant_svr_create_backup(pin: ByteArray, pinLen: Long, masterKey: ByteArray, backupOut: ByteArray, backupLen: Long): Int
+    external fun enchant_svr_create_backup(pin: ByteArray, pinLen: Long, masterKey: ByteArray, backupOut: ByteArray, backupLen: LongArray): Int
     external fun enchant_svr_restore_backup(pin: ByteArray, pinLen: Long, backup: ByteArray, backupLen: Long, masterKeyOut: ByteArray): Int
-    external fun enchant_svr_change_pin(oldPin: ByteArray, oldPinLen: Long, newPin: ByteArray, newPinLen: Long, backup: ByteArray, backupLen: Long, newBackupOut: ByteArray, newBackupLen: Long): Int
-    external fun enchant_svr_generate_auth_proof(serverPrivateKey: ByteArray, clientId: ByteArray, clientIdLen: Long, proofOut: ByteArray, nonceOut: ByteArray, timestampOut: Long): Int
+    external fun enchant_svr_change_pin(oldPin: ByteArray, oldPinLen: Long, newPin: ByteArray, newPinLen: Long, backup: ByteArray, backupLen: Long, newBackupOut: ByteArray, newBackupLen: LongArray): Int
+    external fun enchant_svr_generate_auth_proof(serverPrivateKey: ByteArray, clientId: ByteArray, clientIdLen: Long, proofOut: ByteArray, nonceOut: ByteArray, timestampOut: LongArray): Int
     external fun enchant_svr_verify_auth_proof(serverPrivateKey: ByteArray, clientId: ByteArray, clientIdLen: Long, proof: ByteArray, nonce: ByteArray, timestamp: Long): Int
     external fun enchant_account_entropy_create(entropyOut: ByteArray): Int
     external fun enchant_account_entropy_from_passphrase(passphrase: String, passphraseLen: Long, entropyOut: ByteArray): Int
@@ -223,15 +231,15 @@ object EnchantCrypto {
     // ──────────────────────────────────────────────
     // Credentials
     // ──────────────────────────────────────────────
-    external fun enchant_auth_credential_present(credentialData: ByteArray, credentialLen: Long, serverParams: ByteArray, presentationOut: ByteArray, presentationLen: Long): Int
-    external fun enchant_profile_key_credential_present(credentialData: ByteArray, credentialLen: Long, serverParams: ByteArray, presentationOut: ByteArray, presentationLen: Long): Int
-    external fun enchant_group_credential_present(credentialData: ByteArray, credentialLen: Long, serverParams: ByteArray, presentationOut: ByteArray, presentationLen: Long): Int
+    external fun enchant_auth_credential_present(credentialData: ByteArray, credentialLen: Long, serverParams: ByteArray, presentationOut: ByteArray, presentationLen: LongArray): Int
+    external fun enchant_profile_key_credential_present(credentialData: ByteArray, credentialLen: Long, serverParams: ByteArray, presentationOut: ByteArray, presentationLen: LongArray): Int
+    external fun enchant_group_credential_present(credentialData: ByteArray, credentialLen: Long, serverParams: ByteArray, presentationOut: ByteArray, presentationLen: LongArray): Int
 
     // ──────────────────────────────────────────────
     // Key transparency
     // ──────────────────────────────────────────────
     external fun enchant_key_transparency_generate_keypair(publicKey: ByteArray, privateKey: ByteArray): Int
-    external fun enchant_key_transparency_prove(privateKey: ByteArray, commitment: ByteArray, proofOut: ByteArray, proofLen: Long): Int
+    external fun enchant_key_transparency_prove(privateKey: ByteArray, commitment: ByteArray, proofOut: ByteArray, proofLen: LongArray): Int
     external fun enchant_key_transparency_verify(publicKey: ByteArray, commitment: ByteArray, proof: ByteArray, proofLen: Long, validOut: IntArray): Int
     external fun enchant_key_transparency_vrf_prove(privateKey: ByteArray, message: ByteArray, messageLen: Long, proofOut: ByteArray): Int
     external fun enchant_key_transparency_vrf_verify(publicKey: ByteArray, message: ByteArray, messageLen: Long, proof: ByteArray, validOut: IntArray): Int
@@ -249,7 +257,7 @@ object EnchantCrypto {
     external fun enchant_sesame_establish_trust(validator: Long, senderUuid: String, senderIdentityKey: ByteArray, senderDeviceId: Int, trustLevel: Int, currentTimestamp: Long): Int
     external fun enchant_sesame_verify_identity(validator: Long, senderUuid: String, senderIdentityKey: ByteArray, senderDeviceId: Int, currentTimestamp: Long, verifiedOut: IntArray): Int
     external fun enchant_sesame_compute_safety_number(senderIdentityKey: ByteArray, recipientIdentityKey: ByteArray, senderUuid: String, recipientUuid: String, safetyNumberOut: ByteArray): Int
-    external fun enchant_sesame_generate_trust_token(identitySeed: ByteArray, senderIdentityKey: ByteArray, senderUuid: String, expiration: Long, tokenOut: ByteArray, tokenOutLen: Long): Int
+    external fun enchant_sesame_generate_trust_token(identitySeed: ByteArray, senderIdentityKey: ByteArray, senderUuid: String, expiration: Long, tokenOut: ByteArray, tokenOutLen: LongArray): Int
     external fun enchant_sesame_verify_trust_token(identityPublicKey: ByteArray, token: ByteArray, tokenLen: Long, expectedSenderUuid: String, validationTime: Long, validOut: IntArray): Int
     external fun enchant_sesame_add_revoked_server_key(validator: Long, keyId: Int): Int
     external fun enchant_sesame_get_aggregated_trust(validator: Long, senderUuid: String, trustLevelOut: IntArray): Int
@@ -257,22 +265,22 @@ object EnchantCrypto {
     // ──────────────────────────────────────────────
     // Fingerprint (future)
     // ──────────────────────────────────────────────
-    external fun enchant_fingerprint_generate(version: Int, iterations: Int, localName: String, localKey: ByteArray, remoteName: String, remoteKey: ByteArray, displayableOut: ByteArray, scannableLen: LongArray, scannableOut: ByteArray): Int
+    external fun enchant_fingerprint_generate(version: Int, iterations: Int, localName: String, localKey: ByteArray, remoteName: String, remoteKey: ByteArray, displayableOut: ByteArray, displayableOutLen: Long, scannableOut: ByteArray, scannableLen: LongArray): Int
     external fun enchant_fingerprint_compare(scannableA: ByteArray, lenA: Long, scannableB: ByteArray, lenB: Long, matchOut: IntArray): Int
 
     // ──────────────────────────────────────────────
     // Group send endorsement (future)
     // ──────────────────────────────────────────────
     external fun enchant_group_send_endorsement_keygen(privateKey: ByteArray, publicKey: ByteArray): Int
-    external fun enchant_group_send_endorsement_sign(privateKey: ByteArray, groupId: ByteArray, endorsementOut: ByteArray, endorsementLen: Long): Int
+    external fun enchant_group_send_endorsement_sign(privateKey: ByteArray, groupId: ByteArray, endorsementOut: ByteArray, endorsementLen: LongArray): Int
     external fun enchant_group_send_endorsement_verify(publicKey: ByteArray, endorsement: ByteArray, endorsementLen: Long, groupId: ByteArray, validOut: IntArray): Int
 
     // ──────────────────────────────────────────────
     // Call links (future)
     // ──────────────────────────────────────────────
     external fun enchant_call_link_params_generate(secretParams: ByteArray, publicParams: ByteArray): Int
-    external fun enchant_call_link_credential_issue(secretParams: ByteArray, groupId: ByteArray, credentialOut: ByteArray, credentialLen: Long): Int
-    external fun enchant_call_link_credential_present(secretParams: ByteArray, credential: ByteArray, credentialLen: Long, groupId: ByteArray, presentationOut: ByteArray, presentationLen: Long): Int
+    external fun enchant_call_link_credential_issue(secretParams: ByteArray, groupId: ByteArray, credentialOut: ByteArray, credentialLen: LongArray): Int
+    external fun enchant_call_link_credential_present(secretParams: ByteArray, credential: ByteArray, credentialLen: Long, groupId: ByteArray, presentationOut: ByteArray, presentationLen: LongArray): Int
     external fun enchant_call_link_credential_verify(publicParams: ByteArray, groupId: ByteArray, presentation: ByteArray, presentationLen: Long, validOut: IntArray): Int
 
     // ──────────────────────────────────────────────
@@ -282,15 +290,15 @@ object EnchantCrypto {
     external fun enchant_backup_decrypt_frame(masterKey: ByteArray, frame: ByteArray, frameLen: Long, plaintext: ByteArray, plaintextLen: LongArray): Int
     external fun enchant_backup_derive_key(accountKey: ByteArray, backupKey: ByteArray): Int
     external fun enchant_backup_derive_media_key(backupKey: ByteArray, mediaId: String, mediaKey: ByteArray): Int
-    external fun enchant_backup_create_transfer(backupKey: ByteArray, targetPublicKey: ByteArray, packageOut: ByteArray, packageOutLen: Long): Int
+    external fun enchant_backup_create_transfer(backupKey: ByteArray, targetPublicKey: ByteArray, packageOut: ByteArray, packageOutLen: LongArray): Int
     external fun enchant_backup_receive_transfer(packageData: ByteArray, packageLen: Long, devicePrivateKey: ByteArray, backupKey: ByteArray): Int
 
     // ──────────────────────────────────────────────
     // Prekey generation (future)
     // ──────────────────────────────────────────────
     external fun enchant_prekey_generate_batch(count: Int, startId: Int, keysOut: ByteArray, keysLen: LongArray): Int
-    external fun enchant_prekey_generate_signed(prekeyId: Int, identityPrivateKey: ByteArray, signedPrekeyPublic: ByteArray, signedPrekeyPrivate: ByteArray, signature: ByteArray, signatureLen: Long): Int
-    external fun enchant_prekey_generate_kyber_batch(count: Int, startId: Int, kemType: Int, keysOut: ByteArray, keysLen: Long): Int
+    external fun enchant_prekey_generate_signed(prekeyId: Int, identityPrivateKey: ByteArray, signedPrekeyPublic: ByteArray, signedPrekeyPrivate: ByteArray, signature: ByteArray, signatureLen: LongArray): Int
+    external fun enchant_prekey_generate_kyber_batch(count: Int, startId: Int, kemType: Int, keysOut: ByteArray, keysLen: LongArray): Int
 
     // ──────────────────────────────────────────────
     // Alternate identity

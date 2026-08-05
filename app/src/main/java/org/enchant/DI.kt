@@ -39,6 +39,9 @@ import org.enchant.core.network.OfflineQueue
 import org.enchant.core.network.WebSocketManager
 import org.enchant.core.performance.MessageTrimmer
 import org.enchant.core.store.EnchantStore
+import okhttp3.ConnectionSpec
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 object DI {
     private val mutex = Mutex()
@@ -95,7 +98,18 @@ object DI {
                 EnchantStore.init(context)
 
                 val client = ApiClient()
-                client.init()
+                if (BuildConfig.DEBUG && AppConfig.gatewayUrl.startsWith("http://")) {
+                    client.init(
+                        OkHttpClient.Builder()
+                            .connectionSpecs(listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS))
+                            .connectTimeout(30, TimeUnit.SECONDS)
+                            .readTimeout(30, TimeUnit.SECONDS)
+                            .writeTimeout(60, TimeUnit.SECONDS)
+                            .build()
+                    )
+                } else {
+                    client.init()
+                }
                 ApiClient.setInstance(client)
                 _apiClient = client
 
@@ -173,6 +187,7 @@ object DI {
                 NativeSessionManager.init(
                     selfUserId = SecurePreferences.getString("auth.user_id") ?: "self"
                 )
+                KeyManager.syncNativeIdentity()
                 PreKeyWorker.schedule(context)
                 MessageTrimmer.scheduleTrimming(context, EnchantStore.settings.messageTrimLength.takeIf { it > 0 }?.toLong() ?: 365)
 

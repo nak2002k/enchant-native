@@ -44,7 +44,8 @@ class AuthRepository(private val apiClient: ApiClient) {
                     accessToken = accessToken,
                     refreshToken = json["refresh_token"]?.jsonPrimitive?.content ?: "",
                     expiresIn = json["expires_in"]?.jsonPrimitive?.int ?: 900,
-                    deviceId = deviceIdFromJwt
+                    deviceId = deviceIdFromJwt,
+                    phoneSalt = json["phone_salt"]?.jsonPrimitive?.content
                 )
             }
         } catch (e: Exception) {
@@ -78,7 +79,8 @@ class AuthRepository(private val apiClient: ApiClient) {
                 RefreshResponse(
                     accessToken = json["access_token"]?.jsonPrimitive?.content ?: "",
                     refreshToken = json["refresh_token"]?.jsonPrimitive?.content ?: "",
-                    expiresIn = json["expires_in"]?.jsonPrimitive?.int ?: 900
+                    expiresIn = json["expires_in"]?.jsonPrimitive?.int ?: 900,
+                    phoneSalt = json["phone_salt"]?.jsonPrimitive?.content
                 )
             }
         } catch (e: Exception) {

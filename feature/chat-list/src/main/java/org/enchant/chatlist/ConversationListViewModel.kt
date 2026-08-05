@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
@@ -40,6 +41,9 @@ class ConversationListViewModel(
 
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
+
+    private val _titles = MutableStateFlow<Map<String, String>>(emptyMap())
+    val titles: StateFlow<Map<String, String>> = _titles.asStateFlow()
 
     private val _filter = MutableStateFlow(ConversationFilter.ALL)
     val filter: StateFlow<ConversationFilter> = _filter.asStateFlow()
@@ -82,6 +86,20 @@ class ConversationListViewModel(
         collectJob = viewModelScope.launch {
             repo.getConversations(filter).collect { list ->
                 _conversations.value = list
+            }
+        }
+    }
+
+    /** Resolve display names for direct conversations (falls back to profile). */
+    fun resolveTitles(ids: List<String>) {
+        viewModelScope.launch {
+            val need = ids.distinct().filter { it !in _titles.value }
+            if (need.isEmpty()) return@launch
+            need.forEach { id ->
+                val name = repo.resolveDisplayName(id)
+                if (name != null) {
+                    _titles.update { it + (id to name) }
+                }
             }
         }
     }

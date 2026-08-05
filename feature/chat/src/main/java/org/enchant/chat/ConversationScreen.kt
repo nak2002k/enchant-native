@@ -65,6 +65,7 @@ fun ConversationScreen(
 ) {
     val messages by viewModel.messages.collectAsState()
     val conversation by viewModel.conversation.collectAsState()
+    val title by viewModel.title.collectAsState()
     val typingIndicator by viewModel.typingIndicator.collectAsState()
     val sendingState by viewModel.sendingState.collectAsState()
     val context = LocalContext.current
@@ -156,7 +157,7 @@ fun ConversationScreen(
                 title = {
                     Column {
                         Text(
-                            text = conversation?.id?.take(16) ?: "Chat",
+                            text = title ?: conversation?.id?.take(16) ?: "Chat",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

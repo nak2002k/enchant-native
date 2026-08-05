@@ -22,6 +22,19 @@ sealed class ProcessResult {
     data class Error(val reason: String) : ProcessResult()
 }
 
+/**
+ * The wire protocol base64url-encodes the E2EE payload (see MessageSendPipeline),
+ * so an incoming Envelope payload must be decoded before the native decrypt layer
+ * can parse the raw 76-byte prekey header / envelope. Falls back to the raw bytes
+ * when the payload is not valid base64url (e.g. WS-direct raw frames).
+ */
+private fun decodeWirePayload(payload: ByteArray): ByteArray {
+    if (payload.isEmpty()) return payload
+    return runCatching {
+        CryptoHelper.base64UrlDecode(payload.decodeToString())
+    }.getOrElse { payload }
+}
+
 sealed class DecryptedContent {
     data class Text(val body: String) : DecryptedContent()
     data class Media(val mediaId: String, val mediaKey: ByteArray, val mimeType: String) : DecryptedContent()
@@ -138,35 +151,73 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val decrypted = NativeSessionManager.decryptPreKeyMessage(senderUserId, envelope.payload)
+                val envId = envelope.envelopeId
+                if (envId != null && messageDao?.getByEnvelopeId(envId) != null) {
+                    // Duplicate delivery (WS push + pending poll). The envelope was
+                    // already decrypted and stored; the retry only fails because the
+                    // one-time prekey was consumed by the first attempt.
+                    return@withContext ProcessResult.Handled
+                }
+                android.util.Log.d("IncomingMsg", "processPreKeyMessage: from=$senderUserId ctLen=${envelope.payload.size} envId=$envId")
+                val wirePayload = decodeWirePayload(envelope.payload)
+                android.util.Log.d("IncomingMsg", "processPreKeyMessage: decoded ctLen=${wirePayload.size} from=$senderUserId")
+                val decrypted = NativeSessionManager.decryptPreKeyMessage(senderUserId, wirePayload)
 
-                if (decrypted == null) return@withContext ProcessResult.Error("Failed to establish session")
+                if (decrypted == null) {
+                    android.util.Log.e("IncomingMsg", "processPreKeyMessage FAILED: could not establish session from=$senderUserId ctLen=${envelope.payload.size}")
+                    return@withContext ProcessResult.Error("Failed to establish session")
+                }
 
-                val plaintext = decrypted.plaintext.decodeToString()
+                android.util.Log.d("IncomingMsg", "processPreKeyMessage OK: from=$senderUserId ptLen=${decrypted.plaintext.size} isNew=${decrypted.isNewSession}")
+
                 val now = System.currentTimeMillis()
+                val parsed = MessageProtobufHelper.parseContent(decrypted.plaintext)
 
-                repo.insertMessageAndUpdateConversation(
-                    MessageEntity(
-                        conversationId = senderUserId,
-                        senderId = senderUserId,
-                        messageType = "ENCRYPTED_MESSAGE",
-                        content = plaintext,
-                        status = "delivered",
-                        timestamp = envelope.serverTimestamp ?: now,
-                        serverTs = now,
-                        envelopeId = envelope.envelopeId
-                    ),
-                    conversationType = "direct"
-                )
-
-                applyDisappearTimer(senderUserId, envelope.envelopeId, envelope.serverTimestamp)
-
-                MessageSendPipeline.sendDeliveryReceipt(
-                    envelopeId = envelope.envelopeId ?: "",
-                    senderUserId = senderUserId
-                )
-
-                ProcessResult.Handled
+                return@withContext when (parsed) {
+                    is MessageProtobufHelper.ParsedContent.DataMessage -> {
+                        repo.insertMessageAndUpdateConversation(
+                            MessageEntity(
+                                conversationId = senderUserId,
+                                senderId = senderUserId,
+                                messageType = "ENCRYPTED_MESSAGE",
+                                content = parsed.body,
+                                status = "delivered",
+                                timestamp = envelope.serverTimestamp ?: now,
+                                serverTs = now,
+                                envelopeId = envId
+                            ),
+                            conversationType = "direct"
+                        )
+                        applyDisappearTimer(senderUserId, envId, envelope.serverTimestamp)
+                        MessageSendPipeline.sendDeliveryReceipt(
+                            envelopeId = envId ?: "",
+                            senderUserId = senderUserId
+                        )
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Receipt -> {
+                        val status = when (parsed.type) {
+                            MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
+                            MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
+                        }
+                        parsed.timestamps.forEach { ts ->
+                            val eid = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                            repo.updateMessageStatus(eid, status)
+                        }
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Typing -> ProcessResult.Handled
+                    is MessageProtobufHelper.ParsedContent.Delete -> {
+                        if (parsed.targetTimestamp > 0) {
+                            messageDao?.getEnvelopeIdByServerTs(parsed.targetTimestamp)?.let { eid ->
+                                messageDao?.markDeleted(eid)
+                            }
+                        }
+                        ProcessResult.Handled
+                    }
+                    is MessageProtobufHelper.ParsedContent.Null -> ProcessResult.Handled
+                    is MessageProtobufHelper.ParsedContent.Unknown -> ProcessResult.Error("Unknown content type")
+                }
             } catch (e: Exception) {
                 ProcessResult.Error("PreKey processing failed: ${e.message}")
             }
@@ -178,10 +229,15 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val decrypted = NativeSessionManager.decryptMessage(senderUserId, envelope.payload)
+                val envId = envelope.envelopeId
+                if (envId != null && messageDao?.getByEnvelopeId(envId) != null) {
+                    return@withContext ProcessResult.Handled
+                }
+                val wirePayload = decodeWirePayload(envelope.payload)
+                val decrypted = NativeSessionManager.decryptMessage(senderUserId, wirePayload)
 
                 if (decrypted == null) {
-                    android.util.Log.w("IncomingMsg", "Decryption failed for sender: $senderUserId")
+                    android.util.Log.w("IncomingMsg", "Decryption failed for sender: $senderUserId ctLen=${envelope.payload.size}")
                     return@withContext ProcessResult.Error("Decryption failed")
                 }
 
@@ -252,8 +308,13 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
-                val decrypted = NativeSessionManager.decryptMessage(senderUserId, envelope.payload)
-                    ?: NativeSessionManager.decryptPreKeyMessage(senderUserId, envelope.payload)
+                val envId = envelope.envelopeId
+                if (envId != null && messageDao?.getByEnvelopeId(envId) != null) {
+                    return@withContext ProcessResult.Handled
+                }
+                val wirePayload = decodeWirePayload(envelope.payload)
+                val decrypted = NativeSessionManager.decryptMessage(senderUserId, wirePayload)
+                    ?: NativeSessionManager.decryptPreKeyMessage(senderUserId, wirePayload)
                     ?: return@withContext ProcessResult.Error("Decryption failed")
 
                 val now = System.currentTimeMillis()

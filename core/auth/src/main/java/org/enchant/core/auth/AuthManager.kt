@@ -65,12 +65,13 @@ object AuthManager {
         }
         val storedState = AuthStateMachine.validateRestoredState(repository!!)
         _currentState.value = storedState
-        _authState.value = when (storedState) {
-            is RegistrationState.Complete -> {
-                val userId = SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: ""
-                val deviceId = SecurePreferences.getString(AuthConstants.DEVICE_ID_KEY) ?: ""
+        val userId = SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: ""
+        val deviceId = SecurePreferences.getString(AuthConstants.DEVICE_ID_KEY) ?: ""
+        val jwt = SecurePreferences.getString(AuthConstants.JWT_KEY)
+        _authState.value = when {
+            storedState is RegistrationState.Complete ||
+                (userId.isNotBlank() && !jwt.isNullOrBlank()) ->
                 AuthState.Authenticated(userId, deviceId)
-            }
             else -> AuthState.Unauthenticated
         }
         initialized = true
@@ -148,6 +149,9 @@ object AuthManager {
                 SecurePreferences.putString(AuthConstants.REFRESH_TOKEN_KEY, authResponse.refreshToken)
                 SecurePreferences.putString(AuthConstants.USER_ID_KEY, authResponse.userId)
                 SecurePreferences.putString(AuthConstants.DEVICE_ID_KEY, authResponse.deviceId)
+                authResponse.phoneSalt?.let {
+                    SecurePreferences.putString(AuthConstants.PHONE_SALT_KEY, it)
+                } ?: SecurePreferences.remove(AuthConstants.PHONE_SALT_KEY)
                 _authState.value = AuthState.Authenticated(authResponse.userId, authResponse.deviceId)
                 _currentState.value = RegistrationState.ProfileSetup
                 Result.success(Unit)
@@ -187,6 +191,9 @@ object AuthManager {
                 onSuccess = { response ->
                     SecurePreferences.putString(AuthConstants.JWT_KEY, response.accessToken)
                     SecurePreferences.putString(AuthConstants.REFRESH_TOKEN_KEY, response.refreshToken)
+                    response.phoneSalt?.let {
+                        SecurePreferences.putString(AuthConstants.PHONE_SALT_KEY, it)
+                    }
                     true
                 },
                 onFailure = {
@@ -212,8 +219,8 @@ object AuthManager {
         SecurePreferences.remove(AuthConstants.REFRESH_TOKEN_KEY)
         SecurePreferences.remove(AuthConstants.USER_ID_KEY)
         SecurePreferences.remove(AuthConstants.DEVICE_ID_KEY)
-        SecurePreferences.remove("crypto.identity_key")
-        SecurePreferences.remove("crypto.signed_prekey")
+        SecurePreferences.remove(AuthConstants.PHONE_SALT_KEY)
+        KeyManager.clearIdentityKey()
         _authState.value = AuthState.Unauthenticated
         _currentState.value = RegistrationState.Welcome
     }
@@ -231,11 +238,18 @@ object AuthManager {
     }
 
     suspend fun registerKeys(): Result<Unit> {
+        val jwt = SecurePreferences.getString(AuthConstants.JWT_KEY)
+        if (jwt.isNullOrBlank()) {
+            return Result.failure(
+                IllegalStateException("Not authenticated — complete OTP verification before registering keys")
+            )
+        }
         return try {
             KeyManager.init()
             _currentState.value = RegistrationState.KeyGeneration
             val result = KeyManager.generateAndUploadKeys()
             if (result.isSuccess) {
+                KeyManager.syncNativeIdentity()
                 _currentState.value = RegistrationState.PinCreation
             } else {
                 val error = result.exceptionOrNull()
@@ -318,5 +332,10 @@ object AuthManager {
 
     fun completeRegistration() {
         _currentState.value = RegistrationState.Complete
+        val userId = SecurePreferences.getString(AuthConstants.USER_ID_KEY) ?: ""
+        val deviceId = SecurePreferences.getString(AuthConstants.DEVICE_ID_KEY) ?: ""
+        if (userId.isNotBlank()) {
+            _authState.value = AuthState.Authenticated(userId, deviceId)
+        }
     }
 }

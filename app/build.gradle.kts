@@ -18,6 +18,21 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("int", "AGENT_PORT", "19789")
+    }
+
+    flavorDimensions += "account"
+    productFlavors {
+        create("primary") {
+            dimension = "account"
+            buildConfigField("int", "AGENT_PORT", "19789")
+        }
+        create("peer") {
+            dimension = "account"
+            applicationId = "org.enchant.messenger.peer"
+            buildConfigField("int", "AGENT_PORT", "19790")
+            versionNameSuffix = "-peer"
+        }
     }
 
     buildTypes {
@@ -122,6 +137,7 @@ dependencies {
 
     debugImplementation(libs.leakcanary.android)
     debugImplementation(libs.compose.ui.tooling.debug)
+    debugImplementation(project(":core:agent-debug"))
 
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)
@@ -138,4 +154,14 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// Peer flavor is for same-device E2E; skip Firebase package check.
+afterEvaluate {
+    tasks.matching { it.name == "processPeerDebugGoogleServices" }.configureEach {
+        enabled = false
+    }
+    tasks.matching { it.name == "processPeerReleaseGoogleServices" }.configureEach {
+        enabled = false
+    }
 }

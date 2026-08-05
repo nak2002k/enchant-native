@@ -91,6 +91,19 @@ class PreKeyStoreTest {
             }
         }
 
+        @Test @DisplayName("generated ids never overwrite existing keys after a gap")
+        fun `generate opks preserves ids after gap`() = runTest {
+            val initial = store.generateOneTimePreKeys(3, startId = 1)
+            val extra = store.generateOneTimePreKeys(2, startId = 2)
+
+            assertEquals(listOf(1, 2, 3), initial.map { it.id })
+            assertEquals(listOf(4, 5), extra.map { it.id })
+            assertEquals(5, store.getOneTimePreKeyCount())
+            initial.forEach { key ->
+                assertTrue(store.hasOneTimePreKey(key.id))
+            }
+        }
+
         @Test @DisplayName("getOneTimePreKeyCount returns correct count")
         fun `get opk count`() = runTest {
             store.generateOneTimePreKeys(30)

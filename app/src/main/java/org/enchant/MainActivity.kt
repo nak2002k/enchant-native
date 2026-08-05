@@ -88,6 +88,17 @@ fun AppNavigation() {
     val registrationState by authViewModel.registrationState.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    // Debug agent: API can flip between auth flow and main app (debug APK only).
+    LaunchedEffect(Unit) {
+        if (!org.enchant.BuildConfig.DEBUG) return@LaunchedEffect
+        runCatching {
+            val clazz = Class.forName("org.enchant.agent.AgentRuntime")
+            val field = clazz.getDeclaredField("onSetAuthFlowComplete")
+            field.isAccessible = true
+            field.set(null, { complete: Boolean -> authFlowComplete = complete })
+        }
+    }
+
     LaunchedEffect(authState) {
         if (authState is AuthState.Authenticated) {
             val intent = Intent(context, org.enchant.core.network.WebSocketForegroundService::class.java)

@@ -32,7 +32,6 @@ import org.enchant.core.model.Conversation
 import org.enchant.core.model.DisappearTimerPresets
 import org.enchant.core.network.ConnectivityMonitor
 import org.enchant.core.network.OfflineQueue
-import org.enchant.core.network.WebSocketManager
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -43,6 +42,7 @@ fun ConversationListScreen(
     onNewGroup: () -> Unit
 ) {
     val conversations by viewModel.conversations.collectAsState()
+    val titles by viewModel.titles.collectAsState()
     val filter by viewModel.filter.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
@@ -55,6 +55,10 @@ fun ConversationListScreen(
 
     LaunchedEffect(Unit) { viewModel.init() }
 
+    LaunchedEffect(conversations) {
+        viewModel.resolveTitles(conversations.map { it.id })
+    }
+
     LaunchedEffect(navigationEvent) {
         navigationEvent?.let {
             onConversationClick(it)
@@ -63,14 +67,6 @@ fun ConversationListScreen(
     }
 
     val errorMessage by viewModel.errorMessage.collectAsState()
-
-    LaunchedEffect(Unit) {
-        WebSocketManager.incomingMessages.collect { envelope ->
-            if (!envelope.ephemeral && envelope.senderUserId != null) {
-                snackbarHostState.showSnackbar("New message")
-            }
-        }
-    }
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
@@ -198,6 +194,7 @@ fun ConversationListScreen(
                         ) {
                             ConversationTile(
                                 conversation = conversation,
+                                title = titles[conversation.id],
                                 onClick = { viewModel.selectConversation(conversation.id) },
                         onArchive = {
                             if (conversation.isArchived) viewModel.unarchiveConversation(conversation.id)
@@ -259,6 +256,7 @@ private fun FilterChipsRow(
 @Composable
 private fun ConversationTile(
     conversation: Conversation,
+    title: String?,
     onClick: () -> Unit,
     onArchive: () -> Unit,
     onMute: () -> Unit,
@@ -317,7 +315,7 @@ private fun ConversationTile(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = conversation.id.take(16),
+                        text = title ?: conversation.id.take(16),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (conversation.unreadCount > 0) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1,

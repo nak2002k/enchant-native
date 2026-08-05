@@ -97,6 +97,14 @@ fun MainNavDisplay(
     LaunchedEffect(Unit) {
         mainNavViewModel.wrapNavigator(scope, navigator)
         mainNavViewModel.clearEarlyDetailLocation()
+        if (org.enchant.BuildConfig.DEBUG) {
+            runCatching {
+                val clazz = Class.forName("org.enchant.agent.AgentRuntime")
+                val field = clazz.getDeclaredField("mainNavigationViewModel")
+                field.isAccessible = true
+                field.set(null, mainNavViewModel)
+            }
+        }
     }
 
     LaunchedEffect(callUiState.callState.status) {

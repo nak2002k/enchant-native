@@ -65,6 +65,9 @@ class ConversationViewModel(
     private val _conversation = MutableStateFlow<Conversation?>(null)
     val conversation: StateFlow<Conversation?> = _conversation.asStateFlow()
 
+    private val _title = MutableStateFlow<String?>(null)
+    val title: StateFlow<String?> = _title.asStateFlow()
+
     private val _typingIndicator = MutableStateFlow(false)
     val typingIndicator: StateFlow<Boolean> = _typingIndicator.asStateFlow()
 
@@ -105,6 +108,7 @@ class ConversationViewModel(
                 val selfId = SecurePreferences.getString("auth.user_id") ?: ""
                 recipientUserId = members.find { it != selfId } ?: conv.id
             }
+            _title.value = repo.resolveDisplayName(convId)
         }
     }
 

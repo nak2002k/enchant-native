@@ -96,7 +96,7 @@ object NativeSessionManager {
     }
 
     suspend fun decryptPreKeyMessage(userId: String, ciphertext: ByteArray): DecryptedResult? {
-        val result = VeilSession.get().decryptPreKeyMessage(userId, ciphertext) ?: return null
+        val result = VeilSession.get().decryptPrekeyMessage(userId, ciphertext) ?: return null
         return DecryptedResult(
             plaintext = result.plaintext,
             senderDeviceId = result.senderDeviceId,

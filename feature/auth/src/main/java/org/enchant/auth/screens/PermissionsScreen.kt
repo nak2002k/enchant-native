@@ -17,7 +17,8 @@ import androidx.core.content.ContextCompat
 @Composable
 fun PermissionsScreen(
     onPermissionsGranted: () -> Unit,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
+    registerAgentActions: ((grantPermissions: () -> Unit, notNow: () -> Unit) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var permissionsGranted by remember {
@@ -41,6 +42,14 @@ fun PermissionsScreen(
         REQUIRED_PERMISSIONS.all {
             ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
+    }
+
+    val grantPermissions: () -> Unit = {
+        if (allGranted) onPermissionsGranted() else permissionLauncher.launch(REQUIRED_PERMISSIONS)
+    }
+
+    SideEffect {
+        registerAgentActions?.invoke(grantPermissions, onSkip)
     }
 
     Surface(modifier = Modifier.fillMaxSize()) {
@@ -100,7 +109,7 @@ fun PermissionsScreen(
                 }
             } else {
                 Button(
-                    onClick = { permissionLauncher.launch(REQUIRED_PERMISSIONS) },
+                    onClick = grantPermissions,
                     modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
                     Text("Grant Permissions")

@@ -61,8 +61,9 @@ class PreKeyStore {
             val publicKey = ByteArray(32)
             val privateKey = ByteArray(32)
             val signature = ByteArray(64)
+            val signatureLen = longArrayOf(signature.size.toLong())
             val rc = EnchantCrypto.enchant_prekey_generate_signed(
-                id, identityKeyPair.privateKey, publicKey, privateKey, signature, signature.size.toLong()
+                id, identityKeyPair.privateKey, publicKey, privateKey, signature, signatureLen
             )
             if (rc != EnchantCrypto.SUCCESS) {
                 throw IllegalStateException("enchant_prekey_generate_signed failed: $rc")
@@ -128,13 +129,14 @@ class PreKeyStore {
      */
     suspend fun generateOneTimePreKeys(count: Int = OPK_BATCH_SIZE, startId: Int? = null): List<OneTimePreKeyRecord> {
         return mutex.withLock {
-            val firstId = if (startId != null) {
-                nextId.updateAndGet { maxOf(it, startId) }
-            } else {
-                nextId.incrementAndGet()
-            }
+            require(count > 0) { "count must be positive" }
+            val requestedFirstId = startId ?: (nextId.get() + 1)
+            require(requestedFirstId > 0) { "startId must be positive" }
+            val firstId = maxOf(requestedFirstId, nextId.get() + 1)
+            val lastId = Math.addExact(firstId, count - 1)
+            nextId.set(lastId)
             val buffer = ByteArray(count * 68)
-            val len = LongArray(1)
+            val len = longArrayOf(buffer.size.toLong())
             val rc = EnchantCrypto.enchant_prekey_generate_batch(count, firstId, buffer, len)
             if (rc != EnchantCrypto.SUCCESS) {
                 throw IllegalStateException("enchant_prekey_generate_batch failed: $rc")
@@ -172,7 +174,7 @@ class PreKeyStore {
         return mutex.withLock {
             val id = nextId.incrementAndGet()
             val buffer = ByteArray(68)
-            val len = LongArray(1)
+            val len = longArrayOf(buffer.size.toLong())
             val rc = EnchantCrypto.enchant_prekey_generate_batch(1, id, buffer, len)
             if (rc != EnchantCrypto.SUCCESS) {
                 throw IllegalStateException("enchant_prekey_generate_batch failed: $rc")
@@ -208,9 +210,19 @@ class PreKeyStore {
         }
     }
 
+    /** Get a one-time prekey by ID without consuming it. */
+    suspend fun getOneTimePreKey(id: Int): OneTimePreKeyRecord? = mutex.withLock {
+        oneTimePreKeys[id]?.copy() ?: lastResortPreKey?.takeIf { it.id == id }?.copy()
+    }
+
     /** Check if a one-time prekey exists. */
     suspend fun hasOneTimePreKey(id: Int): Boolean = mutex.withLock {
         oneTimePreKeys.containsKey(id)
+    }
+
+    /** Get all non-last-resort one-time prekey IDs (including consumed-eligible set). */
+    suspend fun getAllOneTimePreKeyIds(): List<Int> = mutex.withLock {
+        oneTimePreKeys.filter { !it.value.isLastResort }.map { it.key }
     }
 
     /** Get the count of available one-time prekeys (excluding last-resort). */

@@ -116,15 +116,16 @@ class AgentSessionManager private constructor() {
         }
         val ciphertextSize = plaintext.size + EnchantCrypto.XCHACHA20_NONCE_SIZE + EnchantCrypto.XCHACHA20_TAG_SIZE
         val ciphertext = ByteArray(ciphertextSize)
+        val ciphertextLen = longArrayOf(ciphertextSize.toLong())
         val rc = EnchantCrypto.enchant_agent_encrypt(
             sharedSecret, sharedSecret.size.toLong(),
             plaintext, plaintext.size.toLong(),
-            ciphertext, ciphertextSize.toLong()
+            ciphertext, ciphertextLen
         )
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_agent_encrypt failed: $rc")
         }
-        return ciphertext
+        return ciphertext.copyOf(ciphertextLen[0].toInt())
     }
 
     /**
@@ -141,15 +142,16 @@ class AgentSessionManager private constructor() {
         }
         val plaintextSize = ciphertext.size - EnchantCrypto.XCHACHA20_NONCE_SIZE - EnchantCrypto.XCHACHA20_TAG_SIZE
         val plaintext = ByteArray(plaintextSize)
+        val plaintextLen = longArrayOf(plaintextSize.toLong())
         val rc = EnchantCrypto.enchant_agent_decrypt(
             sharedSecret, sharedSecret.size.toLong(),
             ciphertext, ciphertext.size.toLong(),
-            plaintext, plaintextSize.toLong()
+            plaintext, plaintextLen
         )
         if (rc != EnchantCrypto.SUCCESS) {
             throw IllegalStateException("enchant_agent_decrypt failed: $rc")
         }
-        return plaintext
+        return plaintext.copyOf(plaintextLen[0].toInt())
     }
 
     companion object {

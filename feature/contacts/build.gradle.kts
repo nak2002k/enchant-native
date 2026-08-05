@@ -41,6 +41,7 @@ dependencies {
     implementation(project(":core:network"))
     implementation(project(":core:database"))
     implementation(project(":core:crypto"))
+    implementation(project(":core:auth"))
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
     implementation(libs.kotlinx.serialization.json)

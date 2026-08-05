@@ -12,6 +12,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.network.ApiClient
+import org.enchant.core.base.SecurePreferences
+import org.enchant.core.auth.AuthConstants
+import org.enchant.core.crypto.CryptoPrimitives
 
 class ContactDiscovery(private val apiClient: ApiClient) {
 
@@ -60,8 +63,10 @@ class ContactDiscovery(private val apiClient: ApiClient) {
 
     private fun hashPhoneNumber(phone: String): String {
         val digits = phone.replace(Regex("[^0-9+]"), "")
-        return org.enchant.core.crypto.CryptoHelper.sha256(digits.toByteArray()).joinToString("") {
-            "%02x".format(it)
-        }
+        val saltB64 = SecurePreferences.getString(AuthConstants.PHONE_SALT_KEY)
+            ?: return ""
+        val salt = CryptoPrimitives.base64UrlDecode(saltB64)
+        val mac = CryptoPrimitives.hmacSha256(salt, digits.toByteArray(Charsets.UTF_8))
+        return CryptoPrimitives.base64UrlEncode(mac)
     }
 }

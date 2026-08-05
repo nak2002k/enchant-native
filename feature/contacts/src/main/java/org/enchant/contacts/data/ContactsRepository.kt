@@ -247,7 +247,7 @@ class ContactsRepository(
             val allMatches = mutableListOf<PhoneMatch>()
             try {
                 phoneHashes.chunked(1000).forEach { batch ->
-                    val response = apiClient.postAnonymous("/v1/contacts/match", buildJsonObject {
+                    val response = apiClient.post("/v1/contacts/match", buildJsonObject {
                         put("phone_hashes", buildJsonArray {
                             batch.forEach { hash -> add(JsonPrimitive(hash)) }
                         })

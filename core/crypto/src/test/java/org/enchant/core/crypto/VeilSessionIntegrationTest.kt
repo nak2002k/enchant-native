@@ -268,7 +268,7 @@ class VeilSessionIntegrationTest {
 
         @Test
         fun `decryptPreKeyMessage with too-short payload returns null`() = runTest {
-            val result = veilSession.decryptPreKeyMessage("nobody", ByteArray(2))
+            val result = veilSession.decryptPrekeyMessage("nobody", ByteArray(2))
             assertNull(result)
         }
     }
@@ -356,9 +356,7 @@ class VeilSessionIntegrationTest {
                 // --- Step 2: Bob decrypts Alice's PREKEY message ---
                 val decrypted1 = bob.decryptPrekeyMessage(
                     senderUserId = "alice",
-                    ciphertext = encrypted1.payload,
-                    ourSignedPrekeyId = 1,
-                    ourOneTimePrekeyId = 1
+                    ciphertext = encrypted1.payload
                 )
                 assertNotNull(decrypted1, "Bob decryptPrekeyMessage should succeed")
                 assertEquals(plaintext1, String(decrypted1!!.plaintext), "Bob should read Alice's message")
