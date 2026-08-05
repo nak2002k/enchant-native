@@ -170,7 +170,8 @@ object MessageSendPipeline {
         conversationId: String,
         recipientUserId: String,
         plaintext: ByteArray,
-        replyTo: String? = null
+        replyTo: String? = null,
+        insertLocally: Boolean = true
     ): SendResult {
         checkInit()
         val repo = repository!!
@@ -223,13 +224,15 @@ object MessageSendPipeline {
                 val now = System.currentTimeMillis()
                 val replyToken = UUID.randomUUID().toString()
 
-                repo.insertMessageAndUpdateConversation(MessageEntity(
-                    conversationId = conversationId, senderId = selfId,
-                    envelopeId = envelopeId,
-                    messageType = "ENCRYPTED_MESSAGE",
-                    content = plaintext.decodeToString(), status = "sending",
-                    timestamp = now, replyToEnvelopeId = replyTo
-                ))
+                if (insertLocally) {
+                    repo.insertMessageAndUpdateConversation(MessageEntity(
+                        conversationId = conversationId, senderId = selfId,
+                        envelopeId = envelopeId,
+                        messageType = "ENCRYPTED_MESSAGE",
+                        content = plaintext.decodeToString(), status = "sending",
+                        timestamp = now, replyToEnvelopeId = replyTo
+                    ))
+                }
 
                 if (!ConnectivityMonitor.isOnline.value) {
                     OfflineQueue.enqueue(QueuedMessage(
@@ -317,15 +320,6 @@ object MessageSendPipeline {
                 val selfId = SecurePreferences.getString("auth.user_id")
                     ?: return@withContext SendResult.Failed(SendError.NETWORK)
 
-                val content = org.enchant.protos.ContentProtos.Content.parseFrom(
-                    MessageProtobufHelper.buildDataMessageContent(
-                        body = plaintext.decodeToString(),
-                        timestamp = System.currentTimeMillis()
-                    )
-                )
-                val sealed = org.enchant.core.crypto.GroupCipherManager.encrypt(groupId, selfId, content.toByteArray())
-                    ?: return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
-
                 val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
                 val groupConversationId = groupId
                 envelopeId = UUID.randomUUID().toString()
@@ -338,24 +332,38 @@ object MessageSendPipeline {
                     timestamp = now, replyToEnvelopeId = replyTo
                 ), conversationType = "group")
 
-                val wirePayload = groupIdBytes + sealed
-                val payloadB64 = CryptoHelper.base64UrlEncode(wirePayload)
-                val client = apiClient!!
+                // Reliable group path: the content carries the group context
+                // (groupV2 masterKey) and is Veil-sealed to each member — the
+                // same proven machinery as 1:1 messaging. The receiver routes
+                // it into the group conversation by the masterKey.
+                val targets = if (members.isNotEmpty()) members else fetchGroupMembers(groupId)
+                val recipients = targets.filter { it != selfId }
+                if (recipients.isEmpty()) {
+                    repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
+                    return@withContext SendResult.Failed(SendError.KEY_BUNDLE_MISSING)
+                }
+                val content = org.enchant.protos.ContentProtos.Content.parseFrom(
+                    MessageProtobufHelper.buildDataMessageContent(
+                        body = plaintext.decodeToString(),
+                        timestamp = now,
+                        groupMasterKey = groupIdBytes
+                    )
+                )
+                var allOk = true
+                recipients.forEach { memberId ->
+                    val result = runCatching {
+                        sendVeiledMessage(
+                            conversationId = groupConversationId,
+                            recipientUserId = memberId,
+                            plaintext = content.toByteArray(),
+                            insertLocally = false
+                        )
+                    }.getOrNull()
+                    if (result !is SendResult.Success) allOk = false
+                }
 
-                // One request: the backend fans the sealed message out to
-                // every member and pushes online.
-                val result = runCatching {
-                    client.post("/v1/groups/$groupId/messages", buildJsonObject {
-                        put("message_type", "GROUP_MESSAGE")
-                        put("payload", payloadB64)
-                        put("sender_ts", now.toString())
-                        put("envelope_id", envelopeId)
-                    })
-                }.getOrNull()
-
-                val ok = result?.isSuccess == true
-                repo.updateMessageStatus(envelopeId, if (ok) MessageStatus.SENT else MessageStatus.PENDING)
-                if (ok) SendResult.Success(envelopeId) else SendResult.Queued(envelopeId)
+                repo.updateMessageStatus(envelopeId, if (allOk) MessageStatus.SENT else MessageStatus.PENDING)
+                if (allOk) SendResult.Success(envelopeId) else SendResult.Queued(envelopeId)
             } catch (e: Exception) {
                 // Never leave the message stuck in "sending".
                 if (envelopeId.isNotEmpty()) {
@@ -439,25 +447,26 @@ object MessageSendPipeline {
         }
     }
 
-    /** Re-broadcast a FRESH sender-key distribution to the requesting member. */
+    /** Re-broadcast the CURRENT sender-key distribution to the requesting member. */
     suspend fun handleGroupSenderKeyRequest(groupId: String, requesterId: String) {
         checkInit()
         val client = apiClient ?: return
         val selfId = SecurePreferences.getString("auth.user_id") ?: return
         val identity = org.enchant.core.crypto.KeyManager.getIdentityKeyPair() ?: return
-        val distribution = org.enchant.core.crypto.GroupCipherManager.createFreshDistribution(groupId, selfId) ?: return
-        val groupIdBytes = groupId.toByteArray(Charsets.UTF_8)
+        val distribution = org.enchant.core.crypto.GroupCipherManager.createDistribution(groupId, selfId) ?: return
         val signingPublic = org.enchant.core.crypto.CryptoPrimitives.ed25519PubFromSeed(identity.privateKey)
-        val wirePayload = groupIdBytes + signingPublic + distribution
-        val payloadB64 = CryptoHelper.base64UrlEncode(wirePayload)
+        val content = org.enchant.protos.ContentProtos.Content.newBuilder()
+            .setSenderKeyDistributionMessage(
+                com.google.protobuf.ByteString.copyFrom(groupId.toByteArray(Charsets.UTF_8) + signingPublic + distribution)
+            )
+            .build()
         runCatching {
-            client.post("/v1/messages/send", buildJsonObject {
-                put("recipient_user_id", requesterId)
-                put("message_type", "GROUP_SENDER_KEY")
-                put("payload", payloadB64)
-                put("sender_ts", System.currentTimeMillis().toString())
-                put("envelope_id", UUID.randomUUID().toString())
-            })
+            sendVeiledMessage(
+                conversationId = requesterId,
+                recipientUserId = requesterId,
+                plaintext = content.toByteArray(),
+                insertLocally = false
+            )
         }
     }
 

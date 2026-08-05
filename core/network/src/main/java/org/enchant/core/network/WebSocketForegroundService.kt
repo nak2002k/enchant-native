@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.enchant.core.base.AppConfig
 
 class WebSocketForegroundService : Service() {
@@ -54,10 +55,17 @@ class WebSocketForegroundService : Service() {
 
         scope.launch {
             WebSocketManager.incomingMessages.collect { envelope ->
-                val processed = runCatching {
-                    WebSocketManager.incomingHandler?.invoke(envelope) ?: true
-                }.getOrDefault(false)
-                WebSocketManager.sendEnvelopeAck(envelope.requestId, processed)
+                // Process each frame in its own job so a slow/hung handler can
+                // never block the shared flow (which would drop later frames
+                // and leave them unacked on the server).
+                scope.launch {
+                    val processed = runCatching {
+                        withTimeoutOrNull(15_000L) {
+                            WebSocketManager.incomingHandler?.invoke(envelope) ?: true
+                        } ?: false
+                    }.getOrDefault(false)
+                    WebSocketManager.sendEnvelopeAck(envelope.requestId, processed)
+                }
             }
         }
 

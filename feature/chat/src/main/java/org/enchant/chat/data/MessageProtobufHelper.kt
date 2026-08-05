@@ -8,13 +8,22 @@ object MessageProtobufHelper {
     fun buildDataMessageContent(
         body: String,
         timestamp: Long = System.currentTimeMillis(),
-        expireTimerSeconds: Int = 0
+        expireTimerSeconds: Int = 0,
+        groupMasterKey: ByteArray? = null
     ): ByteArray {
         val dataMessage = DataMessageProtos.DataMessage.newBuilder()
             .setBody(body)
             .setTimestamp(timestamp)
             .apply {
                 if (expireTimerSeconds > 0) setExpireTimer(expireTimerSeconds)
+                if (groupMasterKey != null) {
+                    setGroupV2(
+                        org.enchant.protos.GroupContextProtos.GroupContextV2.newBuilder()
+                            .setMasterKey(com.google.protobuf.ByteString.copyFrom(groupMasterKey))
+                            .setRevision(0)
+                            .build()
+                    )
+                }
             }
             .build()
 
@@ -90,7 +99,9 @@ object MessageProtobufHelper {
                         ParsedContent.DataMessage(
                             body = dm.body,
                             timestamp = dm.timestamp,
-                            expireTimer = dm.expireTimer
+                            expireTimer = dm.expireTimer,
+                            groupMasterKey = if (dm.hasGroupV2() && dm.groupV2.masterKey.size() > 0)
+                                dm.groupV2.masterKey.toByteArray() else null
                         )
                     }
                 }
@@ -112,6 +123,19 @@ object MessageProtobufHelper {
                             org.enchant.protos.TypingMessageProtos.TypingMessage.Action.STARTED
                     )
                 }
+                content.senderKeyDistributionMessage.size() > 0 -> {
+                    val raw = content.senderKeyDistributionMessage.toByteArray()
+                    // groupId(36) || signingPub(32) || distribution
+                    if (raw.size < 68) {
+                        ParsedContent.Unknown
+                    } else {
+                        val gid = String(raw.copyOfRange(0, 36).let { b ->
+                            b.takeWhile { it != 0.toByte() }.toByteArray()
+                        }, Charsets.UTF_8).takeIf { it.isNotBlank() }
+                        if (gid == null) ParsedContent.Unknown
+                        else ParsedContent.SenderKeyDistribution(gid, raw.copyOfRange(36, raw.size))
+                    }
+                }
                 content.hasNullMessage() -> ParsedContent.Null
                 else -> ParsedContent.Unknown
             }
@@ -124,7 +148,8 @@ object MessageProtobufHelper {
         data class DataMessage(
             val body: String,
             val timestamp: Long,
-            val expireTimer: Int = 0
+            val expireTimer: Int = 0,
+            val groupMasterKey: ByteArray? = null
         ) : ParsedContent()
 
         data class Receipt(
@@ -133,6 +158,7 @@ object MessageProtobufHelper {
         ) : ParsedContent()
 
         data class Typing(val isTyping: Boolean) : ParsedContent()
+        data class SenderKeyDistribution(val groupId: String, val distribution: ByteArray) : ParsedContent()
         data class Delete(val targetTimestamp: Long, val body: String = "") : ParsedContent()
         data object Null : ParsedContent()
         data object Unknown : ParsedContent()

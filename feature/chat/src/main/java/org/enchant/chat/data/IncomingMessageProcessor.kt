@@ -3,6 +3,7 @@ package org.enchant.chat.data
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.enchant.core.crypto.CryptoHelper
@@ -75,6 +76,7 @@ object IncomingMessageProcessor {
     private var initialized = false
     private val bufferedMessages = java.util.concurrent.ConcurrentLinkedQueue<MessageEntity>()
     private val processedGroupIterations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var lastPendingFetchMs = 0L
     private const val BATCH_FLUSH_THRESHOLD = 20
 
     private suspend fun flushBuffer() {
@@ -116,6 +118,7 @@ object IncomingMessageProcessor {
     suspend fun processIncoming(envelope: IncomingEnvelope): ProcessResult {
         checkInit()
         val repo = repository!!
+        android.util.Log.e("GroupCipher", "INCOMING type=${envelope.messageType} env=${envelope.envelopeId} len=${envelope.payload.size}")
 
         return withContext(Dispatchers.Default) {
             try {
@@ -204,23 +207,45 @@ object IncomingMessageProcessor {
                 val parsed = MessageProtobufHelper.parseContent(decrypted.plaintext)
 
                 return@withContext when (parsed) {
+                    is MessageProtobufHelper.ParsedContent.SenderKeyDistribution -> {
+                        val dist = parsed.distribution
+                        if (dist.size >= 32) {
+                            val signingPublic = dist.copyOfRange(0, 32)
+                            val ok = org.enchant.core.crypto.GroupCipherManager.processDistribution(
+                                parsed.groupId, senderUserId, signingPublic, dist.copyOfRange(32, dist.size)
+                            )
+                            if (!ok) return@withContext ProcessResult.Error("Distribution processing failed")
+                            runCatching { fetchPendingMessages() }
+                            ProcessResult.Handled
+                        } else {
+                            ProcessResult.Error("Distribution payload too short")
+                        }
+                    }
                     is MessageProtobufHelper.ParsedContent.DataMessage -> {
+                        // Group-context messages (per-member encrypted, group
+                        // V1 style) route into the group conversation.
+                        val groupId = parsed.groupMasterKey?.let { mk ->
+                            String(mk.let { b -> b.takeWhile { it != 0.toByte() }.toByteArray() }, Charsets.UTF_8)
+                                .takeIf { it.isNotBlank() }
+                        }
+                        val convId = groupId ?: senderUserId
+                        val convType = if (groupId != null) "group" else "direct"
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
-                                conversationId = senderUserId,
+                                conversationId = convId,
                                 senderId = senderUserId,
                                 messageType = "ENCRYPTED_MESSAGE",
                                 content = parsed.body,
                                 status = "delivered",
-                                timestamp = envelope.serverTimestamp ?: now,
+                                timestamp = envelope.senderTimestamp ?: envelope.serverTimestamp ?: now,
                                 serverTs = now,
-                                envelopeId = envId
+                                envelopeId = envelope.envelopeId
                             ),
-                            conversationType = "direct"
+                            conversationType = convType
                         )
-                        applyDisappearTimer(senderUserId, envId, envelope.serverTimestamp)
+                        applyDisappearTimer(convId, envelope.envelopeId, envelope.serverTimestamp)
                         MessageSendPipeline.sendDeliveryReceipt(
-                            envelopeId = envId ?: "",
+                            envelopeId = envelope.envelopeId ?: "",
                             senderUserId = senderUserId
                         )
                         ProcessResult.Handled
@@ -267,7 +292,13 @@ object IncomingMessageProcessor {
                     return@withContext ProcessResult.Handled
                 }
                 val wirePayload = decodeWirePayload(envelope.payload)
-                val decrypted = NativeSessionManager.decryptMessage(senderUserId, wirePayload)
+                var decrypted = NativeSessionManager.decryptMessage(senderUserId, wirePayload)
+
+                if (decrypted == null) {
+                    // Fall back to the prekey path: a freshly-established
+                    // session's first reply may arrive labeled ENCRYPTED.
+                    decrypted = NativeSessionManager.decryptPreKeyMessage(senderUserId, wirePayload)
+                }
 
                 if (decrypted == null) {
                     android.util.Log.w("IncomingMsg", "Decryption failed for sender: $senderUserId ctLen=${envelope.payload.size}")
@@ -278,6 +309,28 @@ object IncomingMessageProcessor {
                 val parsed = MessageProtobufHelper.parseContent(decrypted.plaintext)
 
                 return@withContext when (parsed) {
+                    is MessageProtobufHelper.ParsedContent.SenderKeyDistribution -> {
+                        // Signal pattern: the sender-key distribution rides
+                        // the 1:1 session; processing it builds the sender's
+                        // group chain so subsequent GROUP_MESSAGE frames
+                        // decrypt. No user-visible message.
+                        val dist = parsed.distribution
+                        if (dist.size >= 32) {
+                            val signingPublic = dist.copyOfRange(0, 32)
+                            val distBytes = dist.copyOfRange(32, dist.size)
+                            val ok = org.enchant.core.crypto.GroupCipherManager.processDistribution(
+                                parsed.groupId, senderUserId, signingPublic, distBytes
+                            )
+                            if (!ok) {
+                                android.util.Log.w("IncomingMsg", "Distribution processing failed for sender=$senderUserId group=${parsed.groupId}")
+                                return@withContext ProcessResult.Error("Distribution processing failed")
+                            }
+                            runCatching { fetchPendingMessages() }
+                            ProcessResult.Handled
+                        } else {
+                            ProcessResult.Error("Distribution payload too short")
+                        }
+                    }
                     is MessageProtobufHelper.ParsedContent.DataMessage -> {
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
@@ -355,6 +408,20 @@ object IncomingMessageProcessor {
                 val parsed = MessageProtobufHelper.parseContent(decrypted.plaintext)
 
                 return@withContext when (parsed) {
+                    is MessageProtobufHelper.ParsedContent.SenderKeyDistribution -> {
+                        val dist = parsed.distribution
+                        if (dist.size >= 32) {
+                            val signingPublic = dist.copyOfRange(0, 32)
+                            val ok = org.enchant.core.crypto.GroupCipherManager.processDistribution(
+                                parsed.groupId, senderUserId, signingPublic, dist.copyOfRange(32, dist.size)
+                            )
+                            if (!ok) return@withContext ProcessResult.Error("Distribution processing failed")
+                            runCatching { fetchPendingMessages() }
+                            ProcessResult.Handled
+                        } else {
+                            ProcessResult.Error("Distribution payload too short")
+                        }
+                    }
                     is MessageProtobufHelper.ParsedContent.DataMessage -> {
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
@@ -521,7 +588,23 @@ object IncomingMessageProcessor {
                     groupId, senderUserId, senderIdentityPublic, distribution
                 )
                 android.util.Log.i("GroupCipher", "distribution processed for group=$groupId sender=$senderUserId ok=$ok")
-                if (ok) ProcessResult.Handled else ProcessResult.Error("Group sender key processing failed")
+                if (ok) {
+                    // The chain restarted (or advanced): previously-seen
+                    // iterations no longer identify messages. Clear the
+                    // dedup set so re-keyed messages with the same
+                    // iterations are processed instead of skipped.
+                    processedGroupIterations.clear()
+                    // Pull any messages that were pushed before the
+                    // distribution arrived (they now decrypt), throttled.
+                    val now = System.currentTimeMillis()
+                    if (now - lastPendingFetchMs > 3000) {
+                        lastPendingFetchMs = now
+                        runCatching { fetchPendingMessages() }
+                    }
+                    ProcessResult.Handled
+                } else {
+                    ProcessResult.Error("Group sender key processing failed")
+                }
             } catch (e: Exception) {
                 ProcessResult.Error("Group sender key failed: ${e.message}")
             }
@@ -546,6 +629,35 @@ object IncomingMessageProcessor {
         }
     }
 
+    private suspend fun fetchPendingMessages() {
+        withContext(Dispatchers.Default) {
+            try {
+                val response = apiClient?.get("/v1/messages/pending") ?: return@withContext
+                response.getOrNull()?.get("messages")?.jsonArray?.forEach { raw ->
+                    val bytes = raw.jsonArray.mapNotNull { it.jsonPrimitive.content.toIntOrNull() }
+                        .map { it.toByte() }.toByteArray()
+                    if (bytes.isEmpty()) return@forEach
+                    val env = org.enchant.protos.EnvelopeProtos.Envelope.parseFrom(bytes)
+                    val envelope = IncomingEnvelope(
+                        envelopeId = env.envelopeId.ifEmpty { null },
+                        senderUserId = env.senderUserId.ifEmpty { null },
+                        senderDeviceId = env.senderDeviceId.ifEmpty { null },
+                        messageType = env.messageType.ifEmpty { "ENVELOPE" },
+                        payload = env.payload.toByteArray(),
+                        serverTimestamp = if (env.hasServerTs()) env.serverTs else null,
+                        ephemeral = env.ephemeral,
+                        sealed = env.sealed,
+                        replyToken = env.replyToken.ifEmpty { null },
+                        requestId = null
+                    )
+                    processIncoming(envelope)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("GroupCipher", "pending fetch failed: ${e.message}")
+            }
+        }
+    }
+
     private suspend fun processGroupMessage(
         envelope: IncomingEnvelope, senderUserId: String, repo: ConversationRepository
     ): ProcessResult {
@@ -560,9 +672,12 @@ object IncomingMessageProcessor {
                 }
                 val wire = decodeWirePayload(envelope.payload)
                 if (wire.size <= 36) return@withContext ProcessResult.Error("Group message payload too short")
+                android.util.Log.e("GroupCipher", "GMSG env=${envId} wire=${wire.size} raw=${envelope.payload.size}")
                 val groupId = String(wire.copyOfRange(0, 36).let { b ->
                     b.takeWhile { it != 0.toByte() }.toByteArray()
                 }, Charsets.UTF_8)
+                // Wire layout: groupId(36) || ciphertext only. The sender-key
+                // distribution arrives separately via the Veil-sealed path.
                 val ciphertext = wire.copyOfRange(36, wire.size)
                 // Serialized GroupCipherMessage: version(1) + chain_id(32) + iteration(4 LE) + ct
                 val msgIter = if (ciphertext.size >= 37)
@@ -575,13 +690,15 @@ object IncomingMessageProcessor {
                     return@withContext ProcessResult.Handled
                 }
 
-                val plaintext = org.enchant.core.crypto.GroupCipherManager.decrypt(groupId, senderUserId, ciphertext)
+                val rcOut = intArrayOf(0)
+                android.util.Log.e("GroupCipher", "GMSG decrypt ctLen=${ciphertext.size} iter=$msgIter")
+                val plaintext = org.enchant.core.crypto.GroupCipherManager.decrypt(groupId, senderUserId, ciphertext, rcOut)
                     ?: run {
-                        // Chain desync (e.g. a missed distribution): ask the
-                        // sender to re-broadcast their sender key so we can
-                        // decrypt subsequent messages.
-                        runCatching {
-                            org.enchant.chat.data.MessageSendPipeline.requestGroupSenderKey(groupId, senderUserId)
+                        // -9/-5: replay or legacy-format message that can never
+                        // decrypt — drop it so it stops redelivering.
+                        android.util.Log.e("GroupCipher", "drop rc=${rcOut[0]} ctLen=${ciphertext.size} iter=$msgIter")
+                        if (rcOut[0] == -9 || rcOut[0] == -5) {
+                            return@withContext ProcessResult.Handled
                         }
                         return@withContext ProcessResult.Error("Group decrypt failed for sender=$senderUserId group=$groupId")
                     }
@@ -638,6 +755,10 @@ object IncomingMessageProcessor {
     ): ProcessResult {
         return withContext(Dispatchers.Default) {
             try {
+                val envId = envelope.envelopeId
+                if (envId != null && messageDao?.getByEnvelopeId(envId) != null) {
+                    return@withContext ProcessResult.Handled
+                }
                 val identityKeyPair = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
                     ?: return@withContext ProcessResult.Error("Local identity key missing")
                 // The wire payload is base64url-encoded text; decode before
@@ -671,17 +792,27 @@ object IncomingMessageProcessor {
                 return@withContext when {
                     content.hasDataMessage() -> {
                         val dataMsg = content.dataMessage
+                        // Group-context messages (per-member encrypted, group
+                        // V1 style) route into the group conversation.
+                        val groupId = if (dataMsg.hasGroupV2() && dataMsg.groupV2.masterKey.size() > 0) {
+                            String(dataMsg.groupV2.masterKey.toByteArray().let { b ->
+                                b.takeWhile { it != 0.toByte() }.toByteArray()
+                            }, Charsets.UTF_8).takeIf { it.isNotBlank() }
+                        } else null
+                        val convId = groupId ?: senderUserId
+                        val convType = if (groupId != null) "group" else "direct"
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
-                                conversationId = senderUserId,
+                                conversationId = convId,
                                 senderId = senderUserId,
                                 messageType = "ENCRYPTED_MESSAGE",
                                 content = dataMsg.body,
                                 status = "delivered",
-                                timestamp = envelope.serverTimestamp ?: now,
-                                serverTs = now
+                                timestamp = envelope.senderTimestamp ?: envelope.serverTimestamp ?: now,
+                                serverTs = now,
+                                envelopeId = envelope.envelopeId
                             ),
-                            conversationType = "direct"
+                            conversationType = convType
                         )
                         sendVeiledDeliveryReceipt(envelope, senderUserId)
                         ProcessResult.Handled

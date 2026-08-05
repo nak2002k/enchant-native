@@ -385,6 +385,7 @@ object WebSocketManager {
                     val request = message.request
                     if (request.verb == "PUT" && request.path == "/api/v1/message") {
                         try {
+                            android.util.Log.e("WSFrame", "req id=${request.id} bodyLen=${request.body.size()} type=${runCatching { EnvelopeProtos.Envelope.parseFrom(request.body).messageType }.getOrNull()}")
                             val envelope = EnvelopeProtos.Envelope.parseFrom(request.body)
                             val replyToken = request.headersList.firstOrNull { it.startsWith("X-Reply-Token:") }
                                 ?.substringAfter("X-Reply-Token:")?.trim()?.ifEmpty { null }

@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.AnnotatedString
@@ -77,6 +78,7 @@ fun ConversationScreen(
     val messages by viewModel.messages.collectAsState()
     val conversation by viewModel.conversation.collectAsState()
     val title by viewModel.title.collectAsState()
+    val senderNames by viewModel.senderNames.collectAsState()
     val typingIndicator by viewModel.typingIndicator.collectAsState()
     val sendingState by viewModel.sendingState.collectAsState()
     val context = LocalContext.current
@@ -397,6 +399,7 @@ fun ConversationScreen(
                             MessageBubble(
                                 message = message,
                                 isOutgoing = message.senderId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
+                                senderName = senderNames[message.senderId],
                                 onReply = { replyToId = it },
                                 onDelete = {
                                     deleteEnvelopeId = it
@@ -861,6 +864,7 @@ private fun ComposerBar(
 fun MessageBubble(
     message: Message,
     isOutgoing: Boolean,
+    senderName: String? = null,
     onReply: (String) -> Unit,
     onDelete: (String) -> Unit,
     onDeleteEveryone: (String) -> Unit,
@@ -881,12 +885,42 @@ fun MessageBubble(
     var viewOnceRevealed by remember { mutableStateOf(false) }
     var viewOnceCountdown by remember { mutableIntStateOf(0) }
 
+    val showSenderMeta = !isOutgoing && senderName != null
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp),
         horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start
     ) {
+        if (showSenderMeta) {
+            // WhatsApp-style: avatar + sender name above the incoming bubble.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(24.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            senderName.take(1).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    senderName,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+        }
         Surface(
             // Signal bubble: 18dp radius, only the tail corner (bottom,
             // sender side) is tight at 4dp.

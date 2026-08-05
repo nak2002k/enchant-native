@@ -65,6 +65,9 @@ class ConversationViewModel(
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 
+    private val _senderNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    val senderNames: StateFlow<Map<String, String>> = _senderNames.asStateFlow()
+
     private val _conversation = MutableStateFlow<Conversation?>(null)
     val conversation: StateFlow<Conversation?> = _conversation.asStateFlow()
 
@@ -103,6 +106,18 @@ class ConversationViewModel(
         messageJob = viewModelScope.launch {
             repo.getMessages(convId).collect { list ->
                 _messages.update { list }
+                // Resolve sender display names for group conversations
+                // (WhatsApp-style name + avatar above incoming bubbles).
+                val isGroup = _conversation.value?.type == org.enchant.core.model.ConversationType.GROUP
+                if (isGroup) {
+                    val selfId = SecurePreferences.getString("auth.user_id") ?: ""
+                    list.map { it.senderId }.distinct().filter { it != selfId && it !in _senderNames.value }.forEach { senderId ->
+                        viewModelScope.launch {
+                            val name = repo.resolveDisplayName(senderId) ?: senderId.take(12)
+                            _senderNames.update { it + (senderId to name) }
+                        }
+                    }
+                }
             }
         }
         viewModelScope.launch {

@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 object GroupCipherManager {
 
     private const val TAG = "GroupCipher"
-    private const val KEY_PREFIX = "group_cipher_state.v5."
+    private const val KEY_PREFIX = "group_cipher_state.v6."
     private val mutex = Mutex()
 
     private val stateCache = mutableMapOf<String, ByteArray>()
@@ -163,7 +163,8 @@ object GroupCipherManager {
 
     /** Decrypt a group message from [senderUserId]. Returns plaintext or null. */
     suspend fun decrypt(
-        groupId: String, senderUserId: String, ciphertext: ByteArray
+        groupId: String, senderUserId: String, ciphertext: ByteArray,
+        rcOut: IntArray? = null
     ): ByteArray? = withContext(Dispatchers.Default) {
         mutex.withLock {
             val key = groupKey(groupId, senderUserId)
@@ -179,6 +180,7 @@ object GroupCipherManager {
                 plaintext, plaintextLen, newState, newStateLen
             )
             if (rc != EnchantCrypto.SUCCESS) {
+                if (rcOut != null && rcOut.isNotEmpty()) rcOut[0] = rc
                 Log.w(TAG, "group decrypt rc=$rc (need distribution for $senderUserId?)")
                 return@withLock null
             }
