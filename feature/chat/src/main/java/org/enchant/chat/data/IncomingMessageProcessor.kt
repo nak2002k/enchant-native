@@ -197,7 +197,12 @@ object IncomingMessageProcessor {
                 val decrypted = NativeSessionManager.decryptPreKeyMessage(senderUserId, wirePayload)
 
                 if (decrypted == null) {
+                    // Auto-recovery: the sender may have re-registered, rotated
+                    // their keys, or our session cache is stale. Drop the stale
+                    // session so the NACK triggers a redelivery that lands on a
+                    // freshly-established session.
                     android.util.Log.e("IncomingMsg", "processPreKeyMessage FAILED: could not establish session from=$senderUserId ctLen=${envelope.payload.size}")
+                    runCatching { org.enchant.core.crypto.VeilSession.get().deleteSession(senderUserId) }
                     return@withContext ProcessResult.Error("Failed to establish session")
                 }
 

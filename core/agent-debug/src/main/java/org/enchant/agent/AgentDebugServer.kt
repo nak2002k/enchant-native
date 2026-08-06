@@ -186,6 +186,14 @@ class AgentDebugServer(
                 bridge.addContact(body.string("user_id"), body.optString("custom_name"))
             root == "contacts" && method == Method.POST && segments.getOrNull(1) == "remove" ->
                 bridge.removeContact(body.string("user_id"))
+            root == "contacts" && method == Method.POST && segments.size == 2 && segments.getOrNull(1) == "friend-request" ->
+                bridge.sendFriendRequest(body.string("user_id"))
+            root == "contacts" && method == Method.POST && segments.getOrNull(1) == "friend-request" &&
+                segments.size == 4 && segments[3] == "accept" -> bridge.acceptFriendRequest(segments[2])
+            root == "contacts" && method == Method.POST && segments.getOrNull(1) == "friend-request" &&
+                segments.size == 4 && segments[3] == "decline" -> bridge.declineFriendRequest(segments[2])
+            root == "contacts" && method == Method.GET && segments.getOrNull(1) == "friend-requests" ->
+                bridge.listFriendRequests()
             root == "contacts" && method == Method.POST && segments.getOrNull(1) == "search" ->
                 bridge.searchByUsername(body.string("q"))
             root == "contacts" && method == Method.GET && segments.getOrNull(1) == "blocked" ->

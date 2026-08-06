@@ -70,6 +70,10 @@ interface AgentAppBridge {
     ): JsonObject
 
     // Contacts
+    suspend fun sendFriendRequest(userId: String): JsonObject
+    suspend fun acceptFriendRequest(requestId: String): JsonObject
+    suspend fun declineFriendRequest(requestId: String): JsonObject
+    suspend fun listFriendRequests(): JsonObject
     suspend fun searchByUsername(q: String): JsonObject
     suspend fun listContacts(): JsonObject
     suspend fun addContact(userId: String, customName: String?): JsonObject

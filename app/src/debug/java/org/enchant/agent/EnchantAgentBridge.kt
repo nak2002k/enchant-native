@@ -607,6 +607,55 @@ class EnchantAgentBridge : AgentAppBridge {
         }
     }
 
+    override suspend fun sendFriendRequest(userId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = org.enchant.contacts.data.ContactsRepository(DI.apiClient, DI.databasePool)
+        return when (val r = repo.sendFriendRequest(userId)) {
+            is org.enchant.contacts.data.ContactResult.RequestSent ->
+                ok(buildJsonObject { put("status", "request_sent"); put("friend_request_id", r.friendRequestId) })
+            is org.enchant.contacts.data.ContactResult.Failed -> err(r.error)
+            else -> err("unexpected result")
+        }
+    }
+
+    override suspend fun acceptFriendRequest(requestId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = org.enchant.contacts.data.ContactsRepository(DI.apiClient, DI.databasePool)
+        return when (val r = repo.acceptFriendRequest(requestId)) {
+            is org.enchant.contacts.data.ContactResult.RequestAccepted ->
+                ok(buildJsonObject { put("status", "accepted"); put("friend_user_id", r.friendUserId) })
+            is org.enchant.contacts.data.ContactResult.Failed -> err(r.error)
+            else -> err("unexpected result")
+        }
+    }
+
+    override suspend fun declineFriendRequest(requestId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = org.enchant.contacts.data.ContactsRepository(DI.apiClient, DI.databasePool)
+        return when (val r = repo.declineFriendRequest(requestId)) {
+            is org.enchant.contacts.data.ContactResult.Removed -> ok(buildJsonObject { put("status", "declined") })
+            is org.enchant.contacts.data.ContactResult.Failed -> err(r.error)
+            else -> err("unexpected result")
+        }
+    }
+
+    override suspend fun listFriendRequests(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = org.enchant.contacts.data.ContactsRepository(DI.apiClient, DI.databasePool)
+        val items = repo.listFriendRequests()
+        return ok(buildJsonObject {
+            put("count", items.size)
+            put("requests", kotlinx.serialization.json.buildJsonArray {
+                items.forEach { add(kotlinx.serialization.json.buildJsonObject {
+                    put("id", it.id)
+                    put("from_user_id", it.userId)
+                    put("display_name", it.displayName ?: "")
+                    put("username", it.username ?: "")
+                }) }
+            })
+        })
+    }
+
     override suspend fun searchByUsername(q: String): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val result = DI.apiClient.get("/v1/profile/search", mapOf("username" to q))
@@ -637,7 +686,15 @@ class EnchantAgentBridge : AgentAppBridge {
         if (!DI.isInitialized) return err("DI not initialized")
         val repo = ContactsRepository(DI.apiClient, DI.databasePool)
         return when (val r = repo.addContact(userId, customName)) {
-            is ContactResult.Added -> ok(buildJsonObject { put("added", r.added) })
+            is ContactResult.Added -> ok(buildJsonObject { put("added", r.added); put("status", "connected") })
+            is ContactResult.RequestSent -> ok(buildJsonObject {
+                put("added", false); put("status", "request_sent")
+                put("friend_request_id", r.friendRequestId)
+            })
+            is ContactResult.RequestPending -> ok(buildJsonObject {
+                put("added", false); put("status", "request_pending")
+                put("friend_request_id", r.friendRequestId)
+            })
             is ContactResult.Failed -> err(r.error)
             else -> err("unexpected result")
         }

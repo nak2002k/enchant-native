@@ -43,8 +43,19 @@ sealed class ContactResult {
     data class Blocked(val blocked: Boolean) : ContactResult()
     data class Unblocked(val unblocked: Boolean) : ContactResult()
     data class Matches(val matches: List<Contact>) : ContactResult()
+    data class RequestSent(val friendRequestId: String) : ContactResult()
+    data class RequestPending(val friendRequestId: String) : ContactResult()
+    data class RequestAccepted(val friendUserId: String) : ContactResult()
     data class Failed(val error: String) : ContactResult()
 }
+
+data class FriendRequestItem(
+    val id: String,
+    val userId: String,
+    val displayName: String?,
+    val username: String?,
+    val createdAt: String?
+)
 
 class ContactsRepository(
     private val apiClient: ApiClient,
@@ -58,13 +69,85 @@ class ContactsRepository(
                     if (customName != null) put("custom_name", customName)
                 })
                 response.fold(
-                    onSuccess = { ContactResult.Added(true) },
+                    onSuccess = { json ->
+                        val status = json["status"]?.jsonPrimitive?.content
+                        val frId = json["friend_request_id"]?.jsonPrimitive?.content ?: ""
+                        when (status) {
+                            "mutual", "already_contact" -> ContactResult.Added(true)
+                            "request_sent" -> ContactResult.RequestSent(frId)
+                            "request_pending" -> ContactResult.RequestPending(frId)
+                            else -> ContactResult.Added(true)
+                        }
+                    },
                     onFailure = { ContactResult.Failed(it.message ?: "Failed to add contact") }
                 )
             } catch (e: Exception) {
                 ContactResult.Failed(e.message ?: "Network error")
             }
         }
+    }
+
+    suspend fun sendFriendRequest(toUserId: String): ContactResult = withContext(Dispatchers.Default) {
+        try {
+            val response = apiClient.post("/v1/friend-requests", buildJsonObject {
+                put("to_user_id", toUserId)
+            })
+            response.fold(
+                onSuccess = {
+                    val frId = it["friend_request_id"]?.jsonPrimitive?.content ?: ""
+                    ContactResult.RequestSent(frId)
+                },
+                onFailure = { ContactResult.Failed(it.message ?: "Failed to send request") }
+            )
+        } catch (e: Exception) {
+            ContactResult.Failed(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun acceptFriendRequest(requestId: String): ContactResult = withContext(Dispatchers.Default) {
+        try {
+            val response = apiClient.put("/v1/friend-requests/$requestId/accept", buildJsonObject {})
+            response.fold(
+                onSuccess = {
+                    val friendId = it["friend_user_id"]?.jsonPrimitive?.content ?: ""
+                    ContactResult.RequestAccepted(friendId)
+                },
+                onFailure = { ContactResult.Failed(it.message ?: "Failed to accept") }
+            )
+        } catch (e: Exception) {
+            ContactResult.Failed(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun declineFriendRequest(requestId: String): ContactResult = withContext(Dispatchers.Default) {
+        try {
+            val response = apiClient.put("/v1/friend-requests/$requestId/decline", buildJsonObject {})
+            response.fold(
+                onSuccess = { ContactResult.Removed(true) },
+                onFailure = { ContactResult.Failed(it.message ?: "Failed to decline") }
+            )
+        } catch (e: Exception) {
+            ContactResult.Failed(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun listFriendRequests(): List<FriendRequestItem> = withContext(Dispatchers.Default) {
+        try {
+            val incoming = apiClient.get("/v1/friend-requests/incoming").getOrNull()
+            val items = mutableListOf<FriendRequestItem>()
+            (incoming?.get("requests")?.jsonArray ?: kotlinx.serialization.json.JsonArray(emptyList()))
+                .forEach { r ->
+                    val obj = r.jsonObject
+                    items.add(FriendRequestItem(
+                        id = obj["id"]?.jsonPrimitive?.content ?: "",
+                        userId = obj["from_user_id"]?.jsonPrimitive?.content ?: "",
+                        displayName = obj["display_name"]?.jsonPrimitive?.content,
+                        username = obj["username"]?.jsonPrimitive?.content,
+                        createdAt = obj["created_ts"]?.jsonPrimitive?.content
+                    ))
+                }
+            items
+        } catch (e: Exception) { emptyList() }
     }
 
     suspend fun syncContacts(): List<Contact> = withContext(Dispatchers.Default) {
@@ -75,9 +158,12 @@ class ContactsRepository(
                     val contacts = json["contacts"]?.jsonArray?.map { item ->
                         val obj = item.jsonObject
                         Contact(
-                            userId = obj["contact_user_id"]?.jsonPrimitive?.content ?: "",
+                            userId = obj["contact_user_id"]?.jsonPrimitive?.content
+                                ?: obj["user_id"]?.jsonPrimitive?.content ?: "",
                             username = obj["username"]?.jsonPrimitive?.content,
-                            displayName = obj["custom_name"]?.jsonPrimitive?.content ?: obj["username"]?.jsonPrimitive?.content,
+                            displayName = obj["custom_name"]?.jsonPrimitive?.content
+                                ?: obj["display_name"]?.jsonPrimitive?.content
+                                ?: obj["username"]?.jsonPrimitive?.content,
                             customName = obj["custom_name"]?.jsonPrimitive?.content,
                             addedTs = obj["added_ts"]?.jsonPrimitive?.content
                         )
