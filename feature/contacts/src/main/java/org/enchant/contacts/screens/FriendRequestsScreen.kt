@@ -1,5 +1,6 @@
 package org.enchant.contacts.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
@@ -53,7 +57,12 @@ fun FriendRequestsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Friend Requests") },
+                title = {
+                    Text(
+                        "Friend Requests",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
@@ -100,105 +109,103 @@ fun FriendRequestsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.PersonAdd,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(84.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.PersonAdd,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 if (selectedTab == 0) "No incoming requests"
                                 else "No outgoing requests",
-                                style = MaterialTheme.typography.titleMedium
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                             )
                         }
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(currentList, key = { it.id }) { request ->
-                            Surface(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primaryContainer
-                                    ) {
-                                        Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                                            Text(
-                                                request.username.take(2).uppercase(),
-                                                style = MaterialTheme.typography.titleMedium
-                                            )
-                                        }
-                                    }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                InitialAvatar(
+                                    text = request.username,
+                                    size = 44.dp
+                                )
 
-                                    Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
 
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(request.username, style = MaterialTheme.typography.titleSmall)
-                                        Text(
-                                            request.createdAt,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        request.username,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        request.createdAt,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
 
-                                    if (selectedTab == 0) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            FilledTonalButton(
-                                                onClick = {
-                                                    scope.launch {
-                                                        val body = buildJsonObject {
-                                                            put("approve", JsonPrimitive(true))
-                                                        }
-                                                        client.put("/v1/contacts/requests/${request.id}", body)
-                                                        incoming = incoming.filter { it.id != request.id }
-                                                    }
-                                                },
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                            ) {
-                                                Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Accept")
-                                            }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    scope.launch {
-                                                        val body = buildJsonObject {
-                                                            put("approve", JsonPrimitive(false))
-                                                        }
-                                                        client.put("/v1/contacts/requests/${request.id}", body)
-                                                        incoming = incoming.filter { it.id != request.id }
-                                                    }
-                                                },
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                            ) {
-                                                Text("Decline")
-                                            }
-                                        }
-                                    } else {
-                                        OutlinedButton(
+                                if (selectedTab == 0) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        PrimaryPillButton(
+                                            text = "Accept",
+                                            icon = Icons.Default.Check,
                                             onClick = {
                                                 scope.launch {
-                                                    client.del("/v1/contacts/requests/${request.id}")
-                                                    outgoing = outgoing.filter { it.id != request.id }
+                                                    val body = buildJsonObject {
+                                                        put("approve", JsonPrimitive(true))
+                                                    }
+                                                    client.put("/v1/contacts/requests/${request.id}", body)
+                                                    incoming = incoming.filter { it.id != request.id }
                                                 }
-                                            },
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                contentColor = MaterialTheme.colorScheme.error
-                                            )
-                                        ) {
-                                            Text("Cancel")
-                                        }
+                                            }
+                                        )
+                                        SecondaryPillButton(
+                                            text = "Decline",
+                                            contentColor = MaterialTheme.colorScheme.error,
+                                            onClick = {
+                                                scope.launch {
+                                                    val body = buildJsonObject {
+                                                        put("approve", JsonPrimitive(false))
+                                                    }
+                                                    client.put("/v1/contacts/requests/${request.id}", body)
+                                                    incoming = incoming.filter { it.id != request.id }
+                                                }
+                                            }
+                                        )
                                     }
+                                } else {
+                                    SecondaryPillButton(
+                                        text = "Cancel",
+                                        contentColor = MaterialTheme.colorScheme.error,
+                                        onClick = {
+                                            scope.launch {
+                                                client.del("/v1/contacts/requests/${request.id}")
+                                                outgoing = outgoing.filter { it.id != request.id }
+                                            }
+                                        }
+                                    )
                                 }
                             }
-                            HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+                            InsetDivider(inset = 72.dp)
                         }
                     }
                 }
