@@ -1,18 +1,16 @@
 package org.enchant.calls
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +20,13 @@ import androidx.compose.ui.unit.sp
 import android.app.Activity
 import android.view.WindowManager
 import org.enchant.core.crypto.CryptoPrimitives
+
+private val JewelPurpleLight = Color(0xFF3A0D6E)
+private val JewelPurpleDark = Color(0xFFB388E3)
+private val VerifiedGreen = Color(0xFF34C759)
+
+@Composable
+private fun brandPurple(): Color = if (isSystemInDarkTheme()) JewelPurpleDark else JewelPurpleLight
 
 object SafetyNumberHelper {
     fun computeFingerprint(ourKey: ByteArray, theirKey: ByteArray): String {
@@ -73,85 +78,125 @@ fun SafetyNumberDialog(
             (context as? Activity)?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
-    var showNumbers by remember { mutableStateOf(false) }
+
+    val digitsRows = remember(safetyNumber) {
+        safetyNumber.replace("-", "").replace(" ", "").uppercase()
+            .chunked(3).chunked(4)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
         icon = {
             Icon(
-                if (isVerified) Icons.Default.CheckCircle else Icons.Default.Shield,
+                if (isVerified) Icons.Default.CheckCircle else Icons.Default.Lock,
                 null,
-                tint = if (isVerified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                tint = if (isVerified) VerifiedGreen else brandPurple()
             )
         },
         title = {
             Text(
-                if (isVerified) "Verified" else "Safety Number",
-                style = MaterialTheme.typography.titleMedium
+                if (isVerified) "Verified" else "Safety number",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
         },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "Verify this conversation is end-to-end encrypted by comparing the safety number with ${
-                        if (showNumbers) "\n\n$safetyNumber" else " the other participant."
-                    }",
+                    "Verify this conversation is end-to-end encrypted by comparing the safety number with the other participant.",
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
 
-                if (showNumbers) {
-                    Spacer(Modifier.height(16.dp))
-                    val rows = SafetyNumberHelper.formatSafetyNumberRows(safetyNumber)
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                Spacer(Modifier.height(16.dp))
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            rows.forEach { row ->
-                                Text(
-                                    row,
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 2.sp
-                                    ),
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(Modifier.height(4.dp))
-                            }
+                        digitsRows.forEach { row ->
+                            Text(
+                                row.joinToString(" "),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 2.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(6.dp))
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "If the numbers are identical, you are chatting with the right person and your messages are secure.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                } else {
-                    Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = { showNumbers = true }) {
-                        Icon(Icons.Default.Visibility, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Show safety number")
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.QrCode2,
+                            null,
+                            modifier = Modifier.size(24.dp),
+                            tint = brandPurple()
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                "Scan this code",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "To verify on another device",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    "If the numbers are identical, you are chatting with the right person and your messages are secure.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         },
         confirmButton = {
-            if (!isVerified && showNumbers) {
-                TextButton(onClick = { onVerify() }) {
-                    Text("Mark as Verified")
+            if (!isVerified) {
+                Button(
+                    onClick = onVerify,
+                    shape = CircleShape,
+                    modifier = Modifier.height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = brandPurple(),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Verify", fontWeight = FontWeight.SemiBold)
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(if (isVerified) "Close" else "Not now") }
+            TextButton(onClick = onDismiss) { Text(if (isVerified) "Close" else "Dismiss") }
         }
     )
 }
