@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -150,7 +148,7 @@ private fun NormalHeader(
                 modifier = Modifier.semantics { contentDescription = "Safety number" },
             ) {
                 Icon(
-                    if (isPeerVerified) EnchantIcons.lock else Icons.Rounded.LockOpen,
+                    if (isPeerVerified) EnchantIcons.lock else EnchantIcons.lockOpen,
                     contentDescription = "Safety number",
                     tint = if (isPeerVerified) EnchantBrand.SignalBlue
                         else MaterialTheme.colorScheme.onSurfaceVariant,

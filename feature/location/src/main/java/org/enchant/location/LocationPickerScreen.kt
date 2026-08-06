@@ -12,8 +12,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.Dispatchers
@@ -256,7 +254,7 @@ fun LocationPickerScreen(
                 ) {
                     Box(modifier = Modifier.size(56.dp), contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Default.Explore,
+                            EnchantIcons.compass,
                             "Current location",
                             tint = brandPrimary(),
                             modifier = Modifier.size(26.dp)

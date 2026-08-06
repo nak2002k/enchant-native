@@ -27,8 +27,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -790,7 +788,7 @@ fun ConversationScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        if (peerVerified) EnchantIcons.lock else Icons.Default.LockOpen,
+                        if (peerVerified) EnchantIcons.lock else EnchantIcons.lockOpen,
                         contentDescription = null,
                         tint = if (peerVerified) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.tertiary

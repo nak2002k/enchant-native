@@ -1,6 +1,5 @@
 package org.enchant.status.screens
 
-import androidx.compose.material.icons.Icons
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -10,7 +9,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -211,7 +209,7 @@ fun StatusViewerScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                         Icon(
-                            imageVector = Icons.Default.PlayCircle,
+                            imageVector = EnchantIcons.circlePlay,
                             contentDescription = "Play video",
                             modifier = Modifier.size(64.dp).align(Alignment.Center),
                             tint = Color.White.copy(alpha = 0.8f)

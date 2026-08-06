@@ -4,8 +4,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import org.enchant.MainNavigationDetailLocation
 import org.enchant.MainNavigationViewModel
 import org.enchant.isContentRoot
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun EmptyDetailScreen() {
@@ -46,7 +45,7 @@ fun EmptyDetailScreen() {
             modifier = Modifier.alpha(alpha)
         ) {
             Icon(
-                imageVector = Icons.Outlined.ChatBubbleOutline,
+                imageVector = EnchantIcons.chatBubble,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.outline

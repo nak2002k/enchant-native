@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -114,13 +112,13 @@ fun GroupCallScreen(
                 onClick = onToggleMute
             )
             GroupControlButton(
-                icon = Icons.Default.PanTool,
+                icon = EnchantIcons.hand,
                 contentDescription = "Raise hand",
                 isActive = false,
                 onClick = onRaiseHand
             )
             GroupControlButton(
-                icon = Icons.Default.ThumbUp,
+                icon = EnchantIcons.thumbsUp,
                 contentDescription = "Send thumbs up reaction",
                 isActive = false,
                 onClick = { onSendReaction("\uD83D\uDC4D") }
@@ -262,7 +260,7 @@ private fun ParticipantTile(participant: CallParticipant, isAdmin: Boolean, onMu
             }
             if (participant.hasRaisedHand) {
                 Icon(
-                    Icons.Default.PanTool,
+                    EnchantIcons.hand,
                     "Hand raised",
                     tint = Color.Yellow,
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(16.dp)

@@ -7,8 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.enchant.core.model.AccountEntropyPool
 import org.enchant.registration.ArchiveRestoreOption
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun WelcomeScreen(
@@ -138,7 +137,7 @@ fun PhoneNumberScreen(
                 value = state.phoneNumber,
                 onValueChange = { onEvent(PhoneNumberEntryEvent.PhoneNumberChanged(it)) },
                 label = { Text("Phone number") },
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                leadingIcon = { Icon(EnchantIcons.phone, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier
@@ -287,7 +286,7 @@ private fun PermissionItem(title: String, description: String, delay: Long = 0, 
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    Icons.Default.Phone,
+                    EnchantIcons.phone,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp)

@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,20 +49,20 @@ object EmojiData {
             "\uD83D\uDE32", "\uD83D\uDE33", "\uD83D\uDE34", "\uD83D\uDE35", "\u2764\uFE0F", "\uD83E\uDD0D",
             "\uD83D\uDE36", "\uD83D\uDE37", "\uD83E\uDD12", "\uD83E\uDD14", "\uD83E\uDD17"
         )),
-        EmojiCategory("Gestures", { Icon(Icons.Default.ThumbUp, "Gestures") }, listOf(
+        EmojiCategory("Gestures", { Icon(EnchantIcons.thumbsUp, "Gestures") }, listOf(
             "\uD83D\uDC4D", "\uD83D\uDC4E", "\uD83D\uDC4F", "\uD83D\uDC4C", "\u270A", "\u270B",
             "\uD83E\uDD1A", "\uD83E\uDD1B", "\uD83E\uDD1C", "\uD83E\uDD1D", "\uD83E\uDD1E",
             "\uD83E\uDD1F", "\uD83D\uDC4A", "\u270C\uFE0F", "\uD83E\uDD18",
             "\uD83D\uDC4B", "\uD83D\uDE4F", "\uD83D\uDE4C", "\uD83D\uDE4D", "\uD83D\uDE4E"
         )),
-        EmojiCategory("Animals", { Icon(Icons.Default.Pets, "Animals") }, listOf(
+        EmojiCategory("Animals", { Icon(EnchantIcons.pawPrint, "Animals") }, listOf(
             "\uD83D\uDC36", "\uD83D\uDC31", "\uD83D\uDC2D", "\uD83D\uDC39", "\uD83D\uDC30",
             "\uD83D\uDC3B", "\uD83D\uDC3C", "\uD83D\uDC28", "\uD83D\uDC2F", "\uD83D\uDC27",
             "\uD83D\uDC26", "\uD83D\uDC24", "\uD83D\uDC22", "\uD83D\uDC2E", "\uD83D\uDC37",
             "\uD83D\uDC3D", "\uD83D\uDC38", "\uD83D\uDC35", "\uD83D\uDE48", "\uD83D\uDE49",
             "\uD83D\uDE4A", "\uD83D\uDC14", "\uD83D\uDC17", "\uD83D\uDC34", "\uD83D\uDC0E"
         )),
-        EmojiCategory("Food", { Icon(Icons.Default.Restaurant, "Food") }, listOf(
+        EmojiCategory("Food", { Icon(EnchantIcons.utensils, "Food") }, listOf(
             "\uD83C\uDF4E", "\uD83C\uDF4F", "\uD83C\uDF50", "\uD83C\uDF51", "\uD83C\uDF52",
             "\uD83C\uDF53", "\uD83C\uDF54", "\uD83C\uDF55", "\uD83C\uDF56", "\uD83C\uDF57",
             "\uD83C\uDF58", "\uD83C\uDF59", "\uD83C\uDF5A", "\uD83C\uDF5B", "\uD83C\uDF5C",
@@ -73,7 +71,7 @@ object EmojiData {
             "\uD83C\uDF67", "\uD83C\uDF68", "\uD83C\uDF69", "\u2615", "\uD83C\uDF75",
             "\uD83C\uDF76", "\uD83C\uDF7A", "\uD83C\uDF7B"
         )),
-        EmojiCategory("Travel", { Icon(Icons.Default.Flight, "Travel") }, listOf(
+        EmojiCategory("Travel", { Icon(EnchantIcons.plane, "Travel") }, listOf(
             "\uD83C\uDF0D", "\uD83C\uDF0E", "\uD83C\uDF0F", "\uD83C\uDF10", "\uD83D\uDE80",
             "\uD83D\uDE81", "\uD83D\uDE82", "\uD83D\uDE83", "\uD83D\uDE84", "\uD83D\uDE85",
             "\uD83D\uDE86", "\uD83D\uDE87", "\uD83D\uDE88", "\uD83D\uDE89", "\uD83D\uDE8A",

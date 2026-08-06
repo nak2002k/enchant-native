@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,6 +23,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.chatlist.components.EnchantSpacing
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun SearchPill(
@@ -46,7 +44,7 @@ fun SearchPill(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                Icons.Rounded.Search,
+                EnchantIcons.search,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -78,7 +76,7 @@ fun SearchPill(
             if (query.isNotEmpty()) {
                 Spacer(modifier = Modifier.width(EnchantSpacing.sm))
                 Icon(
-                    Icons.Rounded.Close,
+                    EnchantIcons.close,
                     contentDescription = "Clear search",
                     modifier = Modifier
                         .size(20.dp)

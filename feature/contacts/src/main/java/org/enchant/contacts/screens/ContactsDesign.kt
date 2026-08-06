@@ -21,12 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -52,6 +46,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 import androidx.compose.ui.unit.sp
 
 // ─── Brand ───
@@ -212,7 +207,7 @@ fun SettingsRow(
         if (onClick != null) {
             Spacer(Modifier.width(ContactsSpacing.xs))
             Icon(
-                Icons.Default.ChevronRight,
+                EnchantIcons.chevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp),
@@ -241,7 +236,7 @@ fun SearchPill(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Default.Search,
+            EnchantIcons.search,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp),
@@ -273,7 +268,7 @@ fun SearchPill(
                 modifier = Modifier.size(24.dp),
             ) {
                 Icon(
-                    Icons.Default.Close,
+                    EnchantIcons.close,
                     contentDescription = "Clear",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
@@ -312,7 +307,7 @@ fun ContactsFab(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            Icons.Default.PersonAdd,
+            EnchantIcons.userPlus,
             contentDescription = null,
             tint = Color.White,
             modifier = Modifier.size(24.dp),
@@ -333,7 +328,7 @@ fun AddPillButton(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Default.Check,
+                EnchantIcons.check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp),
@@ -356,7 +351,7 @@ fun AddPillButton(
             ),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
         ) {
-            Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(14.dp))
+            Icon(EnchantIcons.userPlus, contentDescription = null, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(4.dp))
             Text(
                 text = "Add",

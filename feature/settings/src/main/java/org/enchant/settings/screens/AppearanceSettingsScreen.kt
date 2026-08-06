@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -65,8 +62,8 @@ fun AppearanceSettingsScreen(
                                 leadingIcon = {
                                     Icon(
                                         when (value) {
-                                            "light" -> Icons.Rounded.LightMode
-                                            "dark" -> Icons.Rounded.DarkMode
+                                            "light" -> EnchantIcons.sun
+                                            "dark" -> EnchantIcons.moon
                                             else -> EnchantIcons.settings
                                         },
                                         null, modifier = Modifier.size(18.dp)

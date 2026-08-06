@@ -24,9 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PauseCircle
-import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -826,8 +823,8 @@ internal fun VoiceMessageContent(
         ) {
             androidx.compose.material3.IconButton(onClick = { loadAndPlay() }) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Rounded.PauseCircle
-                        else Icons.Rounded.PlayCircle,
+                    imageVector = if (isPlaying) EnchantIcons.pause
+                        else EnchantIcons.circlePlay,
                     contentDescription = if (isPlaying) "Pause" else "Play",
                     tint = primaryColor,
                 )

@@ -3,8 +3,6 @@ package org.enchant.auth.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -18,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun WelcomeScreen(
@@ -40,7 +39,7 @@ fun WelcomeScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Rounded.Bolt,
+                    EnchantIcons.bolt,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(34.dp)

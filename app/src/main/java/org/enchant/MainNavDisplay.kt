@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -82,6 +79,7 @@ import org.enchant.channels.ChannelViewModel
 import org.enchant.channels.screens.ChannelFeedScreen
 import org.enchant.stickers.StickerViewModel
 import org.enchant.stickers.screens.StickerStoreScreen
+import org.enchant.ui.icons.EnchantIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -805,7 +803,7 @@ private fun CallLinkDetailContent(roomId: String) {
         } else {
             val data = callLinkData
             Icon(
-                Icons.Default.Link,
+                EnchantIcons.link,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.primary
@@ -844,7 +842,7 @@ private fun CallLinkDetailContent(roomId: String) {
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(EnchantIcons.call, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Join Call")
             }
