@@ -814,12 +814,16 @@ object IncomingMessageProcessor {
                         val convType = if (groupId != null) "group" else "direct"
                         val attachments = dataMsg.attachmentsList
                         val attachment = attachments.firstOrNull { it.hasCdnKey() }
+                        val rawBody = if (attachment != null) "📎 ${attachment.fileName}" else dataMsg.body
+                        // The view-once marker rides the message body.
+                        val isViewOnceMsg = dataMsg.body.startsWith("🕶️ ")
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = convId,
                                 senderId = senderUserId,
                                 messageType = "ENCRYPTED_MESSAGE",
-                                content = if (attachment != null) "📎 ${attachment.fileName}" else dataMsg.body,
+                                content = if (isViewOnceMsg) rawBody.removePrefix("🕶️ ") else rawBody,
+                                isViewOnce = isViewOnceMsg,
                                 status = "delivered",
                                 timestamp = envelope.senderTimestamp ?: envelope.serverTimestamp ?: now,
                                 serverTs = now,

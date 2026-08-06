@@ -526,7 +526,7 @@ object MessageSendPipeline {
                 // Veil-sealed message — the same proven path as text.
                 val content = org.enchant.protos.ContentProtos.Content.parseFrom(
                     MessageProtobufHelper.buildDataMessageContent(
-                        body = "📎 $fileName",
+                        body = if (isViewOnce) "🕶️ 📎 $fileName" else "📎 $fileName",
                         timestamp = now,
                         attachment = org.enchant.protos.AttachmentPointerProtos.AttachmentPointer.newBuilder()
                             .setCdnKey(mediaId)

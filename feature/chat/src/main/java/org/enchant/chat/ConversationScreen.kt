@@ -889,6 +889,18 @@ fun MessageBubble(
 
     val showSenderMeta = !isOutgoing && senderName != null
 
+    // View-once: after the reveal, count down and expire the message
+    // (the processor deletes the media + marks it gone).
+    LaunchedEffect(viewOnceCountdown) {
+        if (viewOnceCountdown > 0) {
+            delay(1000)
+            viewOnceCountdown--
+        }
+    }
+    if (viewOnceRevealed && viewOnceCountdown <= 0 && message.isViewOnce) {
+        viewOnceRevealed = false
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -953,38 +965,67 @@ fun MessageBubble(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                         )
-                    } else if (message.mediaMimeType != null && !message.isViewOnce) {
-                    val mimeType = message.mediaMimeType
-                    if (mimeType != null && mimeType.startsWith("audio/")) {
-                        VoiceMessageContent(
-                            mediaMimeType = mimeType,
-                            mediaSize = message.mediaSize,
-                            content = message.content,
-                            mediaId = message.mediaId,
-                            mediaKey = message.mediaKey
-                        )
-                    } else if (mimeType != null && mimeType.startsWith("image/") &&
-                        message.mediaId != null && message.mediaKey != null
-                    ) {
+                    } else if (message.mediaMimeType != null) {
+                        val mimeType = message.mediaMimeType
                         val mid = message.mediaId
                         val mkey = message.mediaKey
-                        if (mid != null && mkey != null) {
+                        if (mimeType != null && mimeType.startsWith("audio/")) {
+                            VoiceMessageContent(
+                                mediaMimeType = mimeType,
+                                mediaSize = message.mediaSize,
+                                content = message.content,
+                                mediaId = message.mediaId,
+                                mediaKey = message.mediaKey
+                            )
+                        } else if (mimeType != null && mimeType.startsWith("image/") &&
+                            mid != null && mkey != null && message.isViewOnce && !viewOnceRevealed
+                        ) {
+                            // View-once: hidden until tapped, then revealed,
+                            // counted down and deleted (Signal behavior).
+                            Surface(
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(140.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        viewOnceRevealed = true
+                                        onViewOnceViewed(message.envelopeId ?: "")
+                                        viewOnceCountdown = 5
+                                    },
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.VisibilityOff,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.tertiary
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text("Tap to view", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        } else if (mimeType != null && mimeType.startsWith("image/") &&
+                            mid != null && mkey != null
+                        ) {
                             EncryptedImageContent(
                                 mediaId = mid,
                                 mediaKey = mkey,
                                 mimeType = mimeType,
                                 fileName = message.content.removePrefix("📎 ")
                             )
-                        }
-                    } else {
-                        Text(
-                            "📎 ${message.mediaMimeType}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        val size = message.mediaSize
-                        if (size != null) {
+                        } else {
                             Text(
-                                formatFileSize(size),
+                                "📎 ${message.mediaMimeType}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            val size = message.mediaSize
+                            if (size != null) {
+                                Text(
+                                    formatFileSize(size),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

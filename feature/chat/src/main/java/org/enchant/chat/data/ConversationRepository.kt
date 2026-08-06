@@ -177,14 +177,15 @@ class ConversationRepository(
                     INSERT OR REPLACE INTO messages
                         (conversation_id, sender_id, envelope_id, message_type,
                          content, status, timestamp, server_ts, disappear_at,
-                         media_key, media_mime_type, media_size, media_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         media_key, media_mime_type, media_size, media_id, is_view_once)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, arrayOf(
                     entity.conversationId, entity.senderId, entity.envelopeId,
                     entity.messageType, entity.content, entity.status,
                     entity.timestamp.toString(), entity.serverTs,
                     entity.disappearAt, entity.mediaKey, entity.mediaMimeType,
-                    entity.mediaSize?.toString(), entity.mediaId
+                    entity.mediaSize?.toString(), entity.mediaId,
+                    if (entity.isViewOnce) 1 else 0
                 ))
                 db.execSQL("""
                     INSERT OR REPLACE INTO conversations

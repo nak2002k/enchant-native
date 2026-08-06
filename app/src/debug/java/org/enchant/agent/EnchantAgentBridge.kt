@@ -496,6 +496,7 @@ class EnchantAgentBridge : AgentAppBridge {
                         put("media_key", m.mediaKey ?: "")
                         put("media_mime_type", m.mediaMimeType ?: "")
                         put("media_size", m.mediaSize?.toString() ?: "")
+                        put("is_view_once", m.isViewOnce)
                     })
                 }
             })
