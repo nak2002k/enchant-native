@@ -17,8 +17,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -51,7 +53,8 @@ private fun destinationIcons(destination: MainNavigationListLocation): Pair<Imag
     when (destination) {
         MainNavigationListLocation.CHATS -> Icons.Filled.Chat to Icons.Outlined.ChatBubbleOutline
         MainNavigationListLocation.CALLS -> Icons.Filled.Call to Icons.Outlined.Call
-        MainNavigationListLocation.STORIES -> Icons.Filled.PhotoCamera to Icons.Outlined.PhotoCamera
+        MainNavigationListLocation.STATUS -> Icons.Filled.PhotoCamera to Icons.Outlined.PhotoCamera
+        MainNavigationListLocation.SETTINGS -> Icons.Filled.Settings to Icons.Outlined.Settings
         MainNavigationListLocation.ARCHIVE -> Icons.Filled.Chat to Icons.Outlined.ChatBubbleOutline
     }
 
@@ -71,22 +74,20 @@ fun MainNavigationBar(
                 .height(if (state.compact) 48.dp else 80.dp)
         ) {
             val entries = remember(state.isStoriesFeatureEnabled) {
-                if (state.isStoriesFeatureEnabled) {
-                    MainNavigationListLocation.entries.filterNot {
-                        it == MainNavigationListLocation.ARCHIVE
-                    }
-                } else {
-                    MainNavigationListLocation.entries.filterNot {
-                        it == MainNavigationListLocation.STORIES || it == MainNavigationListLocation.ARCHIVE
-                    }
-                }
+                listOf(
+                    MainNavigationListLocation.STATUS,
+                    MainNavigationListLocation.CALLS,
+                    MainNavigationListLocation.CHATS,
+                    MainNavigationListLocation.SETTINGS,
+                )
             }
 
             entries.forEach { destination ->
                 val badgeCount = when (destination) {
                     MainNavigationListLocation.CHATS -> state.chatsCount
                     MainNavigationListLocation.CALLS -> state.callsCount
-                    MainNavigationListLocation.STORIES -> state.storiesCount
+                    MainNavigationListLocation.STATUS -> state.storiesCount
+                    MainNavigationListLocation.SETTINGS -> 0
                     MainNavigationListLocation.ARCHIVE -> 0
                 }
                 val selected = state.currentListLocation == destination
@@ -133,8 +134,12 @@ fun MainNavigationBar(
                     },
                     label = if (state.compact) null else {
                         {
+                            val label = when (destination) {
+                                MainNavigationListLocation.STATUS -> "Status"
+                                else -> destination.name.lowercase().replaceFirstChar { it.uppercase() }
+                            }
                             Text(
-                                destination.name,
+                                label,
                                 fontSize = 11.sp,
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                 color = if (selected) selectedTint

@@ -363,22 +363,24 @@ fun EnchantEmptyState(
 @Composable
 fun SettingsTitleBar(
     title: String,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = EnchantSpacing.xs, end = EnchantSpacing.lg, top = EnchantSpacing.xs, bottom = EnchantSpacing.xs),
+            .padding(start = if (onBack != null) EnchantSpacing.xs else EnchantSpacing.lg, end = EnchantSpacing.lg, top = EnchantSpacing.xs, bottom = EnchantSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                Icons.Rounded.ArrowBackIosNew,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
+        if (onBack != null) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.Rounded.ArrowBackIosNew,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
         Text(
             text = title,
@@ -393,7 +395,7 @@ fun SettingsTitleBar(
 @Composable
 fun SettingsScaffold(
     title: String,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {

@@ -32,7 +32,7 @@ fun SettingsHomeScreen(
     onNavigateToChats: () -> Unit,
     onNavigateToStorage: () -> Unit,
     onNavigateToAbout: () -> Unit,
-    onBack: () -> Unit
+    onBack: (() -> Unit)?
 ) {
     SettingsScaffold(title = "Settings", onBack = onBack) {
         LazyColumn(

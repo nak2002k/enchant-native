@@ -16,8 +16,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +50,8 @@ private fun destinationIcons(destination: MainNavigationListLocation): Pair<Imag
     when (destination) {
         MainNavigationListLocation.CHATS -> Icons.Filled.Chat to Icons.Outlined.ChatBubbleOutline
         MainNavigationListLocation.CALLS -> Icons.Filled.Call to Icons.Outlined.Call
-        MainNavigationListLocation.STORIES -> Icons.Filled.PhotoCamera to Icons.Outlined.PhotoCamera
+        MainNavigationListLocation.STATUS -> Icons.Filled.PhotoCamera to Icons.Outlined.PhotoCamera
+        MainNavigationListLocation.SETTINGS -> Icons.Filled.Settings to Icons.Outlined.Settings
         MainNavigationListLocation.ARCHIVE -> Icons.Filled.Chat to Icons.Outlined.ChatBubbleOutline
     }
 
@@ -58,7 +61,8 @@ private fun badgeCountFor(
 ): Int = when (destination) {
     MainNavigationListLocation.CHATS -> state.chatsCount
     MainNavigationListLocation.CALLS -> state.callsCount
-    MainNavigationListLocation.STORIES -> state.storiesCount
+    MainNavigationListLocation.STATUS -> state.storiesCount
+    MainNavigationListLocation.SETTINGS -> 0
     MainNavigationListLocation.ARCHIVE -> 0
 }
 
@@ -76,7 +80,7 @@ fun MainNavigationRail(
             }
         } else {
             MainNavigationListLocation.entries.filterNot {
-                it == MainNavigationListLocation.STORIES || it == MainNavigationListLocation.ARCHIVE
+                it == MainNavigationListLocation.STATUS || it == MainNavigationListLocation.ARCHIVE
             }
         }
     }

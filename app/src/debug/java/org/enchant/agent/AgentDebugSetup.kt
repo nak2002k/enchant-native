@@ -29,7 +29,7 @@ object AgentDebugSetup {
             AgentRuntime.onSetAuthFlowComplete?.invoke(true)
             val location = when (tab.uppercase()) {
                 "CALLS" -> MainNavigationListLocation.CALLS
-                "STORIES" -> MainNavigationListLocation.STORIES
+                "STORIES" -> MainNavigationListLocation.STATUS
                 "ARCHIVE" -> MainNavigationListLocation.ARCHIVE
                 else -> MainNavigationListLocation.CHATS
             }
@@ -78,12 +78,12 @@ object AgentDebugSetup {
                     AgentUiTracker.setMainNavigation("chats", "group_info", params)
                 }
                 "status_feed" -> {
-                    vm.goTo(MainNavigationListLocation.STORIES)
+                    vm.goTo(MainNavigationListLocation.STATUS)
                     vm.goTo(MainNavigationDetailLocation.StatusFeed)
                     AgentUiTracker.setMainNavigation("stories", "status_feed")
                 }
                 "status_create" -> {
-                    vm.goTo(MainNavigationListLocation.STORIES)
+                    vm.goTo(MainNavigationListLocation.STATUS)
                     vm.goTo(MainNavigationDetailLocation.StatusCreate)
                     AgentUiTracker.setMainNavigation("stories", "status_create")
                 }

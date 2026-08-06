@@ -44,7 +44,8 @@ fun MainFloatingActionButtons(
             MainNavigationListLocation.CHATS,
             MainNavigationListLocation.ARCHIVE -> NewChatFab(onClick = callback::onNewChatClick)
             MainNavigationListLocation.CALLS -> NewCallFab(onClick = callback::onNewCallClick)
-            MainNavigationListLocation.STORIES -> CameraFab(onClick = { callback.onCameraClick(tab) })
+            MainNavigationListLocation.STATUS -> CameraFab(onClick = { callback.onCameraClick(tab) })
+            MainNavigationListLocation.SETTINGS, MainNavigationListLocation.ARCHIVE -> null
         }
     }
 }

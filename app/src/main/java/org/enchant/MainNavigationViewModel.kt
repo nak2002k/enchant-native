@@ -55,6 +55,10 @@ class MainNavigationViewModel(
         listOf(MainNavigationDetailLocation.Empty)
     )
     val storiesDetailStack: StateFlow<List<MainNavigationDetailLocation>> = _storiesDetailStack.asStateFlow()
+    private val _settingsDetailStack = MutableStateFlow<List<MainNavigationDetailLocation>>(
+        listOf(MainNavigationDetailLocation.Empty)
+    )
+    val settingsDetailStack: StateFlow<List<MainNavigationDetailLocation>> = _settingsDetailStack.asStateFlow()
 
     private val _internalDetailLocation = MutableSharedFlow<MainNavigationDetailLocation>()
     val detailLocation: SharedFlow<MainNavigationDetailLocation> = _internalDetailLocation.asSharedFlow()
@@ -243,7 +247,9 @@ class MainNavigationViewModel(
             MainNavigationListLocation.CHATS -> _chatsDetailStack.value
             MainNavigationListLocation.ARCHIVE -> _archiveDetailStack.value
             MainNavigationListLocation.CALLS -> _callsDetailStack.value
-            MainNavigationListLocation.STORIES -> _storiesDetailStack.value
+            MainNavigationListLocation.STATUS -> _storiesDetailStack.value
+            MainNavigationListLocation.STATUS -> _storiesDetailStack.value
+            MainNavigationListLocation.SETTINGS -> _settingsDetailStack.value
         }
     }
 
@@ -252,7 +258,9 @@ class MainNavigationViewModel(
             MainNavigationListLocation.CHATS -> _chatsDetailStack.value = stack
             MainNavigationListLocation.ARCHIVE -> _archiveDetailStack.value = stack
             MainNavigationListLocation.CALLS -> _callsDetailStack.value = stack
-            MainNavigationListLocation.STORIES -> _storiesDetailStack.value = stack
+            MainNavigationListLocation.STATUS -> _storiesDetailStack.value = stack
+            MainNavigationListLocation.STATUS -> _storiesDetailStack.value = stack
+            MainNavigationListLocation.SETTINGS -> _settingsDetailStack.value = stack
         }
     }
 

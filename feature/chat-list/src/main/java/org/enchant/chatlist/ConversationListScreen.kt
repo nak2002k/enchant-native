@@ -84,7 +84,9 @@ fun ConversationListScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val navigationEvent by viewModel.navigationEvent.collectAsState()
     val ownInitial = org.enchant.core.base.SecurePreferences.getString("profile.display_name")
-        ?.take(1)?.uppercase() ?: "?"
+        ?.take(1)?.uppercase()
+        ?: org.enchant.core.base.SecurePreferences.getString("profile.displayName")?.take(1)?.uppercase()
+        ?: "E"
     val ownUserId = org.enchant.core.base.SecurePreferences.getString("auth.user_id")
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -156,13 +158,6 @@ fun ConversationListScreen(
                         Icon(
                             Icons.Default.Search,
                             "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(
-                            Icons.Default.Settings,
-                            "Settings",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

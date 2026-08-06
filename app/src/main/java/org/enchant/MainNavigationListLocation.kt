@@ -5,8 +5,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class MainNavigationListLocation : NavKey {
-    CHATS,
+    STATUS,
     CALLS,
-    STORIES,
+    CHATS,
+    SETTINGS,
     ARCHIVE
 }

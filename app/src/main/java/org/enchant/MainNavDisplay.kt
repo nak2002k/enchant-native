@@ -138,12 +138,14 @@ fun MainNavDisplay(
             val archiveStack by mainNavViewModel.archiveDetailStack.collectAsStateWithLifecycle()
             val callsStack by mainNavViewModel.callsDetailStack.collectAsStateWithLifecycle()
             val storiesStack by mainNavViewModel.storiesDetailStack.collectAsStateWithLifecycle()
+            val settingsStack by mainNavViewModel.settingsDetailStack.collectAsStateWithLifecycle()
             DetailPaneContent(
                 detailStack = when (mainNavState.currentListLocation) {
                     MainNavigationListLocation.CHATS -> chatsStack
                     MainNavigationListLocation.ARCHIVE -> archiveStack
                     MainNavigationListLocation.CALLS -> callsStack
-                    MainNavigationListLocation.STORIES -> storiesStack
+                    MainNavigationListLocation.STATUS -> storiesStack
+                    MainNavigationListLocation.SETTINGS -> settingsStack
                 },
                 onNavigate = { mainNavViewModel.goTo(it) },
                 onNavigateBack = { mainNavViewModel.goBackInCurrentTab() }
@@ -224,8 +226,11 @@ private fun ListPaneContent(
             MainNavigationListLocation.CALLS -> {
                 CallsListContent(onNavigate = onNavigate)
             }
-            MainNavigationListLocation.STORIES -> {
+            MainNavigationListLocation.STATUS -> {
                 StoriesListContent()
+            }
+            MainNavigationListLocation.SETTINGS -> {
+                SettingsTabContent(onNavigate = onNavigate)
             }
         }
     }
@@ -267,6 +272,29 @@ private fun StoriesListContent(onNavigate: (MainNavigationDetailLocation) -> Uni
             onNavigate(MainNavigationDetailLocation.StatusViewer(statusId))
         },
         onCreateStatus = { onNavigate(MainNavigationDetailLocation.StatusCreate) }
+    )
+}
+
+/** Settings as a bottom tab: no back button, profile header opens the profile. */
+@Composable
+private fun SettingsTabContent(onNavigate: (MainNavigationDetailLocation) -> Unit) {
+    val settingsViewModel: SettingsViewModel = viewModel()
+    LaunchedEffect(Unit) { settingsViewModel.loadSettings() }
+    val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    SettingsHomeScreen(
+        displayName = settingsState.displayName ?: "User",
+        username = settingsState.username,
+        about = settingsState.about,
+        onOpenProfile = { onNavigate(MainNavigationDetailLocation.Profile("self")) },
+        onNavigateToAccount = { onNavigate(MainNavigationDetailLocation.AccountSettings) },
+        onNavigateToSecurity = { onNavigate(MainNavigationDetailLocation.SecuritySettings) },
+        onNavigateToPrivacy = { onNavigate(MainNavigationDetailLocation.PrivacySettings) },
+        onNavigateToNotifications = { onNavigate(MainNavigationDetailLocation.NotificationSettings) },
+        onNavigateToAppearance = { onNavigate(MainNavigationDetailLocation.AppearanceSettings) },
+        onNavigateToChats = { onNavigate(MainNavigationDetailLocation.ChatsSettings) },
+        onNavigateToStorage = { onNavigate(MainNavigationDetailLocation.StorageSettings) },
+        onNavigateToAbout = { onNavigate(MainNavigationDetailLocation.About) },
+        onBack = null
     )
 }
 

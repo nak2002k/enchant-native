@@ -130,27 +130,37 @@ fun AppNavigation() {
         }
     }
 
-    when {
-        initFailed -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Initialization failed")
-                    Spacer(Modifier.height(8.dp))
-                    Text("Check logs for details")
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { initFailed = false }) {
-                        Text("Retry")
-                    }
+    // Splash: show while booting, then for a beat once the app is ready.
+    var splashDone by remember { mutableStateOf(false) }
+    var splashFinished by remember { mutableStateOf(false) }
+    LaunchedEffect(diReady) {
+        if (diReady && !splashFinished) {
+            delay(2350)
+            splashFinished = true
+            splashDone = true
+        }
+    }
+
+    if (initFailed) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Initialization failed")
+                Spacer(Modifier.height(8.dp))
+                Text("Check logs for details")
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { initFailed = false }) {
+                    Text("Retry")
                 }
             }
         }
-        !diReady -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        }
-        authFlowComplete -> MainNavDisplay()
-        else -> AuthNavDisplay(
+    } else if (!splashDone) {
+        EnchantSplash(
+            onFinished = { splashDone = true }
+        )
+    } else if (authFlowComplete) {
+        MainNavDisplay()
+    } else {
+        AuthNavDisplay(
             viewModel = authViewModel,
             onAuthComplete = { authFlowComplete = true }
         )
