@@ -9,7 +9,8 @@ object MessageProtobufHelper {
         body: String,
         timestamp: Long = System.currentTimeMillis(),
         expireTimerSeconds: Int = 0,
-        groupMasterKey: ByteArray? = null
+        groupMasterKey: ByteArray? = null,
+        attachment: org.enchant.protos.AttachmentPointerProtos.AttachmentPointer? = null
     ): ByteArray {
         val dataMessage = DataMessageProtos.DataMessage.newBuilder()
             .setBody(body)
@@ -23,6 +24,9 @@ object MessageProtobufHelper {
                             .setRevision(0)
                             .build()
                     )
+                }
+                if (attachment != null) {
+                    addAttachments(attachment)
                 }
             }
             .build()
@@ -96,12 +100,16 @@ object MessageProtobufHelper {
                             body = dm.body
                         )
                     } else {
+                        val att = dm.attachmentsList.firstOrNull { it.hasCdnKey() && it.hasKey() }
                         ParsedContent.DataMessage(
                             body = dm.body,
                             timestamp = dm.timestamp,
                             expireTimer = dm.expireTimer,
                             groupMasterKey = if (dm.hasGroupV2() && dm.groupV2.masterKey.size() > 0)
-                                dm.groupV2.masterKey.toByteArray() else null
+                                dm.groupV2.masterKey.toByteArray() else null,
+                            mediaId = att?.cdnKey,
+                            mediaKey = att?.key?.toByteArray(),
+                            mediaMime = att?.contentType
                         )
                     }
                 }
@@ -149,7 +157,10 @@ object MessageProtobufHelper {
             val body: String,
             val timestamp: Long,
             val expireTimer: Int = 0,
-            val groupMasterKey: ByteArray? = null
+            val groupMasterKey: ByteArray? = null,
+            val mediaId: String? = null,
+            val mediaKey: ByteArray? = null,
+            val mediaMime: String? = null
         ) : ParsedContent()
 
         data class Receipt(

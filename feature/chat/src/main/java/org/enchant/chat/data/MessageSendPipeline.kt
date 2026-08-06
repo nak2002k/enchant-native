@@ -508,26 +508,31 @@ object MessageSendPipeline {
                     isViewOnce = isViewOnce
                 ))
 
-                val encryptedMediaKey = NativeSessionManager.encryptWithSessionKey(recipientUserId, mediaKey)
-                if (encryptedMediaKey == null) {
-                    repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
-                    return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
-                }
-                Arrays.fill(mediaKey, 0)
-
-                val mediaPayload = "$mediaId:${CryptoHelper.base64UrlEncode(encryptedMediaKey)}"
-                val encrypted = NativeSessionManager.encryptMessage(recipientUserId, mediaPayload.encodeToByteArray())
-                if (encrypted == null) {
-                    repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
-                    return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
-                }
-
-                client.post("/v1/messages/send", buildJsonObject {
-                    put("recipient_user_id", recipientUserId)
-                    put("message_type", "ENCRYPTED_MESSAGE")
-                    put("payload", CryptoHelper.base64UrlEncode(encrypted.payload))
-                })
-                repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
+                // Signal pattern: the attachment rides the Content proto
+                // (AttachmentPointer: cdnKey=mediaId, key=mediaKey) inside a
+                // Veil-sealed message — the same proven path as text.
+                val content = org.enchant.protos.ContentProtos.Content.parseFrom(
+                    MessageProtobufHelper.buildDataMessageContent(
+                        body = "📎 $fileName",
+                        timestamp = now,
+                        attachment = org.enchant.protos.AttachmentPointerProtos.AttachmentPointer.newBuilder()
+                            .setCdnKey(mediaId)
+                            .setKey(com.google.protobuf.ByteString.copyFrom(mediaKey))
+                            .setContentType(mimeType)
+                            .setFileName(fileName)
+                            .setSize(fileBytes.size)
+                            .build()
+                    )
+                )
+                val result = sendVeiledMessage(
+                    conversationId = conversationId,
+                    recipientUserId = recipientUserId,
+                    plaintext = content.toByteArray()
+                )
+                repo.updateMessageStatus(
+                    envelopeId,
+                    if (result is SendResult.Success) MessageStatus.SENT else MessageStatus.PENDING
+                )
                 SendResult.Success(envelopeId)
             } catch (e: Exception) {
                 SendResult.Failed(SendError.NETWORK)

@@ -812,16 +812,23 @@ object IncomingMessageProcessor {
                         } else null
                         val convId = groupId ?: senderUserId
                         val convType = if (groupId != null) "group" else "direct"
+                        val attachments = dataMsg.attachmentsList
+                        val attachment = attachments.firstOrNull { it.hasCdnKey() }
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = convId,
                                 senderId = senderUserId,
                                 messageType = "ENCRYPTED_MESSAGE",
-                                content = dataMsg.body,
+                                content = if (attachment != null) "📎 ${attachment.fileName}" else dataMsg.body,
                                 status = "delivered",
                                 timestamp = envelope.senderTimestamp ?: envelope.serverTimestamp ?: now,
                                 serverTs = now,
-                                envelopeId = envelope.envelopeId
+                                envelopeId = envelope.envelopeId,
+                                mediaKey = attachment?.takeIf { it.hasKey() }?.key?.toByteArray()?.let {
+                                    org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(it)
+                                },
+                                mediaMimeType = attachment?.contentType,
+                                mediaSize = attachment?.size?.toLong()
                             ),
                             conversationType = convType
                         )
