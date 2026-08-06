@@ -139,6 +139,26 @@ class EnchantAgentBridge : AgentAppBridge {
         put("adb", "adb forward tcp:19789 tcp:19789")
     })
 
+    override suspend fun setPin(pin: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.put("/v1/auth/pin", kotlinx.serialization.json.buildJsonObject {
+            put("pin", pin)
+        }).fold(
+            onSuccess = { ok(buildJsonObject { put("pin_set", true) }) },
+            onFailure = { err(it.message ?: "set pin failed") }
+        )
+    }
+
+    override suspend fun verifyPin(pin: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return DI.apiClient.post("/v1/auth/verify-pin", kotlinx.serialization.json.buildJsonObject {
+            put("pin", pin)
+        }).fold(
+            onSuccess = { ok(buildJsonObject { put("verified", it["verified"]?.jsonPrimitive?.content == "true") }) },
+            onFailure = { err(it.message ?: "verify pin failed") }
+        )
+    }
+
     override suspend fun requestOtp(identifier: String): JsonObject {
         val result = AuthManager.requestOtp(identifier)
         return result.fold(
@@ -162,7 +182,10 @@ class EnchantAgentBridge : AgentAppBridge {
         )
     }
 
-    override suspend fun verifyOtp(otp: String): JsonObject {
+    override suspend fun verifyOtp(otp: String, pin: String?): JsonObject {
+        if (pin != null) {
+            org.enchant.core.auth.AuthManager.setRegistrationPin(pin)
+        }
         val result = AuthManager.verifyOtp(otp)
         return result.fold(
             onSuccess = {
@@ -284,9 +307,12 @@ class EnchantAgentBridge : AgentAppBridge {
         )
     }
 
-    override suspend fun submitOtp(otp: String): JsonObject {
+    override suspend fun submitOtp(otp: String, pin: String?): JsonObject {
         if (otp.isBlank()) return err("otp is required")
         val code = otp.trim()
+        if (pin != null) {
+            org.enchant.core.auth.AuthManager.setRegistrationPin(pin)
+        }
         return AuthManager.verifyOtp(code).fold(
             onSuccess = {
                 AgentEventLog.emit("auth_verify_otp", data = buildJsonObject {
@@ -340,13 +366,14 @@ class EnchantAgentBridge : AgentAppBridge {
         otp: String,
         username: String,
         displayName: String,
-        about: String?
+        about: String?,
+        pin: String?
     ): JsonObject {
         performUiAction("skip_to_phone").let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
         kotlinx.coroutines.delay(800)
         submitPhone(identifier).let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
         kotlinx.coroutines.delay(1500)
-        submitOtp(otp).let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
+        submitOtp(otp, pin).let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
         kotlinx.coroutines.delay(500)
         registerKeys().let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }
         setProfile(username, displayName, about).let { if (it["ok"]?.jsonPrimitive?.content != "true") return it }

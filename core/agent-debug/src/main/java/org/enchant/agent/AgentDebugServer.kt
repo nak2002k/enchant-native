@@ -88,12 +88,14 @@ class AgentDebugServer(
             root == "ui" && method == Method.POST && segments.getOrNull(1) == "phone" ->
                 bridge.submitPhone(body.string("phone"))
             root == "ui" && method == Method.POST && segments.getOrNull(1) == "otp" ->
-                bridge.submitOtp(body.string("otp"))
+                bridge.submitOtp(body.string("otp"), body.optString("pin"))
             root == "ui" && method == Method.POST && segments.getOrNull(1) == "applock" ->
                 bridge.completeAppLock(body.optString("pin"))
             root == "auth" && method == Method.POST -> when (segments.getOrNull(1)) {
                 "request-otp" -> bridge.requestOtp(body.string("identifier"))
-                "verify-otp" -> bridge.verifyOtp(body.string("otp"))
+                "set-pin" -> bridge.setPin(body.string("pin"))
+                "verify-pin" -> bridge.verifyPin(body.string("pin"))
+                "verify-otp" -> bridge.verifyOtp(body.string("otp"), body.optString("pin"))
                 "register-keys" -> bridge.registerKeys()
                 "profile" -> bridge.setProfile(
                     body.string("username"),
@@ -112,7 +114,8 @@ class AgentDebugServer(
                     otp = body.string("otp"),
                     username = body.string("username"),
                     displayName = body.string("display_name"),
-                    about = body.optString("about")
+                    about = body.optString("about"),
+                    pin = body.optString("pin")
                 )
                 else -> notFound("auth/${segments.getOrNull(1)}")
             }

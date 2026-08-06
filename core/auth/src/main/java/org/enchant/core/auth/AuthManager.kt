@@ -31,6 +31,15 @@ object AuthManager {
     private var repository: AuthRepository? = null
     private var apiClient: ApiClient? = null
     private val _currentState = MutableStateFlow<RegistrationState>(RegistrationState.Welcome)
+    private var _pendingRegistrationPin: String? = null
+    private val _registrationPinRequired = MutableStateFlow(false)
+    val registrationPinRequired: StateFlow<Boolean> = _registrationPinRequired.asStateFlow()
+
+    /** Registration lock: the server requires the account PIN on
+     *  re-registration. The UI supplies it here, then retries the OTP. */
+    fun setRegistrationPin(pin: String?) {
+        _pendingRegistrationPin = pin
+    }
     private val _authState = MutableStateFlow<AuthState>(AuthState.Unknown)
 
     @Volatile
@@ -142,9 +151,14 @@ object AuthManager {
             return Result.failure(IllegalStateException("OTP code expired"))
         }
         _currentState.value = RegistrationState.Loading
-        val result = repo.verifyOtp(state.challengeId, code)
+        val result = if (_pendingRegistrationPin != null) {
+            repo.verifyOtp(state.challengeId, code, pin = _pendingRegistrationPin)
+        } else {
+            repo.verifyOtp(state.challengeId, code)
+        }
         return result.fold(
             onSuccess = { authResponse ->
+                _pendingRegistrationPin = null
                 SecurePreferences.putString(AuthConstants.JWT_KEY, authResponse.accessToken)
                 SecurePreferences.putString(AuthConstants.REFRESH_TOKEN_KEY, authResponse.refreshToken)
                 SecurePreferences.putString(AuthConstants.USER_ID_KEY, authResponse.userId)
@@ -157,7 +171,18 @@ object AuthManager {
                 Result.success(Unit)
             },
             onFailure = { error ->
-                _currentState.value = RegistrationState.Error(message = error.message ?: "Verification failed")
+                val message = error.message ?: "Verification failed"
+                if (message.contains("pin_required", ignoreCase = true)) {
+                    _registrationPinRequired.value = true
+                    _currentState.value = RegistrationState.Error(
+                        message = "This number is protected by a registration lock PIN. Enter the PIN to continue."
+                    )
+                } else if (message.contains("pin_invalid", ignoreCase = true)) {
+                    _registrationPinRequired.value = true
+                    _currentState.value = RegistrationState.Error(message = "Incorrect registration lock PIN. Try again.")
+                } else {
+                    _currentState.value = RegistrationState.Error(message = message)
+                }
                 Result.failure(error)
             }
         )

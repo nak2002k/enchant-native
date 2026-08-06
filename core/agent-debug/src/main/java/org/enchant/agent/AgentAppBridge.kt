@@ -11,8 +11,10 @@ interface AgentAppBridge {
     suspend fun getHelp(): JsonObject
 
     // Auth / registration
+    suspend fun setPin(pin: String): JsonObject
+    suspend fun verifyPin(pin: String): JsonObject
     suspend fun requestOtp(identifier: String): JsonObject
-    suspend fun verifyOtp(otp: String): JsonObject
+    suspend fun verifyOtp(otp: String, pin: String?): JsonObject
     suspend fun registerKeys(): JsonObject
     suspend fun setProfile(username: String, displayName: String, about: String?): JsonObject
     suspend fun completeRegistration(): JsonObject
@@ -27,14 +29,15 @@ interface AgentAppBridge {
         otp: String,
         username: String,
         displayName: String,
-        about: String? = null
+        about: String?,
+        pin: String? = null
     ): JsonObject
 
     suspend fun navigate(body: JsonObject): JsonObject
     suspend fun performUiAction(action: String): JsonObject
     suspend fun getUiCurrent(): JsonObject
     suspend fun submitPhone(phone: String): JsonObject
-    suspend fun submitOtp(otp: String): JsonObject
+    suspend fun submitOtp(otp: String, pin: String?): JsonObject
     suspend fun completeAppLock(pin: String?): JsonObject
 
     // Messaging

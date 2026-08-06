@@ -23,11 +23,14 @@ class AuthRepository(private val apiClient: ApiClient) {
         }
     }
 
-    suspend fun verifyOtp(challengeId: String, otp: String, deviceId: String? = null): Result<AuthResponse> {
+    suspend fun verifyOtp(challengeId: String, otp: String, deviceId: String? = null, pin: String? = null): Result<AuthResponse> {
         return try {
             val body = buildJsonObject {
                 put("challenge_id", challengeId)
                 put("otp", otp)
+                if (pin != null) {
+                    put("pin", pin)
+                }
                 if (deviceId != null) {
                     put("device_info", buildJsonObject {
                         put("device_id", deviceId)
