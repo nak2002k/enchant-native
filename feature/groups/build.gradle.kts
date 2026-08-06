@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.navigation3.ui)
     implementation(libs.lifecycle.viewmodel.navigation3)
     implementation(project(":core:base"))
+    implementation(project(":core:ui"))
     implementation(project(":core:crypto"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))

@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
+    implementation(project(":core:ui"))
     implementation(project(":core:network"))
     testImplementation(libs.junit5.api)
     testImplementation(libs.junit5.engine)

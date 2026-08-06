@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
+    implementation(project(":core:ui"))
     implementation(project(":core:network"))
     implementation(project(":core:auth"))
     implementation(project(":core:database"))

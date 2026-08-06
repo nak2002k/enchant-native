@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.biometric)
     implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:base"))
+    implementation(project(":core:ui"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:store"))

@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.sqlcipher)
     implementation(libs.sqlite)
     implementation(project(":core:base"))
+    implementation(project(":core:ui"))
     implementation(project(":core:network"))
     implementation(project(":core:protos"))
     testImplementation(libs.junit5.api)
