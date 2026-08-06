@@ -96,6 +96,7 @@ fun ConversationScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showDisappearDialog by remember { mutableStateOf(false) }
     var showSafetyNumber by remember { mutableStateOf(false) }
+    var infoMessage by remember { mutableStateOf<Message?>(null) }
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showStickerPicker by remember { mutableStateOf(false) }
@@ -440,6 +441,7 @@ fun ConversationScreen(
                                 onReport = { viewModel.reportMessage(it) },
                                 onTranslate = { translateDialogEnvelopeId = it },
                                 onViewOnceViewed = { viewModel.markViewOnceViewed(it) },
+                                onInfo = { message -> infoMessage = message },
                                 onStar = { viewModel.starMessage(it, !message.isStarred) },
                                 onPin = { viewModel.pinMessage(it) }
                             )
@@ -607,6 +609,47 @@ fun ConversationScreen(
             onDismiss = { showStickerPicker = false },
             onLoadLibrary = { stickerVM.loadLibrary() },
             onLoadRecent = { stickerVM.loadRecent() }
+        )
+    }
+
+    val infoMsg = infoMessage
+    if (infoMsg != null) {
+        AlertDialog(
+            onDismissRequest = { infoMessage = null },
+            title = { Text("Message info") },
+            text = {
+                Column {
+                    InfoRow("Status", when (infoMsg.status) {
+                        MessageStatus.SENDING -> "Sending"
+                        MessageStatus.SENT -> "Sent"
+                        MessageStatus.DELIVERED -> "Delivered"
+                        MessageStatus.READ -> "Read"
+                        MessageStatus.FAILED -> "Failed"
+                        MessageStatus.PENDING -> "Pending"
+                    })
+                    InfoRow("Sent", java.text.SimpleDateFormat("EEE, MMM d, HH:mm:ss", java.util.Locale.US)
+                        .format(java.util.Date(infoMsg.timestamp)))
+                    val serverTs = infoMsg.serverTs
+                    if (serverTs != null && serverTs > 0) {
+                        InfoRow("Received by server", java.text.SimpleDateFormat("EEE, MMM d, HH:mm:ss", java.util.Locale.US)
+                            .format(java.util.Date(serverTs)))
+                    }
+                    if (infoMsg.isEdited) InfoRow("Edited", "Yes")
+                    val mediaSz = infoMsg.mediaSize
+                    if (mediaSz != null) {
+                        InfoRow("Size", formatFileSize(mediaSz))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Ticks: ${if (infoMsg.status == MessageStatus.READ) "double, filled" else if (infoMsg.status == MessageStatus.DELIVERED) "double" else "single"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { infoMessage = null }) { Text("Close") }
+            }
         )
     }
 
@@ -935,6 +978,7 @@ fun MessageBubble(
     onTranslate: (String) -> Unit = {},
     onStar: (Long) -> Unit = {},
     onPin: (Long) -> Unit = {},
+    onInfo: (Message) -> Unit = {},
     onViewOnceViewed: (String) -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -1223,6 +1267,7 @@ fun MessageBubble(
             if (isOutgoing) {
                 DropdownMenuItem(text = { Text("Edit") }, onClick = { onEdit(message.envelopeId ?: ""); showMenu = false })
             }
+            DropdownMenuItem(text = { Text("Info") }, onClick = { onInfo(message); showMenu = false })
             DropdownMenuItem(text = { Text("Forward") }, onClick = { onForward(message.envelopeId ?: ""); showMenu = false })
             DropdownMenuItem(
                 text = { Text(if (message.isStarred) "Unstar" else "Star") },
@@ -1401,6 +1446,19 @@ private fun LinkPreviewCard(url: String) {
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(160.dp)
+        )
+        Text(value, style = MaterialTheme.typography.bodySmall)
     }
 }
 

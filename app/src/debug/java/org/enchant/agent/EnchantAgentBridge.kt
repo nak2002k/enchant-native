@@ -1065,7 +1065,7 @@ class EnchantAgentBridge : AgentAppBridge {
         if (!DI.isInitialized) return err("DI not initialized")
         val privacyObj = parseStatusPrivacy(privacy, selectedContacts)
         val body = buildJsonObject {
-            put("type", "media")
+            put("status_type", "IMAGE")
             put("media_id", mediaId)
             put("privacy_setting", statusPrivacyToStr(privacyObj))
             if (privacyObj is StatusPrivacy.Selected && selectedContacts != null) {
