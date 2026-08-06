@@ -286,7 +286,7 @@ internal fun AttachmentSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                AttachmentCell(Icons.Rounded.Poll, "Poll", Color(0xFFFF2D55), onPoll)
+                AttachmentCell(EnchantIcons.poll, "Poll", Color(0xFFFF2D55), onPoll)
                 AttachmentCell(EnchantIcons.user, "Contact", Color(0xFFFF3B30), onContact)
                 AttachmentCell(EnchantIcons.sparkles, "Sticker", Color(0xFFAF52DE), onSticker)
                 Spacer(Modifier.size(54.dp))

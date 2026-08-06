@@ -130,7 +130,7 @@ fun ActiveVideoCallScreen(
                     onClick = onToggleMute
                 )
                 VideoControlButton(
-                    icon = Icons.Default.FlipCameraAndroid,
+                    icon = EnchantIcons.arrowRotateCw,
                     label = "Flip",
                     contentDescription = "Flip camera",
                     isActive = false,

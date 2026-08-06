@@ -366,6 +366,13 @@ object EnchantIcons {
             """M3 12A9 3 0 0 0 21 12"""
         ))
     }
+    val deviceDesktop: ImageVector by lazy {
+        icon("deviceDesktop", listOf(
+            """M2.0 3.0 h20.0 v14.0 h-20.0 Z""",
+            """M0.0 0.0 L0.0 0.0""",
+            """M0.0 0.0 L0.0 0.0"""
+        ))
+    }
     val download: ImageVector by lazy {
         icon("download", listOf(
             """M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4""",
@@ -722,6 +729,14 @@ object EnchantIcons {
             """M2.0 12.0 a10.0 10.0 0 1 0 20.0 0 a10.0 10.0 0 1 0 -20.0 0 Z""",
             """M8 12h8""",
             """M12 8v8"""
+        ))
+    }
+    val poll: ImageVector by lazy {
+        icon("poll", listOf(
+            """M3 3v16a2 2 0 0 0 2 2h16""",
+            """M7 16h8""",
+            """M7 11h12""",
+            """M7 6h3"""
         ))
     }
     val qrCode: ImageVector by lazy {

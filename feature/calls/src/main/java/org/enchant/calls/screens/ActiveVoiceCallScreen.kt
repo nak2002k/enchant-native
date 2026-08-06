@@ -119,7 +119,7 @@ fun ActiveVoiceCallScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Default.Dialpad, null,
+                        EnchantIcons.grid2x2, null,
                         modifier = Modifier.size(16.dp),
                         tint = Color.White.copy(alpha = 0.7f)
                     )
