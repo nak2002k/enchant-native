@@ -1392,11 +1392,34 @@ class EnchantAgentBridge : AgentAppBridge {
         )
     }
 
-    override suspend fun backupLocalExport(outputPath: String, backupKeyB64: String): JsonObject {
+    /** SVR-style: derive the backup key from the registration PIN via
+     *  Argon2id with a fixed salt, so the same PIN always yields the same
+     *  key and the backup is recoverable with only the PIN. */
+    private fun deriveBackupKeyFromPin(pin: String): ByteArray? {
+        // Fixed per-account salt: the backup salt is stored alongside the
+        // backup, but for local backups we derive it from the PIN domain.
+        val salt = java.security.MessageDigest.getInstance("SHA-256")
+            .digest((pin + ":enchant-backup").toByteArray(Charsets.UTF_8))
+            .copyOf(16)
+        val key = ByteArray(32)
+        val rc = org.enchant.core.crypto.EnchantCrypto.enchant_argon2id_hash_with_params(
+            pin.toByteArray(Charsets.UTF_8), pin.length.toLong(),
+            salt, salt.size.toLong(),
+            3, 64 * 1024, 1,
+            key, key.size.toLong()
+        )
+        return if (rc == 0) key else null
+    }
+
+    override suspend fun backupLocalExport(outputPath: String, backupKeyB64: String, pin: String?): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val ctx = AppConfig.applicationContext ?: return err("App context not available")
         return try {
-            val keyBytes = CryptoHelper.base64UrlDecode(backupKeyB64)
+            val keyBytes = if (pin != null) {
+                deriveBackupKeyFromPin(pin) ?: return err("pin key derivation failed")
+            } else {
+                CryptoHelper.base64UrlDecode(backupKeyB64)
+            }
             BackupExporter(DI.databasePool, ctx).exportFullBackup(outputPath, keyBytes).fold(
                 onSuccess = {
                     AgentEventLog.emit("backup_local_export", data = buildJsonObject { put("path", outputPath) })
@@ -1412,15 +1435,21 @@ class EnchantAgentBridge : AgentAppBridge {
     override suspend fun backupLocalImport(
         inputPath: String,
         backupKeyB64: String,
-        sections: List<String>
+        sections: List<String>,
+        pin: String?
     ): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val parsed = sections.mapNotNull { name ->
             runCatching { BackupSection.valueOf(name.uppercase()) }.getOrNull()
         }.toSet()
+        val importKey = if (pin != null) {
+            deriveBackupKeyFromPin(pin) ?: return err("pin key derivation failed")
+        } else {
+            CryptoHelper.base64UrlDecode(backupKeyB64)
+        }
         if (parsed.isEmpty()) return err("No valid sections (CHATS, CONTACTS, GROUPS, CALLS, SETTINGS)")
         return try {
-            val keyBytes = CryptoHelper.base64UrlDecode(backupKeyB64)
+            val keyBytes = importKey
             BackupExporter(DI.databasePool, AppConfig.applicationContext!!).importFullBackup(
                 inputPath, keyBytes, parsed
             ).fold(

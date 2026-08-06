@@ -708,6 +708,7 @@ fun ConversationScreen(
         val safetyNum by viewModel.safetyNumber.collectAsState()
         val peerVerified by viewModel.isPeerVerified.collectAsState()
         val ktStatus by viewModel.ktStatus.collectAsState()
+        var showQr by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { showSafetyNumber = false },
             title = {
@@ -753,12 +754,48 @@ fun ConversationScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.verifyPeer() }) { Text("Mark as verified") }
+                Row {
+                    TextButton(onClick = { showQr = !showQr }) {
+                        Text(if (showQr) "Hide QR" else "Show QR")
+                    }
+                    TextButton(onClick = { viewModel.verifyPeer() }) { Text("Mark as verified") }
+                }
             },
             dismissButton = {
                 TextButton(onClick = { showSafetyNumber = false }) { Text("Close") }
             }
         )
+        if (showQr && safetyNum != null) {
+            AlertDialog(
+                onDismissRequest = { showQr = false },
+                title = { Text("Scan this QR with ${title ?: "the other person"}") },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val selfId = org.enchant.core.base.SecurePreferences.getString("auth.user_id") ?: ""
+                        val qrPayload = "enchant-safety:${selfId}:${safetyNum}"
+                        val qrBitmap = remember(qrPayload) { generateQrBitmap(qrPayload, 320) }
+                        if (qrBitmap != null) {
+                            androidx.compose.foundation.Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = "Safety number QR",
+                                modifier = Modifier.size(240.dp)
+                            )
+                        } else {
+                            Text("QR unavailable", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "The other person scans this with their app and the safety numbers must match.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showQr = false }) { Text("Done") }
+                }
+            )
+        }
     }
 
     if (showDisappearDialog) {
@@ -1558,6 +1595,25 @@ private fun InfoRow(label: String, value: String) {
             modifier = Modifier.width(160.dp)
         )
         Text(value, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** Renders the payload as a QR bitmap (zxing core). */
+private fun generateQrBitmap(content: String, size: Int): android.graphics.Bitmap? {
+    return try {
+        val hints = mapOf(com.google.zxing.EncodeHintType.MARGIN to 1)
+        val matrix = com.google.zxing.qrcode.QRCodeWriter().encode(
+            content, com.google.zxing.BarcodeFormat.QR_CODE, size, size, hints
+        )
+        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                bitmap.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bitmap
+    } catch (e: Exception) {
+        null
     }
 }
 

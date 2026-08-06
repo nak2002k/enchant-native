@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
+    implementation(libs.zxing.core)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.activity.compose)

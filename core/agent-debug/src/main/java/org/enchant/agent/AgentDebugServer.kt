@@ -328,14 +328,16 @@ class AgentDebugServer(
                 segments.getOrNull(2) == "export" ->
                 bridge.backupLocalExport(
                     outputPath = body.string("output_path"),
-                    backupKeyB64 = body.string("backup_key_b64")
+                    backupKeyB64 = body.optString("backup_key_b64") ?: "",
+                    pin = body.optString("pin")
                 )
             root == "backup" && method == Method.POST && segments.getOrNull(1) == "local" &&
                 segments.getOrNull(2) == "import" ->
                 bridge.backupLocalImport(
                     inputPath = body.string("input_path"),
-                    backupKeyB64 = body.string("backup_key_b64"),
-                    sections = body.stringListRequired("sections")
+                    backupKeyB64 = body.optString("backup_key_b64") ?: "",
+                    sections = body.stringListRequired("sections"),
+                    pin = body.optString("pin")
                 )
             root == "applock" && method == Method.POST && segments.getOrNull(1) == "set" ->
                 bridge.appLockSetPin(body.string("pin"))
