@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -148,7 +150,8 @@ internal fun DateChip(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(EnchantRadii.pill))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.70f))
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(EnchantRadii.pill))
             .padding(horizontal = EnchantSpacing.md, vertical = EnchantSpacing.xs),
         contentAlignment = Alignment.Center,
     ) {
@@ -210,7 +213,8 @@ internal fun TypingBubble(
             topStart = 18.dp, topEnd = 18.dp,
             bottomStart = 4.dp, bottomEnd = 18.dp,
         ),
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            .compositeOver(MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier,
     ) {

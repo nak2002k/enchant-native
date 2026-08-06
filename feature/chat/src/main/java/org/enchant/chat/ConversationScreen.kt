@@ -11,6 +11,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -27,13 +28,16 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -52,6 +56,7 @@ import org.enchant.chat.components.ComposerBar
 import org.enchant.chat.components.ConversationHeader
 import org.enchant.chat.components.DateChip
 import org.enchant.chat.components.EmojiPickerSheet
+import org.enchant.chat.components.EnchantMotion
 import org.enchant.chat.components.EnchantRadii
 import org.enchant.chat.components.EnchantSpacing
 import org.enchant.chat.components.MediaViewerScreen
@@ -88,6 +93,12 @@ fun ConversationScreen(
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    // Reading older messages: show the jump-to-bottom FAB once scrolled up >400px.
+    val showScrollToBottom by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 400
+        }
+    }
 
     var messageText by remember { mutableStateOf("") }
     var replyToId by remember { mutableStateOf<String?>(null) }
@@ -409,13 +420,14 @@ fun ConversationScreen(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
-                        state = listState,
-                        reverseLayout = true
-                    ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
+                            state = listState,
+                            reverseLayout = true
+                        ) {
                         itemsIndexed(messages, key = { _, m -> m.localId }) { index, message ->
                             // List is newest-first; a day group's oldest message
                             // (the one followed by a different day) gets the
@@ -477,6 +489,14 @@ fun ConversationScreen(
                                 onPin = { viewModel.pinMessage(it) }
                             )
                         }
+                    }
+                        ScrollToBottomFab(
+                            visible = showScrollToBottom,
+                            onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = EnchantSpacing.md, bottom = EnchantSpacing.sm),
+                        )
                     }
                 }
 
@@ -1059,6 +1079,41 @@ private fun InfoRow(label: String, value: String) {
             modifier = Modifier.width(160.dp)
         )
         Text(value, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** Circular scroll-to-bottom FAB: springs in when the user has scrolled up, then jumps back to the newest message. */
+@Composable
+private fun ScrollToBottomFab(
+    visible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = EnchantMotion.springBouncy,
+        label = "scrollToBottomScale",
+    )
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                alpha = scale
+            }
+            .shadow(2.dp, CircleShape)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(enabled = visible, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Rounded.ArrowDownward,
+            contentDescription = "Scroll to bottom",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

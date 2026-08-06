@@ -1,11 +1,14 @@
 package org.enchant.chat.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,6 +80,14 @@ internal fun ComposerBar(
     onVoiceStart: () -> Unit = {},
     onVoiceStop: () -> Unit = {},
 ) {
+    val composerInteraction = remember { MutableInteractionSource() }
+    val isComposerFocused by composerInteraction.collectIsFocusedAsState()
+    val composerBorderColor by animateColorAsState(
+        targetValue = if (isComposerFocused) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.outlineVariant,
+        animationSpec = tween(durationMillis = 180),
+        label = "composerBorderColor",
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -87,8 +98,9 @@ internal fun ComposerBar(
     ) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            color = if (isComposerFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                else MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, composerBorderColor),
             modifier = Modifier
                 .weight(1f)
                 .heightIn(min = 44.dp),
@@ -108,6 +120,7 @@ internal fun ComposerBar(
                         value = text,
                         onValueChange = onTextChange,
                         modifier = Modifier.fillMaxWidth(),
+                        interactionSource = composerInteraction,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(
                             color = MaterialTheme.colorScheme.onSurface,
                         ),

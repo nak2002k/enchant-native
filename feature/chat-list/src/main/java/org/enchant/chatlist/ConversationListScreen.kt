@@ -2,7 +2,13 @@ package org.enchant.chatlist
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,15 +18,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +50,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,6 +74,7 @@ import org.enchant.chatlist.components.FilterPillsRow
 import org.enchant.chatlist.components.SearchPill
 import org.enchant.core.network.ConnectivityMonitor
 import org.enchant.core.network.OfflineQueue
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +104,8 @@ fun ConversationListScreen(
     val isOnline by ConnectivityMonitor.isOnline.collectAsState()
     val pendingCount by OfflineQueue.pendingCount.collectAsState()
     val listState = rememberLazyListState()
+    // Rows animate in once (fade + 8dp slide) on first composition only.
+    val rowEnteredIds = remember { mutableStateMapOf<String, Boolean>() }
 
     LaunchedEffect(Unit) { viewModel.init() }
 
@@ -185,18 +198,37 @@ fun ConversationListScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            AnimatedVisibility(visible = !isOnline) {
+            AnimatedVisibility(
+                visible = !isOnline,
+                enter = expandVertically(animationSpec = tween(240)) + fadeIn(animationSpec = tween(240)),
+                exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180)),
+            ) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.errorContainer
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = EnchantSpacing.md, vertical = EnchantSpacing.xs),
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 ) {
-                    Text(
-                        "No internet connection",
-                        modifier = Modifier.padding(8.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = EnchantSpacing.lg, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.WifiOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(EnchantSpacing.sm))
+                        Text(
+                            "No internet connection",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
 
@@ -261,7 +293,19 @@ fun ConversationListScreen(
                             bottom = 96.dp
                         )
                     ) {
-                        items(conversations, key = { it.id }) { conversation ->
+                        itemsIndexed(conversations, key = { _, conversation -> conversation.id }) { index, conversation ->
+                            val alreadyEntered = rowEnteredIds[conversation.id] == true
+                            val entrance by animateFloatAsState(
+                                targetValue = if (alreadyEntered) 1f else 0f,
+                                animationSpec = EnchantMotion.spring,
+                                label = "rowEntrance",
+                            )
+                            LaunchedEffect(conversation.id, alreadyEntered) {
+                                if (!alreadyEntered) {
+                                    delay(index * 30L)
+                                    rowEnteredIds[conversation.id] = true
+                                }
+                            }
                             ConversationRow(
                                 conversation = conversation,
                                 title = titles[conversation.id],
@@ -276,7 +320,12 @@ fun ConversationListScreen(
                                 onPin = { viewModel.pinConversation(conversation.id) },
                                 onMarkRead = { viewModel.markRead(conversation.id) },
                                 onDelete = { viewModel.deleteConversation(conversation.id) },
-                                modifier = Modifier.animateItem()
+                                modifier = Modifier
+                                    .animateItem()
+                                    .graphicsLayer {
+                                        alpha = entrance
+                                        translationY = (1f - entrance) * 8.dp.toPx()
+                                    },
                             )
                         }
                     }

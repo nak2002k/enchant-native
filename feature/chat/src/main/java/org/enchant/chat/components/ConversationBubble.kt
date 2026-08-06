@@ -62,6 +62,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -176,7 +178,7 @@ internal fun MessageBubble(
     val border = when {
         isSelectionMode && isSelected -> BorderStroke(2.dp, EnchantBrand.SignalBlue)
         isSelectionMode -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        !isOutgoing -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        !isOutgoing -> BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         else -> null
     }
 
@@ -221,7 +223,19 @@ internal fun MessageBubble(
                             onLongPress()
                             if (!isSelectionMode) showMenu = true
                         },
-                    ),
+                    )
+                    .drawWithContent {
+                        drawContent()
+                        // 1dp white/4% top highlight, like a soft inner glow on sent bubbles.
+                        if (isOutgoing) {
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.04f),
+                                start = Offset(0f, 0.5f),
+                                end = Offset(size.width, 0.5f),
+                                strokeWidth = 1.dp.toPx(),
+                            )
+                        }
+                    },
             ) {
                 val isImage = message.mediaMimeType?.startsWith("image/") == true &&
                     message.mediaId != null && message.mediaKey != null && !message.isViewOnce

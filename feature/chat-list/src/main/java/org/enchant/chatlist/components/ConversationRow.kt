@@ -1,6 +1,7 @@
 package org.enchant.chatlist.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -111,6 +112,14 @@ fun ConversationRow(
                         text = title,
                         size = 52.dp,
                         background = avatarColorFor(conversation.id)
+                    )
+                }
+                if (unread) {
+                    // WhatsApp-style subtle ring around the avatar of unread chats.
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     )
                 }
                 if (conversation.isPinned) {
