@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import android.app.Activity
 import android.view.WindowManager
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ object TwoStepPinScreen {
         var confirmPin by remember { mutableStateOf("") }
         var step by remember { mutableStateOf(0) }
         var error by remember { mutableStateOf<String?>(null) }
+        var errorTick by remember { mutableStateOf(0) }
 
         fun handleDigit(digit: String) {
             if (step == 0 && pin.length < 6) {
@@ -70,101 +72,65 @@ object TwoStepPinScreen {
                         onPinCreated(pin)
                     } else {
                         error = "PINs don\u2019t match"
+                        errorTick++
                         confirmPin = ""
                     }
                 }
             }
         }
 
-        Surface(modifier = Modifier.fillMaxSize()) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
+                    .padding(horizontal = FeatureSpacing.xxl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(48.dp))
-                Text(
-                    if (step == 0) "Create a PIN" else "Confirm your PIN",
-                    style = MaterialTheme.typography.headlineSmall
+                Spacer(modifier = Modifier.height(FeatureSpacing.xxl * 2))
+                FeatureTitle(
+                    text = if (step == 0) "Create a PIN" else "Confirm your PIN"
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "This helps protect your account",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Spacer(modifier = Modifier.height(FeatureSpacing.sm))
+                FeatureSubtitle(
+                    text = if (step == 0) "This helps protect your account"
+                    else if (step == 1) "Enter it again to confirm"
+                    else "This helps protect your account"
                 )
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(FeatureSpacing.xxxl))
 
-                Text(
-                    if (step == 0) pin.padEnd(6, '\u00B7') else confirmPin.padEnd(6, '\u00B7'),
-                    style = MaterialTheme.typography.displayMedium
+                PinDots(
+                    count = 6,
+                    filled = if (step == 0) pin.length else confirmPin.length,
+                    errorTick = errorTick,
+                    showError = error != null
                 )
 
                 if (error != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(error!!, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(FeatureSpacing.md))
+                    Text(error!!, color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(FeatureSpacing.xxl))
 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    for (row in 0..2) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            for (col in 0..2) {
-                                val digit = row * 3 + col + 1
-                                FilledTonalButton(
-                                    onClick = { handleDigit(digit.toString()) },
-                                    modifier = Modifier.size(72.dp)
-                                ) {
-                                    Text(digit.toString(), style = MaterialTheme.typography.headlineMedium)
-                                }
-                            }
+                PinKeypad(
+                    onDigit = { handleDigit(it) },
+                    onBackspace = {
+                        if (step == 0 && pin.isNotEmpty()) {
+                            pin = pin.dropLast(1)
+                        } else if (step == 1 && confirmPin.isNotEmpty()) {
+                            confirmPin = confirmPin.dropLast(1)
                         }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        FilledTonalButton(
-                            onClick = { },
-                            modifier = Modifier.size(72.dp)
-                        ) { }
-                        FilledTonalButton(
-                            onClick = { handleDigit("0") },
-                            modifier = Modifier.size(72.dp)
-                        ) {
-                            Text("0", style = MaterialTheme.typography.headlineMedium)
-                        }
-                        FilledTonalButton(
-                            onClick = {
-                                if (step == 0 && pin.isNotEmpty()) {
-                                    pin = pin.dropLast(1)
-                                } else if (step == 1 && confirmPin.isNotEmpty()) {
-                                    confirmPin = confirmPin.dropLast(1)
-                                }
-                            },
-                            modifier = Modifier.size(72.dp)
-                        ) {
-                            Text("<", style = MaterialTheme.typography.headlineMedium)
-                        }
-                    }
-                }
+                )
 
                 if (step == 1 && pin != confirmPin && confirmPin.length < 6) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("PINs don\u2019t match", color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(FeatureSpacing.sm))
+                    Text("PINs don\u2019t match", color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
                 }
 
                 if (isLoading) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(FeatureSpacing.lg))
+                    CircularProgressIndicator(color = BrandBlue)
                 }
             }
         }

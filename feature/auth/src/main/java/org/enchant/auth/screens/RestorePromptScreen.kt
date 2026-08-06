@@ -1,10 +1,19 @@
 package org.enchant.auth.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -14,49 +23,58 @@ fun RestorePromptScreen(
     onStartFresh: () -> Unit,
     isLoading: Boolean = false
 ) {
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(horizontal = FeatureSpacing.xxxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                if (hasBackup) "Restore from backup?" else "Start fresh",
-                style = MaterialTheme.typography.headlineSmall
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.Restore,
+                    contentDescription = null,
+                    tint = BrandBlue,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(FeatureSpacing.xxxl))
+            FeatureTitle(
+                text = if (hasBackup) "Restore from backup?" else "Start fresh"
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                if (hasBackup) "We found a previous backup. Would you like to restore it?"
-                else "No backup found. You'll start with a clean account.",
-                style = MaterialTheme.typography.bodyMedium
+            Spacer(modifier = Modifier.height(FeatureSpacing.sm))
+            FeatureSubtitle(
+                text = if (hasBackup) "We found a previous backup. Would you like to restore it?"
+                else "No backup found. You'll start with a clean account."
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(FeatureSpacing.xxxl))
 
             if (isLoading) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = BrandBlue)
             } else if (hasBackup) {
-                Button(
+                EnchantPrimaryButton(
+                    text = "Restore",
                     onClick = onRestore,
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) {
-                    Text("Restore")
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = onStartFresh,
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) {
-                    Text("Start fresh")
-                }
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(FeatureSpacing.sm))
+                FeatureTextButton(
+                    text = "Start fresh",
+                    onClick = onStartFresh
+                )
             } else {
-                Button(
+                EnchantPrimaryButton(
+                    text = "Continue",
                     onClick = onStartFresh,
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) {
-                    Text("Continue")
-                }
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

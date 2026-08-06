@@ -1,19 +1,20 @@
 package org.enchant.auth.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import android.app.Activity
 import android.view.WindowManager
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import org.enchant.core.base.AppConfig
 import org.enchant.core.base.SecurePreferences
 
 private const val PIN_LENGTH = 6
@@ -65,6 +66,7 @@ fun AppLockScreen(
     var confirmPin by remember { mutableStateOf("") }
     var step by remember { mutableStateOf(if (alreadyEnabled) AppLockStep.Verify else AppLockStep.Create) }
     var error by remember { mutableStateOf<String?>(null) }
+    var errorTick by remember { mutableStateOf(0) }
 
     val biometricManager = remember {
         BiometricManager.from(context)
@@ -146,6 +148,7 @@ fun AppLockScreen(
                             onVerified()
                         } else {
                             error = "PINs don\u2019t match"
+                            errorTick++
                             confirmPin = ""
                         }
                     }
@@ -159,6 +162,7 @@ fun AppLockScreen(
                             onVerified()
                         } else {
                             error = "Wrong PIN"
+                            errorTick++
                             pin = ""
                         }
                     }
@@ -175,88 +179,75 @@ fun AppLockScreen(
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(horizontal = FeatureSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
-            Text("App Lock", style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                when (step) {
+            Spacer(modifier = Modifier.height(FeatureSpacing.xxl * 2))
+            FeatureTitle(text = "App Lock")
+            Spacer(modifier = Modifier.height(FeatureSpacing.sm))
+            FeatureSubtitle(
+                text = when (step) {
                     AppLockStep.Verify -> "Enter your PIN or use biometric"
-                    else -> "Secure your chats with a PIN"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    AppLockStep.Confirm -> "Enter it again to confirm"
+                    AppLockStep.Create -> "Secure your chats with a PIN"
+                }
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(FeatureSpacing.xxxl))
 
-            Text(
-                when (step) {
-                    AppLockStep.Create -> pin.padEnd(PIN_LENGTH, '\u00B7')
-                    AppLockStep.Confirm -> confirmPin.padEnd(PIN_LENGTH, '\u00B7')
-                    AppLockStep.Verify -> pin.padEnd(PIN_LENGTH, '\u00B7')
+            PinDots(
+                count = PIN_LENGTH,
+                filled = when (step) {
+                    AppLockStep.Create -> pin.length
+                    AppLockStep.Confirm -> confirmPin.length
+                    AppLockStep.Verify -> pin.length
                 },
-                style = MaterialTheme.typography.displayMedium
+                errorTick = errorTick,
+                showError = error != null
             )
 
             if (error != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(error!!, color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(FeatureSpacing.md))
+                Text(error!!, color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(FeatureSpacing.xxl))
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                for (row in 0..2) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        for (col in 0..2) {
-                            val digit = row * 3 + col + 1
-                            FilledTonalButton(
-                                onClick = { handleDigit(digit.toString()) },
-                                modifier = Modifier.size(72.dp)
-                            ) { Text(digit.toString(), style = MaterialTheme.typography.headlineMedium) }
-                        }
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    FilledTonalButton(onClick = { }, modifier = Modifier.size(72.dp)) { }
-                    FilledTonalButton(
-                        onClick = { handleDigit("0") },
-                        modifier = Modifier.size(72.dp)
-                    ) { Text("0", style = MaterialTheme.typography.headlineMedium) }
-                    FilledTonalButton(
-                        onClick = { handleBackspace() },
-                        modifier = Modifier.size(72.dp)
-                    ) { Text("<", style = MaterialTheme.typography.headlineMedium) }
-                }
-            }
+            PinKeypad(
+                onDigit = { handleDigit(it) },
+                onBackspace = { handleBackspace() }
+            )
 
             if (canAuthenticateWithBiometric && step == AppLockStep.Verify) {
-                Spacer(modifier = Modifier.height(24.dp))
-                OutlinedButton(onClick = { authenticateWithBiometric() }) {
-                    Text("Use biometric")
+                Spacer(modifier = Modifier.height(FeatureSpacing.lg))
+                OutlinedButton(
+                    onClick = { authenticateWithBiometric() },
+                    shape = RoundedCornerShape(FeatureRadii.pill),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.5.dp,
+                        MaterialTheme.colorScheme.outlineVariant
+                    )
+                ) {
+                    Text(
+                        text = "Use biometric",
+                        color = BrandBlue,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                    )
                 }
             }
 
             if (step == AppLockStep.Verify && alreadyEnabled) {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = {
-                    pin = ""
-                    step = AppLockStep.Create
-                }) {
-                    Text("Change PIN")
-                }
+                Spacer(modifier = Modifier.height(FeatureSpacing.sm))
+                FeatureTextButton(
+                    text = "Change PIN",
+                    onClick = {
+                        pin = ""
+                        step = AppLockStep.Create
+                    }
+                )
             }
         }
     }
