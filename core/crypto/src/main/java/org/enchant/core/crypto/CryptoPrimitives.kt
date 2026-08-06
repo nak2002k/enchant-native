@@ -110,8 +110,38 @@ object CryptoPrimitives {
         return sig
     }
 
-    fun verifyEd25519(message: ByteArray, signature: ByteArray, publicKey: ByteArray): Boolean {
-        if (signature.size != EnchantCrypto.ED25519_SIGNATURE_SIZE) return false
+    /** MLS group state from a group id + epoch secret (64 bytes wire format:
+     *  group_id || derived epoch key). */
+    fun mlsGroupCreate(groupId: ByteArray, epochSecret: ByteArray): ByteArray {
+        val state = ByteArray(64)
+        val len = longArrayOf(64L)
+        val rc = EnchantCrypto.enchant_mls_group_create(
+            groupId, groupId.size.toLong(), epochSecret, state, len)
+        if (rc != 0 || len[0] != 64L) throw RuntimeException("mls_group_create failed: $rc")
+        return state
+    }
+
+    /** Encrypts a message under the MLS group state (iv(12) || GCM). */
+    fun mlsEncrypt(groupState: ByteArray, plaintext: ByteArray): ByteArray {
+        val out = ByteArray(plaintext.size + 12 + EnchantCrypto.AES_GCM_TAG_SIZE)
+        val len = longArrayOf(out.size.toLong())
+        val rc = EnchantCrypto.encrypt_mls_message(
+            groupState, groupState.size.toLong(), plaintext, plaintext.size.toLong(), out, len)
+        if (rc != 0) throw RuntimeException("mls_encrypt failed: $rc")
+        return out.copyOf(len[0].toInt())
+    }
+
+    /** Decrypts an MLS message; returns null on auth failure. */
+    fun mlsDecrypt(groupState: ByteArray, ciphertext: ByteArray): ByteArray? {
+        val out = ByteArray(ciphertext.size)
+        val len = longArrayOf(out.size.toLong())
+        val rc = EnchantCrypto.decrypt_mls_message(
+            groupState, groupState.size.toLong(), ciphertext, ciphertext.size.toLong(), out, len)
+        if (rc != 0) return null
+        return out.copyOf(len[0].toInt())
+    }
+
+    fun verifyEd25519(message: ByteArray, signature: ByteArray, publicKey: ByteArray): Boolean {        if (signature.size != EnchantCrypto.ED25519_SIGNATURE_SIZE) return false
         if (publicKey.size != 32) return false
         val rc = EnchantCrypto.enchant_ed25519_verify(message, message.size.toLong(), signature, publicKey)
         return rc == 0

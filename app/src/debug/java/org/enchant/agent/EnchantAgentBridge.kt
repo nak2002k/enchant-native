@@ -639,6 +639,43 @@ class EnchantAgentBridge : AgentAppBridge {
      * Debug-only: run the exact JNI sequence used by key registration step by
      * step, returning each result so a crash can be pinned to one call.
      */
+    override suspend fun mlsCreate(groupIdB64: String, epochSecretB64: String): JsonObject {
+        return try {
+            val groupId = org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(groupIdB64)
+            val secret = org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(epochSecretB64)
+            val state = org.enchant.core.crypto.CryptoPrimitives.mlsGroupCreate(groupId, secret)
+            ok(buildJsonObject { put("state_b64", org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(state)) })
+        } catch (e: Exception) {
+            err(e.message ?: "mls create failed")
+        }
+    }
+
+    override suspend fun mlsEncrypt(stateB64: String, plaintextB64: String): JsonObject {
+        return try {
+            val state = org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(stateB64)
+            val plain = org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(plaintextB64)
+            val cipher = org.enchant.core.crypto.CryptoPrimitives.mlsEncrypt(state, plain)
+            ok(buildJsonObject { put("ciphertext_b64", org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(cipher)) })
+        } catch (e: Exception) {
+            err(e.message ?: "mls encrypt failed")
+        }
+    }
+
+    override suspend fun mlsDecrypt(stateB64: String, ciphertextB64: String): JsonObject {
+        return try {
+            val state = org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(stateB64)
+            val cipher = org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(ciphertextB64)
+            val plain = org.enchant.core.crypto.CryptoPrimitives.mlsDecrypt(state, cipher)
+                ?: return err("mls decrypt failed: authentication")
+            ok(buildJsonObject {
+                put("plaintext_b64", org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(plain))
+                put("plaintext", plain.toString(Charsets.UTF_8))
+            })
+        } catch (e: Exception) {
+            err(e.message ?: "mls decrypt failed")
+        }
+    }
+
     override suspend fun resetSession(userId: String): JsonObject {
         if (userId.isBlank()) return err("user_id is required")
         return try {

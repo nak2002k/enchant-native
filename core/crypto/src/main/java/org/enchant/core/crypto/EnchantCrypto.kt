@@ -74,6 +74,9 @@ object EnchantCrypto {
     const val KEY_TRANSPARENCY_VRF_PROOF_SIZE = 80
 
     // --- Core primitives ---
+    external fun enchant_mls_group_create(groupId: ByteArray, groupIdLen: Long, epochSecret: ByteArray, groupStateOut: ByteArray, groupStateLen: LongArray): Int
+    external fun encrypt_mls_message(groupState: ByteArray, groupStateLen: Long, plaintext: ByteArray, plaintextLen: Long, ciphertextOut: ByteArray, ciphertextLen: LongArray): Int
+    external fun decrypt_mls_message(groupState: ByteArray, groupStateLen: Long, ciphertext: ByteArray, ciphertextLen: Long, plaintextOut: ByteArray, plaintextLen: LongArray): Int
     external fun enchant_init(): Int
     external fun enchant_random_bytes(buf: ByteArray, len: Long)
     external fun enchant_x25519_keypair(publicKey: ByteArray, privateKey: ByteArray): Int
