@@ -1,6 +1,7 @@
 package org.enchant.chat.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -8,15 +9,28 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+private val BrandPrimaryLight = Color(0xFF3A0D6E)
+private val BrandPrimaryDark = Color(0xFFB388E3)
+private val BrandTintLight = Color(0xFF7B1FA2)
+private val BrandTintDark = Color(0xFFAB47BC)
+
+@Composable
+private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPrimaryDark else BrandPrimaryLight
+
+@Composable
+private fun brandTint(): Color = if (isSystemInDarkTheme()) BrandTintDark else BrandTintLight
 
 data class EmojiCategory(val name: String, val icon: @Composable () -> Unit, val emojis: List<String>)
 
@@ -169,43 +183,62 @@ fun EmojiPickerSheet(
     val sheetState = rememberModalBottomSheetState()
     var selectedCategory by remember { mutableIntStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
+    val brand = brandPrimary()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        containerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 400.dp)
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = 12.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search emoji") },
+                placeholder = { Text("Search emoji", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, "Search") },
+                shape = RoundedCornerShape(14.dp),
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, "Clear")
+                            Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = brand,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    cursorColor = brand,
+                    focusedLeadingIconColor = brand,
+                    unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Text("Quick reactions", style = MaterialTheme.typography.labelSmall)
-            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Quick reactions",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(6.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(EmojiData.quickReactions) { emoji ->
                     Surface(
                         onClick = { onEmojiSelected(emoji) },
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                        color = brand.copy(alpha = 0.12f)
                     ) {
                         Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                             Text(emoji, fontSize = 22.sp)
@@ -219,47 +252,63 @@ fun EmojiPickerSheet(
             if (searchQuery.isNotBlank()) {
                 val results = remember(searchQuery) { EmojiData.searchEmoji(searchQuery) }
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(8),
+                    columns = GridCells.Fixed(5),
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(results) { emoji ->
-                        Text(
-                            emoji, fontSize = 28.sp,
+                        Box(
                             modifier = Modifier
-                                .clickable { onEmojiSelected(emoji) }
-                                .padding(4.dp)
-                        )
+                                .size(48.dp)
+                                .clickable { onEmojiSelected(emoji) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(emoji, fontSize = 22.sp, textAlign = TextAlign.Center)
+                        }
                     }
                 }
             } else {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(EmojiData.categories.size) { idx ->
-                        FilterChip(
-                            selected = idx == selectedCategory,
+                        val selected = idx == selectedCategory
+                        Surface(
                             onClick = { selectedCategory = idx },
-                            label = EmojiData.categories[idx].icon,
-                            modifier = Modifier.height(36.dp)
-                        )
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (selected) brand.copy(alpha = 0.12f) else Color.Transparent
+                        ) {
+                            Box(
+                                modifier = Modifier.size(36.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CompositionLocalProvider(
+                                    LocalContentColor provides
+                                        (if (selected) brand else MaterialTheme.colorScheme.onSurfaceVariant)
+                                ) {
+                                    EmojiData.categories[idx].icon()
+                                }
+                            }
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(8),
+                    columns = GridCells.Fixed(5),
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(EmojiData.categories[selectedCategory].emojis) { emoji ->
-                        Text(
-                            emoji, fontSize = 28.sp,
+                        Box(
                             modifier = Modifier
-                                .clickable { onEmojiSelected(emoji) }
-                                .padding(4.dp)
-                        )
+                                .size(48.dp)
+                                .clickable { onEmojiSelected(emoji) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(emoji, fontSize = 22.sp, textAlign = TextAlign.Center)
+                        }
                     }
                 }
             }

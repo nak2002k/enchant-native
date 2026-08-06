@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
@@ -140,7 +141,7 @@ fun MediaViewerScreen(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            0f to Color.Black.copy(alpha = 0.7f),
+                            0f to Color.Black.copy(alpha = 0.6f),
                             0.35f to Color.Transparent
                         )
                     )
@@ -156,24 +157,45 @@ fun MediaViewerScreen(
                         onClick = onDismiss,
                         modifier = Modifier.size(48.dp)
                     ) {
-                        Icon(Icons.Default.ArrowBack, "Close", tint = Color.White, modifier = Modifier.size(26.dp))
+                        Icon(Icons.Default.ChevronLeft, "Close", tint = Color.White, modifier = Modifier.size(28.dp))
                     }
                     Text(
                         "1 / 1",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White,
+                        textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                shareMedia(context, file, mimeType)
-                            }
-                        },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(Icons.Default.Share, "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                    Box {
+                        var showMore by remember { mutableStateOf(false) }
+                        IconButton(
+                            onClick = { showMore = true },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, "More", tint = Color.White, modifier = Modifier.size(24.dp))
+                        }
+                        DropdownMenu(
+                            expanded = showMore,
+                            onDismissRequest = { showMore = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Share") },
+                                leadingIcon = { Icon(Icons.Default.Share, null) },
+                                onClick = {
+                                    showMore = false
+                                    scope.launch { shareMedia(context, file, mimeType) }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Save to gallery") },
+                                leadingIcon = { Icon(Icons.Default.Download, null) },
+                                onClick = {
+                                    showMore = false
+                                    scope.launch { saveToGallery(context, file, mimeType) }
+                                }
+                            )
+                        }
                     }
                 }
             }
