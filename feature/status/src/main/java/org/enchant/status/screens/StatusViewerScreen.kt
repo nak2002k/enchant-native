@@ -1,26 +1,43 @@
 package org.enchant.status.screens
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Reply
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import org.enchant.core.base.AppConfig
 import org.enchant.status.StatusFeedEntry
+
+private val ViewerBlack = Color(0xFF000000)
+private val ViewerAvatar = Color(0xFF2C2C2E)
+private val ReplyPill = Color.White.copy(alpha = 0.15f)
+private val Muted = Color.White.copy(alpha = 0.6f)
 
 @Composable
 fun StatusViewerScreen(
@@ -33,6 +50,8 @@ fun StatusViewerScreen(
     var currentIndex by remember { mutableIntStateOf(initialIndex) }
     var progress by remember { mutableFloatStateOf(0f) }
     var isPaused by remember { mutableStateOf(false) }
+    var controlsVisible by remember { mutableStateOf(true) }
+    var isMuted by remember { mutableStateOf(false) }
     val statusDuration = 5000L
 
     LaunchedEffect(currentIndex, isPaused) {
@@ -51,34 +70,37 @@ fun StatusViewerScreen(
     }
 
     if (statuses.isEmpty() || currentIndex !in statuses.indices) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxSize().background(ViewerBlack), contentAlignment = Alignment.Center) {
             Text("No statuses", color = Color.White)
         }
         return
     }
 
     val currentStatus = statuses[currentIndex]
+    val chromeAlpha by animateFloatAsState(
+        targetValue = if (controlsVisible) 1f else 0f,
+        animationSpec = spring(dampingRatio = 1f, stiffness = 320f),
+        label = "chromeAlpha"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(ViewerBlack)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .padding(horizontal = 10.dp, vertical = 10.dp)
+                    .alpha(chromeAlpha)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, "Close", tint = Color.White)
-                    }
                     statuses.forEachIndexed { index, _ ->
                         val animProgress by animateFloatAsState(
                             targetValue = if (index < currentIndex) 1f
@@ -89,41 +111,60 @@ fun StatusViewerScreen(
                             progress = { animProgress },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(3.dp),
-                            color = Color.White,
+                                .height(2.dp)
+                                .clip(CircleShape),
+                            color = Color.White.copy(alpha = 0.9f),
                             trackColor = Color.White.copy(alpha = 0.3f)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.size(36.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(ViewerAvatar),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                currentStatus.username.take(2).uppercase(),
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                        }
+                        Text(
+                            currentStatus.username.take(2).uppercase(),
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        currentStatus.username,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            currentStatus.username,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            formatViewerTime(currentStatus.createdAt),
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 11.sp
+                        )
+                    }
+                    IconButton(onClick = { onViewInfo(currentStatus.statusId) }) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = "View info",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, "Close", tint = Color.White)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                     }
                 }
             }
@@ -140,11 +181,11 @@ fun StatusViewerScreen(
                                 isPaused = false
                             },
                             onTap = { offset ->
-                                val halfWidth = size.width / 2f
-                                if (offset.x < halfWidth && currentIndex > 0) {
-                                    currentIndex--
-                                } else if (offset.x > halfWidth && currentIndex < statuses.size - 1) {
-                                    currentIndex++
+                                val third = size.width / 3f
+                                when {
+                                    offset.x < third && currentIndex > 0 -> currentIndex--
+                                    offset.x > third * 2 && currentIndex < statuses.size - 1 -> currentIndex++
+                                    else -> controlsVisible = !controlsVisible
                                 }
                             }
                         )
@@ -155,7 +196,8 @@ fun StatusViewerScreen(
                     Text(
                         currentStatus.text ?: "",
                         color = Color.White,
-                        style = MaterialTheme.typography.headlineMedium
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(horizontal = 28.dp)
                     )
                 } else if (currentStatus.type == "image" && currentStatus.mediaId != null) {
                     AsyncImage(
@@ -183,7 +225,8 @@ fun StatusViewerScreen(
                     Text(
                         currentStatus.text ?: "",
                         color = Color.White,
-                        style = MaterialTheme.typography.headlineMedium
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(horizontal = 28.dp)
                     )
                 }
             }
@@ -192,26 +235,69 @@ fun StatusViewerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .alpha(chromeAlpha),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(
-                    onClick = { onReply(currentStatus.statusId) },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(50))
+                        .background(ReplyPill)
+                        .clickable { onReply(currentStatus.statusId) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Reply, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Reply")
+                    Icon(
+                        Icons.Default.Reply,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        "Reply to @${currentStatus.username}",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-                OutlinedButton(
-                    onClick = { onViewInfo(currentStatus.statusId) },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                Spacer(modifier = Modifier.width(12.dp))
+                IconButton(
+                    onClick = { isMuted = !isMuted },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(ReplyPill)
                 ) {
-                    Icon(Icons.Default.Info, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("View info")
+                    Icon(
+                        if (isMuted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                        contentDescription = if (isMuted) "Unmute" else "Mute",
+                        tint = if (isMuted) Muted else Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
+    }
+}
+
+private fun formatViewerTime(iso: String): String {
+    return try {
+        val instant = java.time.Instant.parse(iso)
+        val diff = java.time.Duration.between(instant, java.time.Instant.now())
+        when {
+            diff.isNegative || diff.seconds < 60 -> "Just now"
+            diff.toMinutes() < 60 -> "${diff.toMinutes()}m ago"
+            diff.toHours() < 24 -> "${diff.toHours()}h ago"
+            diff.toDays() < 7 -> "${diff.toDays()}d ago"
+            else -> java.time.format.DateTimeFormatter.ofPattern("MMM d")
+                .withZone(java.time.ZoneId.systemDefault())
+                .format(instant)
+        }
+    } catch (_: Exception) {
+        "Recently"
     }
 }
