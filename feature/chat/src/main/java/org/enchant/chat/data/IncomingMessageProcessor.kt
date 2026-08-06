@@ -209,11 +209,13 @@ object IncomingMessageProcessor {
                 return@withContext when (parsed) {
                     is MessageProtobufHelper.ParsedContent.SenderKeyDistribution -> {
                         val dist = parsed.distribution
+                        android.util.Log.e("GroupCipher", "SKDIST group=${parsed.groupId} sender=$senderUserId len=${dist.size}")
                         if (dist.size >= 32) {
                             val signingPublic = dist.copyOfRange(0, 32)
                             val ok = org.enchant.core.crypto.GroupCipherManager.processDistribution(
                                 parsed.groupId, senderUserId, signingPublic, dist.copyOfRange(32, dist.size)
                             )
+                            android.util.Log.e("GroupCipher", "SKDIST processed ok=$ok")
                             if (!ok) return@withContext ProcessResult.Error("Distribution processing failed")
                             runCatching { fetchPendingMessages() }
                             ProcessResult.Handled
@@ -785,11 +787,15 @@ object IncomingMessageProcessor {
                 // (X3DH + double ratchet) instead of the raw content. Detect
                 // by trying the direct parse first, then the session.
                 var wrapper: org.enchant.protos.SignalServiceContentProto? = null
-                try {
+                val parseErr = runCatching {
                     wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(decrypted.second)
-                } catch (_: Exception) { wrapper = null }
+                }.exceptionOrNull()
+                if (parseErr != null) {
+                    android.util.Log.e("GroupCipher", "veil wrapper parse failed: ${parseErr.message} firstBytes=${decrypted.second.take(8).joinToString { "%02x".format(it) }}")
+                }
                 val directParses = wrapper != null &&
                     (wrapper!!.hasContent() || wrapper!!.hasLocalAddress())
+                android.util.Log.e("GroupCipher", "veil directParses=$directParses size=${decrypted.second.size}")
 
                 if (!directParses) {
                     // The sender id for the session decrypt comes from the
@@ -852,8 +858,32 @@ object IncomingMessageProcessor {
 
                 val content = wrapperNonNull.content
                 val now = System.currentTimeMillis()
+                android.util.Log.e("GroupCipher", "veil content skdm=${content.senderKeyDistributionMessage.size()} data=${content.hasDataMessage()}")
 
                 return@withContext when {
+                    content.senderKeyDistributionMessage.size() > 0 -> {
+                        // Signal sender-key pattern: the distribution rides the
+                        // Veil so the receiver can build the sender's chain.
+                        val raw = content.senderKeyDistributionMessage.toByteArray()
+                        if (raw.size < 68) {
+                            ProcessResult.Error("Distribution payload too short")
+                        } else {
+                            val gid = String(raw.copyOfRange(0, 36).let { b ->
+                                b.takeWhile { it != 0.toByte() }.toByteArray()
+                            }, Charsets.UTF_8)
+                            val signingPublic = raw.copyOfRange(36, 68)
+                            val dist = raw.copyOfRange(68, raw.size)
+                            val ok = org.enchant.core.crypto.GroupCipherManager.processDistribution(
+                                gid, senderUserId, signingPublic, dist
+                            )
+                            android.util.Log.e("GroupCipher", "SKDIST veil group=$gid sender=$senderUserId ok=$ok")
+                            if (!ok) ProcessResult.Error("Distribution processing failed")
+                            else {
+                                runCatching { fetchPendingMessages() }
+                                ProcessResult.Handled
+                            }
+                        }
+                    }
                     content.hasDataMessage() -> {
                         val dataMsg = content.dataMessage
                         // Group-context messages (per-member encrypted, group

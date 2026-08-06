@@ -172,7 +172,8 @@ object MessageSendPipeline {
         recipientUserId: String,
         plaintext: ByteArray,
         replyTo: String? = null,
-        insertLocally: Boolean = true
+        insertLocally: Boolean = true,
+        skipSession: Boolean = false
     ): SendResult {
         checkInit()
         val repo = repository!!
@@ -196,7 +197,8 @@ object MessageSendPipeline {
                     if (parsed.hasDataMessage() || parsed.hasReceiptMessage() ||
                         parsed.hasTypingMessage() || parsed.hasCallMessage() ||
                         parsed.hasNullMessage() || parsed.hasEditMessage() ||
-                        parsed.hasSyncMessage() || parsed.hasStoryMessage()
+                        parsed.hasSyncMessage() || parsed.hasStoryMessage() ||
+                        parsed.senderKeyDistributionMessage.size() > 0
                     ) parsed else null
                 } ?: org.enchant.protos.ContentProtos.Content.parseFrom(
                     MessageProtobufHelper.buildDataMessageContent(
@@ -220,10 +222,13 @@ object MessageSendPipeline {
                 // ciphertext INSIDE the Veil seal (Signal's sealed sender
                 // pattern) so long-term-key compromise can't decrypt past
                 // messages. Falls back to the direct seal when no session
-                // can be established.
-                val sessionEncrypted = runCatching {
-                    NativeSessionManager.encryptMessage(recipientUserId, contentBytes)
-                }.getOrNull()
+                // can be established. Sender-key distributions skip the
+                // session (the receiver must read them with only the Veil).
+                val sessionEncrypted = if (skipSession) null else {
+                    runCatching {
+                        NativeSessionManager.encryptMessage(recipientUserId, contentBytes)
+                    }.getOrNull()
+                }
                 val sealInput = sessionEncrypted?.payload ?: contentBytes
 
                 val veiledPayload = org.enchant.core.crypto.VeilSender.encryptVeiled(
@@ -346,10 +351,11 @@ object MessageSendPipeline {
                     timestamp = now, replyToEnvelopeId = replyTo
                 ), conversationType = "group")
 
-                // Reliable group path: the content carries the group context
-                // (groupV2 masterKey) and is Veil-sealed to each member — the
-                // same proven machinery as 1:1 messaging. The receiver routes
-                // it into the group conversation by the masterKey.
+                // Signal sender-key pattern: ONE sender-key ciphertext fans
+                // out through the group route; each member receives the
+                // sender-key distribution over the Veil so they can build the
+                // chain (self-healing: a fresh distribution rides every
+                // message, so joiners and out-of-order frames recover).
                 val targets = if (members.isNotEmpty()) members else fetchGroupMembers(groupId)
                 val recipients = targets.filter { it != selfId }
                 if (recipients.isEmpty()) {
@@ -363,18 +369,48 @@ object MessageSendPipeline {
                         groupMasterKey = groupIdBytes
                     )
                 )
+                val client = apiClient!!
                 var allOk = true
-                recipients.forEach { memberId ->
-                    val result = runCatching {
-                        sendVeiledMessage(
-                            conversationId = groupConversationId,
-                            recipientUserId = memberId,
-                            plaintext = content.toByteArray(),
-                            insertLocally = false
+
+                val distribution = org.enchant.core.crypto.GroupCipherManager.createDistribution(groupId, selfId)
+                val signingPublic = org.enchant.core.crypto.CryptoPrimitives.ed25519PubFromSeed(
+                    org.enchant.core.crypto.KeyManager.getIdentityKeyPair()?.privateKey ?: ByteArray(32)
+                )
+                if (distribution != null) {
+                    val distContent = org.enchant.protos.ContentProtos.Content.newBuilder()
+                        .setSenderKeyDistributionMessage(
+                            com.google.protobuf.ByteString.copyFrom(groupIdBytes + signingPublic + distribution)
                         )
-                    }.getOrNull()
-                    if (result !is SendResult.Success) allOk = false
+                        .build()
+                    recipients.forEach { memberId ->
+                        val result = runCatching {
+                            sendVeiledMessage(
+                                conversationId = groupConversationId,
+                                recipientUserId = memberId,
+                                plaintext = distContent.toByteArray(),
+                                insertLocally = false,
+                                skipSession = true
+                            )
+                        }.getOrNull()
+                        if (result !is SendResult.Success) allOk = false
+                    }
                 }
+
+                val sealed = org.enchant.core.crypto.GroupCipherManager.encrypt(groupId, selfId, content.toByteArray())
+                if (sealed == null) {
+                    repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
+                    return@withContext SendResult.Failed(SendError.ENCRYPTION_FAILED)
+                }
+                val payloadB64 = CryptoHelper.base64UrlEncode(groupIdBytes + sealed)
+                val relay = runCatching {
+                    client.post("/v1/groups/$groupId/messages", buildJsonObject {
+                        put("message_type", "GROUP_MESSAGE")
+                        put("payload", payloadB64)
+                        put("sender_ts", now.toString())
+                        put("envelope_id", envelopeId)
+                    })
+                }.getOrNull()
+                if (relay?.isSuccess != true) allOk = false
 
                 repo.updateMessageStatus(envelopeId, if (allOk) MessageStatus.SENT else MessageStatus.PENDING)
                 if (allOk) SendResult.Success(envelopeId) else SendResult.Queued(envelopeId)
@@ -479,7 +515,8 @@ object MessageSendPipeline {
                 conversationId = requesterId,
                 recipientUserId = requesterId,
                 plaintext = content.toByteArray(),
-                insertLocally = false
+                insertLocally = false,
+                skipSession = true
             )
         }
     }
