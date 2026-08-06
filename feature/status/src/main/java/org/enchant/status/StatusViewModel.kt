@@ -116,9 +116,9 @@ class StatusViewModel(
             try {
                 val body = buildJsonObject {
                     put("status_type", "TEXT")
-                    put("text", text)
-                    put("background_color", backgroundColor)
-                    put("privacy", privacyToStr(privacy))
+                    put("text_content", text)
+                    put("text_background", backgroundColor)
+                    put("privacy_setting", privacyToStr(privacy))
                     if (privacy is StatusPrivacy.Selected && selectedContacts != null) {
                         put("selected_contacts", kotlinx.serialization.json.JsonArray(
                             selectedContacts.map { kotlinx.serialization.json.JsonPrimitive(it) }
@@ -153,7 +153,7 @@ class StatusViewModel(
                 val body = buildJsonObject {
                     put("status_type", "IMAGE")
                     put("media_id", mediaId)
-                    put("privacy", privacyToStr(privacy))
+                    put("privacy_setting", privacyToStr(privacy))
                     if (privacy is StatusPrivacy.Selected && selectedContacts != null) {
                         put("selected_contacts", kotlinx.serialization.json.JsonArray(
                             selectedContacts.map { kotlinx.serialization.json.JsonPrimitive(it) }
@@ -184,7 +184,7 @@ class StatusViewModel(
     fun viewStatus(statusId: String) {
         launchTracked {
             try {
-                val response = apiClient.post("/v1/status/$statusId/view")
+                val response = apiClient.get("/v1/status/$statusId")
                 response.onFailure {
                     Log.w(TAG, "viewStatus failed for $statusId: ${it.message}")
                 }

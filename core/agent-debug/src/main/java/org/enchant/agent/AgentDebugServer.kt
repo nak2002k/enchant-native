@@ -217,6 +217,8 @@ class AgentDebugServer(
                     privacy = body.optString("privacy") ?: "ALL_CONTACTS",
                     selectedContacts = body.stringList("selected_contacts")
                 )
+            root == "status" && method == Method.GET && segments.size == 2 ->
+                bridge.viewStatus(segments[1])
             root == "status" && method == Method.POST && segments.size == 3 &&
                 segments[2] == "view" ->
                 bridge.viewStatus(segments[1])

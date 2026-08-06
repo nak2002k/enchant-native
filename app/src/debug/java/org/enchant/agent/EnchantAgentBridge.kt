@@ -960,9 +960,9 @@ class EnchantAgentBridge : AgentAppBridge {
         val privacyObj = parseStatusPrivacy(privacy, selectedContacts)
         val body = buildJsonObject {
             put("status_type", "TEXT")
-            put("text", text)
-            put("background_color", backgroundColor)
-            put("privacy", statusPrivacyToStr(privacyObj))
+            put("text_content", text)
+            put("text_background", backgroundColor)
+            put("privacy_setting", statusPrivacyToStr(privacyObj))
             if (privacyObj is StatusPrivacy.Selected && selectedContacts != null) {
                 put("selected_contacts", JsonArray(selectedContacts.map { JsonPrimitive(it) }))
             }
@@ -986,7 +986,7 @@ class EnchantAgentBridge : AgentAppBridge {
         val body = buildJsonObject {
             put("type", "media")
             put("media_id", mediaId)
-            put("privacy", statusPrivacyToStr(privacyObj))
+            put("privacy_setting", statusPrivacyToStr(privacyObj))
             if (privacyObj is StatusPrivacy.Selected && selectedContacts != null) {
                 put("selected_contacts", JsonArray(selectedContacts.map { JsonPrimitive(it) }))
             }
@@ -1002,7 +1002,7 @@ class EnchantAgentBridge : AgentAppBridge {
 
     override suspend fun viewStatus(statusId: String): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
-        return DI.apiClient.post("/v1/status/$statusId/view").fold(
+        return DI.apiClient.get("/v1/status/$statusId").fold(
             onSuccess = { ok(buildJsonObject { put("status_id", statusId) }) },
             onFailure = { err(it.message ?: "view status failed") }
         )
