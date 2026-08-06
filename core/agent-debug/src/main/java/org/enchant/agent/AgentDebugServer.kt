@@ -267,6 +267,8 @@ class AgentDebugServer(
                 bridge.listContacts()
             root == "contacts" && method == Method.POST && segments.getOrNull(1) == "sync" ->
                 bridge.syncDeviceContacts()
+            root == "contacts" && method == Method.GET && segments.getOrNull(1) == "discovery-salt" ->
+                bridge.discoverySalt()
             root == "contacts" && method == Method.POST && segments.getOrNull(1) == "discover" ->
                 bridge.discoverContacts(body.stringList("phone_numbers") ?: emptyList())
             root == "polls" && method == Method.POST && segments.size == 1 ->

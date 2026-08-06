@@ -109,6 +109,7 @@ interface AgentAppBridge {
     suspend fun subscribeChannel(channelId: String): JsonObject
     suspend fun channelFeed(channelId: String): JsonObject
     suspend fun syncDeviceContacts(): JsonObject
+    suspend fun discoverySalt(): JsonObject
     suspend fun discoverContacts(phoneNumbers: List<String>): JsonObject
     suspend fun createPoll(conversationId: String, question: String, optionTexts: List<String>): JsonObject
     suspend fun votePoll(pollId: String, optionIds: List<String>): JsonObject

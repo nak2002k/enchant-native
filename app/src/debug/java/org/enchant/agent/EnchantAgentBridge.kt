@@ -1145,6 +1145,19 @@ class EnchantAgentBridge : AgentAppBridge {
         )
     }
 
+    override suspend fun discoverySalt(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val result = org.enchant.contacts.ContactSyncService.fetchDiscoverySalt(DI.apiClient)
+        return result.fold(
+            onSuccess = { salt ->
+                ok(buildJsonObject {
+                    put("discovery_salt", salt.joinToString("") { b -> "%02x".format(b) })
+                })
+            },
+            onFailure = { err(it.message ?: "salt fetch failed") }
+        )
+    }
+
     override suspend fun discoverContacts(phoneNumbers: List<String>): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val discovery = org.enchant.contacts.ContactDiscovery(DI.apiClient)

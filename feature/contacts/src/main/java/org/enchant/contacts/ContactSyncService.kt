@@ -43,6 +43,32 @@ class ContactSyncService(
     companion object {
         private const val BATCH_SIZE = 1000
         private const val DEBOUNCE_MS = 2000L
+
+        /** Shared discovery salt, cached across service instances. */
+        @Volatile
+        private var companionDiscoverySalt: ByteArray? = null
+
+        /**
+         * Phone hash uses HMAC-SHA256 keyed by the server's shared discovery
+         * salt (fetched lazily), so hashes cross-match between users while
+         * staying non-reversible: the server's pepper keeps them un-
+         * brute-forceable.
+         */
+        suspend fun fetchDiscoverySalt(client: ApiClient? = null): Result<ByteArray> {
+            companionDiscoverySalt?.let { return Result.success(it) }
+            val api = client ?: return Result.failure(ContactSyncError.Network("no client"))
+            return runCatching {
+                val json = api.get("/v1/contacts/discovery-salt").getOrThrow()
+                val saltHex = json["discovery_salt"]?.jsonPrimitive?.content ?: ""
+                val salt = if (saltHex.length >= 32 && saltHex.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+                    ByteArray(saltHex.length / 2) { i -> saltHex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
+                } else {
+                    saltHex.toByteArray(Charsets.UTF_8)
+                }
+                companionDiscoverySalt = salt
+                salt
+            }
+        }
     }
 
     private val _syncTrigger = MutableStateFlow(0L)
@@ -63,6 +89,7 @@ class ContactSyncService(
 
     suspend fun syncContacts(): Result<List<MatchedContact>> = withContext(Dispatchers.Default) {
         try {
+            fetchDiscoverySalt(apiClient).getOrNull()
             val deviceContacts = readDeviceContacts()
             if (deviceContacts.isEmpty()) return@withContext Result.success(emptyList())
 
@@ -103,15 +130,10 @@ class ContactSyncService(
         }
     }
 
-    /**
-     * Phone hash uses HMAC-SHA256 keyed by the per-user phone_salt returned at
-     * auth time, so hashes are not dictionary-reversible without the salt.
-     * The backend stores the same base64url(HMAC-SHA256(salt, phone)) value.
-     */
     fun hashPhoneNumber(phone: String): String {
-        val saltB64 = SecurePreferences.getString(AuthConstants.PHONE_SALT_KEY)
+        val salt = companionDiscoverySalt ?: SecurePreferences.getString(AuthConstants.PHONE_SALT_KEY)
+            ?.let { CryptoPrimitives.base64UrlDecode(it) }
             ?: return ""
-        val salt = CryptoPrimitives.base64UrlDecode(saltB64)
         val mac = CryptoPrimitives.hmacSha256(salt, phone.toByteArray(Charsets.UTF_8))
         return CryptoPrimitives.base64UrlEncode(mac)
     }

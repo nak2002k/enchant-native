@@ -61,11 +61,12 @@ class ContactDiscovery(private val apiClient: ApiClient) {
         }
     }
 
-    private fun hashPhoneNumber(phone: String): String {
+    private suspend fun hashPhoneNumber(phone: String): String {
         val digits = phone.replace(Regex("[^0-9+]"), "")
-        val saltB64 = SecurePreferences.getString(AuthConstants.PHONE_SALT_KEY)
+        val salt = ContactSyncService.fetchDiscoverySalt(apiClient).getOrNull()
+            ?: SecurePreferences.getString(AuthConstants.PHONE_SALT_KEY)
+                ?.let { CryptoPrimitives.base64UrlDecode(it) }
             ?: return ""
-        val salt = CryptoPrimitives.base64UrlDecode(saltB64)
         val mac = CryptoPrimitives.hmacSha256(salt, digits.toByteArray(Charsets.UTF_8))
         return CryptoPrimitives.base64UrlEncode(mac)
     }
