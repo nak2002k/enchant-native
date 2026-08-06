@@ -45,6 +45,8 @@ interface AgentAppBridge {
     suspend fun markConversationRead(conversationId: String): JsonObject
     suspend fun openConversation(conversationId: String): JsonObject
     suspend fun listMessages(conversationId: String, limit: Int): JsonObject
+    suspend fun setAvatar(): JsonObject
+    suspend fun sendTyping(recipientUserId: String, start: Boolean): JsonObject
     suspend fun sendMessage(recipientUserId: String, text: String, sealed: Boolean): JsonObject
     suspend fun sendMediaMessage(
         recipientUserId: String,

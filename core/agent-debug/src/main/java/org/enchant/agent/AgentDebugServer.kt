@@ -131,6 +131,10 @@ class AgentDebugServer(
                 segments[1] == "open" -> bridge.openConversation(body.string("conversation_id"))
             root == "conversations" && method == Method.POST && segments.size == 3 &&
                 segments[2] == "read" -> bridge.markConversationRead(segments[1])
+            root == "profile" && method == Method.POST && segments.getOrNull(1) == "set-avatar" ->
+                bridge.setAvatar()
+            root == "messages" && method == Method.POST && segments.getOrNull(1) == "typing" ->
+                bridge.sendTyping(body.string("recipient_user_id"), body.bool("start", true))
             root == "messages" && method == Method.POST && segments.getOrNull(1) == "send" ->
                 bridge.sendMessage(
                     recipientUserId = body.string("recipient_user_id"),

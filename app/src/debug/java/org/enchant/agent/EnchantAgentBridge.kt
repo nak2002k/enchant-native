@@ -541,6 +541,37 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun setAvatar(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        return try {
+            // 128x128 purple PNG
+            val bmp = android.graphics.Bitmap.createBitmap(128, 128, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bmp)
+            canvas.drawColor(android.graphics.Color.rgb(0x3A, 0x0D, 0x6E))
+            val paint = android.graphics.Paint().apply { color = android.graphics.Color.WHITE; textSize = 60f; isAntiAlias = true }
+            canvas.drawText("E", 40f, 88f, paint)
+            val stream = java.io.ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+            val bytes = stream.toByteArray()
+            android.util.Log.w("AVATAR", "png bytes: " + bytes.take(8).joinToString { "%02x".format(it) } + " size=" + bytes.size)
+            val set = DI.apiClient.postRaw("/v1/profile/avatar", bytes, "image/png")
+            set.fold(
+                onSuccess = {
+                    val mid = it["avatar_media_id"]?.jsonPrimitive?.content ?: ""
+                    ok(buildJsonObject { put("avatar_media_id", mid) })
+                },
+                onFailure = { err(it.message ?: "set avatar failed") }
+            )
+        } catch (e: Exception) {
+            err(e.message ?: "set avatar failed")
+        }
+    }
+
+    override suspend fun sendTyping(recipientUserId: String, start: Boolean): JsonObject {
+        org.enchant.chat.data.MessageSendPipeline.sendTypingIndicator(recipientUserId, start)
+        return ok(buildJsonObject { put("recipient_user_id", recipientUserId); put("typing", start) })
+    }
+
     override suspend fun sendMessage(recipientUserId: String, text: String, sealed: Boolean): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val conversationId = recipientUserId
