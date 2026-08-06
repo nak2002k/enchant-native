@@ -1,24 +1,24 @@
 package org.enchant.settings.screens
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivacySettingsScreen(
     lastSeenVisibility: String,
@@ -37,79 +37,82 @@ fun PrivacySettingsScreen(
     onViewBlockedUsers: () -> Unit,
     onBack: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Privacy") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    SettingsScaffold(title = "Privacy", onBack = onBack) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(vertical = 8.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = EnchantSpacing.lg,
+                end = EnchantSpacing.lg,
+                top = EnchantSpacing.sm,
+                bottom = EnchantSpacing.xxxl,
+            ),
         ) {
+            item { EnchantSectionHeader("Presence") }
             item {
-                VisibilityRow(
-                    title = "Who can see my last seen?",
-                    selected = lastSeenVisibility,
-                    onSelected = onLastSeenChange
-                )
-            }
-            item { SignalSettingsSwitchRow(
-                title = "Show online",
-                checked = onlineVisibility,
-                onCheckedChange = onOnlineVisibilityChange
-            ) }
-
-            item { SignalSettingsDivider() }
-
-            item {
-                VisibilityRow(
-                    title = "Profile photo",
-                    selected = avatarVisibility,
-                    onSelected = onAvatarVisibilityChange
-                )
-            }
-            item {
-                VisibilityRow(
-                    title = "About",
-                    selected = aboutVisibility,
-                    onSelected = onAboutVisibilityChange
-                )
+                EnchantGroupedCard {
+                    VisibilityRow(
+                        title = "Who can see my last seen?",
+                        selected = lastSeenVisibility,
+                        onSelected = onLastSeenChange,
+                    )
+                    EnchantDivider(inset = 56.dp)
+                    SignalSettingsSwitchRow(
+                        title = "Show online",
+                        checked = onlineVisibility,
+                        onCheckedChange = onOnlineVisibilityChange,
+                    )
+                }
             }
 
-            item { SignalSettingsDivider() }
+            item { EnchantSectionHeader("Profile") }
+            item {
+                EnchantGroupedCard {
+                    VisibilityRow(
+                        title = "Profile photo",
+                        selected = avatarVisibility,
+                        onSelected = onAvatarVisibilityChange,
+                    )
+                    EnchantDivider(inset = 56.dp)
+                    VisibilityRow(
+                        title = "About",
+                        selected = aboutVisibility,
+                        onSelected = onAboutVisibilityChange,
+                    )
+                }
+            }
 
-            item { SignalSettingsSwitchRow(
-                title = "Read receipts",
-                checked = readReceipts,
-                onCheckedChange = onReadReceiptsChange
-            ) }
+            item { EnchantSectionHeader("Messaging") }
+            item {
+                EnchantGroupedCard {
+                    SignalSettingsSwitchRow(
+                        title = "Read receipts",
+                        checked = readReceipts,
+                        onCheckedChange = onReadReceiptsChange,
+                    )
+                    EnchantDivider(inset = 56.dp)
+                    SignalSettingsSwitchRow(
+                        title = "Veil sender",
+                        label = "Hide your identity from the server when messaging",
+                        checked = veilSender,
+                        onCheckedChange = onVeilSenderChange,
+                    )
+                }
+            }
 
-            item { SignalSettingsDivider() }
+            item { EnchantSectionHeader("Blocking") }
+            item {
+                EnchantGroupedCard {
+                    SettingsRow(
+                        icon = Icons.Rounded.Block,
+                        iconBackground = EnchantBrand.Red,
+                        title = "Blocked users",
+                        subtitle = if (blockedUsers.isEmpty()) "No blocked users" else "${blockedUsers.size} blocked",
+                        onClick = onViewBlockedUsers,
+                    )
+                }
+            }
 
-            item { SignalSettingsSwitchRow(
-                title = "Veil sender",
-                label = "Hide your identity from the server when messaging",
-                checked = veilSender,
-                onCheckedChange = onVeilSenderChange
-            ) }
-
-            item { SignalSettingsDivider() }
-
-            item { SignalSettingsRow(
-                icon = Icons.Default.Block,
-                title = "Blocked users",
-                label = if (blockedUsers.isEmpty()) "No blocked users" else "${blockedUsers.size} blocked",
-                onClick = onViewBlockedUsers
-            ) }
-
-            item { androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 24.dp)) }
+            item { Spacer(Modifier.height(EnchantSpacing.xxxl)) }
         }
     }
 }
@@ -120,15 +123,23 @@ private fun VisibilityRow(
     selected: String,
     onSelected: (String) -> Unit
 ) {
-    androidx.compose.foundation.layout.Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
-        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 8.dp))
-        androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EnchantSpacing.lg, vertical = EnchantSpacing.md),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(EnchantSpacing.sm))
+        Row(horizontalArrangement = Arrangement.spacedBy(EnchantSpacing.sm)) {
             listOf("everyone" to "Everyone", "contacts" to "Contacts", "nobody" to "Nobody").forEach { (value, label) ->
-                androidx.compose.material3.FilterChip(
+                FilterChip(
                     selected = selected == value,
                     onClick = { onSelected(value) },
-                    label = { Text(label) }
+                    label = { Text(label) },
                 )
             }
         }

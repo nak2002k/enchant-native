@@ -1,20 +1,32 @@
 package org.enchant.settings.screens
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.biometric.BiometricManager
 import org.enchant.core.base.SecurePreferences
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecuritySettingsScreen(
     twoStepEnabled: Boolean = false,
@@ -36,78 +48,79 @@ fun SecuritySettingsScreen(
     var twoStepPin by remember { mutableStateOf("") }
     var twoStepMode by remember { mutableStateOf("setup") }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Security") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
+    SettingsScaffold(title = "Security", onBack = onBack) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = EnchantSpacing.lg,
+                end = EnchantSpacing.lg,
+                top = EnchantSpacing.sm,
+                bottom = EnchantSpacing.xxxl,
+            ),
         ) {
-            SignalSettingsSwitchRow(
-                title = "PIN lock",
-                label = if (canUseBiometric && useBiometric) "Biometric unlock active" else "Lock the app with a PIN",
-                checked = appLockEnabled,
-                onCheckedChange = { enabled ->
-                    appLockEnabled = enabled
-                    SecurePreferences.putBoolean("applock.enabled", enabled)
-                    if (!enabled) {
-                        SecurePreferences.remove("applock.pin_hash")
-                        SecurePreferences.putBoolean("applock.biometric", false)
-                        useBiometric = false
+            item { EnchantSectionHeader("App Lock") }
+            item {
+                EnchantGroupedCard {
+                    SignalSettingsSwitchRow(
+                        title = "PIN lock",
+                        label = if (canUseBiometric && useBiometric) "Biometric unlock active" else "Lock the app with a PIN",
+                        checked = appLockEnabled,
+                        onCheckedChange = { enabled ->
+                            appLockEnabled = enabled
+                            SecurePreferences.putBoolean("applock.enabled", enabled)
+                            if (!enabled) {
+                                SecurePreferences.remove("applock.pin_hash")
+                                SecurePreferences.putBoolean("applock.biometric", false)
+                                useBiometric = false
+                            }
+                        }
+                    )
+                    if (appLockEnabled && canUseBiometric) {
+                        EnchantDivider(inset = 56.dp)
+                        SignalSettingsSwitchRow(
+                            title = "Use biometric unlock",
+                            label = "Unlock with fingerprint or face",
+                            checked = useBiometric,
+                            onCheckedChange = { enabled ->
+                                useBiometric = enabled
+                                SecurePreferences.putBoolean("applock.biometric", enabled)
+                            }
+                        )
                     }
                 }
-            )
-            if (appLockEnabled && canUseBiometric) {
-                SignalSettingsSwitchRow(
-                    title = "Use biometric unlock",
-                    label = "Unlock with fingerprint or face",
-                    checked = useBiometric,
-                    onCheckedChange = { enabled ->
-                        useBiometric = enabled
-                        SecurePreferences.putBoolean("applock.biometric", enabled)
-                    }
-                )
             }
 
-            SignalSettingsDivider()
-
-            SignalSettingsRow(
-                icon = Icons.Default.Shield,
-                title = "Safety number",
-                label = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED",
-                showChevron = false,
-                onClick = null
-            )
-            Text(
-                "Verify with contacts to ensure secure communication",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-
-            SignalSettingsDivider()
-
-            SignalSettingsRow(
-                icon = Icons.Default.Lock,
-                title = "Two-step verification",
-                label = if (twoStepEnabled) "Enabled" else "Not set up",
-                onClick = {
-                    twoStepMode = if (twoStepEnabled) "disable" else "setup"
-                    twoStepPin = ""
-                    showTwoStepDialog = true
+            item { EnchantSectionHeader("Verification") }
+            item {
+                EnchantGroupedCard {
+                    Column {
+                        SettingsRow(
+                            icon = Icons.Rounded.Shield,
+                            iconBackground = SettingsIconTints.Teal,
+                            title = "Safety number",
+                            subtitle = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED",
+                        )
+                        Text(
+                            "Verify with contacts to ensure secure communication",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = EnchantSpacing.lg, vertical = EnchantSpacing.xs)
+                        )
+                        EnchantDivider(inset = 56.dp)
+                        SettingsRow(
+                            icon = Icons.Rounded.Lock,
+                            iconBackground = SettingsIconTints.DarkGray,
+                            title = "Two-step verification",
+                            subtitle = if (twoStepEnabled) "Enabled" else "Not set up",
+                            onClick = {
+                                twoStepMode = if (twoStepEnabled) "disable" else "setup"
+                                twoStepPin = ""
+                                showTwoStepDialog = true
+                            }
+                        )
+                    }
                 }
-            )
+            }
         }
     }
 

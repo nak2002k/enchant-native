@@ -1,19 +1,44 @@
 package org.enchant.settings.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.enchant.settings.DeviceInfo
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountSettingsScreen(
     displayName: String,
@@ -32,118 +57,98 @@ fun AccountSettingsScreen(
     var editUsername by remember(username) { mutableStateOf(username ?: "") }
     var editAbout by remember(about) { mutableStateOf(about ?: "") }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Account") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    SettingsScaffold(title = "Account", onBack = onBack) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(vertical = 8.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = EnchantSpacing.lg,
+                end = EnchantSpacing.lg,
+                top = EnchantSpacing.sm,
+                bottom = EnchantSpacing.xxxl,
+            ),
         ) {
             item {
-                SignalSettingsBioRow(
-                    initial = displayName.take(2).uppercase().ifBlank { "?" },
-                    displayName = displayName.ifBlank { "User" },
+                SettingsProfileHeader(
+                    displayName = displayName,
                     username = username,
                     about = about,
-                    onClick = { showEditProfile = true }
+                    onEditClick = { showEditProfile = true },
                 )
             }
 
-            item { SignalSettingsDivider() }
-
+            item { EnchantSectionHeader("Profile") }
             item {
-                SignalSettingsRow(
-                    icon = Icons.Default.Edit,
-                    title = "Edit profile",
-                    onClick = { showEditProfile = true }
-                )
+                EnchantGroupedCard {
+                    SettingsRow(
+                        icon = Icons.Rounded.Edit,
+                        iconBackground = EnchantBrand.iOSBlue,
+                        title = "Edit profile",
+                        onClick = { showEditProfile = true },
+                    )
+                }
             }
 
-            item { SignalSettingsDivider() }
-
+            item { EnchantSectionHeader("Devices") }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Devices", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                EnchantGroupedCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = EnchantSpacing.lg, vertical = EnchantSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Linked devices",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        }
+                    }
+                    devices.forEachIndexed { index, device ->
+                        if (index > 0) EnchantDivider(inset = 56.dp)
+                        DeviceRow(device = device, onRevoke = onRevokeDevice)
                     }
                 }
             }
 
-            items(devices, key = { it.deviceId }) { device ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Devices, null,
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(Modifier.width(24.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(device.name, style = MaterialTheme.typography.bodyLarge)
-                        if (device.lastSeen != null) {
-                            Text(
-                                "Last seen: ${device.lastSeen}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (device.isCurrent) {
-                            Text(
-                                "Current device",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    if (!device.isCurrent) {
-                        TextButton(onClick = { onRevokeDevice(device.deviceId) }) {
-                            Text("Revoke", color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-                androidx.compose.material3.HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.padding(start = 64.dp)
-                )
-            }
-
-            item { SignalSettingsDivider() }
-
+            item { EnchantSectionHeader("Danger Zone") }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showDeleteConfirm = true }
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.DeleteForever, null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(Modifier.width(24.dp))
-                    Text("Delete account", color = MaterialTheme.colorScheme.error)
+                EnchantGroupedCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { showDeleteConfirm = true },
+                            )
+                            .padding(horizontal = EnchantSpacing.lg, vertical = EnchantSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(EnchantBrand.Red),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Rounded.DeleteForever,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(EnchantSpacing.lg))
+                        Text(
+                            text = "Delete account",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }
@@ -154,7 +159,7 @@ fun AccountSettingsScreen(
             onDismissRequest = { showEditProfile = false },
             title = { Text("Edit Profile") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = editDisplayName,
                         onValueChange = { editDisplayName = it },
@@ -210,5 +215,56 @@ fun AccountSettingsScreen(
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@Composable
+private fun DeviceRow(
+    device: DeviceInfo,
+    onRevoke: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EnchantSpacing.lg, vertical = EnchantSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(SettingsIconTints.Gray),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Devices,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(17.dp),
+            )
+        }
+        Spacer(Modifier.width(EnchantSpacing.lg))
+        Column(Modifier.weight(1f)) {
+            Text(device.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+            if (device.lastSeen != null) {
+                Text(
+                    "Last seen: ${device.lastSeen}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (device.isCurrent) {
+                Text(
+                    "Current device",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        if (!device.isCurrent) {
+            TextButton(onClick = { onRevoke(device.deviceId) }) {
+                Text("Revoke", color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }
