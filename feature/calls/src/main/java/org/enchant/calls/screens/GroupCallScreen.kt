@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val PurplePrimary = Color(0xFF7B1FA2)
+private val PurplePrimary = Color(0xFF3A0D6E)
 private val CallRed = Color(0xFFFF3B30)
 private val CallBackground = Color(0xFF121212)
 private val TileBackground = Color(0xFF26262E)

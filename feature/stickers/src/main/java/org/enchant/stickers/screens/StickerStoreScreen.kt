@@ -27,9 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.stickers.StickerPack
 
-private val BrandPurple = Color(0xFF7B1FA2)
-private val BrandPurpleDark = Color(0xFF9C27B0)
-private val BrandPurpleLight = Color(0xFFAB47BC)
+private val BrandPurple = Color(0xFF3A0D6E)
+private val BrandPurpleDark = Color(0xFF8E24AA)
+private val BrandPurpleLight = Color(0xFF7B1FA2)
 
 @Composable
 private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPurpleDark else BrandPurple
@@ -174,7 +174,7 @@ private fun FeaturedBanner(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Brush.horizontalGradient(listOf(Color(0xFF7B1FA2), Color(0xFFAB47BC))))
+                .background(Brush.horizontalGradient(listOf(Color(0xFF3A0D6E), Color(0xFF7B1FA2))))
                 .padding(20.dp)
         ) {
             Text("FEATURED",

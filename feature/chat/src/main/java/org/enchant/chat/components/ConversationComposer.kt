@@ -274,7 +274,7 @@ internal fun AttachmentSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 AttachmentCell(Icons.Rounded.PhotoLibrary, "Gallery", Color(0xFF34C759), onGallery)
-                AttachmentCell(Icons.Rounded.CameraAlt, "Camera", Color(0xFF7B1FA2), onCamera)
+                AttachmentCell(Icons.Rounded.CameraAlt, "Camera", Color(0xFF3A0D6E), onCamera)
                 AttachmentCell(Icons.Rounded.Description, "File", Color(0xFF5856D6), onDocument)
                 AttachmentCell(Icons.Filled.LocationOn, "Location", Color(0xFFFF9500), onLocation)
             }

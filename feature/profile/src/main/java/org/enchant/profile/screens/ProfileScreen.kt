@@ -25,7 +25,7 @@ import org.enchant.profile.ProfileData
 
 // Local mirror of the contacts design tokens (feature modules cannot import
 // org.enchant.ui.theme from :app, and profile cannot depend on contacts).
-private val BrandBlue = Color(0xFF7B1FA2)
+private val BrandBlue = Color(0xFF3A0D6E)
 private val CallGreen = Color(0xFF34C759)
 private val Red = Color(0xFFFF3B30)
 private val GroupGreen = Color(0xFF6A9C2F)

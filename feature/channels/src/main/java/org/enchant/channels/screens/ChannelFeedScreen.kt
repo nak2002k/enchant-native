@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import org.enchant.channels.ChannelPost
 
-private val BrandPurple = Color(0xFF7B1FA2)
-private val BrandPurpleDark = Color(0xFF9C27B0)
-private val BrandPurpleLight = Color(0xFFAB47BC)
+private val BrandPurple = Color(0xFF3A0D6E)
+private val BrandPurpleDark = Color(0xFF8E24AA)
+private val BrandPurpleLight = Color(0xFF7B1FA2)
 private val BrandRed = Color(0xFFFF3B30)
 
 @Composable

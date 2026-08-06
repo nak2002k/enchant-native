@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.status.StatusFeedEntry
 
-private val BrandBlue = Color(0xFF7B1FA2)
+private val BrandBlue = Color(0xFF3A0D6E)
 private val BrandBlueLight = Color(0xFF7FB0FF)
 private val RingGray = Color(0xFFC9CDD4)
 private val StoryRingStroke = 2.5.dp

@@ -14,9 +14,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-private val BrandPrimaryLight = Color(0xFF7B1FA2)
-private val BrandPrimaryDark = Color(0xFF9C27B0)
-private val BrandTintLight = Color(0xFFAB47BC)
+private val BrandPrimaryLight = Color(0xFF3A0D6E)
+private val BrandPrimaryDark = Color(0xFF8E24AA)
+private val BrandTintLight = Color(0xFF7B1FA2)
 
 @Composable
 private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPrimaryDark else BrandPrimaryLight

@@ -50,12 +50,12 @@ import androidx.compose.ui.unit.sp
 
 // ─── Brand ───
 object EnchantBrand {
-    val SignalBlue = Color(0xFF7B1FA2)          // Signal's primary
-    val iOSBlue = Color(0xFF7B1FA2)             // Apple accent
+    val SignalBlue = Color(0xFF3A0D6E)          // Signal's primary
+    val iOSBlue = Color(0xFF3A0D6E)             // Apple accent
     val GroupGreen = Color(0xFF6A9C2F)
     val CallGreen = Color(0xFF34C759)
     val Red = Color(0xFFFF3B30)
-    val UnreadBlue = Color(0xFF7B1FA2)
+    val UnreadBlue = Color(0xFF3A0D6E)
 }
 
 // ─── Settings icon tile tints ───
