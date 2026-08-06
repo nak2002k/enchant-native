@@ -3,6 +3,8 @@ package org.enchant.settings.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,10 +31,12 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +60,10 @@ object EnchantBrand {
     val CallGreen = Color(0xFF34C759)
     val Red = Color(0xFFFF3B30)
     val UnreadBlue = Color(0xFF3A0D6E)
+    val BrandGradientStart = Color(0xFF3A0D6E)
+    val BrandGradientEnd = Color(0xFF7B1FA2)
+    val BrandGradientDarkStart = Color(0xFFAB47BC)
+    val BrandGradientDarkEnd = Color(0xFFB388E3)
 }
 
 // ─── Settings icon tile tints ───
@@ -199,7 +207,7 @@ fun SettingsRow(
             Icon(
                 Icons.Rounded.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -288,10 +296,9 @@ fun EnchantSectionHeader(
             top = EnchantSpacing.xl,
             bottom = EnchantSpacing.sm,
         ),
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.titleSmall.copy(letterSpacing = 0.8.sp),
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        letterSpacing = 0.5.sp,
     )
 }
 
@@ -409,7 +416,7 @@ fun SettingsScaffold(
     }
 }
 
-// ─── Large profile header card (68dp avatar, name, handle, edit pencil) ───
+// ─── Large profile header card (72dp avatar w/ gradient ring, name, handle, edit pencil) ───
 @Composable
 fun SettingsProfileHeader(
     displayName: String,
@@ -418,23 +425,49 @@ fun SettingsProfileHeader(
     onEditClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    EnchantGroupedCard(modifier = modifier) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val ringGradient = if (isSystemInDarkTheme()) {
+        listOf(EnchantBrand.BrandGradientDarkStart, EnchantBrand.BrandGradientDarkEnd)
+    } else {
+        listOf(EnchantBrand.BrandGradientStart, EnchantBrand.BrandGradientEnd)
+    }
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.04f)),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = interactionSource,
                     indication = null,
                     onClick = onEditClick,
+                )
+                .background(
+                    if (pressed) {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.08f)
+                    } else {
+                        Color.Transparent
+                    }
                 )
                 .padding(EnchantSpacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            EnchantAvatar(
-                text = displayName.take(2).uppercase().ifBlank { "?" },
-                size = 68.dp,
-                background = MaterialTheme.colorScheme.primary,
-            )
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(ringGradient)),
+                contentAlignment = Alignment.Center,
+            ) {
+                EnchantAvatar(
+                    text = displayName.take(2).uppercase().ifBlank { "?" },
+                    size = 72.dp,
+                    background = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(2.5.dp),
+                )
+            }
             Spacer(Modifier.width(EnchantSpacing.lg))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -485,6 +518,13 @@ fun SettingsProfileHeader(
                     modifier = Modifier.size(16.dp),
                 )
             }
+            Spacer(Modifier.width(EnchantSpacing.xs))
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
