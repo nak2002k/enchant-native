@@ -959,7 +959,9 @@ fun MessageBubble(
                         VoiceMessageContent(
                             mediaMimeType = mimeType,
                             mediaSize = message.mediaSize,
-                            content = message.content
+                            content = message.content,
+                            mediaId = message.mediaId,
+                            mediaKey = message.mediaKey
                         )
                     } else if (mimeType != null && mimeType.startsWith("image/") &&
                         message.mediaId != null && message.mediaKey != null
@@ -1340,17 +1342,82 @@ private fun createTempFile(context: android.content.Context, prefix: String, suf
 private fun VoiceMessageContent(
     mediaMimeType: String,
     mediaSize: Long?,
-    content: String
+    content: String,
+    mediaId: String?,
+    mediaKey: String?
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var isPlaying by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
+    var durationMs by remember { mutableIntStateOf(0) }
+    var failed by remember { mutableStateOf(false) }
+    var player: android.media.MediaPlayer? by remember { mutableStateOf(null) }
+    var mediaPath by remember(mediaId) { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            player?.release()
+            player = null
+        }
+    }
+
+    fun loadAndPlay() {
+        if (mediaPath != null) {
+            val p = player ?: android.media.MediaPlayer().apply {
+                setOnPreparedListener {
+                    durationMs = it.duration
+                    it.start()
+                    isPlaying = true
+                }
+                setOnCompletionListener {
+                    isPlaying = false
+                    progress = 0f
+                }
+            }
+            player = p
+            if (isPlaying) {
+                p.pause()
+                isPlaying = false
+            } else {
+                runCatching { p.reset() }
+                runCatching {
+                    p.setDataSource(mediaPath!!)
+                    p.prepareAsync()
+                }
+            }
+            return
+        }
+        val key = mediaKey?.let { runCatching { org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(it) }.getOrNull() }
+        val id = mediaId
+        if (id == null || key == null || key.size != 32) { failed = true; return }
+        scope.launch {
+            org.enchant.chat.data.MediaService.downloadAndDecryptMedia(id, key)
+                .onSuccess { file ->
+                    mediaPath = file.absolutePath
+                    loadAndPlay()
+                }
+                .onFailure { failed = true }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(500)
+            player?.let { p ->
+                if (p.isPlaying && p.duration > 0) {
+                    progress = p.currentPosition.toFloat() / p.duration
+                }
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            IconButton(onClick = { isPlaying = !isPlaying }) {
+            IconButton(onClick = { loadAndPlay() }) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
@@ -1368,7 +1435,7 @@ private fun VoiceMessageContent(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                "0:00",
+                if (failed) "unavailable" else formatDuration(durationMs),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1381,4 +1448,11 @@ private fun VoiceMessageContent(
             )
         }
     }
+}
+
+private fun formatDuration(durationMs: Int): String {
+    val totalSec = durationMs / 1000
+    val m = totalSec / 60
+    val s = totalSec % 60
+    return "$m:${s.toString().padStart(2, '0')}"
 }
