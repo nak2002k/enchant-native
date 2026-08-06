@@ -955,8 +955,49 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
-    override suspend fun keyBundle(userId: String): JsonObject {
+    override suspend fun groupCredential(groupId: String): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
+        val result = runCatching {
+            DI.apiClient.post("/v1/groups/$groupId/credential", kotlinx.serialization.json.buildJsonObject { })
+        }.getOrNull()?.getOrNull() ?: return err("credential fetch failed")
+        val credHex = result["credential"]?.jsonPrimitive?.content ?: return err("no credential")
+        // Store locally (keyed by group) for later presentations.
+        org.enchant.core.base.SecurePreferences.putString("group_cred_$groupId", credHex)
+        return ok(buildJsonObject { put("credential", credHex) })
+    }
+
+    override suspend fun groupCredentialPresent(groupId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val credHex = org.enchant.core.base.SecurePreferences.getString("group_cred_$groupId")
+            ?: return err("no credential stored — fetch one first")
+        val cred = runCatching {
+            val hex = credHex
+            ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
+        }.getOrNull() ?: return err("bad stored credential")
+        if (cred.size != 32) return err("bad credential length")
+        val presentation = ByteArray(96)
+        val len = longArrayOf(96)
+        val rc = org.enchant.core.crypto.EnchantCrypto.enchant_group_credential_present(
+            cred, 32, cred, presentation, len
+        )
+        if (rc != 0) return err("present failed rc=$rc")
+        return ok(buildJsonObject {
+            put("presentation", org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(presentation.copyOf(len[0].toInt())))
+        })
+    }
+
+    override suspend fun verifyGroupCredential(groupId: String, presentation: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val body = kotlinx.serialization.json.buildJsonObject {
+            put("presentation", presentation)
+        }
+        val result = runCatching {
+            DI.apiClient.post("/v1/groups/$groupId/credential/verify", body)
+        }.getOrNull()?.getOrNull() ?: return err("verify failed")
+        return ok(buildJsonObject { put("valid", result["valid"]?.jsonPrimitive?.content == "true") })
+    }
+
+    override suspend fun keyBundle(userId: String): JsonObject {        if (!DI.isInitialized) return err("DI not initialized")
         val json = runCatching { DI.apiClient.get("/v1/keys/bundle/$userId").getOrThrow() }.getOrNull()
             ?: return err("bundle fetch failed")
         return ok(json)

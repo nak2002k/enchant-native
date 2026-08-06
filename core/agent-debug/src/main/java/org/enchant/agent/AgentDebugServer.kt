@@ -204,6 +204,14 @@ class AgentDebugServer(
                 bridge.addGroupMembers(segments[1], body.stringListRequired("user_ids"))
             root == "debug" && method == Method.POST && segments.getOrNull(1) == "clear-conversation" ->
                 bridge.clearConversation(body.string("conversation_id"))
+            root == "groups" && method == Method.POST && segments.size == 3 &&
+                segments[2] == "credential" -> bridge.groupCredential(segments[1])
+            root == "groups" && method == Method.GET && segments.size == 4 &&
+                segments[2] == "credential" && segments[3] == "present" ->
+                bridge.groupCredentialPresent(segments[1])
+            root == "groups" && method == Method.POST && segments.size == 4 &&
+                segments[2] == "credential" && segments[3] == "verify" ->
+                bridge.verifyGroupCredential(segments[1], body.string("presentation"))
             root == "groups" && method == Method.GET && segments.size == 2 ->
                 bridge.getGroupInfo(segments[1])
             root == "groups" && method == Method.GET && segments.size == 3 &&
