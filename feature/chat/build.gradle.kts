@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":core:jobmanager"))
     implementation(project(":core:calls"))
     implementation(project(":feature:stickers"))
+    implementation(project(":feature:polls"))
     implementation(project(":feature:location"))
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.protobuf.javalite)

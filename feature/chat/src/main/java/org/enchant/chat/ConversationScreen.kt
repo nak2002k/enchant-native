@@ -97,6 +97,9 @@ fun ConversationScreen(
     var showDisappearDialog by remember { mutableStateOf(false) }
     var showSafetyNumber by remember { mutableStateOf(false) }
     var infoMessage by remember { mutableStateOf<Message?>(null) }
+    var showPollDialog by remember { mutableStateOf(false) }
+    var pollQuestion by remember { mutableStateOf("") }
+    var pollOptions by remember { mutableStateOf(listOf("", "")) }
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showStickerPicker by remember { mutableStateOf(false) }
@@ -478,6 +481,7 @@ fun ConversationScreen(
                     onAttach = { showAttachments = true },
                     onEmoji = { showEmojiPicker = true },
                     onSticker = { showStickerPicker = true },
+                    onPoll = { showPollDialog = true },
                     viewOnceMode = viewOnceMode,
                     onViewOnceToggle = { viewOnceMode = !viewOnceMode },
                     onVoiceStart = {
@@ -594,6 +598,53 @@ fun ConversationScreen(
                 viewModel.onComposerTextChanged(messageText)
             },
             onDismiss = { showEmojiPicker = false }
+        )
+    }
+
+    if (showPollDialog) {
+        AlertDialog(
+            onDismissRequest = { showPollDialog = false },
+            title = { Text("Create poll") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = pollQuestion,
+                        onValueChange = { pollQuestion = it },
+                        label = { Text("Question") },
+                        singleLine = true
+                    )
+                    pollOptions.forEachIndexed { index, opt ->
+                        OutlinedTextField(
+                            value = opt,
+                            onValueChange = { updated ->
+                                pollOptions = pollOptions.toMutableList().also { it[index] = updated }
+                            },
+                            label = { Text("Option ${index + 1}") },
+                            singleLine = true
+                        )
+                    }
+                    TextButton(onClick = { pollOptions = pollOptions + "" }) {
+                        Text("Add option")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = pollQuestion.isNotBlank() && pollOptions.count { it.isNotBlank() } >= 2,
+                    onClick = {
+                        val validOptions = pollOptions.filter { it.isNotBlank() }
+                        scope.launch {
+                            viewModel.createPollAndSend(pollQuestion, validOptions, conversationId)
+                        }
+                        showPollDialog = false
+                        pollQuestion = ""
+                        pollOptions = listOf("", "")
+                    }
+                ) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPollDialog = false }) { Text("Cancel") }
+            }
         )
     }
 
@@ -891,6 +942,7 @@ private fun ComposerBar(
     onAttach: () -> Unit,
     onEmoji: () -> Unit,
     onSticker: () -> Unit = {},
+    onPoll: () -> Unit = {},
     viewOnceMode: Boolean = false,
     onViewOnceToggle: () -> Unit = {},
     onVoiceStart: () -> Unit,
@@ -913,6 +965,15 @@ private fun ComposerBar(
                 modifier = Modifier.semantics { this.contentDescription = "Attach file" }
             ) {
                 Icon(Icons.Default.AttachFile, "Attach")
+            }
+
+            if (onPoll != {}) {
+                IconButton(
+                    onClick = onPoll,
+                    modifier = Modifier.semantics { this.contentDescription = "Create poll" }
+                ) {
+                    Text("📊", style = MaterialTheme.typography.titleMedium)
+                }
             }
 
             OutlinedTextField(
@@ -982,6 +1043,7 @@ fun MessageBubble(
     onViewOnceViewed: (String) -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val bubbleScope = rememberCoroutineScope()
     val bubbleColor = if (isOutgoing) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surfaceVariant
     val alignment = if (isOutgoing) Arrangement.End else Arrangement.Start
@@ -1134,15 +1196,39 @@ fun MessageBubble(
                     }
                 } else {
                     val content = message.content
-                    val urlPattern = Regex("https?://[^\\s]+")
-                    val urls = urlPattern.findAll(content).map { it.value }.toList()
-                    Text(
-                        text = content,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    if (urls.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LinkPreviewCard(url = urls.first())
+                    if (content.startsWith("POLL_ID:")) {
+                        val pollId = content.removePrefix("POLL_ID:")
+                        val pollVm: org.enchant.polls.PollViewModel = viewModel()
+                        val pollState by pollVm.uiState.collectAsState()
+                        LaunchedEffect(pollId) { pollVm.loadPoll(pollId) }
+                        val poll = pollState.currentPoll
+                        if (poll != null && poll.pollId == pollId) {
+                            org.enchant.polls.PollBubble(
+                                poll = poll,
+                                onVote = { optionIds ->
+                                    bubbleScope.launch { pollVm.vote(pollId, optionIds) }
+                                },
+                                isVoting = pollState.isSubmitting,
+                                isCreator = false
+                            )
+                        } else {
+                            Text(
+                                "📊 Poll",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else {
+                        val urlPattern = Regex("https?://[^\\s]+")
+                        val urls = urlPattern.findAll(content).map { it.value }.toList()
+                        Text(
+                            text = content,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (urls.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinkPreviewCard(url = urls.first())
+                        }
                     }
                 }
 

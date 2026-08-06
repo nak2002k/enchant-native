@@ -3,6 +3,7 @@ package org.enchant.agent
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -219,6 +220,17 @@ class AgentDebugServer(
                 bridge.acceptCall()
             root == "calls" && method == Method.POST && segments.getOrNull(1) == "deny" ->
                 bridge.denyCall()
+            root == "polls" && method == Method.POST && segments.size == 1 ->
+                bridge.createPoll(
+                    conversationId = body.string("conversation_id"),
+                    question = body.string("question"),
+                    optionTexts = body.objectList("options")?.mapNotNull { entry ->
+                        entry["text"]?.jsonPrimitive?.content
+                    } ?: emptyList()
+                )
+            root == "polls" && method == Method.POST && segments.size == 3 &&
+                segments[2] == "vote" ->
+                bridge.votePoll(segments[1], body.stringListRequired("option_ids"))
             root == "blocks" && method == Method.POST && segments.size == 2 ->
                 bridge.blockUser(segments[1])
             root == "blocks" && method == Method.DELETE && segments.size == 2 ->
@@ -322,6 +334,18 @@ private fun JsonObject.string(key: String): String =
 
 private fun JsonObject.optString(key: String): String? =
     this[key]?.jsonPrimitive?.content
+
+private fun JsonObject.objectList(key: String): List<JsonObject>? =
+    this[key]?.let { el ->
+        when (el) {
+            is kotlinx.serialization.json.JsonArray ->
+                el.mapNotNull { it.jsonObjectOrNull() }
+            else -> null
+        }
+    }
+
+private fun JsonElement.jsonObjectOrNull(): JsonObject? =
+    if (this is JsonObject) this else null
 
 private fun JsonObject.bool(key: String, default: Boolean): Boolean =
     this[key]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: default

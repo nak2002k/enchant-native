@@ -955,6 +955,36 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun createPoll(
+        conversationId: String, question: String, optionTexts: List<String>
+    ): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val body = kotlinx.serialization.json.buildJsonObject {
+            put("conversation_id", conversationId)
+            put("question", question)
+            put("options", kotlinx.serialization.json.JsonArray(
+                optionTexts.map { kotlinx.serialization.json.buildJsonObject { put("text", it) } }
+            ))
+            put("allow_multiple", false)
+            put("anonymous", false)
+        }
+        return DI.apiClient.post("/v1/polls", body).fold(
+            onSuccess = { ok(buildJsonObject { put("poll_id", it["poll_id"]?.jsonPrimitive?.content ?: "") }) },
+            onFailure = { err(it.message ?: "poll create failed") }
+        )
+    }
+
+    override suspend fun votePoll(pollId: String, optionIds: List<String>): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val body = kotlinx.serialization.json.buildJsonObject {
+            put("option_ids", kotlinx.serialization.json.JsonArray(optionIds.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+        }
+        return DI.apiClient.post("/v1/polls/$pollId/vote", body).fold(
+            onSuccess = { ok(buildJsonObject { put("voted", pollId) }) },
+            onFailure = { err(it.message ?: "poll vote failed") }
+        )
+    }
+
     override suspend fun blockUser(userId: String): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val result = DI.apiClient.post("/v1/blocks/$userId", kotlinx.serialization.json.buildJsonObject { })

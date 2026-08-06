@@ -94,6 +94,8 @@ interface AgentAppBridge {
     suspend fun acceptCall(): JsonObject
     suspend fun denyCall(): JsonObject
     suspend fun hangupCall(): JsonObject
+    suspend fun createPoll(conversationId: String, question: String, optionTexts: List<String>): JsonObject
+    suspend fun votePoll(pollId: String, optionIds: List<String>): JsonObject
     suspend fun blockUser(userId: String): JsonObject
     suspend fun unblockUser(userId: String): JsonObject
     suspend fun listCallLog(limit: Int): JsonObject

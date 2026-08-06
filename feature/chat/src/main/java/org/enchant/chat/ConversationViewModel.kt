@@ -7,12 +7,14 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -260,8 +262,34 @@ class ConversationViewModel(
         }
     }
 
-    fun sendTextMessage(text: String, replyTo: String? = null): Boolean {
-        if (text.isBlank()) return false
+    /** Creates a poll server-side, then sends the poll reference as a
+     *  Veil-sealed message so the recipient renders the interactive card. */
+    fun createPollAndSend(question: String, options: List<String>, convId: String) {
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    apiClient.post("/v1/polls", kotlinx.serialization.json.buildJsonObject {
+                        put("conversation_id", convId)
+                        put("question", question)
+                        put("options", kotlinx.serialization.json.JsonArray(
+                            options.map { kotlinx.serialization.json.buildJsonObject { put("text", it) } }
+                        ))
+                        put("allow_multiple", false)
+                        put("anonymous", false)
+                    })
+                }
+            }.getOrNull()?.getOrNull()
+            val pollId = result?.get("poll_id")?.jsonPrimitive?.content ?: return@launch
+            org.enchant.chat.data.MessageSendPipeline.sendMessage(
+                conversationId = convId,
+                recipientUserId = recipientUserId,
+                plaintext = "POLL_ID:$pollId".encodeToByteArray(),
+                useVeil = true
+            )
+        }
+    }
+
+    fun sendTextMessage(text: String, replyTo: String? = null): Boolean {        if (text.isBlank()) return false
         sendTypingStopped()
         _sendingState.value = SendState.SENDING
         viewModelScope.launch {
