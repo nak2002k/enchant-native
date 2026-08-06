@@ -1,42 +1,70 @@
 package org.enchant.chatlist
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import kotlinx.coroutines.launch
-import org.enchant.chat.data.ConversationFilter
-import org.enchant.core.model.Conversation
-import org.enchant.core.model.DisappearTimerPresets
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import org.enchant.chatlist.components.ConversationRow
+import org.enchant.chatlist.components.EnchantAvatar
+import org.enchant.chatlist.components.EnchantBrand
+import org.enchant.chatlist.components.EnchantEmptyState
+import org.enchant.chatlist.components.EnchantFab
+import org.enchant.chatlist.components.EnchantMotion
+import org.enchant.chatlist.components.EnchantSpacing
+import org.enchant.chatlist.components.FilterPillsRow
+import org.enchant.chatlist.components.SearchPill
 import org.enchant.core.network.ConnectivityMonitor
 import org.enchant.core.network.OfflineQueue
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationListScreen(
     viewModel: ConversationListViewModel,
@@ -56,10 +84,12 @@ fun ConversationListScreen(
     val navigationEvent by viewModel.navigationEvent.collectAsState()
     val ownInitial = org.enchant.core.base.SecurePreferences.getString("profile.display_name")
         ?.take(1)?.uppercase() ?: "?"
+    val ownUserId = org.enchant.core.base.SecurePreferences.getString("auth.user_id")
 
     val snackbarHostState = remember { SnackbarHostState() }
     val isOnline by ConnectivityMonitor.isOnline.collectAsState()
     val pendingCount by OfflineQueue.pendingCount.collectAsState()
+    val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) { viewModel.init() }
 
@@ -84,53 +114,45 @@ fun ConversationListScreen(
         }
     }
 
-    var showSearch by remember { mutableStateOf(false) }
-    var showFabMenu by remember { mutableStateOf(false) }
+    var fabComposed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { fabComposed = true }
+    val fabHidden by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 200
+        }
+    }
+    val fabScale by animateFloatAsState(
+        targetValue = if (fabComposed && !fabHidden) 1f else 0f,
+        animationSpec = EnchantMotion.springBouncy,
+        label = "fabScale"
+    )
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
-                    if (showSearch) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { viewModel.search(it) },
-                            placeholder = { Text("Search conversations") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = Color.Transparent
-                            )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        EnchantAvatar(
+                            text = ownInitial,
+                            size = 34.dp,
+                            background = MaterialTheme.colorScheme.primaryContainer,
+                            textColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier
+                                .clickable(onClick = onProfileClick)
+                                .semantics { contentDescription = "Profile" }
                         )
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                modifier = Modifier.size(32.dp).clickable(onClick = onProfileClick),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        ownInitial,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.semantics { contentDescription = "Profile" }
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text("Enchant")
-                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Enchant",
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.3).sp
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, "Settings")
-                    }
-                    IconButton(onClick = { showSearch = !showSearch; if (!showSearch) viewModel.search("") }) {
-                        Icon(if (showSearch) Icons.Default.Close else Icons.Default.Search, "Search")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -139,47 +161,19 @@ fun ConversationListScreen(
             )
         },
         floatingActionButton = {
-            if (!showSearch) {
-                Box {
-                    if (showFabMenu) {
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(y = (-80).dp),
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            SmallFloatingActionButton(
-                                onClick = { showFabMenu = false; onNewChat() },
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Icon(Icons.Default.Person, "New Chat")
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            SmallFloatingActionButton(
-                                onClick = { showFabMenu = false; onNewGroup() },
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Icon(Icons.Default.PersonAdd, "New Group")
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                    }
-                    FloatingActionButton(
-                        onClick = { showFabMenu = !showFabMenu }
-                    ) {
-                        // Pencil that rotates into an X when the menu opens.
-                        val rotation by animateFloatAsState(
-                            targetValue = if (showFabMenu) 180f else 0f,
-                            animationSpec = tween(250),
-                            label = "fabRotation"
-                        )
-                        Icon(
-                            if (showFabMenu) Icons.Default.Close else Icons.Default.Edit,
-                            "New Chat",
-                            modifier = Modifier.rotate(rotation)
-                        )
-                    }
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    scaleX = fabScale
+                    scaleY = fabScale
+                    alpha = fabScale
                 }
+            ) {
+                EnchantFab(
+                    onClick = onNewChat,
+                    icon = Icons.Rounded.Edit,
+                    containerColor = EnchantBrand.SignalBlue,
+                    contentColor = Color.White
+                )
             }
         }
     ) { padding ->
@@ -214,314 +208,73 @@ fun ConversationListScreen(
                 }
             }
 
-            FilterChipsRow(
+            SearchPill(
+                query = searchQuery,
+                onQueryChange = { viewModel.search(it) },
+                modifier = Modifier.padding(
+                    start = EnchantSpacing.lg,
+                    end = EnchantSpacing.lg,
+                    top = EnchantSpacing.md,
+                    bottom = EnchantSpacing.xs
+                )
+            )
+
+            Spacer(modifier = Modifier.height(EnchantSpacing.sm))
+
+            FilterPillsRow(
                 currentFilter = filter,
                 onFilterSelected = { viewModel.selectFilter(it) }
             )
 
-            if (isRefreshing) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
+            Spacer(modifier = Modifier.height(EnchantSpacing.sm))
 
-            if (conversations.isEmpty() && !isRefreshing) {
-                EmptyState(modifier = Modifier.weight(1f))
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(conversations, key = { it.id }) { conversation ->
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
-                                animationSpec = tween(300),
-                                initialOffsetY = { it / 4 }
-                            )
-                        ) {
-                            ConversationTile(
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.refresh() },
+                modifier = Modifier.weight(1f)
+            ) {
+                if (conversations.isEmpty() && !isRefreshing) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        EnchantEmptyState(
+                            icon = Icons.Rounded.ChatBubbleOutline,
+                            title = "No chats yet",
+                            subtitle = "Start a conversation with a friend or create a group"
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            top = EnchantSpacing.xs,
+                            bottom = 96.dp
+                        )
+                    ) {
+                        items(conversations, key = { it.id }) { conversation ->
+                            ConversationRow(
                                 conversation = conversation,
                                 title = titles[conversation.id],
                                 lastSenderName = conversation.lastMessageSenderId?.let { senderNames[it] },
+                                ownUserId = ownUserId,
                                 onClick = { viewModel.selectConversation(conversation.id) },
-                        onArchive = {
-                            if (conversation.isArchived) viewModel.unarchiveConversation(conversation.id)
-                            else viewModel.archiveConversation(conversation.id)
-                        },
-                        onMute = { viewModel.muteConversation(conversation.id) },
-                        onPin = { viewModel.pinConversation(conversation.id) },
+                                onArchive = {
+                                    if (conversation.isArchived) viewModel.unarchiveConversation(conversation.id)
+                                    else viewModel.archiveConversation(conversation.id)
+                                },
+                                onMute = { viewModel.muteConversation(conversation.id) },
+                                onPin = { viewModel.pinConversation(conversation.id) },
                                 onMarkRead = { viewModel.markRead(conversation.id) },
-                                onDelete = { viewModel.deleteConversation(conversation.id) }
+                                onDelete = { viewModel.deleteConversation(conversation.id) },
+                                modifier = Modifier.animateItem()
                             )
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun FilterChipsRow(
-    currentFilter: ConversationFilter,
-    onFilterSelected: (ConversationFilter) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        FilterChip(
-            selected = currentFilter == ConversationFilter.ALL,
-            onClick = { onFilterSelected(ConversationFilter.ALL) },
-            label = { Text("All") }
-        )
-        FilterChip(
-            selected = currentFilter == ConversationFilter.UNREAD,
-            onClick = { onFilterSelected(ConversationFilter.UNREAD) },
-            label = { Text("Unread") }
-        )
-        FilterChip(
-            selected = currentFilter == ConversationFilter.GROUPS,
-            onClick = { onFilterSelected(ConversationFilter.GROUPS) },
-            label = { Text("Groups") }
-        )
-        FilterChip(
-            selected = currentFilter == ConversationFilter.PERSONAL,
-            onClick = { onFilterSelected(ConversationFilter.PERSONAL) },
-            label = { Text("Personal") }
-        )
-        FilterChip(
-            selected = currentFilter == ConversationFilter.ARCHIVED,
-            onClick = { onFilterSelected(ConversationFilter.ARCHIVED) },
-            label = { Text("Archived") }
-        )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun ConversationTile(
-    conversation: Conversation,
-    title: String?,
-    lastSenderName: String? = null,
-    onClick: () -> Unit,
-    onArchive: () -> Unit,
-    onMute: () -> Unit,
-    onPin: () -> Unit,
-    onMarkRead: () -> Unit,
-    onDelete: () -> Unit
-) {
-    var showMenu by remember { mutableStateOf(false) }
-
-    Surface(
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = { showMenu = true }
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box {
-                Surface(
-                    modifier = Modifier.size(52.dp),
-                    shape = CircleShape,
-                    color = avatarColorFor(conversation.id)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = (title?.take(1)?.uppercase() ?: conversation.type.name.take(1)),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        modifier = Modifier.semantics { contentDescription = "Avatar" }
-                    )
-                    }
-                }
-                if (conversation.isPinned) {
-                    Surface(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .align(Alignment.TopEnd),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.tertiary
-                    ) {
-                        Icon(
-                            Icons.Default.PushPin,
-                            contentDescription = "Pinned",
-                            modifier = Modifier.padding(2.dp),
-                            tint = MaterialTheme.colorScheme.onTertiary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = title ?: conversation.id.take(16),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (conversation.unreadCount > 0) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (conversation.disappearTimerSeconds > 0) {
-                        Icon(
-                            Icons.Default.Timer,
-                            contentDescription = "Disappearing messages: ${DisappearTimerPresets.formatDuration(conversation.disappearTimerSeconds)}",
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.tertiary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    Text(
-                        text = formatTimestamp(conversation.lastMessageTimestamp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = run {
-                            val draft = conversation.draftContent
-                            if (!draft.isNullOrBlank()) "Draft: $draft"
-                            else if (conversation.type == org.enchant.core.model.ConversationType.GROUP &&
-                                     conversation.lastMessageSenderId != null &&
-                                     lastSenderName != null) {
-                                // WhatsApp-style: "Sender: last message" on groups.
-                                "$lastSenderName: ${conversation.lastMessage}"
-                            } else conversation.lastMessage ?: "No messages yet"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (!conversation.draftContent.isNullOrBlank()) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (!conversation.draftContent.isNullOrBlank()) FontWeight.Medium else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-        if (conversation.unreadCount > 0) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary
-                        ) {
-                            Text(
-                                text = if (conversation.unreadCount >= 100) "99+" else conversation.unreadCount.toString(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    .semantics { contentDescription = "${conversation.unreadCount} unread messages" }
-                            )
-                        }
-                    }
-                }
-
-                if (conversation.isMuted) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        "Muted",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-
-    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-        DropdownMenuItem(
-            text = { Text(if (conversation.isMuted) "Unmute" else "Mute") },
-            onClick = { onMute(); showMenu = false },
-            leadingIcon = { Icon(if (conversation.isMuted) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null) }
-        )
-        DropdownMenuItem(
-            text = { Text(if (conversation.isArchived) "Unarchive" else "Archive") },
-            onClick = { onArchive(); showMenu = false },
-            leadingIcon = { Icon(Icons.Default.Archive, null) }
-        )
-        DropdownMenuItem(
-            text = { Text(if (conversation.isPinned) "Unpin" else "Pin") },
-            onClick = { onPin(); showMenu = false },
-            leadingIcon = { Icon(Icons.Default.PushPin, null) }
-        )
-        if (conversation.unreadCount > 0) {
-            DropdownMenuItem(
-                text = { Text("Mark read") },
-                onClick = { onMarkRead(); showMenu = false },
-                leadingIcon = { Icon(Icons.Default.DoneAll, null) }
-            )
-        }
-        DropdownMenuItem(
-            text = { Text("Delete") },
-            onClick = { onDelete(); showMenu = false },
-            leadingIcon = { Icon(Icons.Default.Delete, null) }
-        )
-    }
-}
-
-@Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Chat,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "No conversations yet",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Start a new chat",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-        }
-    }
-}
-
-// WhatsApp-style: a stable distinct hue per conversation.
-private val avatarPalette = listOf(
-    Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7), Color(0xFF3F51B5),
-    Color(0xFF2196F3), Color(0xFF009688), Color(0xFF4CAF50), Color(0xFFFF9800),
-    Color(0xFF795548), Color(0xFF607D8B)
-)
-
-private fun avatarColorFor(id: String): Color {
-    val hash = id.fold(0) { acc, c -> (acc * 31 + c.code) and 0x7FFFFFFF }
-    return avatarPalette[hash % avatarPalette.size]
-}
-
-private fun formatTimestamp(timestamp: Long?): String {
-    if (timestamp == null) return ""
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-    return when {
-        diff < 60_000 -> "now"
-        diff < 3600_000 -> "${diff / 60_000}m"
-        diff < 86400_000 -> {
-            val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-            "${cal.get(java.util.Calendar.HOUR_OF_DAY).toString().padStart(2, '0')}:${cal.get(java.util.Calendar.MINUTE).toString().padStart(2, '0')}"
-        }
-        diff < 604800_000 -> "${diff / 86400_000}d"
-        else -> {
-            val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-            "${cal.get(java.util.Calendar.DAY_OF_MONTH)}/${cal.get(java.util.Calendar.MONTH) + 1}"
         }
     }
 }
