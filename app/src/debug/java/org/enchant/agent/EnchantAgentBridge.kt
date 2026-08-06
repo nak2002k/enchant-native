@@ -499,6 +499,17 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun markConversationRead(conversationId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val result = DI.apiClient.post("/v1/messages/read", kotlinx.serialization.json.buildJsonObject {
+            put("conversation_id", kotlinx.serialization.json.JsonPrimitive(conversationId))
+        })
+        return result.fold(
+            onSuccess = { ok(buildJsonObject { put("conversation_id", conversationId); put("read", true) }) },
+            onFailure = { err(it.message ?: "mark read failed") }
+        )
+    }
+
     override suspend fun openConversation(conversationId: String): JsonObject {
         AgentNavigationHooks.emit(
             AgentNavCommand.OpenMainDetail("conversation", buildJsonObject { put("conversation_id", conversationId) })
@@ -563,6 +574,15 @@ class EnchantAgentBridge : AgentAppBridge {
                 err(result.error.name)
             }
         }
+    }
+
+    override suspend fun searchByUsername(q: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val result = DI.apiClient.get("/v1/profile/search", mapOf("username" to q))
+        return result.fold(
+            onSuccess = { ok(it) },
+            onFailure = { err(it.message ?: "search failed") }
+        )
     }
 
     override suspend fun listContacts(): JsonObject {

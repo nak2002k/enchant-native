@@ -42,6 +42,7 @@ interface AgentAppBridge {
 
     // Messaging
     suspend fun listConversations(): JsonObject
+    suspend fun markConversationRead(conversationId: String): JsonObject
     suspend fun openConversation(conversationId: String): JsonObject
     suspend fun listMessages(conversationId: String, limit: Int): JsonObject
     suspend fun sendMessage(recipientUserId: String, text: String, sealed: Boolean): JsonObject
@@ -67,6 +68,7 @@ interface AgentAppBridge {
     ): JsonObject
 
     // Contacts
+    suspend fun searchByUsername(q: String): JsonObject
     suspend fun listContacts(): JsonObject
     suspend fun addContact(userId: String, customName: String?): JsonObject
     suspend fun removeContact(userId: String): JsonObject

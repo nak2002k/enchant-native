@@ -263,29 +263,17 @@ object MessageSendPipeline {
                     return@withContext SendResult.Queued(envelopeId)
                 }
 
-                val ciphertextB64 = CryptoHelper.base64UrlEncode(veiledPayload)
-
-                val client = apiClient!!
-                val response = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {
-                    put("recipient_user_id", recipientUserId)
-                    put("message_type", "UNIDENTIFIED_SENDER")
-                    put("payload", ciphertextB64)
-                    put("reply_token", replyToken)
-                    put("sender_ts", now.toString())
-                })
-
-                response.fold(
-                    onSuccess = { json ->
-                        val ids = json["envelope_ids"]?.jsonArray
-                        val serverId = ids?.firstOrNull()?.jsonPrimitive?.content ?: envelopeId
-                        repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
-                        SendResult.Success(serverId)
-                    },
-                    onFailure = {
-                        repo.updateMessageStatus(envelopeId, MessageStatus.FAILED)
-                        SendResult.Failed(SendError.NETWORK)
-                    }
-                )
+                // Sealed-send over the authenticated WS so the server can map
+                // the reply token to this sender (delivery/read receipts).
+                val sent = org.enchant.core.network.WebSocketManager.sendSealedEnchantMessage(
+                    recipientUserId, veiledPayload, replyToken)
+                if (sent) {
+                    repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
+                    SendResult.Success(envelopeId)
+                } else {
+                    repo.updateMessageStatus(envelopeId, MessageStatus.PENDING)
+                    SendResult.Queued(envelopeId)
+                }
             } catch (e: Exception) {
                 android.util.Log.e("Pipeline", "sendVeiledMessage failed: ${e.message}", e)
                 SendResult.Failed(SendError.NETWORK)

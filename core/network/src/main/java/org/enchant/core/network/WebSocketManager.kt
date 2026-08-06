@@ -477,6 +477,37 @@ object WebSocketManager {
         connect()
     }
 
+    /** Sealed-sender relay over the authenticated WS so the server can map
+     *  the reply token to this sender for delivery/read receipts. */
+    suspend fun sendSealedEnchantMessage(
+        recipientUserId: String,
+        payload: ByteArray,
+        replyToken: String
+    ): Boolean {
+        if (_connectionState.value != ConnectionState.CONNECTED) return false
+        val content = com.google.protobuf.ByteString.copyFrom(payload)
+        val envelope = EnvelopeProtos.Envelope.newBuilder()
+            .setMessageType("UNIDENTIFIED_SENDER")
+            .setRecipientUserId(recipientUserId)
+            .setPayload(content)
+            .setSealed(true)
+            .setReplyToken(replyToken)
+            .setSenderTs(System.currentTimeMillis().toString())
+            .build()
+        val id = nextRequestId()
+        val frame = WebSocketResources.WebSocketMessage.newBuilder()
+            .setType(WebSocketResources.WebSocketMessage.Type.REQUEST)
+            .setRequest(WebSocketResources.WebSocketRequestMessage.newBuilder()
+                .setVerb("POST")
+                .setPath("/api/v1/message")
+                .setBody(envelope.toByteString())
+                .setId(id)
+                .build())
+            .build()
+        webSocket?.send(frame.toByteArray().toByteString())
+        return true
+    }
+
     private suspend fun sendEnchantMessage(recipientUserId: String, payload: ByteArray, messageType: String) {
         if (_connectionState.value != ConnectionState.CONNECTED) return
         val content = com.google.protobuf.ByteString.copyFrom(payload)

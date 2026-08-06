@@ -129,6 +129,8 @@ class AgentDebugServer(
             )
             root == "conversations" && method == Method.POST && segments.size == 2 &&
                 segments[1] == "open" -> bridge.openConversation(body.string("conversation_id"))
+            root == "conversations" && method == Method.POST && segments.size == 3 &&
+                segments[2] == "read" -> bridge.markConversationRead(segments[1])
             root == "messages" && method == Method.POST && segments.getOrNull(1) == "send" ->
                 bridge.sendMessage(
                     recipientUserId = body.string("recipient_user_id"),
@@ -180,6 +182,8 @@ class AgentDebugServer(
                 bridge.addContact(body.string("user_id"), body.optString("custom_name"))
             root == "contacts" && method == Method.POST && segments.getOrNull(1) == "remove" ->
                 bridge.removeContact(body.string("user_id"))
+            root == "contacts" && method == Method.POST && segments.getOrNull(1) == "search" ->
+                bridge.searchByUsername(body.string("q"))
             root == "contacts" && method == Method.GET && segments.getOrNull(1) == "blocked" ->
                 bridge.listBlockedUsers()
             root == "network" && method == Method.GET && segments.getOrNull(1) == "status" ->
