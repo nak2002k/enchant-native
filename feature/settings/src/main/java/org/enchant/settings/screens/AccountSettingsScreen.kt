@@ -1,6 +1,5 @@
 package org.enchant.settings.screens
 
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -236,7 +234,7 @@ private fun DeviceRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Rounded.Devices,
+                org.enchant.ui.icons.EnchantIcons.deviceDesktop,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(17.dp),
