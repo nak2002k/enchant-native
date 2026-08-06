@@ -35,7 +35,7 @@ class ChatArchiveExporter(private val pool: DatabasePool) {
             val convId = cursor.getString(0)
             val messages = mutableListOf<ArchivedMessage>()
             val msgCursor = db.rawQuery(
-                "SELECT envelope_id, sender_id, type, payload, timestamp, status FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC",
+                "SELECT envelope_id, sender_id, message_type, content, timestamp, status FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC",
                 arrayOf(convId)
             )
             while (msgCursor.moveToNext()) {
@@ -75,8 +75,8 @@ class ChatArchiveExporter(private val pool: DatabasePool) {
                             put("conversation_id", archive.conversationId)
                             put("envelope_id", msg.envelopeId)
                             put("sender_id", msg.senderId)
-                            put("type", msg.type)
-                            put("payload", msg.payload)
+                            put("message_type", msg.type)
+                            put("content", msg.payload)
                             put("timestamp", msg.timestamp)
                             put("status", msg.status)
                         }

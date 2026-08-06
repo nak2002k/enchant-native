@@ -17,7 +17,7 @@ class ContactArchiveExporter(private val pool: DatabasePool) {
         val db = pool.readWith { db -> db }
         val contacts = mutableListOf<ContactArchive>()
         val cursor = db.rawQuery(
-            "SELECT recipient_id, username, display_name, phone_number, custom_name FROM recipients",
+            "SELECT recipient_id, username, display_name, phone_number FROM recipients",
             null
         )
         while (cursor.moveToNext()) {
@@ -27,7 +27,7 @@ class ContactArchiveExporter(private val pool: DatabasePool) {
                     username = cursor.getString(1),
                     displayName = cursor.getString(2),
                     phoneNumber = cursor.getString(3),
-                    customName = cursor.getString(4)
+                    customName = null
                 )
             )
         }

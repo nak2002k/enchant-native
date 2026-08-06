@@ -11,7 +11,9 @@ object BackupArchive {
     const val XCHACHA_TAG_SIZE = 16
 
     suspend fun encryptSection(data: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
-        return CryptoHelper.encryptXChaCha20Poly1305(data, key, nonce)
+        // Raw mode: the caller stores the nonce separately in the archive
+        // header, so the ciphertext must NOT embed it again.
+        return CryptoHelper.encryptXChaCha20Poly1305Raw(data, key, nonce)
     }
 
     suspend fun decryptSection(ciphertext: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {

@@ -19,7 +19,7 @@ class AdHocCallArchiveExporter(private val pool: DatabasePool) {
         val db = pool.readWith { db -> db }
         val calls = mutableListOf<CallArchive>()
         val cursor = db.rawQuery(
-            "SELECT call_id, remote_user_id, type, direction, status, duration_seconds, timestamp FROM call_log ORDER BY timestamp DESC",
+            "SELECT call_id, remote_user_id, type, direction, status, duration_seconds, ended_at FROM call_logs ORDER BY ended_at DESC",
             null
         )
         while (cursor.moveToNext()) {
@@ -42,7 +42,7 @@ class AdHocCallArchiveExporter(private val pool: DatabasePool) {
     suspend fun importCalls(archives: List<CallArchive>) {
         val db = pool.write { db -> db }
         val existingIds = mutableSetOf<String>()
-        val cursor = db.rawQuery("SELECT call_id FROM call_log", null)
+        val cursor = db.rawQuery("SELECT call_id FROM call_logs", null)
         while (cursor.moveToNext()) {
             existingIds.add(cursor.getString(0))
         }
@@ -59,9 +59,9 @@ class AdHocCallArchiveExporter(private val pool: DatabasePool) {
                         put("direction", call.direction)
                         put("status", call.status)
                         put("duration_seconds", call.durationSeconds)
-                        put("timestamp", call.timestamp)
+                        put("ended_at", call.timestamp)
                     }
-                    db.insert("call_log", null, values)
+                    db.insert("call_logs", null, values)
                 }
             }
             db.setTransactionSuccessful()
