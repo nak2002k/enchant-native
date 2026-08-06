@@ -101,27 +101,36 @@ class DefaultCallManager(
         signalingTimeoutJob?.cancel()
         processAction(CallAction.StartOutgoingCall(remoteUserId, isVideo))
         val state = _serviceState.value.callState
+        Log.w("CallManager", "OUT: after processAction status=${state.status}")
         if (state.status != CallStatus.CALLING) return
 
+        Log.w("CallManager", "OUT: requesting audio focus...")
         if (!audioFocusManager.requestFocus()) {
             Log.w("CallManager", "Audio focus not granted")
         }
+        Log.w("CallManager", "OUT: audio focus done")
 
+        Log.w("CallManager", "OUT: fetching TURN...")
         val iceServers = fetchTurnServers()
+        Log.w("CallManager", "OUT: creating peer connection (servers=${iceServers.size})")
         peerConnection = webRtcEngine.createPeerConnection(iceServers, createPeerConnectionObserver())
-            ?: run { endCall(); return }
+            ?: run { Log.w("CallManager", "OUT: peer connection FAILED"); endCall(); return }
 
         iceHandler.drainAndApply(peerConnection!!)
 
+        Log.w("CallManager", "OUT: creating local stream...")
         val stream = mediaStreamManager.createLocalStream(isVideo)
-            ?: run { endCall(); return }
+            ?: run { Log.w("CallManager", "OUT: local stream FAILED"); endCall(); return }
 
         addTracks(stream)
 
+        Log.w("CallManager", "OUT: creating offer...")
         val sdp = sdpHandler.createOffer(peerConnection!!)
+        Log.w("CallManager", "OUT: offer=${if (sdp != null) "OK ${sdp.length}b" else "NULL"}")
         if (sdp != null) {
             val callId = _serviceState.value.callState.callId ?: UUID.randomUUID().toString()
-            signalingClient.sendOffer(remoteUserId, sdp, callId)
+            val sent = signalingClient.sendOffer(remoteUserId, sdp, callId)
+            Log.w("CallManager", "OUT: sendOffer result=$sent callId=$callId")
             observerRegistry.notifyOfferSent(remoteUserId, sdp)
         }
 
@@ -170,6 +179,22 @@ class DefaultCallManager(
         val iceServers = fetchTurnServers()
         peerConnection = webRtcEngine.createPeerConnection(iceServers, createPeerConnectionObserver())
             ?: run { endCall(); return }
+
+        // The answer needs the caller's offer as the remote description
+        // first, or createAnswer fails and the call never negotiates.
+        val offerSdp = _serviceState.value.callSetupData?.offerSdp
+        if (offerSdp != null) {
+            val remoteSet = sdpHandler.setRemoteDescription(
+                peerConnection!!,
+                offerSdp,
+                SessionDescription.Type.OFFER
+            )
+            if (!remoteSet) {
+                Log.w("CallManager", "ACCEPT: setRemoteDescription failed")
+            }
+        } else {
+            Log.w("CallManager", "ACCEPT: no offer sdp in state, answer will fail")
+        }
 
         val stream = mediaStreamManager.createLocalStream(withVideo)
             ?: run { endCall(); return }
@@ -350,9 +375,14 @@ class DefaultCallManager(
         signalingTimeoutJob = null
         statsCollector?.stopCollecting()
         statsCollector = null
-        peerConnection?.close()
-        peerConnection?.dispose()
+        // close() + dispose() on a torn-down connection can segfault the
+        // WebRTC native layer; run them guarded and detached.
+        val pc = peerConnection
         peerConnection = null
+        if (pc != null) {
+            runCatching { pc.close() }
+            runCatching { pc.dispose() }
+        }
         iceHandler.clear()
         mediaStreamManager.release()
         audioFocusManager.abandonFocus()

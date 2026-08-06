@@ -25,7 +25,7 @@ object CallManager {
         return try {
             CallsModule.getCallManager().let(block)
         } catch (e: IllegalStateException) {
-            Log.w("CallManager", "CallManager not initialized")
+            Log.w("CallManager", "CallManager not initialized", e)
             default
         }
     }

@@ -916,6 +916,30 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun getCallManagerStatus(): JsonObject {
+        val managerOk = runCatching { org.enchant.core.calls.CallsModule.getCallManager() }.isSuccess
+        return ok(buildJsonObject {
+            put("di_initialized", DI.isInitialized)
+            put("call_manager_ready", managerOk)
+            put("call_state", runCatching { CallManager.callState.value.status.name }.getOrDefault("ERR"))
+        })
+    }
+
+    override suspend fun acceptCall(): JsonObject {
+        val ok = runCatching { org.enchant.core.calls.CallManager.acceptCall(false) }.isSuccess
+        return ok(buildJsonObject { put("accepted", ok) })
+    }
+
+    override suspend fun hangupCall(): JsonObject {
+        val ok = runCatching { org.enchant.core.calls.CallManager.endCall() }.isSuccess
+        return ok(buildJsonObject { put("ended", ok) })
+    }
+
+    override suspend fun denyCall(): JsonObject {
+        val ok = runCatching { org.enchant.core.calls.CallManager.denyCall() }.isSuccess
+        return ok(buildJsonObject { put("denied", ok) })
+    }
+
     override suspend fun listCallLog(limit: Int): JsonObject {
         val logs = CallManager.getCallLogs(limit)
         return ok(buildJsonObject {

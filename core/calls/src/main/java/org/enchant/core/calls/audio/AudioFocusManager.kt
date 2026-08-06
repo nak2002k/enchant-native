@@ -12,6 +12,15 @@ class AudioFocusManager(
     private var focusRequest: AudioFocusRequest? = null
 
     fun requestFocus(): Boolean {
+        return try {
+            requestFocusInternal()
+        } catch (e: Exception) {
+            android.util.Log.w("AudioFocus", "requestFocus failed: ${e.message}")
+            false
+        }
+    }
+
+    private fun requestFocusInternal(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(

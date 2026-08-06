@@ -86,6 +86,10 @@ interface AgentAppBridge {
 
     // Calls
     suspend fun startCall(remoteUserId: String, isVideo: Boolean): JsonObject
+    suspend fun getCallManagerStatus(): JsonObject
+    suspend fun acceptCall(): JsonObject
+    suspend fun denyCall(): JsonObject
+    suspend fun hangupCall(): JsonObject
     suspend fun listCallLog(limit: Int): JsonObject
 
     // Status (stories)

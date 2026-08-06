@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -32,6 +33,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,21 +109,9 @@ fun MainNavDisplay(
         }
     }
 
-    LaunchedEffect(callUiState.callState.status) {
-        val status = callUiState.callState.status
-        when (status) {
-            CallStatus.RINGING, CallStatus.CALLING, CallStatus.CONNECTED -> {
-                mainNavViewModel.goTo(MainNavigationDetailLocation.Calls.EditCallLinkName(
-                    callUiState.callState.callId ?: ""
-                ))
-            }
-            CallStatus.IDLE -> {}
-            else -> {}
-        }
-    }
-
     MainNavigationDetailLocationEffect(mainNavigationViewModel = mainNavViewModel)
 
+    Box(modifier = Modifier.fillMaxSize()) {
     AppScaffold(
         navigator = navigator,
         modifier = Modifier.fillMaxSize(),
@@ -178,6 +168,28 @@ fun MainNavDisplay(
             )
         }
     )
+
+        // Full-screen call overlay: outgoing/incoming/active screens mount
+        // over the app whenever a call is live (Signal behavior).
+        val callStatus = callUiState.callState.status
+        if (callStatus != CallStatus.IDLE) {
+            val initialKey: androidx.navigation3.runtime.NavKey = when {
+                callStatus == CallStatus.CONNECTED -> org.enchant.calls.CallsNavKey.ActiveCall(
+                    callUiState.callState.callId ?: ""
+                )
+                callUiState.callState.direction == org.enchant.core.calls.CallDirection.INCOMING ->
+                    org.enchant.calls.CallsNavKey.IncomingCall(0, callUiState.callState.callId ?: "")
+                else -> org.enchant.calls.CallsNavKey.OutgoingCall(0)
+            }
+            val callBackStack = androidx.navigation3.runtime.rememberNavBackStack(initialKey)
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = androidx.compose.material3.MaterialTheme.colorScheme.background
+            ) {
+                org.enchant.calls.CallsNavDisplay(backStack = callBackStack)
+            }
+        }
+    }
 }
 
 @Composable

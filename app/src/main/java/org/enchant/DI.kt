@@ -213,9 +213,18 @@ object DI {
 
                     CallsModule.initialize(context)
                     val signalingClient = WebSocketSignalingClient(client)
-                    CallsModule.setCallManager(
-                        CallsModule.provideCallManager(signalingClient, pool!!)
-                    )
+                    // Never rebuild the call manager: the WebRTC engine is a
+                    // one-shot singleton on this device and a second EGL init
+                    // can fail, wedging calls after an auth re-init.
+                    if (runCatching { org.enchant.core.calls.CallsModule.getCallManager() }.isFailure) {
+                        android.util.Log.w("DI", "DI: building CallManager...")
+                        CallsModule.setCallManager(
+                            CallsModule.provideCallManager(signalingClient, pool!!)
+                        )
+                        android.util.Log.w("DI", "DI: CallManager set OK")
+                    } else {
+                        android.util.Log.w("DI", "DI: CallManager already present, skipping rebuild")
+                    }
 
                     _workerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
                     _workerScope?.launch {
@@ -244,6 +253,7 @@ object DI {
 
                 _initialized = true
             } catch (e: Throwable) {
+                android.util.Log.e("DI", "DI init FAILED at: ${e.message}", e)
                 reset()
                 throw IllegalStateException("DI init failed: ${e.message}", e as? Exception ?: Exception(e))
             }

@@ -25,6 +25,7 @@ object CallsModule {
         databasePool: org.enchant.core.database.DatabasePool
     ): DefaultCallManager {
         val ctx = context ?: throw IllegalStateException("CallsModule not initialized")
+        android.util.Log.w("CallsModule", "provideCallManager: building (WebRtcEngine init)")
 
         val webRtcEngine = WebRtcEngine(ctx)
         val audioManager = ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
@@ -39,6 +40,7 @@ object CallsModule {
         val iceHandler = IceCandidateHandler()
         val mediaStreamManager = MediaStreamManager(ctx, webRtcEngine)
 
+        android.util.Log.w("CallsModule", "provideCallManager: built OK")
         return DefaultCallManager(
             stateMachine = stateMachine,
             webRtcEngine = webRtcEngine,

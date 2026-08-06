@@ -200,6 +200,14 @@ class AgentDebugServer(
                     remoteUserId = body.string("remote_user_id"),
                     isVideo = body.bool("video", false)
                 )
+            root == "calls" && method == Method.GET && segments.getOrNull(1) == "manager-status" ->
+                bridge.getCallManagerStatus()
+            root == "calls" && method == Method.POST && segments.getOrNull(1) == "accept" ->
+                bridge.acceptCall()
+            root == "calls" && method == Method.POST && segments.getOrNull(1) == "deny" ->
+                bridge.denyCall()
+            root == "calls" && method == Method.POST && segments.getOrNull(1) == "hangup" ->
+                bridge.hangupCall()
             root == "calls" && method == Method.GET && segments.getOrNull(1) == "log" ->
                 bridge.listCallLog(session.parameters["limit"]?.firstOrNull()?.toIntOrNull() ?: 50)
             root == "status" && method == Method.GET && segments.getOrNull(1) == "feed" ->
