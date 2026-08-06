@@ -56,12 +56,12 @@ import androidx.compose.ui.unit.sp
 
 // ─── Brand ───
 object EnchantBrand {
-    val SignalBlue = Color(0xFF3A76F0)          // Signal's primary
-    val iOSBlue = Color(0xFF007AFF)             // Apple accent
+    val SignalBlue = Color(0xFF7B1FA2)          // Signal's primary
+    val iOSBlue = Color(0xFF7B1FA2)             // Apple accent
     val GroupGreen = Color(0xFF6A9C2F)
     val CallGreen = Color(0xFF34C759)
     val Red = Color(0xFFFF3B30)
-    val UnreadBlue = Color(0xFF2F6FED)
+    val UnreadBlue = Color(0xFF7B1FA2)
 }
 
 // ─── Spacing ───

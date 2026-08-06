@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.sp
 
 // ─── Brand ───
 object ContactsBrand {
-    val BrandBlue = Color(0xFF3A76F0)
+    val BrandBlue = Color(0xFF7B1FA2)
     val CallGreen = Color(0xFF34C759)
     val Red = Color(0xFFFF3B30)
     val GroupGreen = Color(0xFF6A9C2F)

@@ -47,8 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-val BrandBlue = Color(0xFF3A76F0)
-val iOSBlue = Color(0xFF007AFF)
+val BrandBlue = Color(0xFF7B1FA2)
+val iOSBlue = Color(0xFF7B1FA2)
 val CallGreen = Color(0xFF34C759)
 val Red = Color(0xFFFF3B30)
 val Gray = Color(0xFF8E8E93)
