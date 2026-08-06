@@ -84,6 +84,10 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                                 5 -> {
                                     db.execSQL("PRAGMA user_version = 5")
                                 }
+                                6 -> {
+                                    try { db.execSQL("ALTER TABLE messages ADD COLUMN media_id TEXT") } catch (_: Exception) {}
+                                    db.execSQL("PRAGMA user_version = 6")
+                                }
                             }
                     }
                 }
@@ -111,7 +115,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
     companion object {
         @Volatile
         var instance: DatabasePool? = null
-        const val DB_VERSION = 5
+        const val DB_VERSION = 6
 
         fun createTables(db: SQLiteDatabase) {
             db.execSQL("""
@@ -124,7 +128,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                     message_type TEXT NOT NULL,
                     content TEXT NOT NULL DEFAULT '',
                     media_key TEXT, media_iv TEXT, media_mime_type TEXT, media_size INTEGER,
-                    media_thumbnail_path TEXT, reply_to_envelope_id TEXT, forwarded_from_user_id TEXT,
+                    media_id TEXT, media_thumbnail_path TEXT, reply_to_envelope_id TEXT, forwarded_from_user_id TEXT,
                     status TEXT NOT NULL DEFAULT 'sending',
                     timestamp INTEGER NOT NULL, server_ts INTEGER,
                     is_edited INTEGER DEFAULT 0, edit_envelope_id TEXT,
@@ -135,6 +139,7 @@ class DatabasePool(context: Context, passphrase: ByteArray, migrations: List<Mig
                     edited_at INTEGER
                 )
             """)
+            runCatching { db.execSQL("ALTER TABLE messages ADD COLUMN media_id TEXT") }
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_messages_conversation_ts ON messages(conversation_id, timestamp DESC)")
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_envelope ON messages(envelope_id)")
             db.execSQL("CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(content, conversation_id UNINDEXED, tokenize='unicode61')")

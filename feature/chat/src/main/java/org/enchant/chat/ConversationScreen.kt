@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -959,6 +961,19 @@ fun MessageBubble(
                             mediaSize = message.mediaSize,
                             content = message.content
                         )
+                    } else if (mimeType != null && mimeType.startsWith("image/") &&
+                        message.mediaId != null && message.mediaKey != null
+                    ) {
+                        val mid = message.mediaId
+                        val mkey = message.mediaKey
+                        if (mid != null && mkey != null) {
+                            EncryptedImageContent(
+                                mediaId = mid,
+                                mediaKey = mkey,
+                                mimeType = mimeType,
+                                fileName = message.content.removePrefix("📎 ")
+                            )
+                        }
                     } else {
                         Text(
                             "📎 ${message.mediaMimeType}",
@@ -1181,6 +1196,65 @@ private fun AttachmentButton(icon: androidx.compose.ui.graphics.vector.ImageVect
             }
         }
         Text(label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+/** Fetches + decrypts a media blob and renders the image in the bubble;
+ *  tap opens the fullscreen viewer (Signal behavior). */
+@Composable
+private fun EncryptedImageContent(
+    mediaId: String,
+    mediaKey: String,
+    mimeType: String,
+    fileName: String
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var mediaPath by remember(mediaId) { mutableStateOf<String?>(null) }
+    var failed by remember(mediaId) { mutableStateOf(false) }
+    var showViewer by remember { mutableStateOf(false) }
+
+    LaunchedEffect(mediaId) {
+        val key = runCatching { org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(mediaKey) }.getOrNull()
+        if (key == null || key.size != 32) { failed = true; return@LaunchedEffect }
+        org.enchant.chat.data.MediaService.downloadAndDecryptMedia(mediaId, key)
+            .onSuccess { file -> mediaPath = file.absolutePath }
+            .onFailure { failed = true }
+    }
+
+    if (mediaPath != null) {
+        val path = mediaPath!!
+        Box(
+            modifier = Modifier
+                .widthIn(max = 240.dp)
+                .clickable { showViewer = true }
+        ) {
+            androidx.compose.foundation.Image(
+                bitmap = remember(path) { android.graphics.BitmapFactory.decodeFile(path) }
+                    ?.asImageBitmap() ?: return@Box,
+                contentDescription = fileName,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 240.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Fit
+            )
+        }
+        if (showViewer) {
+            MediaViewerScreen(mediaPath = path, mimeType = mimeType, onDismiss = { showViewer = false })
+        }
+    } else if (failed) {
+        Text(
+            "📎 $fileName (unavailable)",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("📎 $fileName", style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 

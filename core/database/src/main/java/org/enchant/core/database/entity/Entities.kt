@@ -12,6 +12,7 @@ data class MessageEntity(
     val mediaIv: String? = null,
     val mediaMimeType: String? = null,
     val mediaSize: Long? = null,
+    val mediaId: String? = null,
     val mediaThumbnailPath: String? = null,
     val replyToEnvelopeId: String? = null,
     val forwardedFromUserId: String? = null,

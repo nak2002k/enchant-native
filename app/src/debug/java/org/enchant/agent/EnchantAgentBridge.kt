@@ -492,6 +492,10 @@ class EnchantAgentBridge : AgentAppBridge {
                         put("content", m.content ?: "")
                         put("status", m.status.name)
                         put("timestamp", m.timestamp)
+                        put("media_id", m.mediaId ?: "")
+                        put("media_key", m.mediaKey ?: "")
+                        put("media_mime_type", m.mediaMimeType ?: "")
+                        put("media_size", m.mediaSize?.toString() ?: "")
                     })
                 }
             })

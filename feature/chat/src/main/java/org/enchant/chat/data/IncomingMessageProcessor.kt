@@ -828,7 +828,8 @@ object IncomingMessageProcessor {
                                     org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(it)
                                 },
                                 mediaMimeType = attachment?.contentType,
-                                mediaSize = attachment?.size?.toLong()
+                                mediaSize = attachment?.size?.toLong(),
+                                mediaId = attachment?.cdnKey
                             ),
                             conversationType = convType
                         )

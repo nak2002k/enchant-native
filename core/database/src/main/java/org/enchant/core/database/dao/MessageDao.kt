@@ -15,10 +15,10 @@ class MessageDao(private val pool: DatabasePool) {
             INSERT OR REPLACE INTO messages
                 (conversation_id, sender_id, sender_device_id, envelope_id, message_type,
                  content, media_key, media_iv, media_mime_type, media_size,
-                 media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
+                 media_id, media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
                  status, timestamp, server_ts, is_edited, edit_envelope_id,
                  is_starred, is_deleted, disappear_at, gif_url, is_view_once, edited_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """)
         stmt.bindString(1, message.conversationId)
         stmt.bindString(2, message.senderId)
@@ -30,20 +30,21 @@ class MessageDao(private val pool: DatabasePool) {
         message.mediaIv?.let { stmt.bindString(8, it) } ?: stmt.bindNull(8)
         message.mediaMimeType?.let { stmt.bindString(9, it) } ?: stmt.bindNull(9)
         message.mediaSize?.let { stmt.bindLong(10, it) } ?: stmt.bindNull(10)
-        message.mediaThumbnailPath?.let { stmt.bindString(11, it) } ?: stmt.bindNull(11)
-        message.replyToEnvelopeId?.let { stmt.bindString(12, it) } ?: stmt.bindNull(12)
-        message.forwardedFromUserId?.let { stmt.bindString(13, it) } ?: stmt.bindNull(13)
-        stmt.bindString(14, message.status)
-        stmt.bindLong(15, message.timestamp)
-        message.serverTs?.let { stmt.bindLong(16, it) } ?: stmt.bindNull(16)
-        stmt.bindLong(17, if (message.isEdited) 1 else 0)
-        message.editEnvelopeId?.let { stmt.bindString(18, it) } ?: stmt.bindNull(18)
-        stmt.bindLong(19, if (message.isStarred) 1 else 0)
-        stmt.bindLong(20, if (message.isDeleted) 1 else 0)
-        message.disappearAt?.let { stmt.bindLong(21, it) } ?: stmt.bindNull(21)
-        message.gifUrl?.let { stmt.bindString(22, it) } ?: stmt.bindNull(22)
-        stmt.bindLong(23, if (message.isViewOnce) 1 else 0)
-        message.editedAt?.let { stmt.bindLong(24, it) } ?: stmt.bindNull(24)
+        message.mediaId?.let { stmt.bindString(11, it) } ?: stmt.bindNull(11)
+        message.mediaThumbnailPath?.let { stmt.bindString(12, it) } ?: stmt.bindNull(12)
+        message.replyToEnvelopeId?.let { stmt.bindString(13, it) } ?: stmt.bindNull(13)
+        message.forwardedFromUserId?.let { stmt.bindString(14, it) } ?: stmt.bindNull(14)
+        stmt.bindString(15, message.status)
+        stmt.bindLong(16, message.timestamp)
+        message.serverTs?.let { stmt.bindLong(17, it) } ?: stmt.bindNull(17)
+        stmt.bindLong(18, if (message.isEdited) 1 else 0)
+        message.editEnvelopeId?.let { stmt.bindString(19, it) } ?: stmt.bindNull(19)
+        stmt.bindLong(20, if (message.isStarred) 1 else 0)
+        stmt.bindLong(21, if (message.isDeleted) 1 else 0)
+        message.disappearAt?.let { stmt.bindLong(22, it) } ?: stmt.bindNull(22)
+        message.gifUrl?.let { stmt.bindString(23, it) } ?: stmt.bindNull(23)
+        stmt.bindLong(24, if (message.isViewOnce) 1 else 0)
+        message.editedAt?.let { stmt.bindLong(25, it) } ?: stmt.bindNull(25)
         val result = stmt.executeInsert()
         DatabaseNotifier.notify("messages")
         result
@@ -56,10 +57,10 @@ class MessageDao(private val pool: DatabasePool) {
                 INSERT OR REPLACE INTO messages
                     (conversation_id, sender_id, sender_device_id, envelope_id, message_type,
                      content, media_key, media_iv, media_mime_type, media_size,
-                     media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
+                     media_id, media_thumbnail_path, reply_to_envelope_id, forwarded_from_user_id,
                      status, timestamp, server_ts, is_edited, edit_envelope_id,
                      is_starred, is_deleted, disappear_at, gif_url, is_view_once, edited_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """)
             messages.forEach { msg ->
                 stmt.bindString(1, msg.conversationId)
@@ -72,20 +73,21 @@ class MessageDao(private val pool: DatabasePool) {
                 msg.mediaIv?.let { stmt.bindString(8, it) } ?: stmt.bindNull(8)
                 msg.mediaMimeType?.let { stmt.bindString(9, it) } ?: stmt.bindNull(9)
                 msg.mediaSize?.let { stmt.bindLong(10, it) } ?: stmt.bindNull(10)
-                msg.mediaThumbnailPath?.let { stmt.bindString(11, it) } ?: stmt.bindNull(11)
-                msg.replyToEnvelopeId?.let { stmt.bindString(12, it) } ?: stmt.bindNull(12)
-                msg.forwardedFromUserId?.let { stmt.bindString(13, it) } ?: stmt.bindNull(13)
-                stmt.bindString(14, msg.status)
-                stmt.bindLong(15, msg.timestamp)
-                msg.serverTs?.let { stmt.bindLong(16, it) } ?: stmt.bindNull(16)
-                stmt.bindLong(17, if (msg.isEdited) 1 else 0)
-                msg.editEnvelopeId?.let { stmt.bindString(18, it) } ?: stmt.bindNull(18)
-                stmt.bindLong(19, if (msg.isStarred) 1 else 0)
-                stmt.bindLong(20, if (msg.isDeleted) 1 else 0)
-                msg.disappearAt?.let { stmt.bindLong(21, it) } ?: stmt.bindNull(21)
-                msg.gifUrl?.let { stmt.bindString(22, it) } ?: stmt.bindNull(22)
-                stmt.bindLong(23, if (msg.isViewOnce) 1 else 0)
-                msg.editedAt?.let { stmt.bindLong(24, it) } ?: stmt.bindNull(24)
+                msg.mediaId?.let { stmt.bindString(11, it) } ?: stmt.bindNull(11)
+                msg.mediaThumbnailPath?.let { stmt.bindString(12, it) } ?: stmt.bindNull(12)
+                msg.replyToEnvelopeId?.let { stmt.bindString(13, it) } ?: stmt.bindNull(13)
+                msg.forwardedFromUserId?.let { stmt.bindString(14, it) } ?: stmt.bindNull(14)
+                stmt.bindString(15, msg.status)
+                stmt.bindLong(16, msg.timestamp)
+                msg.serverTs?.let { stmt.bindLong(17, it) } ?: stmt.bindNull(17)
+                stmt.bindLong(18, if (msg.isEdited) 1 else 0)
+                msg.editEnvelopeId?.let { stmt.bindString(19, it) } ?: stmt.bindNull(19)
+                stmt.bindLong(20, if (msg.isStarred) 1 else 0)
+                stmt.bindLong(21, if (msg.isDeleted) 1 else 0)
+                msg.disappearAt?.let { stmt.bindLong(22, it) } ?: stmt.bindNull(22)
+                msg.gifUrl?.let { stmt.bindString(23, it) } ?: stmt.bindNull(23)
+                stmt.bindLong(24, if (msg.isViewOnce) 1 else 0)
+                msg.editedAt?.let { stmt.bindLong(25, it) } ?: stmt.bindNull(25)
                 stmt.executeInsert()
             }
             db.setTransactionSuccessful()

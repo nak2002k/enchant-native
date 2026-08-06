@@ -161,6 +161,7 @@ object MessageSendPipeline {
                     }
                 )
             } catch (e: Exception) {
+                android.util.Log.e("Pipeline", "sendVeiledMessage failed: ${e.message}", e)
                 SendResult.Failed(SendError.NETWORK)
             }
         }
@@ -269,6 +270,7 @@ object MessageSendPipeline {
                     }
                 )
             } catch (e: Exception) {
+                android.util.Log.e("Pipeline", "sendVeiledMessage failed: ${e.message}", e)
                 SendResult.Failed(SendError.NETWORK)
             }
         }
@@ -481,18 +483,28 @@ object MessageSendPipeline {
         return withContext(Dispatchers.Default) {
             try {
                 val ctx = AppConfig.applicationContext ?: return@withContext SendResult.Failed(SendError.NETWORK)
+                android.util.Log.w("Pipeline", "FILE: reading $fileUri")
                 val fileBytes = ctx.contentResolver.openInputStream(fileUri)?.use { it.readBytes() }
                     ?: return@withContext SendResult.Failed(SendError.NETWORK)
+                android.util.Log.w("Pipeline", "FILE: read ${fileBytes.size} bytes")
 
                 val mediaKey = CryptoHelper.generateRandomKey(32)
                 val encryptedData = CryptoHelper.encryptXChaCha20Poly1305(fileBytes, mediaKey)
                 Arrays.fill(fileBytes, 0)
 
                 val client = apiClient!!
+                android.util.Log.w("Pipeline", "FILE: uploading ${encryptedData.size} bytes")
                 val uploadResult = client.postRaw("/v1/media/upload", encryptedData, mimeType)
-                val uploadJson = uploadResult.getOrNull() ?: return@withContext SendResult.Failed(SendError.NETWORK)
+                val uploadJson = uploadResult.getOrNull() ?: run {
+                    android.util.Log.w("Pipeline", "FILE: upload FAILED ${uploadResult.exceptionOrNull()?.message}")
+                    return@withContext SendResult.Failed(SendError.NETWORK)
+                }
                 val mediaId = uploadJson["media_id"]?.jsonPrimitive?.content
-                    ?: return@withContext SendResult.Failed(SendError.NETWORK)
+                    ?: run {
+                        android.util.Log.w("Pipeline", "FILE: upload OK but no media_id: $uploadJson")
+                        return@withContext SendResult.Failed(SendError.NETWORK)
+                    }
+                android.util.Log.w("Pipeline", "FILE: uploaded media_id=$mediaId")
 
                 val selfId = SecurePreferences.getString("auth.user_id") ?: return@withContext SendResult.Failed(SendError.NETWORK)
                 val envelopeId = UUID.randomUUID().toString()
@@ -505,6 +517,7 @@ object MessageSendPipeline {
                     content = payloadText, status = "sending", timestamp = now,
                     mediaKey = CryptoHelper.base64UrlEncode(mediaKey),
                     mediaMimeType = mimeType, mediaSize = fileBytes.size.toLong(),
+                    mediaId = mediaId,
                     isViewOnce = isViewOnce
                 ))
 
@@ -527,7 +540,8 @@ object MessageSendPipeline {
                 val result = sendVeiledMessage(
                     conversationId = conversationId,
                     recipientUserId = recipientUserId,
-                    plaintext = content.toByteArray()
+                    plaintext = content.toByteArray(),
+                    insertLocally = false
                 )
                 repo.updateMessageStatus(
                     envelopeId,
@@ -535,6 +549,7 @@ object MessageSendPipeline {
                 )
                 SendResult.Success(envelopeId)
             } catch (e: Exception) {
+                android.util.Log.e("Pipeline", "sendFileMessage failed: ${e.message}", e)
                 SendResult.Failed(SendError.NETWORK)
             }
         }
