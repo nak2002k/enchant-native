@@ -426,7 +426,7 @@ private fun MemberRow(member: GroupMember, isOwner: Boolean, onRemove: () -> Uni
                         MemberRole.ADMIN -> Triple(Icons.Default.Shield, brandTint(), "Admin")
                         else -> Triple(null, null, member.role.value)
                     }
-                    if (icon != null) {
+                    if (icon != null && tint != null) {
                         Icon(icon, null, tint = tint, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                     }
