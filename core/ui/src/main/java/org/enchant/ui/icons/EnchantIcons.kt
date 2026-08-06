@@ -10,6 +10,10 @@ import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
+/**
+ * Enchant Icon Family — custom premium stroke icons (24x24 grid, 2dp
+ * stroke, round caps/joins). Lucide-geometry, Enchant-branded.
+ */
 object EnchantIcons {
 
     private val cache = mutableMapOf<String, ImageVector>()
@@ -40,8 +44,6 @@ object EnchantIcons {
         }
 
     private fun tracePath(b: PathBuilder, d: String) {
-        // Minimal SVG path parser (absolute + relative commands; arcs
-        // approximated with cubic beziers) feeding a Compose PathBuilder.
         var i = 0
         val n = d.length
         var cmd = 'M'
@@ -113,7 +115,6 @@ object EnchantIcons {
                     curX = ex; curY = ey
                 }
                 'A' -> {
-                    // rx ry rot laf sf x y — approximate with an arc via two cubics
                     val rx = readNum(); val ry = readNum(); readNum()
                     val largeArc = readNum(); val sweep = readNum()
                     val x = readNum(); val y = readNum()
@@ -128,7 +129,6 @@ object EnchantIcons {
     }
 
     private fun arcTo(b: PathBuilder, x0: Float, y0: Float, x1: Float, y1: Float, rx: Float, ry: Float, largeArc: Boolean, sweep: Boolean) {
-        // Simple circular-arc approximation via two quadratic/ cubic segments.
         val dx = (x1 - x0) / 2f; val dy = (y1 - y0) / 2f
         val midX = (x0 + x1) / 2f; val midY = (y0 + y1) / 2f
         b.quadTo(midX + (if (sweep) -dy else dy) * 0.55f, midY + (if (sweep) dx else -dx) * 0.55f, x1, y1)
@@ -141,6 +141,13 @@ object EnchantIcons {
             """M8 2v2""",
             """M8 12 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 Z""",
             """M5 4 h14 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 h14 a2 2 0 0 1 -2 -2 v14 a2 2 0 0 1 2 -2 Z"""
+        ))
+    }
+    val alertCircle: ImageVector by lazy {
+        icon("alertCircle", listOf(
+            """M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 Z""",
+            """M0 0 L0 0.0""",
+            """M0 0 L0 0.0"""
         ))
     }
     val archive: ImageVector by lazy {
@@ -184,6 +191,20 @@ object EnchantIcons {
         icon("arrow-up", listOf(
             """m5 12 7-7 7 7""",
             """M12 19V5"""
+        ))
+    }
+    val arrowBigUp: ImageVector by lazy {
+        icon("arrowBigUp", listOf(
+            """m5 12 7-7 7 7""",
+            """M12 19V5"""
+        ))
+    }
+    val arrowUpDown: ImageVector by lazy {
+        icon("arrowUpDown", listOf(
+            """m21 16-4 4-4-4""",
+            """M17 20V4""",
+            """m3 8 4-4 4 4""",
+            """M7 4v16"""
         ))
     }
     val audioLines: ImageVector by lazy {
@@ -241,6 +262,11 @@ object EnchantIcons {
             """M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z""",
             """M13 8H7""",
             """M17 12H7"""
+        ))
+    }
+    val chatBubble: ImageVector by lazy {
+        icon("chatBubble", listOf(
+            """M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"""
         ))
     }
     val checkCheck: ImageVector by lazy {
@@ -309,6 +335,13 @@ object EnchantIcons {
             """M0 0 L0 0.0"""
         ))
     }
+    val ellipsisVertical: ImageVector by lazy {
+        icon("ellipsisVertical", listOf(
+            """M11 12 a1 1 0 1 0 2 0 a1 1 0 1 0 -2 0 Z""",
+            """M11 5 a1 1 0 1 0 2 0 a1 1 0 1 0 -2 0 Z""",
+            """M11 19 a1 1 0 1 0 2 0 a1 1 0 1 0 -2 0 Z"""
+        ))
+    }
     val eyeOff: ImageVector by lazy {
         icon("eye-off", listOf(
             """M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49""",
@@ -344,6 +377,14 @@ object EnchantIcons {
         icon("forward", listOf(
             """M15 17 20 12 15 7.0""",
             """M4 18v-2a4 4 0 0 1 4-4h12"""
+        ))
+    }
+    val gift: ImageVector by lazy {
+        icon("gift", listOf(
+            """M4 8 h16 a1 1 0 0 1 1 1 v2 a1 1 0 0 1 -1 1 h16 a1 1 0 0 1 -1 -1 v2 a1 1 0 0 1 1 -1 Z""",
+            """M12 8v13""",
+            """M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7""",
+            """M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"""
         ))
     }
     val grid2x2: ImageVector by lazy {
@@ -439,6 +480,11 @@ object EnchantIcons {
             """M7.9 20A9 9 0 1 0 4 16.1L2 22Z"""
         ))
     }
+    val messageSquare: ImageVector by lazy {
+        icon("messageSquare", listOf(
+            """M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"""
+        ))
+    }
     val messagesSquare: ImageVector by lazy {
         icon("messages-square", listOf(
             """M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z""",
@@ -449,6 +495,16 @@ object EnchantIcons {
         icon("mic", listOf(
             """M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z""",
             """M19 10v2a7 7 0 0 1-14 0v-2""",
+            """M0 0 L0 0.0"""
+        ))
+    }
+    val micOff: ImageVector by lazy {
+        icon("micOff", listOf(
+            """M0 0 L0 0.0""",
+            """M18.89 13.23A7.12 7.12 0 0 0 19 12v-2""",
+            """M5 10v2a7 7 0 0 0 12 5""",
+            """M15 9.34V5a3 3 0 0 0-5.68-1.33""",
+            """M9 9v3a3 3 0 0 0 5.12 2.12""",
             """M0 0 L0 0.0"""
         ))
     }
@@ -465,6 +521,20 @@ object EnchantIcons {
     val minus: ImageVector by lazy {
         icon("minus", listOf(
             """M5 12h14"""
+        ))
+    }
+    val minusCircle: ImageVector by lazy {
+        icon("minusCircle", listOf(
+            """M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 Z""",
+            """M8 12h8"""
+        ))
+    }
+    val packageOpen: ImageVector by lazy {
+        icon("packageOpen", listOf(
+            """M12 22v-9""",
+            """M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z""",
+            """M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13""",
+            """M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z"""
         ))
     }
     val palette: ImageVector by lazy {
@@ -491,6 +561,14 @@ object EnchantIcons {
         icon("pencil", listOf(
             """M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z""",
             """m15 5 4 4"""
+        ))
+    }
+    val personAdd: ImageVector by lazy {
+        icon("personAdd", listOf(
+            """M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2""",
+            """M5 7 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 Z""",
+            """M0 0 L0 0.0""",
+            """M0 0 L0 0.0"""
         ))
     }
     val phoneCall2: ImageVector by lazy {
@@ -532,6 +610,13 @@ object EnchantIcons {
             """M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"""
         ))
     }
+    val phoneCall: ImageVector by lazy {
+        icon("phoneCall", listOf(
+            """M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z""",
+            """M14.05 2a9 9 0 0 1 8 7.94""",
+            """M14.05 6A5 5 0 0 1 18 10"""
+        ))
+    }
     val pin: ImageVector by lazy {
         icon("pin", listOf(
             """M12 17v5""",
@@ -543,6 +628,22 @@ object EnchantIcons {
             """M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 Z""",
             """M8 12h8""",
             """M12 8v8"""
+        ))
+    }
+    val qrCode: ImageVector by lazy {
+        icon("qrCode", listOf(
+            """M4 3 h3 a1 1 0 0 1 1 1 v3 a1 1 0 0 1 -1 1 h3 a1 1 0 0 1 -1 -1 v3 a1 1 0 0 1 1 -1 Z""",
+            """M17 3 h3 a1 1 0 0 1 1 1 v3 a1 1 0 0 1 -1 1 h3 a1 1 0 0 1 -1 -1 v3 a1 1 0 0 1 1 -1 Z""",
+            """M4 16 h3 a1 1 0 0 1 1 1 v3 a1 1 0 0 1 -1 1 h3 a1 1 0 0 1 -1 -1 v3 a1 1 0 0 1 1 -1 Z""",
+            """M21 16h-3a2 2 0 0 0-2 2v3""",
+            """M21 21v.01""",
+            """M12 7v3a2 2 0 0 1-2 2H7""",
+            """M3 12h.01""",
+            """M12 3h.01""",
+            """M12 16v.01""",
+            """M16 12h1""",
+            """M21 12v.01""",
+            """M12 21v-1"""
         ))
     }
     val refreshCw: ImageVector by lazy {
@@ -557,6 +658,12 @@ object EnchantIcons {
         icon("reply", listOf(
             """M9 17 4 12 9 7.0""",
             """M20 18v-2a4 4 0 0 0-4-4H4"""
+        ))
+    }
+    val rotateCcw: ImageVector by lazy {
+        icon("rotateCcw", listOf(
+            """M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8""",
+            """M3 3v5h5"""
         ))
     }
     val screenShare: ImageVector by lazy {
@@ -592,10 +699,27 @@ object EnchantIcons {
             """M9 12 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 Z"""
         ))
     }
+    val shareNetwork: ImageVector by lazy {
+        icon("shareNetwork", listOf(
+            """M15 5 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 Z""",
+            """M3 12 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 Z""",
+            """M15 19 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 Z""",
+            """M0 0 L0 0.0""",
+            """M0 0 L0 0.0"""
+        ))
+    }
     val shieldCheck: ImageVector by lazy {
         icon("shield-check", listOf(
             """M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z""",
             """m9 12 2 2 4-4"""
+        ))
+    }
+    val smile: ImageVector by lazy {
+        icon("smile", listOf(
+            """M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 Z""",
+            """M8 14s1.5 2 4 2 4-2 4-2""",
+            """M0 0 L0 0.0""",
+            """M0 0 L0 0.0"""
         ))
     }
     val smileyPlus: ImageVector by lazy {
@@ -615,6 +739,11 @@ object EnchantIcons {
             """M8 13h.01""",
             """M16 13h.01""",
             """M10 16s.8 1 2 1c1.3 0 2-1 2-1"""
+        ))
+    }
+    val sparkle: ImageVector by lazy {
+        icon("sparkle", listOf(
+            """M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"""
         ))
     }
     val sparkles: ImageVector by lazy {
@@ -727,10 +856,28 @@ object EnchantIcons {
             """M8.5 16.429a5 5 0 0 1 7 0"""
         ))
     }
+    val wifiOff2: ImageVector by lazy {
+        icon("wifiOff2", listOf(
+            """M12 20h.01""",
+            """M8.5 16.429a5 5 0 0 1 7 0""",
+            """M5 12.859a10 10 0 0 1 5.17-2.69""",
+            """M19 12.859a10 10 0 0 0-2.007-1.523""",
+            """M2 8.82a15 15 0 0 1 4.177-2.643""",
+            """M22 8.82a15 15 0 0 0-11.288-3.764""",
+            """m2 2 20 20"""
+        ))
+    }
     val x: ImageVector by lazy {
         icon("x", listOf(
             """M18 6 6 18""",
             """m6 6 12 12"""
+        ))
+    }
+    val xCircle: ImageVector by lazy {
+        icon("xCircle", listOf(
+            """M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 Z""",
+            """m15 9-6 6""",
+            """m9 9 6 6"""
         ))
     }
 }
