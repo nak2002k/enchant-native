@@ -813,10 +813,18 @@ object IncomingMessageProcessor {
 
                 val knownKey = NativeSessionManager.getIdentityKey(senderUserId)
                 if (knownKey != null && !knownKey.contentEquals(recoveredSenderKey)) {
-                    // The sender re-registered (new identity). Accept the new
-                    // key so the conversation keeps flowing.
-                    android.util.Log.w("IncomingMsg", "Sealed sender re-keyed for $senderUserId; adopting new identity")
+                    // The sender's identity key changed. Signal keeps the old
+                    // messages readable but surfaces the change; we adopt the
+                    // new key and mark the peer unverified so the user is
+                    // prompted to re-verify (safety number).
+                    android.util.Log.w("IncomingMsg", "Sealed sender re-keyed for $senderUserId; adopting new identity, resetting verification")
                     NativeSessionManager.setIdentityKey(senderUserId, recoveredSenderKey)
+                    runCatching {
+                        val pool = org.enchant.core.database.DatabasePool.instance
+                        if (pool != null) {
+                            org.enchant.core.database.dao.IdentityDao(pool).setVerified(senderUserId, 0)
+                        }
+                    }
                 }
                 if (knownKey == null) {
                     NativeSessionManager.setIdentityKey(senderUserId, recoveredSenderKey)
