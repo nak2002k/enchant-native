@@ -1,18 +1,33 @@
 package org.enchant.groups.screens
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.enchant.groups.data.GroupMember
 import org.enchant.groups.data.MemberRole
+
+private val BrandPrimaryLight = Color(0xFF7B1FA2)
+private val BrandPrimaryDark = Color(0xFF9C27B0)
+private val BrandTintLight = Color(0xFFAB47BC)
+
+@Composable
+private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPrimaryDark else BrandPrimaryLight
+
+@Composable
+private fun brandTint(): Color = BrandTintLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,20 +43,29 @@ fun GroupMemberListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Members (${members.size})") },
-                actions = {
-                    if (isAdmin) {
-                        IconButton(onClick = onAddMember) {
-                            Icon(Icons.Default.PersonAdd, "Add member")
-                        }
+                title = {
+                    Text("Members", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                },
+                navigationIcon = {
+                    IconButton(onClick = { }) {
+                        Icon(Icons.Default.ArrowBack, "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
         if (members.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No members", style = MaterialTheme.typography.titleMedium)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("No members", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Invite people to join this group",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             return@Scaffold
         }
@@ -51,6 +75,33 @@ fun GroupMemberListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            if (isAdmin) {
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onAddMember),
+                        color = Color.Transparent
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(shape = CircleShape, color = brandPrimary()) {
+                                Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Add members", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = brandPrimary())
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(start = 68.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                }
+            }
+
             items(members, key = { it.userId }) { member ->
                 var showMenu by remember { mutableStateOf(false) }
 
@@ -58,14 +109,16 @@ fun GroupMemberListScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
-                            Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                        Surface(shape = CircleShape, color = brandTint().copy(alpha = 0.12f)) {
+                            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     (member.displayName ?: member.userId).take(2).uppercase(),
-                                    style = MaterialTheme.typography.titleMedium
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = brandPrimary()
                                 )
                             }
                         }
@@ -73,16 +126,16 @@ fun GroupMemberListScreen(
                         Spacer(modifier = Modifier.width(12.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(member.displayName ?: member.username ?: member.userId, style = MaterialTheme.typography.titleSmall)
+                            Text(member.displayName ?: member.username ?: member.userId, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                             Spacer(modifier = Modifier.height(2.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val (icon, tint) = when (member.role) {
-                                    MemberRole.OWNER -> Icons.Default.Star to MaterialTheme.colorScheme.primary
-                                    MemberRole.ADMIN -> Icons.Default.Shield to MaterialTheme.colorScheme.tertiary
+                                    MemberRole.OWNER -> Icons.Default.Star to brandPrimary()
+                                    MemberRole.ADMIN -> Icons.Default.Shield to brandTint()
                                     else -> null to null
                                 }
                                 if (icon != null && tint != null) {
-                                    Icon(icon, member.role.value, tint = tint, modifier = Modifier.size(14.dp))
+                                    Icon(icon, member.role.value, tint = tint, modifier = Modifier.size(13.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                 }
                                 Text(
@@ -95,7 +148,7 @@ fun GroupMemberListScreen(
 
                         if (isAdmin && member.role != MemberRole.OWNER) {
                             IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Default.MoreVert, "Member options")
+                                Icon(Icons.Default.MoreVert, "Member options", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                             }
 
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
@@ -103,14 +156,14 @@ fun GroupMemberListScreen(
                                     DropdownMenuItem(
                                         text = { Text("Promote to admin") },
                                         onClick = { onUpdateRole(member.userId, MemberRole.ADMIN.value); showMenu = false },
-                                        leadingIcon = { Icon(Icons.Default.Shield, null) }
+                                        leadingIcon = { Icon(Icons.Default.Shield, null, tint = brandPrimary()) }
                                     )
                                 }
                                 if (member.role == MemberRole.ADMIN) {
                                     DropdownMenuItem(
                                         text = { Text("Demote to member") },
                                         onClick = { onUpdateRole(member.userId, MemberRole.MEMBER.value); showMenu = false },
-                                        leadingIcon = { Icon(Icons.Default.Person, null) }
+                                        leadingIcon = { Icon(Icons.Default.Person, null, tint = brandPrimary()) }
                                     )
                                 }
                                 DropdownMenuItem(
@@ -122,7 +175,7 @@ fun GroupMemberListScreen(
                         }
                     }
                 }
-                HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
+                HorizontalDivider(modifier = Modifier.padding(start = 76.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             }
         }
     }

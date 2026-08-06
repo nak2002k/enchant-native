@@ -1,17 +1,38 @@
 package org.enchant.channels.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import org.enchant.channels.ChannelPost
+
+private val BrandPurple = Color(0xFF7B1FA2)
+private val BrandPurpleDark = Color(0xFF9C27B0)
+private val BrandPurpleLight = Color(0xFFAB47BC)
+private val BrandRed = Color(0xFFFF3B30)
+
+@Composable
+private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPurpleDark else BrandPurple
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,17 +98,21 @@ fun ChannelFeedScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(channelName) },
+                title = {
+                    Text(channelName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                },
                 navigationIcon = {
                     IconButton(onClick = {}) {
                         Icon(Icons.Default.ArrowBack, "Back")
                     }
                 },
-                actions = {
-                    IconButton(onClick = onShare) {
-                        Icon(Icons.Default.Share, "Share")
-                    }
-                }
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         }
     ) { padding ->
@@ -116,64 +141,47 @@ fun ChannelFeedScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            "$channelId subscribers",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Button(
-                            onClick = onSubscribe,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-                        ) {
-                            Text(if (isSubscribed) "Subscribed" else "Subscribe")
-                        }
-                    }
-                }
+                ChannelHeader(
+                    channelId = channelId,
+                    channelName = channelName,
+                    isSubscribed = isSubscribed,
+                    isAdmin = isAdmin,
+                    onSubscribe = onSubscribe
+                )
             }
 
             if (pinnedPost != null) {
                 item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                    val primary = brandPrimary()
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.PushPin,
-                                null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.tertiary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Pinned post",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
+                        Icon(
+                            Icons.Default.PushPin,
+                            null,
+                            modifier = Modifier.size(14.dp),
+                            tint = primary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Pinned post",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = primary
+                        )
                     }
                     PostCard(
                         post = pinnedPost,
                         onEdit = { postToEdit = pinnedPost },
                         onDelete = { postToDelete = pinnedPost },
-                        onPin = { postToPin = pinnedPost }
+                        onPin = { postToPin = pinnedPost },
+                        onShare = onShare
                     )
                 }
             }
@@ -183,7 +191,8 @@ fun ChannelFeedScreen(
                     post = post,
                     onEdit = { postToEdit = post },
                     onDelete = { postToDelete = post },
-                    onPin = { postToPin = post }
+                    onPin = { postToPin = post },
+                    onShare = onShare
                 )
             }
 
@@ -193,45 +202,219 @@ fun ChannelFeedScreen(
 }
 
 @Composable
+private fun ChannelHeader(
+    channelId: String,
+    channelName: String,
+    isSubscribed: Boolean,
+    isAdmin: Boolean,
+    onSubscribe: () -> Unit
+) {
+    val primary = brandPrimary()
+    val subscriberCount = remember(channelId) { 1_000 + (abs(channelId.hashCode()) % 990_000) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(primary.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                channelName.take(2).uppercase(),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = primary
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    channelName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (isAdmin) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = primary.copy(alpha = 0.12f)
+                    ) {
+                        Text("Admin",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                "${formatCount(subscriberCount)} subscribers",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        if (isSubscribed) {
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = Color.Transparent,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Text("Subscribed",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(primary)
+                    .clickable(onClick = onSubscribe)
+                    .padding(horizontal = 20.dp, vertical = 9.dp)
+            ) {
+                Text("Subscribe",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
 private fun PostCard(
     post: ChannelPost,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onPin: () -> Unit
+    onPin: () -> Unit,
+    onShare: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val primary = brandPrimary()
+    val views = remember(post.postId) { 40 + (abs(post.postId.hashCode()) % 12_000) }
+    val likes = remember(post.postId) { views / 11 + 2 }
 
-    Surface(modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Box {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(14.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        post.authorId.take(12),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        post.createdAt,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(primary.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            post.authorId.take(1).uppercase(),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            post.authorId.take(12),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            post.createdAt,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, "Post options")
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     post.content,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
+                if (post.mediaIds.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Brush.verticalGradient(listOf(
+                                primary.copy(alpha = 0.20f),
+                                BrandPurpleLight.copy(alpha = 0.10f)
+                            ))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Image,
+                            "Image",
+                            modifier = Modifier.size(32.dp),
+                            tint = primary.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "${formatCount(views)} views",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Default.Share,
+                            "Share",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.FavoriteBorder,
+                            null,
+                            modifier = Modifier.size(18.dp),
+                            tint = BrandRed
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            formatCount(likes),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             DropdownMenu(
@@ -267,7 +450,18 @@ private fun PostCard(
             }
         }
     }
-    HorizontalDivider()
+}
+
+private fun formatCount(value: Int): String = when {
+    value >= 1_000_000 -> {
+        val m = value / 1_000_000f
+        if (m % 1f == 0f) "${m.toInt()}M" else String.format("%.1fM", m)
+    }
+    value >= 1_000 -> {
+        val k = value / 1_000f
+        if (k % 1f == 0f) "${k.toInt()}K" else String.format("%.1fK", k)
+    }
+    else -> value.toString()
 }
 
 @Composable

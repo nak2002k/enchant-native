@@ -4,7 +4,9 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.view.WindowManager
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -13,11 +15,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
@@ -106,37 +110,119 @@ fun MediaViewerScreen(
                             offsetY += pan.y
                         }
                     }
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { showControls = !showControls },
+                            onDoubleTap = {
+                                if (scale > 1f) {
+                                    scale = 1f
+                                    offsetX = 0f
+                                    offsetY = 0f
+                                } else {
+                                    scale = 2.5f
+                                }
+                            }
+                        )
+                    }
             )
         } else {
             Text("Loading...", color = Color.White, modifier = Modifier.align(Alignment.Center))
         }
 
-        androidx.compose.animation.AnimatedVisibility(visible = showControls) {
-            Row(
+        AnimatedVisibility(
+            visible = showControls,
+            modifier = Modifier
+                .fillMaxSize()
+                .align(Alignment.TopCenter)
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.7f),
+                            0.35f to Color.Transparent
+                        )
+                    )
             ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, "Close", tint = Color.White)
-                }
-                Row {
-                    IconButton(onClick = {
-                        scope.launch {
-                            shareMedia(context, file, mimeType)
-                        }
-                    }) {
-                        Icon(Icons.Default.Share, "Share", tint = Color.White)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Default.ArrowBack, "Close", tint = Color.White, modifier = Modifier.size(26.dp))
                     }
-                    IconButton(onClick = {
-                        scope.launch {
-                            saveToGallery(context, file, mimeType)
-                        }
-                    }) {
-                        Icon(Icons.Default.Download, "Download", tint = Color.White)
+                    Text(
+                        "1 / 1",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                shareMedia(context, file, mimeType)
+                            }
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Default.Share, "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = showControls,
+            modifier = Modifier
+                .fillMaxSize()
+                .align(Alignment.BottomCenter)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.65f to Color.Black.copy(alpha = 0.7f)
+                        )
+                    )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(vertical = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(40.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                shareMedia(context, file, mimeType)
+                            }
+                        },
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(Icons.Default.Share, "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                saveToGallery(context, file, mimeType)
+                            }
+                        },
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(Icons.Default.Download, "Save", tint = Color.White, modifier = Modifier.size(24.dp))
                     }
                 }
             }
@@ -148,7 +234,7 @@ fun MediaViewerScreen(
                 color = Color.White.copy(alpha = 0.7f),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(16.dp)
+                    .padding(bottom = 72.dp)
             )
         }
     }

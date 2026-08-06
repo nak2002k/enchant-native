@@ -7,7 +7,10 @@ import android.location.LocationManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,9 +22,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+
+private val BrandPrimaryLight = Color(0xFF7B1FA2)
+private val BrandPrimaryDark = Color(0xFF9C27B0)
+
+@Composable
+private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPrimaryDark else BrandPrimaryLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,101 +127,141 @@ fun LocationPickerScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Share Location") },
-                navigationIcon = {
-                    IconButton(onClick = {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Surface(
+            shape = RoundedCornerShape(0.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(64.dp), tint = brandPrimary())
+                Spacer(Modifier.height(8.dp))
+                Text(String.format(Locale.US, "%.6f, %.6f", latitude, longitude), style = MaterialTheme.typography.titleMedium)
+                if (address.isNotEmpty()) {
+                    Text(address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                }
+                if (lastLocationTimestamp > 0 && isGettingLocation) {
+                    val ageMs = System.currentTimeMillis() - lastLocationTimestamp
+                    val ageMinutes = ageMs / 60_000
+                    if (ageMinutes > 5) {
+                        Text("Cached location (${ageMinutes} min old)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                val statusText: String = when {
+                    isGettingLocation -> "Getting current location..."
+                    locationError != null -> locationError!!
+                    permissionDenied -> "Location permission denied"
+                    else -> "Search above or use current location"
+                }
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (locationError != null || permissionDenied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.clickable {
                         latitude = 0.0
                         longitude = 0.0
                         address = ""
                         searchQuery = ""
                         locationError = null
                         onBack()
-                    }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
                     }
-                },
-                actions = {
-                    TextButton(
-                        onClick = { onLocationSelected(latitude, longitude, sanitizeAddress(address)) },
-                        enabled = latitude != 0.0 || longitude != 0.0
-                    ) {
-                        Text("Send", style = MaterialTheme.typography.labelLarge)
+                ) {
+                    Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
                     }
                 }
-            )
-        }
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search address") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            Box(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
+                Spacer(modifier = Modifier.width(12.dp))
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxSize()
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize()) {
-                        Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(8.dp))
-                        Text(String.format(Locale.US, "%.6f, %.6f", latitude, longitude), style = MaterialTheme.typography.titleMedium)
-                        if (address.isNotEmpty()) {
-                            Text(address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search address", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)) },
+                        leadingIcon = { Icon(Icons.Default.Search, null, tint = brandPrimary()) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(50),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        )
+                    )
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(
+                    onClick = { onLocationSelected(latitude, longitude, sanitizeAddress(address)) },
+                    enabled = latitude != 0.0 || longitude != 0.0,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = brandPrimary(),
+                        contentColor = Color.White,
+                        disabledContainerColor = brandPrimary().copy(alpha = 0.4f),
+                        disabledContentColor = Color.White.copy(alpha = 0.7f)
+                    ),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text("Send location", fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.clickable(
+                        enabled = !isGettingLocation,
+                        onClick = {
+                            isGettingLocation = true
+                            locationError = null
+                            permissionLauncher.launch(arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            ))
                         }
-                        if (lastLocationTimestamp > 0 && isGettingLocation) {
-                            val ageMs = System.currentTimeMillis() - lastLocationTimestamp
-                            val ageMinutes = ageMs / 60_000
-                            if (ageMinutes > 5) {
-                                Text("Cached location (${ageMinutes} min old)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        val statusText: String = when {
-                            isGettingLocation -> "Getting current location..."
-                            locationError != null -> locationError!!
-                            permissionDenied -> "Location permission denied"
-                            else -> "Search above or use current location"
-                        }
-                        Text(
-                            text = statusText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (locationError != null || permissionDenied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Box(modifier = Modifier.size(56.dp), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Explore,
+                            "Current location",
+                            tint = brandPrimary(),
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedButton(
-                onClick = {
-                    isGettingLocation = true
-                    locationError = null
-                    permissionLauncher.launch(arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    ))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isGettingLocation
-            ) {
-                Icon(Icons.Default.MyLocation, null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (isGettingLocation) "Locating..." else "Use current location")
             }
         }
     }

@@ -1,9 +1,13 @@
 package org.enchant.groups.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,8 +19,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
+
+private val BrandPrimaryLight = Color(0xFF7B1FA2)
+private val BrandPrimaryDark = Color(0xFF9C27B0)
+
+@Composable
+private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPrimaryDark else BrandPrimaryLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,12 +47,15 @@ fun GroupInviteScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Invite to Group") },
+                title = {
+                    Text("Invite to Group", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
@@ -50,18 +67,23 @@ fun GroupInviteScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Default.PersonAdd,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Surface(shape = CircleShape, color = brandPrimary().copy(alpha = 0.12f)) {
+                Box(modifier = Modifier.size(72.dp), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.PersonAdd,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = brandPrimary()
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 "Share invite link",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -69,71 +91,83 @@ fun GroupInviteScreen(
             Text(
                 "People can join your group using this link",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             if (inviteLink.isNotEmpty()) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    SelectionContainer {
                         Text(
                             inviteLink,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(16.dp),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
+                Button(
+                    onClick = onCopyLink,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = brandPrimary(),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(50)
                 ) {
-                    OutlinedButton(
-                        onClick = onCopyLink,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Copy link")
-                    }
+                    Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Copy link", fontWeight = FontWeight.SemiBold)
+                }
 
-                    Button(
-                        onClick = onShareLink,
-                        modifier = Modifier.weight(1f)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color.Transparent,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onShareLink)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp), tint = brandPrimary())
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Share")
+                        Text("Share", style = MaterialTheme.typography.labelLarge, color = brandPrimary(), fontWeight = FontWeight.Medium)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
             Text(
                 "QR Code",
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = Color.White,
-                modifier = Modifier.size(200.dp),
-                shadowElevation = 2.dp
+                modifier = Modifier.size(200.dp)
             ) {
                 Canvas(modifier = Modifier.padding(16.dp)) {
                     drawQrCode(qrPattern)
@@ -141,12 +175,13 @@ fun GroupInviteScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 "Join via code",
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -171,9 +206,14 @@ fun GroupInviteScreen(
             Button(
                 onClick = { onJoinViaCode(joinCode) },
                 enabled = joinCode.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = brandPrimary(),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(50)
             ) {
-                Text("Join Group")
+                Text("Join Group", fontWeight = FontWeight.SemiBold)
             }
         }
     }

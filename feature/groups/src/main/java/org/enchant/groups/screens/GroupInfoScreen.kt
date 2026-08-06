@@ -1,20 +1,36 @@
 package org.enchant.groups.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.enchant.groups.data.Group
 import org.enchant.groups.data.GroupMember
 import org.enchant.groups.data.MemberRole
+
+private val BrandPrimaryLight = Color(0xFF7B1FA2)
+private val BrandPrimaryDark = Color(0xFF9C27B0)
+private val BrandTintLight = Color(0xFFAB47BC)
+private val BrandRed = Color(0xFFFF3B30)
+
+@Composable
+private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPrimaryDark else BrandPrimaryLight
+
+@Composable
+private fun brandTint(): Color = BrandTintLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,12 +59,15 @@ fun GroupInfoScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(group?.name ?: "Group Info") },
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         }
     ) { padding ->
@@ -69,28 +88,47 @@ fun GroupInfoScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
+                        .padding(top = 8.dp, bottom = 24.dp, start = 24.dp, end = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
-                        Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
-                            Text(group.name.take(2).uppercase(), style = MaterialTheme.typography.headlineMedium)
+                    Surface(
+                        shape = CircleShape,
+                        color = brandTint().copy(alpha = 0.16f),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, brandPrimary().copy(alpha = 0.6f))
+                    ) {
+                        Box(modifier = Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                group.name.take(2).uppercase(),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = brandPrimary()
+                            )
                         }
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        group.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "${group.memberCount} members · ${group.myRole.value}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(group.name, style = MaterialTheme.typography.titleLarge)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (group.description != null) {
-                            Text(group.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                            Text(group.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         } else {
-                            Text("Add description", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
+                            Text("Add description", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                         IconButton(onClick = { editDescription = group.description ?: ""; showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, "Edit description", modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Edit, "Edit description", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("${group.memberCount} members · ${group.myRole.value}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -98,51 +136,51 @@ fun GroupInfoScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ActionButton(Icons.Default.PersonAdd, "Add", onAddMembers)
-                    ActionButton(Icons.Default.Link, "Invite") { onCreateInviteLink() }
+                    ActionPill(Icons.Default.PersonAdd, "Add members", onAddMembers, Modifier.weight(1f))
+                    ActionPill(Icons.Default.Link, "Invite", { onCreateInviteLink() }, Modifier.weight(1f))
                     if (joinRequests > 0) {
-                        BadgedBox(badge = { Badge { Text(joinRequests.toString()) } }) {
-                            ActionButton(Icons.Default.PersonSearch, "Requests", onViewJoinRequests)
+                        BadgedBox(
+                            badge = {
+                                Badge(containerColor = brandPrimary()) { Text(joinRequests.toString()) }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            ActionPill(Icons.Default.PersonSearch, "Requests", onViewJoinRequests, Modifier.fillMaxWidth())
                         }
                     } else {
-                        ActionButton(Icons.Default.PersonSearch, "Requests", onViewJoinRequests)
+                        ActionPill(Icons.Default.PersonSearch, "Requests", onViewJoinRequests, Modifier.weight(1f))
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             if (inviteLink != null) {
                 item {
                     Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        color = brandTint().copy(alpha = 0.10f),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .clickable { onCopyInviteLink(inviteLink) }
                     ) {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Link, null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Link, null, modifier = Modifier.size(16.dp), tint = brandPrimary())
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Invite link: $inviteLink", style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.weight(1f))
-                            Icon(Icons.Default.ContentCopy, "Copy", modifier = Modifier.size(16.dp))
+                            Text("Invite link: $inviteLink", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ContentCopy, "Copy", modifier = Modifier.size(16.dp), tint = brandPrimary())
                         }
                     }
                 }
             }
 
             item {
-                Text(
-                    "Members (${members.size})",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                SectionHeader("Members (${members.size})")
             }
 
             items(members, key = { it.userId }) { member ->
@@ -155,53 +193,90 @@ fun GroupInfoScreen(
                 )
             }
 
+            item {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onAddMembers),
+                    color = Color.Transparent
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(shape = CircleShape, color = brandPrimary()) {
+                            Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Add members", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = brandPrimary())
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SectionHeader("Settings")
+            }
+
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Column {
+                        GroupSettingRow(
+                            icon = Icons.Default.Link,
+                            title = "Group link",
+                            subtitle = inviteLink ?: "Create an invite link",
+                            onClick = { if (inviteLink != null) onCopyInviteLink(inviteLink) else onCreateInviteLink() }
+                        )
+                        InsetDivider()
+                        GroupSettingRow(
+                            icon = Icons.Default.Edit,
+                            title = "Edit description",
+                            onClick = { editDescription = group.description ?: ""; showEditDialog = true }
+                        )
+                        InsetDivider()
+                        if (group.myRole == MemberRole.OWNER) {
+                            GroupSettingRow(
+                                icon = Icons.Default.Delete,
+                                title = "Delete group",
+                                destructive = true,
+                                onClick = onDeleteGroup
+                            )
+                        } else {
+                            GroupSettingRow(
+                                icon = Icons.Default.ExitToApp,
+                                title = "Leave group",
+                                destructive = true,
+                                onClick = onLeaveGroup
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
             if (error != null) {
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text(error, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(error, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
-            if (group.myRole == MemberRole.OWNER) {
-                item {
-                    OutlinedButton(
-                        onClick = onDeleteGroup,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.Delete, null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Delete Group")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-
-            if (group.myRole != MemberRole.OWNER) {
-                item {
-                    OutlinedButton(
-                        onClick = onLeaveGroup,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text("Leave Group")
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
-
-            item { Spacer(modifier = Modifier.height(24.dp)) }
         }
     }
 
@@ -222,7 +297,7 @@ fun GroupInfoScreen(
                 TextButton(onClick = {
                     showEditDialog = false
                     onUpdateGroup(null, editDescription.ifBlank { null })
-                }) { Text("Save") }
+                }) { Text("Save", color = brandPrimary()) }
             },
             dismissButton = {
                 TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
@@ -232,14 +307,88 @@ fun GroupInfoScreen(
 }
 
 @Composable
-private fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        IconButton(onClick = onClick) {
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                Icon(icon, label, modifier = Modifier.padding(8.dp))
+private fun SectionHeader(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+    )
+}
+
+@Composable
+private fun InsetDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 52.dp, end = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    )
+}
+
+@Composable
+private fun ActionPill(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = brandTint().copy(alpha = 0.12f),
+        modifier = modifier.clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, null, modifier = Modifier.size(16.dp), tint = brandPrimary())
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = brandPrimary(), maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun GroupSettingRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    destructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            null,
+            modifier = Modifier.size(22.dp),
+            tint = if (destructive) BrandRed else brandPrimary()
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (destructive) BrandRed else MaterialTheme.colorScheme.onSurface
+            )
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
             }
         }
-        Text(label, style = MaterialTheme.typography.labelSmall)
+        if (!destructive) {
+            Icon(
+                Icons.Default.ChevronRight,
+                null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
     }
 }
 
@@ -248,7 +397,9 @@ private fun MemberRow(member: GroupMember, isOwner: Boolean, onRemove: () -> Uni
     var showMenu by remember { mutableStateOf(false) }
 
     Surface(
-        modifier = Modifier.clickable { showMenu = true }
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showMenu = true }
     ) {
         Row(
             modifier = Modifier
@@ -256,21 +407,33 @@ private fun MemberRow(member: GroupMember, isOwner: Boolean, onRemove: () -> Uni
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
-                Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                    Text(member.displayName?.take(2)?.uppercase() ?: member.userId.take(2).uppercase())
+            Surface(shape = CircleShape, color = brandTint().copy(alpha = 0.12f)) {
+                Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        member.displayName?.take(2)?.uppercase() ?: member.userId.take(2).uppercase(),
+                        fontWeight = FontWeight.SemiBold,
+                        color = brandPrimary()
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(member.displayName ?: member.username ?: member.userId.take(12), style = MaterialTheme.typography.bodyMedium)
-                Text(member.role.value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(member.displayName ?: member.username ?: member.userId.take(12), style = MaterialTheme.typography.bodyLarge)
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val (icon, tint, roleLabel) = when (member.role) {
+                        MemberRole.OWNER -> Triple(Icons.Default.Star, brandPrimary(), "Owner")
+                        MemberRole.ADMIN -> Triple(Icons.Default.Shield, brandTint(), "Admin")
+                        else -> Triple(null, null, member.role.value)
+                    }
+                    if (icon != null) {
+                        Icon(icon, null, tint = tint, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Text(roleLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            when (member.role) {
-                MemberRole.OWNER -> Icon(Icons.Default.Star, "Owner", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                MemberRole.ADMIN -> Icon(Icons.Default.Shield, "Admin", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
-                else -> {}
-            }
+            Icon(Icons.Default.MoreVert, "Member options", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
         }
     }
 
@@ -281,6 +444,6 @@ private fun MemberRow(member: GroupMember, isOwner: Boolean, onRemove: () -> Uni
         if (isOwner && member.role == MemberRole.ADMIN) {
             DropdownMenuItem(text = { Text("Make member") }, onClick = { onMakeMember(); showMenu = false })
         }
-        DropdownMenuItem(text = { Text("Remove from group") }, onClick = { onRemove(); showMenu = false })
+        DropdownMenuItem(text = { Text("Remove from group", color = BrandRed) }, onClick = { onRemove(); showMenu = false })
     }
 }
