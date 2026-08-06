@@ -959,7 +959,7 @@ class EnchantAgentBridge : AgentAppBridge {
         if (text.length > 700) return err("Status text exceeds 700 characters")
         val privacyObj = parseStatusPrivacy(privacy, selectedContacts)
         val body = buildJsonObject {
-            put("type", "text")
+            put("status_type", "TEXT")
             put("text", text)
             put("background_color", backgroundColor)
             put("privacy", statusPrivacyToStr(privacyObj))
@@ -1186,7 +1186,7 @@ class EnchantAgentBridge : AgentAppBridge {
 
     private fun statusPrivacyToStr(privacy: StatusPrivacy): String = when (privacy) {
         StatusPrivacy.AllContacts -> "ALL_CONTACTS"
-        is StatusPrivacy.Selected -> "SELECTED"
-        StatusPrivacy.CloseFriends -> "CLOSE_FRIENDS"
+        is StatusPrivacy.Selected -> "SELECTED_CONTACTS"
+        StatusPrivacy.CloseFriends -> "ALL_CONTACTS"
     }
 }

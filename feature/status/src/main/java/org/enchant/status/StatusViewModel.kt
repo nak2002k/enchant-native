@@ -115,7 +115,7 @@ class StatusViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val body = buildJsonObject {
-                    put("type", "text")
+                    put("status_type", "TEXT")
                     put("text", text)
                     put("background_color", backgroundColor)
                     put("privacy", privacyToStr(privacy))
@@ -151,7 +151,7 @@ class StatusViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val body = buildJsonObject {
-                    put("type", "media")
+                    put("status_type", "IMAGE")
                     put("media_id", mediaId)
                     put("privacy", privacyToStr(privacy))
                     if (privacy is StatusPrivacy.Selected && selectedContacts != null) {
@@ -316,7 +316,7 @@ class StatusViewModel(
 
     private fun privacyToStr(privacy: StatusPrivacy): String = when (privacy) {
         StatusPrivacy.AllContacts -> "ALL_CONTACTS"
-        is StatusPrivacy.Selected -> "SELECTED"
-        StatusPrivacy.CloseFriends -> "CLOSE_FRIENDS"
+        is StatusPrivacy.Selected -> "SELECTED_CONTACTS"
+        StatusPrivacy.CloseFriends -> "ALL_CONTACTS"
     }
 }
