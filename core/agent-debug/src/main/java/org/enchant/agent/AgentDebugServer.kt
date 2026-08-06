@@ -155,6 +155,14 @@ class AgentDebugServer(
                     packId = body.string("pack_id"),
                     stickerId = body.string("sticker_id")
                 )
+            root == "channels" && method == Method.GET && segments.getOrNull(1) == "discover" ->
+                bridge.discoverChannels()
+            root == "channels" && method == Method.POST && segments.size == 1 ->
+                bridge.createChannel(body.string("name"), body.optString("description"))
+            root == "channels" && method == Method.POST && segments.size == 3 &&
+                segments[2] == "subscribe" -> bridge.subscribeChannel(segments[1])
+            root == "channels" && method == Method.GET && segments.size == 3 &&
+                segments[2] == "feed" -> bridge.channelFeed(segments[1])
             root == "contacts" && method == Method.GET && segments.size == 1 ->
                 bridge.listContacts()
             root == "contacts" && method == Method.POST && segments.getOrNull(1) == "add" ->
@@ -220,6 +228,14 @@ class AgentDebugServer(
                 bridge.acceptCall()
             root == "calls" && method == Method.POST && segments.getOrNull(1) == "deny" ->
                 bridge.denyCall()
+            root == "channels" && method == Method.GET && segments.getOrNull(1) == "discover" ->
+                bridge.discoverChannels()
+            root == "channels" && method == Method.POST && segments.size == 1 ->
+                bridge.createChannel(body.string("name"), body.optString("description"))
+            root == "channels" && method == Method.POST && segments.size == 3 &&
+                segments[2] == "subscribe" -> bridge.subscribeChannel(segments[1])
+            root == "channels" && method == Method.GET && segments.size == 3 &&
+                segments[2] == "feed" -> bridge.channelFeed(segments[1])
             root == "contacts" && method == Method.GET && segments.size == 1 ->
                 bridge.listContacts()
             root == "contacts" && method == Method.POST && segments.getOrNull(1) == "sync" ->

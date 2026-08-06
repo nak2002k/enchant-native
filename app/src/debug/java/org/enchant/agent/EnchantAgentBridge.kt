@@ -955,6 +955,51 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun discoverChannels(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val vm = org.enchant.channels.ChannelViewModel(DI.apiClient)
+        kotlinx.coroutines.runBlocking { vm.discoverChannels() }
+        val channels = vm.uiState.value.discoverResults
+        return ok(buildJsonObject {
+            put("channels", buildJsonArray {
+                channels.forEach { c ->
+                    add(buildJsonObject {
+                        put("channel_id", c.channelId)
+                        put("name", c.name)
+                        put("description", c.description ?: "")
+                    })
+                }
+            })
+        })
+    }
+
+    override suspend fun createChannel(name: String, description: String?): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val vm = org.enchant.channels.ChannelViewModel(DI.apiClient)
+        return runCatching {
+            kotlinx.coroutines.runBlocking { vm.createChannel(name, description) }
+            ok(buildJsonObject { put("created", name) })
+        }.getOrElse { err(it.message ?: "channel create failed") }
+    }
+
+    override suspend fun subscribeChannel(channelId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val vm = org.enchant.channels.ChannelViewModel(DI.apiClient)
+        return runCatching {
+            kotlinx.coroutines.runBlocking { vm.subscribe(channelId) }
+            ok(buildJsonObject { put("subscribed", channelId) })
+        }.getOrElse { err(it.message ?: "subscribe failed") }
+    }
+
+    override suspend fun channelFeed(channelId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val vm = org.enchant.channels.ChannelViewModel(DI.apiClient)
+        return runCatching {
+            kotlinx.coroutines.runBlocking { vm.loadFeed(channelId) }
+            ok(buildJsonObject { put("posts", vm.uiState.value.feed.size) })
+        }.getOrElse { err(it.message ?: "feed failed") }
+    }
+
     override suspend fun syncDeviceContacts(): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val ctx = AppConfig.applicationContext ?: return err("no context")
