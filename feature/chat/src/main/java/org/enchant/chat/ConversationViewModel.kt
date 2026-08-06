@@ -68,6 +68,52 @@ class ConversationViewModel(
     private val _senderNames = MutableStateFlow<Map<String, String>>(emptyMap())
     val senderNames: StateFlow<Map<String, String>> = _senderNames.asStateFlow()
 
+    // ── Safety numbers / identity verification ──────────────────────
+    private val _safetyNumber = MutableStateFlow<String?>(null)
+    val safetyNumber: StateFlow<String?> = _safetyNumber.asStateFlow()
+
+    private val _isPeerVerified = MutableStateFlow(false)
+    val isPeerVerified: StateFlow<Boolean> = _isPeerVerified.asStateFlow()
+
+    fun loadSafetyNumber() {
+        viewModelScope.launch {
+            val peerId = recipientUserId
+            if (peerId.isBlank()) return@launch
+            _safetyNumber.value = org.enchant.core.crypto.NativeSessionManager.getSafetyNumber(peerId)
+            _isPeerVerified.value = org.enchant.core.database.DatabasePool.instance?.let { pool ->
+                val status = runCatching {
+                    val dao = org.enchant.core.database.dao.IdentityDao(pool)
+                    dao.getByAddress(peerId)?.verifiedStatus ?: 0
+                }.getOrDefault(0)
+                status > 0
+            } ?: false
+        }
+    }
+
+    fun verifyPeer() {
+        viewModelScope.launch {
+            val peerId = recipientUserId
+            val pool = org.enchant.core.database.DatabasePool.instance ?: return@launch
+            runCatching {
+                val dao = org.enchant.core.database.dao.IdentityDao(pool)
+                dao.setVerified(peerId, 1)
+            }
+            _isPeerVerified.value = true
+        }
+    }
+
+    fun unverifyPeer() {
+        viewModelScope.launch {
+            val peerId = recipientUserId
+            val pool = org.enchant.core.database.DatabasePool.instance ?: return@launch
+            runCatching {
+                val dao = org.enchant.core.database.dao.IdentityDao(pool)
+                dao.setVerified(peerId, 0)
+            }
+            _isPeerVerified.value = false
+        }
+    }
+
     private val _conversation = MutableStateFlow<Conversation?>(null)
     val conversation: StateFlow<Conversation?> = _conversation.asStateFlow()
 
@@ -101,6 +147,7 @@ class ConversationViewModel(
         if (conversationId == convId) return
         conversationId = convId
         recipientUserId = convId
+        loadSafetyNumber()
         pagingSource = ChatPagingSource(repo, convId)
         messageJob?.cancel()
         messageJob = viewModelScope.launch {

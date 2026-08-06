@@ -95,6 +95,7 @@ fun ConversationScreen(
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var showDisappearDialog by remember { mutableStateOf(false) }
+    var showSafetyNumber by remember { mutableStateOf(false) }
     var showAttachments by remember { mutableStateOf(false) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showStickerPicker by remember { mutableStateOf(false) }
@@ -208,6 +209,19 @@ fun ConversationScreen(
                     }
                 },
                 actions = {
+                    val directChat = conversation?.type == org.enchant.core.model.ConversationType.DIRECT
+                    if (directChat) {
+                        IconButton(
+                            onClick = { showSafetyNumber = true },
+                            modifier = Modifier.semantics { this.contentDescription = "Safety number" }
+                        ) {
+                            Icon(
+                                if (viewModel.isPeerVerified.value) Icons.Default.Lock
+                                else Icons.Default.LockOpen,
+                                "Safety number"
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = { onStartCall(conversationId, false) },
                         modifier = Modifier.semantics { this.contentDescription = "Start audio call" }
@@ -596,12 +610,55 @@ fun ConversationScreen(
         )
     }
 
+    if (showSafetyNumber) {
+        val safetyNum by viewModel.safetyNumber.collectAsState()
+        val peerVerified by viewModel.isPeerVerified.collectAsState()
+        AlertDialog(
+            onDismissRequest = { showSafetyNumber = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        if (peerVerified) Icons.Default.Lock else Icons.Default.LockOpen,
+                        contentDescription = null,
+                        tint = if (peerVerified) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (peerVerified) "Verified" else "Safety number")
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        "Compare this number with ${title ?: "the other person"} in person or "
+                            + "over a trusted channel. If it matches, verification is complete.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        safetyNum ?: "Computing...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.verifyPeer() }) { Text("Mark as verified") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSafetyNumber = false }) { Text("Close") }
+            }
+        )
+    }
+
     if (showDisappearDialog) {
         val currentTimer = conversation?.disappearTimerSeconds ?: 0
         AlertDialog(
             onDismissRequest = { showDisappearDialog = false },
-            title = { Text("Disappearing messages") },
-            text = {
+            title = { Text("Disappearing messages") },            text = {
                 Column {
                     Text(
                         "Messages that disappear after a set time. Current: ${DisappearTimerPresets.formatDuration(currentTimer)}",
