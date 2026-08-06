@@ -1,16 +1,20 @@
 package org.enchant.polls
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,6 +43,10 @@ fun PollBubble(
         )
     }
 
+    val showResults = poll.yourVote.isNotEmpty() || poll.isClosed
+    val winnerId = if (showResults && poll.totalVotes > 0)
+        poll.options.maxByOrNull { poll.results[it.id] ?: 0 }?.id else null
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -48,7 +56,7 @@ fun PollBubble(
     ) {
         Text(
             text = poll.question,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -67,6 +75,7 @@ fun PollBubble(
 
             val hasVoted = poll.yourVote.isNotEmpty()
             val isClosed = poll.isClosed
+            val isWinner = showResults && option.id == winnerId
 
             Surface(
                 onClick = {
@@ -79,43 +88,40 @@ fun PollBubble(
                         }
                     }
                 },
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = when {
-                    isSelected -> MaterialTheme.colorScheme.primaryContainer
+                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     isClosed -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 },
+                border = BorderStroke(
+                    width = if (isSelected) 1.5.dp else 1.dp,
+                    color = if (isSelected)
+                        MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outlineVariant
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 3.dp)
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    if (hasVoted || isClosed) {
-                        val barColor = if (isSelected)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
-                        LinearProgressIndicator(
-                            progress = { percentage / 100f },
-                            color = barColor,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                    }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (poll.allowMultiple && !hasVoted && !isClosed) {
                             Checkbox(
                                 checked = isSelected,
                                 onCheckedChange = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary,
+                                    checkmarkColor = MaterialTheme.colorScheme.onPrimary
+                                )
                             )
                             Spacer(Modifier.width(8.dp))
                         }
@@ -123,30 +129,75 @@ fun PollBubble(
                             text = option.text,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
-                            color = if (isClosed && !isSelected)
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            else MaterialTheme.colorScheme.onSurface
+                            fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
+                            color = when {
+                                isWinner -> MaterialTheme.colorScheme.primary
+                                isClosed && !isSelected -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
                         )
-                        if (hasVoted || isClosed) {
+                        if (showResults) {
                             Text(
                                 text = "${percentage.toInt()}%",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (isSelected)
+                                fontWeight = if (isWinner) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isWinner || isSelected)
                                     MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                        if (isClosed && poll.totalVotes > 0) {
+                        } else if (isSelected) {
                             Spacer(Modifier.width(8.dp))
-                            TextButton(
-                                onClick = {
-                                    selectedOptionForVoters = option.id
-                                    showVotersSheet = true
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                modifier = Modifier.height(28.dp)
-                            ) {
-                                Text("Voters", style = MaterialTheme.typography.labelSmall)
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    if (showResults) {
+                        Spacer(Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(percentage.coerceIn(0f, 100f) / 100f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(
+                                        if (isWinner) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                    )
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "$voteCount vote${if (voteCount != 1) "s" else ""}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isClosed && poll.totalVotes > 0) {
+                                TextButton(
+                                    onClick = {
+                                        selectedOptionForVoters = option.id
+                                        showVotersSheet = true
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Text("Voters", style = MaterialTheme.typography.labelSmall)
+                                }
                             }
                         }
                     }
@@ -189,8 +240,14 @@ fun PollBubble(
             Button(
                 onClick = { onVote(selectedOptionIds) },
                 enabled = selectedOptionIds.isNotEmpty() && !isVoting,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 if (isVoting) {
                     CircularProgressIndicator(
@@ -224,7 +281,11 @@ fun VotersBottomSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -234,6 +295,7 @@ fun VotersBottomSheet(
             Text(
                 text = "Voters: $optionText",
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(

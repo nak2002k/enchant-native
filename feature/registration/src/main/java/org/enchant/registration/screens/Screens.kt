@@ -72,7 +72,7 @@ fun WelcomeScreen(
                     .fillMaxWidth()
                     .height(52.dp)
                     .alpha(buttonsAlpha),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(999.dp)
             ) {
                 Text("Agree & Continue", fontWeight = FontWeight.SemiBold)
             }
@@ -83,7 +83,7 @@ fun WelcomeScreen(
                     .fillMaxWidth()
                     .height(52.dp)
                     .alpha(buttonsAlpha),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(999.dp)
             ) {
                 Text("Link This Device")
             }
@@ -120,7 +120,7 @@ fun PhoneNumberScreen(
             Spacer(modifier = Modifier.height(60.dp))
             Text(
                 text = "Enter your phone number",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier
                     .alpha(contentAlpha)
                     .offset(y = contentOffset)
@@ -167,7 +167,7 @@ fun PhoneNumberScreen(
                     .fillMaxWidth()
                     .height(52.dp)
                     .alpha(contentAlpha),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(999.dp),
                 enabled = state.phoneNumber.isNotBlank() && !state.isLoading
             ) {
                 AnimatedContent(
@@ -211,7 +211,7 @@ fun PermissionsScreen(
         ) {
             Text(
                 text = "Allow Access",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.alpha(alpha)
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -252,7 +252,7 @@ fun PermissionsScreen(
                     .fillMaxWidth()
                     .height(52.dp)
                     .alpha(alpha),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(999.dp)
             ) {
                 Text("Continue", fontWeight = FontWeight.SemiBold)
             }
@@ -316,7 +316,7 @@ fun CountryCodePickerScreen(
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Text(
                 text = "Select Country",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             OutlinedTextField(
@@ -373,7 +373,7 @@ fun VerificationCodeScreen(
             Spacer(modifier = Modifier.height(60.dp))
             Text(
                 text = "Verify your number",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.alpha(alpha)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -430,7 +430,7 @@ fun VerificationCodeScreen(
                     .fillMaxWidth()
                     .height(52.dp)
                     .alpha(alpha),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(999.dp),
                 enabled = state.code.length == 6 && !state.isLoading
             ) {
                 AnimatedContent(
@@ -494,7 +494,7 @@ fun PinEntryScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(60.dp))
-            Text(text = title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+            Text(text = title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = description,
@@ -529,7 +529,7 @@ fun PinEntryScreen(
             Button(
                 onClick = { onEvent(PinEntryScreenEvents.PinEntered(pin)) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(999.dp),
                 enabled = pin.length == 4
             ) {
                 Text("Continue", fontWeight = FontWeight.SemiBold)
@@ -557,7 +557,7 @@ fun AccountLockedScreen(
         ) {
             Text(
                 text = "Account Locked",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.error
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -569,7 +569,7 @@ fun AccountLockedScreen(
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = { onEvent(AccountLockedScreenEvents.Next) },
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(999.dp)
             ) {
                 Text("OK", fontWeight = FontWeight.SemiBold)
             }
@@ -599,7 +599,7 @@ fun PinCreationScreen(
             Spacer(modifier = Modifier.height(60.dp))
             Text(
                 text = "Create a PIN",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -649,7 +649,7 @@ fun PinCreationScreen(
             Button(
                 onClick = { onEvent(PinCreationScreenEvents.PinSubmitted(pin)) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(999.dp),
                 enabled = pin.length == 4 && pin == confirmPin
             ) {
                 Text("Create PIN", fontWeight = FontWeight.SemiBold)
@@ -675,7 +675,7 @@ fun ArchiveRestoreSelectionScreen(
             Spacer(modifier = Modifier.height(60.dp))
             Text(
                 text = "Restore account",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -733,12 +733,12 @@ fun LocalBackupRestoreScreen(
         ) {
             Text(
                 text = "Local Backup",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = { onEvent(LocalBackupRestoreEvents.PickBackupFolder) },
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(999.dp)
             ) {
                 Text("Select Backup File", fontWeight = FontWeight.SemiBold)
             }
@@ -763,7 +763,7 @@ fun EnterLocalBackupV1PassphraseScreen(
             Spacer(modifier = Modifier.height(60.dp))
             Text(
                 text = "Backup Passphrase",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
@@ -778,7 +778,7 @@ fun EnterLocalBackupV1PassphraseScreen(
             Button(
                 onClick = { onPassphraseEntered(passphrase) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(999.dp),
                 enabled = passphrase.isNotBlank()
             ) {
                 Text("Restore", fontWeight = FontWeight.SemiBold)
@@ -805,7 +805,7 @@ fun EnterAepScreen(
             Spacer(modifier = Modifier.height(60.dp))
             Text(
                 text = "Enter Backup Key",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
@@ -823,7 +823,7 @@ fun EnterAepScreen(
             Button(
                 onClick = { onEvent(EnterAepEvents.Submit) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(999.dp),
                 enabled = key.length == 64
             ) {
                 Text("Verify Key", fontWeight = FontWeight.SemiBold)
@@ -852,12 +852,12 @@ fun RemoteBackupRestoreScreen(
         ) {
             Text(
                 text = "Restore from Cloud",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = { onEvent(RemoteBackupRestoreScreenEvents.BackupRestoreBackup) },
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(999.dp)
             ) {
                 Text("Restore Backup", fontWeight = FontWeight.SemiBold)
             }
@@ -884,7 +884,7 @@ fun QuickRestoreQrScreen(
         ) {
             Text(
                 text = "Scan QR Code",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -932,7 +932,7 @@ fun TransferScreen(
         ) {
             Text(
                 text = "Transfer Account",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -945,7 +945,7 @@ fun TransferScreen(
             Button(
                 onClick = { onEvent(TransferScreenEvents.TransferClicked) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(999.dp)
             ) {
                 Text("Start Transfer", fontWeight = FontWeight.SemiBold)
             }
@@ -976,7 +976,7 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(60.dp))
             Text(
                 text = "Set up your profile",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -1025,7 +1025,7 @@ fun ProfileScreen(
             Button(
                 onClick = onProfileComplete,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(999.dp),
                 enabled = displayName.isNotBlank()
             ) {
                 Text("Continue", fontWeight = FontWeight.SemiBold)
