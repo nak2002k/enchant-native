@@ -8,8 +8,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import org.enchant.ui.icons.EnchantIcons
 
 private val PurplePrimary = Color(0xFF3A0D6E)
 private val PurpleDark = Color(0xFFB388E3)
@@ -140,7 +139,7 @@ fun OutgoingCallScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(48.dp)) {
                 OutgoingControlButton(
-                    icon = if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                    icon = if (isSpeakerOn) EnchantIcons.speakerHigh else EnchantIcons.volume2,
                     contentDescription = if (isSpeakerOn) "Turn off speaker" else "Turn on speaker",
                     onClick = {
                         isSpeakerOn = !isSpeakerOn
@@ -148,7 +147,7 @@ fun OutgoingCallScreen(
                     }
                 )
                 OutgoingControlButton(
-                    icon = Icons.Default.Videocam,
+                    icon = EnchantIcons.video,
                     contentDescription = "Switch to video call",
                     onClick = onSwitchToVideo
                 )
@@ -234,7 +233,7 @@ private fun HangupButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Default.CallEnd,
+            EnchantIcons.phoneDisconnect,
             contentDescription,
             tint = Color.White,
             modifier = Modifier.size(iconSize)

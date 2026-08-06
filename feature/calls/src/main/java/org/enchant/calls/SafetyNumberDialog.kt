@@ -4,8 +4,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import android.app.Activity
 import android.view.WindowManager
 import org.enchant.core.crypto.CryptoPrimitives
+import org.enchant.ui.icons.EnchantIcons
 
 private val JewelPurpleLight = Color(0xFF3A0D6E)
 private val JewelPurpleDark = Color(0xFFB388E3)
@@ -90,7 +89,7 @@ fun SafetyNumberDialog(
         shape = RoundedCornerShape(16.dp),
         icon = {
             Icon(
-                if (isVerified) Icons.Default.CheckCircle else Icons.Default.Lock,
+                if (isVerified) EnchantIcons.checkCircle else EnchantIcons.lock,
                 null,
                 tint = if (isVerified) VerifiedGreen else brandPurple()
             )
@@ -149,7 +148,7 @@ fun SafetyNumberDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.QrCode2,
+                            EnchantIcons.qrCode,
                             null,
                             modifier = Modifier.size(24.dp),
                             tint = brandPurple()

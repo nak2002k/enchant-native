@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -30,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.enchant.core.model.DisappearTimerPresets
+import org.enchant.ui.icons.EnchantIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +88,7 @@ fun ChatsSettingsScreen(
                             }
                             Spacer(Modifier.width(EnchantSpacing.sm))
                             Icon(
-                                Icons.Rounded.ArrowDropDown,
+                                EnchantIcons.arrowDown,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -117,7 +115,7 @@ fun ChatsSettingsScreen(
             item {
                 EnchantGroupedCard {
                     SettingsRow(
-                        icon = Icons.Rounded.Backup,
+                        icon = EnchantIcons.arrowRotateCw,
                         iconBackground = SettingsIconTints.Brown,
                         title = "Backup",
                         subtitle = "Manage chat backups",

@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -136,7 +137,7 @@ fun LocationPickerScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(64.dp), tint = brandPrimary())
+                Icon(EnchantIcons.mapPin, null, modifier = Modifier.size(64.dp), tint = brandPrimary())
                 Spacer(Modifier.height(8.dp))
                 Text(String.format(Locale.US, "%.6f, %.6f", latitude, longitude), style = MaterialTheme.typography.titleMedium)
                 if (address.isNotEmpty()) {
@@ -185,7 +186,7 @@ fun LocationPickerScreen(
                     }
                 ) {
                     Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
+                        Icon(EnchantIcons.arrowLeft, "Back", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(22.dp))
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -199,7 +200,7 @@ fun LocationPickerScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = { Text("Search address", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)) },
-                        leadingIcon = { Icon(Icons.Default.Search, null, tint = brandPrimary()) },
+                        leadingIcon = { Icon(EnchantIcons.search, null, tint = brandPrimary()) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(50),

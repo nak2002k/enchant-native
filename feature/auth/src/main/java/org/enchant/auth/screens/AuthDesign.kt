@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +44,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import org.enchant.ui.icons.EnchantIcons
 
 val BrandBlue = Color(0xFF3A0D6E)
 val iOSBlue = Color(0xFF3A0D6E)
@@ -130,7 +129,7 @@ fun FeatureBackButton(onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Rounded.ChevronLeft,
+            EnchantIcons.chevronLeft,
             contentDescription = "Back",
             tint = BrandBlue,
             modifier = Modifier.size(26.dp)

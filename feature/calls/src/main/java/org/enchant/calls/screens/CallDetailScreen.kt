@@ -16,10 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Chat
-import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -38,6 +34,7 @@ import org.enchant.core.calls.CallLogEntry
 import org.enchant.core.calls.model.CallDirection
 import org.enchant.core.calls.model.CallEndReason
 import org.enchant.core.calls.model.CallType
+import org.enchant.ui.icons.EnchantIcons
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -62,7 +59,7 @@ fun CallDetailScreen(
         ) {
             IconButton(onClick = onNavigateBack) {
                 Icon(
-                    Icons.Rounded.ArrowBackIosNew,
+                    EnchantIcons.arrowLeft,
                     contentDescription = "Back",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
@@ -213,14 +210,14 @@ fun CallDetailScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     FilledTonalIconButton(onClick = onCall) {
-                        Icon(Icons.Rounded.Phone, "Call")
+                        Icon(EnchantIcons.phone, "Call")
                     }
                     Spacer(Modifier.height(4.dp))
                     Text("Call", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     FilledTonalIconButton(onClick = onMessage) {
-                        Icon(Icons.Rounded.Chat, "Message")
+                        Icon(EnchantIcons.messageCircle, "Message")
                     }
                     Spacer(Modifier.height(4.dp))
                     Text("Message", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

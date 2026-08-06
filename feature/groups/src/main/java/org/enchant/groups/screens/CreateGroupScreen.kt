@@ -4,8 +4,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -45,7 +44,7 @@ fun CreateGroupScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -70,7 +69,7 @@ fun CreateGroupScreen(
                     border = androidx.compose.foundation.BorderStroke(2.dp, brandPrimary().copy(alpha = 0.6f))
                 ) {
                     Box(modifier = Modifier.size(68.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Group, null, tint = brandPrimary(), modifier = Modifier.size(32.dp))
+                        Icon(EnchantIcons.users, null, tint = brandPrimary(), modifier = Modifier.size(32.dp))
                     }
                 }
                 Surface(
@@ -81,7 +80,7 @@ fun CreateGroupScreen(
                         .size(24.dp)
                 ) {
                     Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.PhotoCamera, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Icon(EnchantIcons.camera, null, tint = Color.White, modifier = Modifier.size(14.dp))
                     }
                 }
             }
@@ -177,7 +176,7 @@ fun CreateGroupScreen(
                                 Text(contactId, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                                 Surface(shape = CircleShape, color = brandPrimary()) {
                                     Box(modifier = Modifier.size(22.dp), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                        Icon(EnchantIcons.x, null, tint = Color.White, modifier = Modifier.size(14.dp))
                                     }
                                 }
                             }
@@ -192,7 +191,7 @@ fun CreateGroupScreen(
                     ) {
                         Surface(shape = CircleShape, color = brandPrimary()) {
                             Box(modifier = Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(EnchantIcons.plusCircle, null, tint = Color.White, modifier = Modifier.size(16.dp))
                             }
                         }
                         Spacer(modifier = Modifier.width(12.dp))

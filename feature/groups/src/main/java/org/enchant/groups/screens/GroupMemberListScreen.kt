@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.enchant.groups.data.GroupMember
 import org.enchant.groups.data.MemberRole
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -48,7 +49,7 @@ fun GroupMemberListScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -91,7 +92,7 @@ fun GroupMemberListScreen(
                         ) {
                             Surface(shape = CircleShape, color = brandPrimary()) {
                                 Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    Icon(EnchantIcons.plusCircle, null, tint = Color.White, modifier = Modifier.size(22.dp))
                                 }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
@@ -130,8 +131,8 @@ fun GroupMemberListScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val (icon, tint) = when (member.role) {
-                                    MemberRole.OWNER -> Icons.Default.Star to brandPrimary()
-                                    MemberRole.ADMIN -> Icons.Default.Shield to brandTint()
+                                    MemberRole.OWNER -> EnchantIcons.star to brandPrimary()
+                                    MemberRole.ADMIN -> EnchantIcons.shieldCheck to brandTint()
                                     else -> null to null
                                 }
                                 if (icon != null && tint != null) {
@@ -148,7 +149,7 @@ fun GroupMemberListScreen(
 
                         if (isAdmin && member.role != MemberRole.OWNER) {
                             IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Default.MoreVert, "Member options", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                Icon(EnchantIcons.ellipsisVertical, "Member options", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                             }
 
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
@@ -156,14 +157,14 @@ fun GroupMemberListScreen(
                                     DropdownMenuItem(
                                         text = { Text("Promote to admin") },
                                         onClick = { onUpdateRole(member.userId, MemberRole.ADMIN.value); showMenu = false },
-                                        leadingIcon = { Icon(Icons.Default.Shield, null, tint = brandPrimary()) }
+                                        leadingIcon = { Icon(EnchantIcons.shieldCheck, null, tint = brandPrimary()) }
                                     )
                                 }
                                 if (member.role == MemberRole.ADMIN) {
                                     DropdownMenuItem(
                                         text = { Text("Demote to member") },
                                         onClick = { onUpdateRole(member.userId, MemberRole.MEMBER.value); showMenu = false },
-                                        leadingIcon = { Icon(Icons.Default.Person, null, tint = brandPrimary()) }
+                                        leadingIcon = { Icon(EnchantIcons.user, null, tint = brandPrimary()) }
                                     )
                                 }
                                 DropdownMenuItem(

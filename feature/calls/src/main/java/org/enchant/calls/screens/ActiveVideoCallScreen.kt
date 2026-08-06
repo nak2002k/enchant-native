@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import org.enchant.ui.icons.EnchantIcons
 
 private val PurplePrimary = Color(0xFF3A0D6E)
 private val PurpleDark = Color(0xFFB388E3)
@@ -122,7 +123,7 @@ fun ActiveVideoCallScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 VideoControlButton(
-                    icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                    icon = if (isMuted) EnchantIcons.micOff else EnchantIcons.mic,
                     label = if (isMuted) "Unmute" else "Mute",
                     contentDescription = if (isMuted) "Unmute call" else "Mute call",
                     isActive = isMuted,
@@ -136,7 +137,7 @@ fun ActiveVideoCallScreen(
                     onClick = onFlipCamera
                 )
                 VideoControlButton(
-                    icon = if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                    icon = if (isSpeakerOn) EnchantIcons.speakerHigh else EnchantIcons.volume2,
                     label = if (isSpeakerOn) "Speaker" else "Earpiece",
                     contentDescription = "Toggle speaker",
                     isActive = isSpeakerOn,
@@ -242,7 +243,7 @@ private fun VideoHangupButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Default.CallEnd,
+            EnchantIcons.phoneDisconnect,
             contentDescription,
             tint = Color.White,
             modifier = Modifier.size(28.dp)

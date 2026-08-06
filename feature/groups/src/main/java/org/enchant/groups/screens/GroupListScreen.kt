@@ -13,13 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddLink
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.groups.data.Group
 import org.enchant.groups.data.MemberRole
+import org.enchant.ui.icons.EnchantIcons
 
 private val JewelPurpleLight = Color(0xFF3A0D6E)
 private val JewelPurpleDark = Color(0xFFB388E3)
@@ -118,7 +112,7 @@ fun GroupListScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Default.Groups,
+                                EnchantIcons.users,
                                 contentDescription = null,
                                 modifier = Modifier.size(36.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -197,7 +191,7 @@ private fun CreateGroupFab(onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Default.PersonAdd,
+            EnchantIcons.userPlus,
             "Create Group",
             tint = Color.White,
             modifier = Modifier.size(26.dp)
@@ -218,7 +212,7 @@ private fun JoinGroupFab(onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Default.AddLink,
+            EnchantIcons.link,
             "Join Group",
             tint = brandPurple(),
             modifier = Modifier.size(22.dp)
@@ -283,9 +277,9 @@ private fun GroupTile(group: Group, onClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     when (group.myRole) {
-                        MemberRole.OWNER -> Icon(Icons.Default.Star, "Owner", modifier = Modifier.size(14.dp),
+                        MemberRole.OWNER -> Icon(EnchantIcons.star, "Owner", modifier = Modifier.size(14.dp),
                             tint = brandPurple())
-                        MemberRole.ADMIN -> Icon(Icons.Default.Shield, "Admin", modifier = Modifier.size(14.dp),
+                        MemberRole.ADMIN -> Icon(EnchantIcons.shieldCheck, "Admin", modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.tertiary)
                         else -> {}
                     }
@@ -293,7 +287,7 @@ private fun GroupTile(group: Group, onClick: () -> Unit) {
             }
 
             Icon(
-                Icons.Default.ChevronRight,
+                EnchantIcons.chevronRight,
                 "View",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )

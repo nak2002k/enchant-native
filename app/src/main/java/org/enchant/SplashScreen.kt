@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import org.enchant.ui.icons.EnchantIcons
 
 /**
  * Animated cold-start splash: a jewel-purple glowing mark + the Enchant
@@ -149,7 +148,7 @@ fun EnchantSplash(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.Rounded.AutoAwesome,
+                            EnchantIcons.sparkles,
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(44.dp),

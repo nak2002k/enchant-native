@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.stickers.StickerPack
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPurple = Color(0xFF3A0D6E)
 private val BrandPurpleDark = Color(0xFFB388E3)
@@ -58,7 +57,7 @@ fun StickerStoreScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -87,11 +86,11 @@ fun StickerStoreScreen(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent
                 ),
-                leadingIcon = { Icon(Icons.Default.Search, "Search") },
+                leadingIcon = { Icon(EnchantIcons.search, "Search") },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = ""; onSearch("") }) {
-                            Icon(Icons.Default.Close, "Clear")
+                            Icon(EnchantIcons.x, "Clear")
                         }
                     }
                 }
@@ -117,7 +116,7 @@ fun StickerStoreScreen(
             if (displayList.isEmpty() && !isLoading) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Mood, null, modifier = Modifier.size(64.dp),
+                        Icon(EnchantIcons.smile, null, modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                         Spacer(Modifier.height(16.dp))
                         Text("No sticker packs found",
@@ -202,7 +201,7 @@ private fun FeaturedBanner(
                         .padding(horizontal = 14.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Icon(EnchantIcons.check, null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Installed",
                         style = MaterialTheme.typography.labelMedium,

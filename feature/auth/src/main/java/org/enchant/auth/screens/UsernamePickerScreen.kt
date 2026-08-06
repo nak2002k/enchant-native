@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun UsernamePickerScreen(
@@ -157,13 +155,13 @@ fun UsernamePickerScreen(
                                     color = BrandBlue
                                 )
                                 isAvailable == true -> Icon(
-                                    Icons.Rounded.Check,
+                                    EnchantIcons.check,
                                     contentDescription = "Available",
                                     tint = CallGreen,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 isAvailable == false -> Icon(
-                                    Icons.Rounded.Close,
+                                    EnchantIcons.x,
                                     contentDescription = "Taken",
                                     tint = Red,
                                     modifier = Modifier.size(20.dp)

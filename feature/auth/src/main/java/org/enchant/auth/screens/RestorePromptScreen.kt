@@ -3,8 +3,6 @@ package org.enchant.auth.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun RestorePromptScreen(
@@ -39,7 +38,7 @@ fun RestorePromptScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Rounded.Restore,
+                    EnchantIcons.rotateCcw,
                     contentDescription = null,
                     tint = BrandBlue,
                     modifier = Modifier.size(36.dp)

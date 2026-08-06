@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import org.enchant.groups.data.Group
 import org.enchant.groups.data.GroupMember
 import org.enchant.groups.data.MemberRole
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -62,7 +63,7 @@ fun GroupInfoScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -126,7 +127,7 @@ fun GroupInfoScreen(
                             Text("Add description", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                         IconButton(onClick = { editDescription = group.description ?: ""; showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, "Edit description", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(EnchantIcons.pencil, "Edit description", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -139,8 +140,8 @@ fun GroupInfoScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ActionPill(Icons.Default.PersonAdd, "Add members", onAddMembers, Modifier.weight(1f))
-                    ActionPill(Icons.Default.Link, "Invite", { onCreateInviteLink() }, Modifier.weight(1f))
+                    ActionPill(EnchantIcons.userPlus, "Add members", onAddMembers, Modifier.weight(1f))
+                    ActionPill(EnchantIcons.link, "Invite", { onCreateInviteLink() }, Modifier.weight(1f))
                     if (joinRequests > 0) {
                         BadgedBox(
                             badge = {
@@ -148,10 +149,10 @@ fun GroupInfoScreen(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            ActionPill(Icons.Default.PersonSearch, "Requests", onViewJoinRequests, Modifier.fillMaxWidth())
+                            ActionPill(EnchantIcons.search, "Requests", onViewJoinRequests, Modifier.fillMaxWidth())
                         }
                     } else {
-                        ActionPill(Icons.Default.PersonSearch, "Requests", onViewJoinRequests, Modifier.weight(1f))
+                        ActionPill(EnchantIcons.search, "Requests", onViewJoinRequests, Modifier.weight(1f))
                     }
                 }
             }
@@ -170,10 +171,10 @@ fun GroupInfoScreen(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Link, null, modifier = Modifier.size(16.dp), tint = brandPrimary())
+                            Icon(EnchantIcons.link, null, modifier = Modifier.size(16.dp), tint = brandPrimary())
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Invite link: $inviteLink", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                            Icon(Icons.Default.ContentCopy, "Copy", modifier = Modifier.size(16.dp), tint = brandPrimary())
+                            Icon(EnchantIcons.copy, "Copy", modifier = Modifier.size(16.dp), tint = brandPrimary())
                         }
                     }
                 }
@@ -208,7 +209,7 @@ fun GroupInfoScreen(
                     ) {
                         Surface(shape = CircleShape, color = brandPrimary()) {
                             Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Icon(EnchantIcons.plusCircle, null, tint = Color.White, modifier = Modifier.size(18.dp))
                             }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
@@ -232,21 +233,21 @@ fun GroupInfoScreen(
                 ) {
                     Column {
                         GroupSettingRow(
-                            icon = Icons.Default.Link,
+                            icon = EnchantIcons.link,
                             title = "Group link",
                             subtitle = inviteLink ?: "Create an invite link",
                             onClick = { if (inviteLink != null) onCopyInviteLink(inviteLink) else onCreateInviteLink() }
                         )
                         InsetDivider()
                         GroupSettingRow(
-                            icon = Icons.Default.Edit,
+                            icon = EnchantIcons.pencil,
                             title = "Edit description",
                             onClick = { editDescription = group.description ?: ""; showEditDialog = true }
                         )
                         InsetDivider()
                         if (group.myRole == MemberRole.OWNER) {
                             GroupSettingRow(
-                                icon = Icons.Default.Delete,
+                                icon = EnchantIcons.trash2,
                                 title = "Delete group",
                                 destructive = true,
                                 onClick = onDeleteGroup
@@ -383,7 +384,7 @@ private fun GroupSettingRow(
         }
         if (!destructive) {
             Icon(
-                Icons.Default.ChevronRight,
+                EnchantIcons.chevronRight,
                 null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -422,8 +423,8 @@ private fun MemberRow(member: GroupMember, isOwner: Boolean, onRemove: () -> Uni
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val (icon, tint, roleLabel) = when (member.role) {
-                        MemberRole.OWNER -> Triple(Icons.Default.Star, brandPrimary(), "Owner")
-                        MemberRole.ADMIN -> Triple(Icons.Default.Shield, brandTint(), "Admin")
+                        MemberRole.OWNER -> Triple(EnchantIcons.star, brandPrimary(), "Owner")
+                        MemberRole.ADMIN -> Triple(EnchantIcons.shieldCheck, brandTint(), "Admin")
                         else -> Triple(null, null, member.role.value)
                     }
                     if (icon != null && tint != null) {
@@ -433,7 +434,7 @@ private fun MemberRow(member: GroupMember, isOwner: Boolean, onRemove: () -> Uni
                     Text(roleLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Icon(Icons.Default.MoreVert, "Member options", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+            Icon(EnchantIcons.ellipsisVertical, "Member options", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
         }
     }
 

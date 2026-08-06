@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 import org.enchant.channels.ChannelPost
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPurple = Color(0xFF3A0D6E)
 private val BrandPurpleDark = Color(0xFFB388E3)
@@ -107,7 +106,7 @@ fun ChannelFeedScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = {}) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -125,7 +124,7 @@ fun ChannelFeedScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        Icons.Default.Article,
+                        EnchantIcons.file,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -163,7 +162,7 @@ fun ChannelFeedScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.PushPin,
+                            EnchantIcons.pin,
                             null,
                             modifier = Modifier.size(14.dp),
                             tint = primary
@@ -351,7 +350,7 @@ private fun PostCard(
                         )
                     }
                     IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, "Post options")
+                        Icon(EnchantIcons.ellipsisVertical, "Post options")
                     }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
@@ -373,7 +372,7 @@ private fun PostCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Image,
+                            EnchantIcons.image,
                             "Image",
                             modifier = Modifier.size(32.dp),
                             tint = primary.copy(alpha = 0.6f)
@@ -393,7 +392,7 @@ private fun PostCard(
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
                         Icon(
-                            Icons.Default.Share,
+                            EnchantIcons.shareNetwork,
                             "Share",
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -402,7 +401,7 @@ private fun PostCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Default.FavoriteBorder,
+                            EnchantIcons.heart,
                             null,
                             modifier = Modifier.size(18.dp),
                             tint = BrandRed
@@ -428,7 +427,7 @@ private fun PostCard(
                             showMenu = false
                             onEdit()
                         },
-                        leadingIcon = { Icon(Icons.Default.Edit, null) }
+                        leadingIcon = { Icon(EnchantIcons.pencil, null) }
                     )
                     DropdownMenuItem(
                         text = { Text("Delete") },
@@ -436,7 +435,7 @@ private fun PostCard(
                             showMenu = false
                             onDelete()
                         },
-                        leadingIcon = { Icon(Icons.Default.Delete, null) }
+                        leadingIcon = { Icon(EnchantIcons.trash2, null) }
                     )
                 }
                 DropdownMenuItem(
@@ -445,7 +444,7 @@ private fun PostCard(
                         showMenu = false
                         onPin()
                     },
-                    leadingIcon = { Icon(if (post.isPinned) Icons.Default.PushPin else Icons.Default.PushPin, null) }
+                    leadingIcon = { Icon(if (post.isPinned) EnchantIcons.pin else EnchantIcons.pin, null) }
                 )
             }
         }

@@ -18,15 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Call
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.MainNavigationListLocation
 import org.enchant.MainNavigationViewModel.MainNavigationState
+import org.enchant.ui.icons.EnchantIcons
 
 private val JewelPurpleLight = Color(0xFF3A0D6E)
 private val JewelPurpleDark = Color(0xFFB388E3)
@@ -58,11 +50,11 @@ private fun brandPurple(): Color =
 
 private fun destinationIcons(destination: MainNavigationListLocation): Pair<ImageVector, ImageVector> =
     when (destination) {
-        MainNavigationListLocation.CHATS -> Icons.Filled.Chat to Icons.Outlined.ChatBubbleOutline
-        MainNavigationListLocation.CALLS -> Icons.Filled.Call to Icons.Outlined.Call
-        MainNavigationListLocation.STATUS -> Icons.Filled.PhotoCamera to Icons.Outlined.PhotoCamera
-        MainNavigationListLocation.SETTINGS -> Icons.Filled.Settings to Icons.Outlined.Settings
-        MainNavigationListLocation.ARCHIVE -> Icons.Filled.Chat to Icons.Outlined.ChatBubbleOutline
+        MainNavigationListLocation.CHATS -> EnchantIcons.messageCircle to EnchantIcons.messageCircle
+        MainNavigationListLocation.CALLS -> EnchantIcons.phone to EnchantIcons.phone
+        MainNavigationListLocation.STATUS -> EnchantIcons.camera to EnchantIcons.camera
+        MainNavigationListLocation.SETTINGS -> EnchantIcons.settings to EnchantIcons.settings
+        MainNavigationListLocation.ARCHIVE -> EnchantIcons.messageCircle to EnchantIcons.messageCircle
     }
 
 @Composable

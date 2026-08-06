@@ -20,10 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 /**
  * Enchant Settings design system — Signal-grade, Apple-felt.
@@ -205,7 +202,7 @@ fun SettingsRow(
             trailing()
         } else if (onClick != null) {
             Icon(
-                Icons.Rounded.ChevronRight,
+                EnchantIcons.chevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp),
@@ -382,7 +379,7 @@ fun SettingsTitleBar(
         if (onBack != null) {
             IconButton(onClick = onBack) {
                 Icon(
-                    Icons.Rounded.ArrowBackIosNew,
+                    EnchantIcons.arrowLeft,
                     contentDescription = "Back",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp),
@@ -512,7 +509,7 @@ fun SettingsProfileHeader(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Rounded.Edit,
+                    EnchantIcons.pencil,
                     contentDescription = "Edit profile",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp),
@@ -520,7 +517,7 @@ fun SettingsProfileHeader(
             }
             Spacer(Modifier.width(EnchantSpacing.xs))
             Icon(
-                Icons.Rounded.ChevronRight,
+                EnchantIcons.chevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp),

@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -38,7 +39,7 @@ object EmojiData {
     val quickReactions = listOf("\u2764\uFE0F", "\uD83D\uDE0D", "\uD83D\uDE02", "\uD83D\uDE0A", "\uD83D\uDE4F", "\uD83D\uDC4D")
 
     val categories = listOf(
-        EmojiCategory("Smileys", { Icon(Icons.Default.EmojiEmotions, "Smileys") }, listOf(
+        EmojiCategory("Smileys", { Icon(EnchantIcons.smile, "Smileys") }, listOf(
             "\uD83D\uDE00", "\uD83D\uDE01", "\uD83D\uDE02", "\uD83D\uDE03", "\uD83D\uDE04", "\uD83D\uDE05",
             "\uD83D\uDE06", "\uD83D\uDE07", "\uD83D\uDE09", "\uD83D\uDE0A", "\uD83D\uDE0B", "\uD83D\uDE0D",
             "\uD83D\uDE0E", "\uD83D\uDE0F", "\uD83D\uDE10", "\uD83D\uDE11", "\uD83D\uDE12", "\uD83D\uDE13",
@@ -80,7 +81,7 @@ object EmojiData {
             "\uD83D\uDE90", "\uD83D\uDE91", "\uD83D\uDE92", "\u26F5", "\uD83D\uDEA2",
             "\uD83C\uDFD6\uFE0F", "\u26FA", "\uD83C\uDFD7\uFE0F"
         )),
-        EmojiCategory("Symbols", { Icon(Icons.Default.Tag, "Symbols") }, listOf(
+        EmojiCategory("Symbols", { Icon(EnchantIcons.tag, "Symbols") }, listOf(
             "\u2764\uFE0F", "\uD83E\uDD0D", "\uD83D\uDC9B", "\uD83D\uDC9A", "\uD83D\uDC99",
             "\uD83D\uDC9C", "\uD83D\uDC9E", "\uD83D\uDC93", "\uD83D\uDC97", "\uD83D\uDC95",
             "\uD83E\uDD0E", "\u2728", "\u2B50", "\uD83D\uDD25", "\uD83C\uDF20",
@@ -204,11 +205,11 @@ fun EmojiPickerSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
-                leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                leadingIcon = { Icon(EnchantIcons.search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(EnchantIcons.x, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 },

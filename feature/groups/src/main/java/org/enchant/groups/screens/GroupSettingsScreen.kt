@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.enchant.core.model.DisappearTimerPresets
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -50,7 +48,7 @@ fun GroupSettingsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -113,7 +111,7 @@ fun GroupSettingsScreen(
                             Surface(shape = RoundedCornerShape(10.dp), color = brandPrimary().copy(alpha = 0.12f)) {
                                 Box(modifier = Modifier.size(34.dp), contentAlignment = Alignment.Center) {
                                     Icon(
-                                        Icons.Default.Timer,
+                                        EnchantIcons.clock,
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp),
                                         tint = brandPrimary()

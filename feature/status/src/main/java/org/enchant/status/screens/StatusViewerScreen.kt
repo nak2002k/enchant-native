@@ -1,5 +1,6 @@
 package org.enchant.status.screens
 
+import androidx.compose.material.icons.Icons
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -9,13 +10,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Reply
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,6 +28,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import org.enchant.core.base.AppConfig
 import org.enchant.status.StatusFeedEntry
+import org.enchant.ui.icons.EnchantIcons
 
 private val ViewerBlack = Color(0xFF000000)
 private val ViewerAvatar = Color(0xFF2C2C2E)
@@ -157,14 +153,14 @@ fun StatusViewerScreen(
                     }
                     IconButton(onClick = { onViewInfo(currentStatus.statusId) }) {
                         Icon(
-                            Icons.Default.Info,
+                            EnchantIcons.info,
                             contentDescription = "View info",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        Icon(EnchantIcons.x, contentDescription = "Close", tint = Color.White)
                     }
                 }
             }
@@ -249,7 +245,7 @@ fun StatusViewerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Default.Reply,
+                        EnchantIcons.reply,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
@@ -273,7 +269,7 @@ fun StatusViewerScreen(
                         .background(ReplyPill)
                 ) {
                     Icon(
-                        if (isMuted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                        if (isMuted) EnchantIcons.volumeX else EnchantIcons.speakerHigh,
                         contentDescription = if (isMuted) "Unmute" else "Mute",
                         tint = if (isMuted) Muted else Color.White,
                         modifier = Modifier.size(20.dp)

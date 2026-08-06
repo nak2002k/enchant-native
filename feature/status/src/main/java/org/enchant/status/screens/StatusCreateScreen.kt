@@ -8,11 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.status.StatusPrivacy
+import org.enchant.ui.icons.EnchantIcons
 
 private val StoryBlack = Color(0xFF000000)
 private val StoryElevated = Color(0xFF1C1C1E)
@@ -64,7 +60,7 @@ fun StatusCreateScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(EnchantIcons.arrowLeft, contentDescription = "Back", tint = Color.White)
                 }
                 Text(
                     "New story",
@@ -200,7 +196,7 @@ fun StatusCreateScreen(
                         .background(Color.White.copy(alpha = 0.08f))
                 ) {
                     Icon(
-                        Icons.Default.PhotoLibrary,
+                        EnchantIcons.image,
                         contentDescription = "Pick from gallery",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
@@ -236,7 +232,7 @@ fun StatusCreateScreen(
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
                     ) {
                         Icon(
-                            Icons.Default.Visibility,
+                            EnchantIcons.eye,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )

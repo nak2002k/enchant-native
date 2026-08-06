@@ -25,21 +25,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Forward
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.PlayCircle
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Report
-import androidx.compose.material.icons.rounded.Reply
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.StarBorder
-import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -81,6 +68,7 @@ import kotlinx.coroutines.launch
 import org.enchant.core.model.DisappearTimerPresets
 import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
+import org.enchant.ui.icons.EnchantIcons
 import java.io.File
 
 // ─── Shared bubble time/format helpers ───
@@ -290,7 +278,7 @@ internal fun MessageBubble(
                                     verticalArrangement = Arrangement.Center,
                                 ) {
                                     Icon(
-                                        Icons.Rounded.VisibilityOff,
+                                        EnchantIcons.eyeOff,
                                         contentDescription = null,
                                         tint = if (isOutgoing) Color.White.copy(alpha = 0.8f)
                                             else MaterialTheme.colorScheme.tertiary,
@@ -432,12 +420,12 @@ internal fun MessageBubble(
             DropdownMenuItem(
                 text = { Text(if (message.isStarred) "Unstar" else "Star") },
                 onClick = { onStar(message.localId); showMenu = false },
-                leadingIcon = { Icon(if (message.isStarred) Icons.Filled.Star else Icons.Rounded.StarBorder, null) },
+                leadingIcon = { Icon(EnchantIcons.star, null) },
             )
             DropdownMenuItem(
                 text = { Text("Pin") },
                 onClick = { onPin(message.localId); showMenu = false },
-                leadingIcon = { Icon(Icons.Rounded.PushPin, null) },
+                leadingIcon = { Icon(EnchantIcons.pin, null) },
             )
             if (isOutgoing) {
                 DropdownMenuItem(
@@ -472,7 +460,7 @@ private fun TimestampRow(
             val remaining = DisappearTimerPresets.formatTimeRemaining(disappearAt)
             if (remaining != "Expired") {
                 Icon(
-                    Icons.Rounded.Timer,
+                    EnchantIcons.clock,
                     contentDescription = "Disappears in $remaining",
                     modifier = Modifier.size(12.dp),
                     tint = if (isOutgoing) Color.White.copy(alpha = 0.6f)
@@ -499,7 +487,7 @@ private fun TimestampRow(
 
         if (message.isViewOnce) {
             Icon(
-                Icons.Rounded.VisibilityOff,
+                EnchantIcons.eyeOff,
                 contentDescription = "View once",
                 modifier = Modifier.size(12.dp),
                 tint = secondaryColor,
@@ -517,19 +505,19 @@ private fun TimestampRow(
         if (isOutgoing) {
             when (message.status) {
                 MessageStatus.SENDING -> Icon(
-                    Icons.Rounded.Schedule,
+                    EnchantIcons.clock,
                     contentDescription = "Sending",
                     modifier = Modifier.size(13.dp),
                     tint = secondaryColor.copy(alpha = 0.4f),
                 )
                 MessageStatus.FAILED -> Icon(
-                    Icons.Rounded.ErrorOutline,
+                    EnchantIcons.alertCircle,
                     contentDescription = "Failed to send",
                     modifier = Modifier.size(13.dp),
                     tint = MaterialTheme.colorScheme.error,
                 )
                 MessageStatus.SENT -> Icon(
-                    Icons.Filled.Check,
+                    EnchantIcons.check,
                     contentDescription = "Sent",
                     modifier = Modifier.size(13.dp),
                     tint = secondaryColor.copy(alpha = 0.9f),
@@ -544,7 +532,7 @@ private fun TimestampRow(
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 else -> Icon(
-                    Icons.Rounded.Schedule,
+                    EnchantIcons.clock,
                     contentDescription = "Pending",
                     modifier = Modifier.size(13.dp),
                     tint = secondaryColor.copy(alpha = 0.4f),
@@ -597,7 +585,7 @@ private fun ReactionsRow(
         ) {
             Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
                 Icon(
-                    Icons.Filled.Add,
+                    EnchantIcons.plusCircle,
                     contentDescription = "Add reaction",
                     modifier = Modifier.size(13.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -7,8 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -50,7 +49,7 @@ fun ScheduledMessagesScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -62,7 +61,7 @@ fun ScheduledMessagesScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Surface(shape = CircleShape, color = brandPrimary().copy(alpha = 0.10f)) {
                         Box(modifier = Modifier.size(88.dp), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Schedule, null, modifier = Modifier.size(44.dp), tint = brandPrimary())
+                            Icon(EnchantIcons.clock, null, modifier = Modifier.size(44.dp), tint = brandPrimary())
                         }
                     }
                     Spacer(modifier = Modifier.height(20.dp))
@@ -97,7 +96,7 @@ fun ScheduledMessagesScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Schedule, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(EnchantIcons.clock, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(dateStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -111,7 +110,7 @@ fun ScheduledMessagesScreen(
                                 ) {
                                     Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                                         Icon(
-                                            Icons.Default.Close,
+                                            EnchantIcons.x,
                                             "Cancel",
                                             tint = BrandRed,
                                             modifier = Modifier.size(20.dp)
@@ -119,7 +118,7 @@ fun ScheduledMessagesScreen(
                                     }
                                 }
                             } else {
-                                Icon(Icons.Default.CheckCircle, "Sent", tint = brandPrimary(), modifier = Modifier.size(24.dp))
+                                Icon(EnchantIcons.checkCircle, "Sent", tint = brandPrimary(), modifier = Modifier.size(24.dp))
                             }
                         }
                     }

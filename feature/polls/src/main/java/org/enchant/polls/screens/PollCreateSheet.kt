@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 
 private const val DEFAULT_CLOSE_SECONDS = 3600
 private const val MIN_CLOSE_SECONDS = 60
@@ -106,7 +105,7 @@ fun PollCreateSheet(
                         if (options.size > 2) {
                             Spacer(Modifier.width(8.dp))
                             IconButton(onClick = { options = options.toMutableList().also { it.removeAt(index) } }) {
-                                Icon(Icons.Default.RemoveCircle, "Remove option",
+                                Icon(EnchantIcons.minusCircle, "Remove option",
                                     tint = MaterialTheme.colorScheme.error)
                             }
                         }
@@ -122,7 +121,7 @@ fun PollCreateSheet(
                         .clickable { options = options + "" }
                         .padding(vertical = 4.dp)
                 ) {
-                    Icon(Icons.Default.AddCircle, null,
+                    Icon(EnchantIcons.plusCircle, null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))

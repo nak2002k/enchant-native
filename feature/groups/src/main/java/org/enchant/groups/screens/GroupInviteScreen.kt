@@ -9,8 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -52,7 +51,7 @@ fun GroupInviteScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -70,7 +69,7 @@ fun GroupInviteScreen(
             Surface(shape = CircleShape, color = brandPrimary().copy(alpha = 0.12f)) {
                 Box(modifier = Modifier.size(72.dp), contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Default.PersonAdd,
+                        EnchantIcons.userPlus,
                         contentDescription = null,
                         modifier = Modifier.size(36.dp),
                         tint = brandPrimary()
@@ -126,7 +125,7 @@ fun GroupInviteScreen(
                     ),
                     shape = RoundedCornerShape(50)
                 ) {
-                    Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(18.dp))
+                    Icon(EnchantIcons.copy, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Copy link", fontWeight = FontWeight.SemiBold)
                 }
@@ -145,7 +144,7 @@ fun GroupInviteScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp), tint = brandPrimary())
+                        Icon(EnchantIcons.shareNetwork, null, modifier = Modifier.size(18.dp), tint = brandPrimary())
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Share", style = MaterialTheme.typography.labelLarge, color = brandPrimary(), fontWeight = FontWeight.Medium)
                     }
@@ -195,7 +194,7 @@ fun GroupInviteScreen(
                 trailingIcon = {
                     if (joinCode.isNotEmpty()) {
                         IconButton(onClick = { joinCode = "" }) {
-                            Icon(Icons.Default.Close, "Clear")
+                            Icon(EnchantIcons.x, "Clear")
                         }
                     }
                 }

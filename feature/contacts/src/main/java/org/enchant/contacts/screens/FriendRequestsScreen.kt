@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 import kotlinx.serialization.json.jsonObject
 import org.enchant.core.network.ApiClient
+import org.enchant.ui.icons.EnchantIcons
 
 data class FriendRequest(
     val id: String,
@@ -65,7 +64,7 @@ fun FriendRequestsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 }
             )
@@ -117,7 +116,7 @@ fun FriendRequestsScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Default.PersonAdd,
+                                    EnchantIcons.userPlus,
                                     contentDescription = null,
                                     modifier = Modifier.size(36.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -167,7 +166,7 @@ fun FriendRequestsScreen(
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         PrimaryPillButton(
                                             text = "Accept",
-                                            icon = Icons.Default.Check,
+                                            icon = EnchantIcons.check,
                                             onClick = {
                                                 scope.launch {
                                                     val body = buildJsonObject {

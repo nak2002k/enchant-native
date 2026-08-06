@@ -28,7 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -71,6 +70,7 @@ import org.enchant.core.model.MessageStatus
 import org.enchant.stickers.StickerPicker
 import org.enchant.stickers.StickerViewModel
 import org.enchant.location.LocationPickerScreen
+import org.enchant.ui.icons.EnchantIcons
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -301,14 +301,14 @@ fun ConversationScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = EnchantSpacing.lg, vertical = 4.dp),
                         singleLine = true,
                         shape = RoundedCornerShape(18.dp),
-                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        leadingIcon = { Icon(EnchantIcons.search, null) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(
                                     onClick = { searchQuery = ""; showSearch = false },
                                     modifier = Modifier.semantics { this.contentDescription = "Clear search" }
                                 ) {
-                                    Icon(Icons.Default.Close, "Clear")
+                                    Icon(EnchantIcons.x, "Clear")
                                 }
                             }
                         }
@@ -363,7 +363,7 @@ fun ConversationScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.PushPin,
+                                EnchantIcons.pin,
                                 contentDescription = "Pinned",
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.primary
@@ -396,7 +396,7 @@ fun ConversationScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    Icons.Default.Lock,
+                                    EnchantIcons.lock,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                     modifier = Modifier.size(36.dp),
@@ -790,7 +790,7 @@ fun ConversationScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        if (peerVerified) Icons.Default.Lock else Icons.Default.LockOpen,
+                        if (peerVerified) EnchantIcons.lock else Icons.Default.LockOpen,
                         contentDescription = null,
                         tint = if (peerVerified) MaterialTheme.colorScheme.primary
                                else MaterialTheme.colorScheme.tertiary
@@ -905,7 +905,7 @@ fun ConversationScreen(
                             ) {
                                 if (isSelected) {
                                     Icon(
-                                        Icons.Default.Check,
+                                        EnchantIcons.check,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp)
@@ -1063,7 +1063,7 @@ private fun ReplyPreview(message: String, onDismiss: () -> Unit) {
                 onClick = onDismiss,
                 modifier = Modifier.semantics { this.contentDescription = "Dismiss reply" }
             ) {
-                Icon(Icons.Default.Close, "Dismiss reply")
+                Icon(EnchantIcons.x, "Dismiss reply")
             }
         }
     }
@@ -1109,7 +1109,7 @@ private fun ScrollToBottomFab(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            Icons.Rounded.ArrowDownward,
+            EnchantIcons.arrowDown,
             contentDescription = "Scroll to bottom",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp),

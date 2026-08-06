@@ -10,16 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Forward
 import androidx.compose.material.icons.rounded.LockOpen
-import androidx.compose.material.icons.rounded.PhoneInTalk
-import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -41,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.core.model.Conversation
 import org.enchant.core.model.ConversationType
+import org.enchant.ui.icons.EnchantIcons
 
 /** iOS-style conversation header; morphs into a selection bar in selection mode. */
 @Composable
@@ -122,7 +114,7 @@ private fun NormalHeader(
             modifier = Modifier.semantics { contentDescription = "Navigate back" },
         ) {
             Icon(
-                Icons.Rounded.ChevronLeft,
+                EnchantIcons.chevronLeft,
                 contentDescription = "Back",
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(28.dp),
@@ -158,7 +150,7 @@ private fun NormalHeader(
                 modifier = Modifier.semantics { contentDescription = "Safety number" },
             ) {
                 Icon(
-                    if (isPeerVerified) Icons.Filled.Lock else Icons.Rounded.LockOpen,
+                    if (isPeerVerified) EnchantIcons.lock else Icons.Rounded.LockOpen,
                     contentDescription = "Safety number",
                     tint = if (isPeerVerified) EnchantBrand.SignalBlue
                         else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -170,7 +162,7 @@ private fun NormalHeader(
             modifier = Modifier.semantics { contentDescription = "Start audio call" },
         ) {
             Icon(
-                Icons.Rounded.PhoneInTalk,
+                EnchantIcons.phone,
                 contentDescription = "Call",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -180,7 +172,7 @@ private fun NormalHeader(
             modifier = Modifier.semantics { contentDescription = "Start video call" },
         ) {
             Icon(
-                Icons.Rounded.Videocam,
+                EnchantIcons.video,
                 contentDescription = "Video Call",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -191,7 +183,7 @@ private fun NormalHeader(
             modifier = Modifier.semantics { contentDescription = "More options" },
         ) {
             Icon(
-                Icons.Filled.MoreVert,
+                EnchantIcons.ellipsisVertical,
                 contentDescription = "More",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -227,7 +219,7 @@ private fun SelectionBar(
             modifier = Modifier.semantics { contentDescription = "Exit selection" },
         ) {
             Icon(
-                Icons.Filled.Close,
+                EnchantIcons.x,
                 contentDescription = "Close",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -244,7 +236,7 @@ private fun SelectionBar(
             modifier = Modifier.semantics { contentDescription = "Copy selected" },
         ) {
             Icon(
-                Icons.Rounded.ContentCopy,
+                EnchantIcons.copy,
                 contentDescription = "Copy",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -254,7 +246,7 @@ private fun SelectionBar(
             modifier = Modifier.semantics { contentDescription = "Forward selected" },
         ) {
             Icon(
-                Icons.Rounded.Forward,
+                EnchantIcons.forward,
                 contentDescription = "Forward",
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -264,7 +256,7 @@ private fun SelectionBar(
             modifier = Modifier.semantics { contentDescription = "Delete selected" },
         ) {
             Icon(
-                Icons.Filled.Delete,
+                EnchantIcons.trash2,
                 contentDescription = "Delete",
                 tint = MaterialTheme.colorScheme.error,
             )

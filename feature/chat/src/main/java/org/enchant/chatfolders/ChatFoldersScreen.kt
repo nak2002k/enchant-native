@@ -7,8 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -52,7 +51,7 @@ fun ChatFoldersScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -64,7 +63,7 @@ fun ChatFoldersScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Surface(shape = RoundedCornerShape(24.dp), color = brandTint().copy(alpha = 0.12f)) {
                         Box(modifier = Modifier.size(88.dp), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(44.dp), tint = brandPrimary())
+                            Icon(EnchantIcons.folder, null, modifier = Modifier.size(44.dp), tint = brandPrimary())
                         }
                     }
                     Spacer(modifier = Modifier.height(20.dp))
@@ -101,7 +100,7 @@ fun ChatFoldersScreen(
                         ) {
                             Surface(shape = CircleShape, color = brandPrimary()) {
                                 Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    Icon(EnchantIcons.plusCircle, null, tint = Color.White, modifier = Modifier.size(22.dp))
                                 }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
@@ -127,7 +126,7 @@ fun ChatFoldersScreen(
                                 color = brandTint().copy(alpha = 0.14f)
                             ) {
                                 Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Folder, null, tint = brandPrimary(), modifier = Modifier.size(22.dp))
+                                    Icon(EnchantIcons.folder, null, tint = brandPrimary(), modifier = Modifier.size(22.dp))
                                 }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
@@ -140,9 +139,9 @@ fun ChatFoldersScreen(
                                 )
                             }
                             IconButton(onClick = { onDeleteFolder(folder.folderId) }) {
-                                Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f), modifier = Modifier.size(20.dp))
+                                Icon(EnchantIcons.trash2, "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f), modifier = Modifier.size(20.dp))
                             }
-                            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                            Icon(EnchantIcons.chevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                         }
                     }
                 }

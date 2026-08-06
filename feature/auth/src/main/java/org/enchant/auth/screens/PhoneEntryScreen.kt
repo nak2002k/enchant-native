@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 data class Country(val code: Int, val region: String, val name: String, val emoji: String)
 
@@ -93,7 +92,7 @@ fun PhoneEntryScreen(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Icon(
-                        Icons.Rounded.ChevronRight,
+                        EnchantIcons.chevronRight,
                         contentDescription = "Change country",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.size(20.dp)

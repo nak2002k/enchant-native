@@ -10,8 +10,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -33,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import org.enchant.ui.icons.EnchantIcons
 
 private val PurplePrimary = Color(0xFF3A0D6E)
 private val PurpleDark = Color(0xFFB388E3)
@@ -105,7 +104,7 @@ fun IncomingCallScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CallActionButton(
-                    icon = Icons.Default.CallEnd,
+                    icon = EnchantIcons.phoneDisconnect,
                     label = "Decline",
                     contentDescription = "Decline incoming call",
                     color = CallRed,
@@ -114,7 +113,7 @@ fun IncomingCallScreen(
 
                 if (isVideoCall) {
                     CallActionButton(
-                        icon = Icons.Default.Videocam,
+                        icon = EnchantIcons.video,
                         label = "Video",
                         contentDescription = "Accept video call",
                         color = CallGreen,
@@ -123,7 +122,7 @@ fun IncomingCallScreen(
                 }
 
                 CallActionButton(
-                    icon = Icons.Default.Call,
+                    icon = EnchantIcons.phone,
                     label = "Accept",
                     contentDescription = "Accept audio call",
                     color = CallGreen,

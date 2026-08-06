@@ -10,14 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun PrivacySettingsScreen(
@@ -103,7 +102,7 @@ fun PrivacySettingsScreen(
             item {
                 EnchantGroupedCard {
                     SettingsRow(
-                        icon = Icons.Rounded.Block,
+                        icon = EnchantIcons.ban,
                         iconBackground = EnchantBrand.Red,
                         title = "Blocked users",
                         subtitle = if (blockedUsers.isEmpty()) "No blocked users" else "${blockedUsers.size} blocked",

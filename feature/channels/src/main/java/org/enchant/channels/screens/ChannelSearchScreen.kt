@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.enchant.channels.Channel
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPurple = Color(0xFF3A0D6E)
 private val BrandPurpleDark = Color(0xFFB388E3)
@@ -58,7 +59,7 @@ fun ChannelSearchScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = {}) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -88,11 +89,11 @@ fun ChannelSearchScreen(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent
                 ),
-                leadingIcon = { Icon(Icons.Default.Search, "Search") },
+                leadingIcon = { Icon(EnchantIcons.search, "Search") },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { onQueryChanged("") }) {
-                            Icon(Icons.Default.Close, "Clear")
+                            Icon(EnchantIcons.x, "Clear")
                         }
                     }
                 }

@@ -26,12 +26,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.WifiOff
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,6 +68,7 @@ import org.enchant.chatlist.components.FilterPillsRow
 import org.enchant.chatlist.components.SearchPill
 import org.enchant.core.network.ConnectivityMonitor
 import org.enchant.core.network.OfflineQueue
+import org.enchant.ui.icons.EnchantIcons
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -169,7 +164,7 @@ fun ConversationListScreen(
                 actions = {
                     IconButton(onClick = { viewModel.search("") }) {
                         Icon(
-                            Icons.Default.Search,
+                            EnchantIcons.search,
                             "Search",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -190,7 +185,7 @@ fun ConversationListScreen(
             ) {
                 EnchantFab(
                     onClick = onNewChat,
-                    icon = Icons.Rounded.Edit,
+                    icon = EnchantIcons.pencil,
                     containerColor = EnchantBrand.SignalBlue,
                     contentColor = Color.White
                 )
@@ -216,7 +211,7 @@ fun ConversationListScreen(
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         Icon(
-                            Icons.Outlined.WifiOff,
+                            EnchantIcons.wifiOff,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.primary,
@@ -279,7 +274,7 @@ fun ConversationListScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
                         EnchantEmptyState(
-                            icon = Icons.Rounded.ChatBubbleOutline,
+                            icon = EnchantIcons.messageCircle,
                             title = "No chats yet",
                             subtitle = "Start a conversation with a friend or create a group"
                         )

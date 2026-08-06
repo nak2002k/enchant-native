@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -118,7 +119,7 @@ fun StickerPicker(
                         Box(modifier = Modifier.weight(1f).fillMaxWidth(),
                             contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.Info, null, Modifier.size(48.dp),
+                                Icon(EnchantIcons.info, null, Modifier.size(48.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                 Spacer(Modifier.height(8.dp))
                                 Text("No sticker packs installed",
@@ -165,7 +166,7 @@ fun StickerPicker(
                         Box(modifier = Modifier.weight(1f).fillMaxWidth(),
                             contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.History, null, Modifier.size(48.dp),
+                                Icon(EnchantIcons.rotateCcw, null, Modifier.size(48.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                 Spacer(Modifier.height(8.dp))
                                 Text("No recent stickers",

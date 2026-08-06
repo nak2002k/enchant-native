@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
 private val BrandPrimaryDark = Color(0xFFB388E3)
@@ -48,14 +47,14 @@ fun MessageContextMenu(
     val canDeleteForEveryone = isOwnMessage && sentAt < twentyFourHoursAgo
 
     val actions = listOf(
-        MessageContextAction(Icons.Default.ContentCopy, "Copy", onClick = onCopy),
-        MessageContextAction(Icons.Default.Reply, "Reply", onClick = onReply),
-        MessageContextAction(Icons.Default.Edit, "Edit", enabled = canEdit, onClick = onEdit),
-        MessageContextAction(Icons.Default.DeleteForever, "Delete for everyone", enabled = canDeleteForEveryone, onClick = onDeleteForEveryone),
-        MessageContextAction(Icons.Default.Delete, "Delete for self", onClick = onDeleteForSelf),
-        MessageContextAction(Icons.Default.Forward, "Forward", onClick = onForward),
-        MessageContextAction(if (isStarred) Icons.Default.Star else Icons.Default.StarBorder, if (isStarred) "Unstar" else "Star", onClick = onStar),
-        MessageContextAction(Icons.Default.Info, "Info", onClick = onInfo)
+        MessageContextAction(EnchantIcons.copy, "Copy", onClick = onCopy),
+        MessageContextAction(EnchantIcons.reply, "Reply", onClick = onReply),
+        MessageContextAction(EnchantIcons.pencil, "Edit", enabled = canEdit, onClick = onEdit),
+        MessageContextAction(EnchantIcons.trash2, "Delete for everyone", enabled = canDeleteForEveryone, onClick = onDeleteForEveryone),
+        MessageContextAction(EnchantIcons.trash2, "Delete for self", onClick = onDeleteForSelf),
+        MessageContextAction(EnchantIcons.forward, "Forward", onClick = onForward),
+        MessageContextAction(EnchantIcons.star, if (isStarred) "Unstar" else "Star", onClick = onStar),
+        MessageContextAction(EnchantIcons.info, "Info", onClick = onInfo)
     )
 
     ModalBottomSheet(

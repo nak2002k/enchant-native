@@ -28,18 +28,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.CameraAlt
-import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.Mic
-import androidx.compose.material.icons.rounded.Mood
-import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Poll
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -66,6 +55,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 /** Pill composer: [attach] [field] [view-once] [emoji] [send/mic]. */
 @Composable
@@ -110,7 +100,7 @@ internal fun ComposerBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RoundIconButton(
-                    icon = Icons.Filled.Add,
+                    icon = EnchantIcons.plusCircle,
                     description = "Attach file",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     onClick = onAttach,
@@ -147,14 +137,14 @@ internal fun ComposerBar(
                     )
                 }
                 RoundIconButton(
-                    icon = Icons.Rounded.Timer,
+                    icon = EnchantIcons.clock,
                     description = "View once mode",
                     tint = if (viewOnceMode) EnchantBrand.SignalBlue
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     onClick = onViewOnceToggle,
                 )
                 RoundIconButton(
-                    icon = Icons.Rounded.Mood,
+                    icon = EnchantIcons.smile,
                     description = "Open emoji picker",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     onClick = onEmoji,
@@ -242,7 +232,7 @@ private fun SendButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = if (canSend) Icons.Rounded.ArrowUpward else Icons.Rounded.Mic,
+            imageVector = if (canSend) EnchantIcons.arrowUp else EnchantIcons.mic,
             contentDescription = null,
             tint = if (canSend) Color.White
                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
@@ -286,10 +276,10 @@ internal fun AttachmentSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                AttachmentCell(Icons.Rounded.PhotoLibrary, "Gallery", Color(0xFF34C759), onGallery)
-                AttachmentCell(Icons.Rounded.CameraAlt, "Camera", Color(0xFF3A0D6E), onCamera)
-                AttachmentCell(Icons.Rounded.Description, "File", Color(0xFF5856D6), onDocument)
-                AttachmentCell(Icons.Filled.LocationOn, "Location", Color(0xFFFF9500), onLocation)
+                AttachmentCell(EnchantIcons.image, "Gallery", Color(0xFF34C759), onGallery)
+                AttachmentCell(EnchantIcons.camera, "Camera", Color(0xFF3A0D6E), onCamera)
+                AttachmentCell(EnchantIcons.file, "File", Color(0xFF5856D6), onDocument)
+                AttachmentCell(EnchantIcons.mapPin, "Location", Color(0xFFFF9500), onLocation)
             }
             Spacer(Modifier.height(EnchantSpacing.xl))
             Row(
@@ -297,8 +287,8 @@ internal fun AttachmentSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 AttachmentCell(Icons.Rounded.Poll, "Poll", Color(0xFFFF2D55), onPoll)
-                AttachmentCell(Icons.Filled.Person, "Contact", Color(0xFFFF3B30), onContact)
-                AttachmentCell(Icons.Rounded.AutoAwesome, "Sticker", Color(0xFFAF52DE), onSticker)
+                AttachmentCell(EnchantIcons.user, "Contact", Color(0xFFFF3B30), onContact)
+                AttachmentCell(EnchantIcons.sparkles, "Sticker", Color(0xFFAF52DE), onSticker)
                 Spacer(Modifier.size(54.dp))
             }
             Spacer(Modifier.height(EnchantSpacing.sm))

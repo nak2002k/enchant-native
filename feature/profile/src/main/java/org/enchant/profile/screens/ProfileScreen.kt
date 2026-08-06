@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.profile.ProfileData
+import org.enchant.ui.icons.EnchantIcons
 
 // Local mirror of the contacts design tokens (feature modules cannot import
 // org.enchant.ui.theme from :app, and profile cannot depend on contacts).
@@ -150,7 +151,7 @@ private fun SettingsRow(
         if (onClick != null) {
             Spacer(Modifier.width(SpacingXs))
             Icon(
-                Icons.Default.ChevronRight,
+                EnchantIcons.chevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp),
@@ -186,13 +187,13 @@ fun ProfileScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 },
                 actions = {
                     if (isOwnProfile) {
                         IconButton(onClick = onEdit) {
-                            Icon(Icons.Default.Edit, "Edit")
+                            Icon(EnchantIcons.pencil, "Edit")
                         }
                     }
                 }
@@ -263,13 +264,13 @@ fun ProfileScreen(
                 GroupedCard {
                     SettingsRow(
                         title = "Edit name",
-                        icon = Icons.Default.Person,
+                        icon = EnchantIcons.user,
                         iconBg = BrandBlue,
                         onClick = onEdit
                     )
                     SettingsRow(
                         title = "About",
-                        icon = Icons.Default.Info,
+                        icon = EnchantIcons.info,
                         iconBg = CallGreen,
                         onClick = onEdit
                     )
@@ -281,7 +282,7 @@ fun ProfileScreen(
                     )
                     SettingsRow(
                         title = "Avatar",
-                        icon = Icons.Default.Photo,
+                        icon = EnchantIcons.image,
                         iconBg = BrandBlue,
                         onClick = onEdit,
                         showDivider = false
@@ -292,19 +293,19 @@ fun ProfileScreen(
                 GroupedCard {
                     SettingsRow(
                         title = "Message",
-                        icon = Icons.Default.Chat,
+                        icon = EnchantIcons.messageCircle,
                         iconBg = BrandBlue,
                         onClick = onMessage
                     )
                     SettingsRow(
                         title = "Call",
-                        icon = Icons.Default.Phone,
+                        icon = EnchantIcons.phone,
                         iconBg = CallGreen,
                         onClick = onCall
                     )
                     SettingsRow(
                         title = if (isBlocked) "Unblock" else "Block User",
-                        icon = Icons.Default.Block,
+                        icon = EnchantIcons.ban,
                         iconBg = Red,
                         titleColor = Red,
                         onClick = onBlock,

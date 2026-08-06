@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -26,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.biometric.BiometricManager
 import org.enchant.core.base.SecurePreferences
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun SecuritySettingsScreen(
@@ -95,7 +93,7 @@ fun SecuritySettingsScreen(
                 EnchantGroupedCard {
                     Column {
                         SettingsRow(
-                            icon = Icons.Rounded.Shield,
+                            icon = EnchantIcons.shieldCheck,
                             iconBackground = SettingsIconTints.Teal,
                             title = "Safety number",
                             subtitle = SecurePreferences.getString("safety_number", "UNVERIFIED") ?: "UNVERIFIED",
@@ -108,7 +106,7 @@ fun SecuritySettingsScreen(
                         )
                         EnchantDivider(inset = 56.dp)
                         SettingsRow(
-                            icon = Icons.Rounded.Lock,
+                            icon = EnchantIcons.lock,
                             iconBackground = SettingsIconTints.DarkGray,
                             title = "Two-step verification",
                             subtitle = if (twoStepEnabled) "Enabled" else "Not set up",

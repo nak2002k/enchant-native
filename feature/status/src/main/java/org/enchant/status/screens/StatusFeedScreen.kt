@@ -1,5 +1,6 @@
 package org.enchant.status.screens
 
+import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,10 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -28,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.status.StatusFeedEntry
+import org.enchant.ui.icons.EnchantIcons
 
 private val BrandBlue = Color(0xFF3A0D6E)
 private val BrandBlueLight = Color(0xFF7FB0FF)
@@ -76,7 +74,7 @@ fun StatusFeedScreen(
                 )
             ) {
                 Icon(
-                    Icons.Default.Add,
+                    EnchantIcons.plusCircle,
                     contentDescription = "New story",
                     modifier = Modifier.size(20.dp)
                 )
@@ -241,7 +239,7 @@ private fun StoryRingsRow(
                             )
                         } else {
                             Icon(
-                                Icons.Default.Person,
+                                EnchantIcons.user,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(30.dp)
@@ -258,7 +256,7 @@ private fun StoryRingsRow(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Add,
+                            EnchantIcons.plusCircle,
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(14.dp)
@@ -333,7 +331,7 @@ private fun EmptyUpdatesState() {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Default.CameraAlt,
+                EnchantIcons.camera,
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant

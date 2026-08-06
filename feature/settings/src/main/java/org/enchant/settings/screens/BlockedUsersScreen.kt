@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 import org.enchant.core.network.ApiClient
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun BlockedUsersScreen(onNavigateBack: () -> Unit) {
@@ -66,7 +65,7 @@ fun BlockedUsersScreen(onNavigateBack: () -> Unit) {
                 isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 blockedUsers.isEmpty() -> {
                     EnchantEmptyState(
-                        icon = Icons.Rounded.Block,
+                        icon = EnchantIcons.ban,
                         title = "No blocked users",
                         subtitle = "Users you block won't be able to message or call you.",
                         modifier = Modifier.align(Alignment.Center),

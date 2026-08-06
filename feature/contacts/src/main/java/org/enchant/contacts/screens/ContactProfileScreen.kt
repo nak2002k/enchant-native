@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import org.enchant.ui.icons.EnchantIcons
 
 data class UserProfile(
     val displayName: String = "",
@@ -52,7 +51,7 @@ fun ContactProfileScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 }
             )
@@ -118,7 +117,7 @@ fun ContactProfileScreen(
                     contentColor = Color.White
                 )
             ) {
-                Icon(Icons.Default.Chat, null, modifier = Modifier.size(18.dp))
+                Icon(EnchantIcons.messageCircle, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     "Message",
@@ -145,7 +144,7 @@ fun ContactProfileScreen(
                     )
                 ) {
                     Icon(
-                        Icons.Default.Phone,
+                        EnchantIcons.phone,
                         null,
                         tint = ContactsBrand.CallGreen,
                         modifier = Modifier.size(18.dp)
@@ -167,7 +166,7 @@ fun ContactProfileScreen(
                     )
                 ) {
                     Icon(
-                        Icons.Default.Videocam,
+                        EnchantIcons.video,
                         null,
                         tint = ContactsBrand.CallGreen,
                         modifier = Modifier.size(18.dp)
@@ -186,12 +185,12 @@ fun ContactProfileScreen(
             GroupedCard {
                 SettingsRow(
                     title = "Safety Number",
-                    icon = Icons.Default.Shield,
+                    icon = EnchantIcons.shieldCheck,
                     iconBg = ContactsBrand.BrandBlue
                 )
                 SettingsRow(
                     title = if (isBlocked) "Unblock" else "Block User",
-                    icon = Icons.Default.Block,
+                    icon = EnchantIcons.ban,
                     iconBg = ContactsBrand.Red,
                     titleColor = ContactsBrand.Red,
                     onClick = { if (isBlocked) onUnblock() else onBlock() },

@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 private val PurplePrimary = Color(0xFF3A0D6E)
 private val CallRed = Color(0xFFFF3B30)
@@ -107,7 +108,7 @@ fun GroupCallScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             GroupControlButton(
-                icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                icon = if (isMuted) EnchantIcons.micOff else EnchantIcons.mic,
                 contentDescription = if (isMuted) "Unmute call" else "Mute call",
                 isActive = isMuted,
                 onClick = onToggleMute
@@ -218,7 +219,7 @@ private fun GroupHangupButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Default.CallEnd,
+            EnchantIcons.phoneDisconnect,
             contentDescription,
             tint = Color.White,
             modifier = Modifier.size(28.dp)

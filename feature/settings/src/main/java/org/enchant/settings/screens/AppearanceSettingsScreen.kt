@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import org.enchant.ui.icons.EnchantIcons
 
 @Composable
 fun AppearanceSettingsScreen(
@@ -67,7 +67,7 @@ fun AppearanceSettingsScreen(
                                         when (value) {
                                             "light" -> Icons.Rounded.LightMode
                                             "dark" -> Icons.Rounded.DarkMode
-                                            else -> Icons.Rounded.Settings
+                                            else -> EnchantIcons.settings
                                         },
                                         null, modifier = Modifier.size(18.dp)
                                     )

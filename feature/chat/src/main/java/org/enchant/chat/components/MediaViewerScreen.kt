@@ -9,8 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +33,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import org.enchant.core.base.AppConfig
+import org.enchant.ui.icons.EnchantIcons
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -157,7 +156,7 @@ fun MediaViewerScreen(
                         onClick = onDismiss,
                         modifier = Modifier.size(48.dp)
                     ) {
-                        Icon(Icons.Default.ChevronLeft, "Close", tint = Color.White, modifier = Modifier.size(28.dp))
+                        Icon(EnchantIcons.chevronLeft, "Close", tint = Color.White, modifier = Modifier.size(28.dp))
                     }
                     Text(
                         "1 / 1",
@@ -173,7 +172,7 @@ fun MediaViewerScreen(
                             onClick = { showMore = true },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Default.MoreVert, "More", tint = Color.White, modifier = Modifier.size(24.dp))
+                            Icon(EnchantIcons.ellipsisVertical, "More", tint = Color.White, modifier = Modifier.size(24.dp))
                         }
                         DropdownMenu(
                             expanded = showMore,
@@ -181,7 +180,7 @@ fun MediaViewerScreen(
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Share") },
-                                leadingIcon = { Icon(Icons.Default.Share, null) },
+                                leadingIcon = { Icon(EnchantIcons.shareNetwork, null) },
                                 onClick = {
                                     showMore = false
                                     scope.launch { shareMedia(context, file, mimeType) }
@@ -189,7 +188,7 @@ fun MediaViewerScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text("Save to gallery") },
-                                leadingIcon = { Icon(Icons.Default.Download, null) },
+                                leadingIcon = { Icon(EnchantIcons.download, null) },
                                 onClick = {
                                     showMore = false
                                     scope.launch { saveToGallery(context, file, mimeType) }
@@ -234,7 +233,7 @@ fun MediaViewerScreen(
                         },
                         modifier = Modifier.size(44.dp)
                     ) {
-                        Icon(Icons.Default.Share, "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                        Icon(EnchantIcons.shareNetwork, "Share", tint = Color.White, modifier = Modifier.size(24.dp))
                     }
                     IconButton(
                         onClick = {
@@ -244,7 +243,7 @@ fun MediaViewerScreen(
                         },
                         modifier = Modifier.size(44.dp)
                     ) {
-                        Icon(Icons.Default.Download, "Save", tint = Color.White, modifier = Modifier.size(24.dp))
+                        Icon(EnchantIcons.download, "Save", tint = Color.White, modifier = Modifier.size(24.dp))
                     }
                 }
             }

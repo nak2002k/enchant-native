@@ -15,9 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +37,7 @@ import org.enchant.core.database.DatabasePool
 import org.enchant.core.database.dao.ConversationDao
 import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.entity.ConversationEntity
+import org.enchant.ui.icons.EnchantIcons
 
 private val ShareBrandPurple = Color(0xFF3A0D6E)
 private val ShareBrandPurpleDark = Color(0xFFB388E3)
@@ -286,7 +284,7 @@ private fun ShareSheet(
                     )
                     IconButton(onClick = onClose) {
                         Icon(
-                            Icons.Default.Close,
+                            EnchantIcons.x,
                             contentDescription = "Close",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -367,7 +365,7 @@ private fun ShareTargetRow(
             modifier = Modifier.weight(1f)
         )
         Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            EnchantIcons.chevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )

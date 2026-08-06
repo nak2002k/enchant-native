@@ -17,11 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CallEnd
-import androidx.compose.material.icons.rounded.CallMade
-import androidx.compose.material.icons.rounded.CallReceived
-import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -39,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import org.enchant.core.calls.CallDirection
 import org.enchant.core.calls.CallEndReason
 import org.enchant.core.calls.CallLogEntry
+import org.enchant.ui.icons.EnchantIcons
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -143,7 +139,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.CallEmptyState() {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Rounded.Phone,
+                    EnchantIcons.phone,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     modifier = Modifier.size(36.dp),
@@ -259,9 +255,9 @@ private fun CallLogRow(
 private fun CallTypeBadge(entry: CallLogEntry) {
     val isMissed = entry.status == CallEndReason.BUSY || entry.status == CallEndReason.TIMEOUT
     val icon = when {
-        isMissed -> Icons.Rounded.CallEnd
-        entry.direction == CallDirection.OUTGOING -> Icons.Rounded.CallMade
-        else -> Icons.Rounded.CallReceived
+        isMissed -> EnchantIcons.phoneDisconnect
+        entry.direction == CallDirection.OUTGOING -> EnchantIcons.phoneOutgoing
+        else -> EnchantIcons.phoneIncoming
     }
     val tint = when {
         isMissed -> CallRed

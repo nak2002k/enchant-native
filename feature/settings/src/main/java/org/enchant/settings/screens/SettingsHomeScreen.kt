@@ -9,15 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChatBubble
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -27,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.enchant.ui.icons.EnchantIcons
 
 // ─── First-composition entrance: fade + 6dp rise, springy, 40ms stagger ───
 @Composable
@@ -115,7 +107,7 @@ fun SettingsHomeScreen(
                 SettingsEntrance(index = 2) {
                     EnchantGroupedCard {
                         SettingsRow(
-                            icon = Icons.Rounded.Person,
+                            icon = EnchantIcons.user,
                             iconBackground = EnchantBrand.iOSBlue,
                             title = "Account",
                             subtitle = "Profile, devices, delete account",
@@ -123,7 +115,7 @@ fun SettingsHomeScreen(
                         )
                         EnchantDivider(inset = 56.dp)
                         SettingsRow(
-                            icon = Icons.Rounded.Lock,
+                            icon = EnchantIcons.lock,
                             iconBackground = SettingsIconTints.DarkGray,
                             title = "Security",
                             subtitle = "App lock, safety numbers, two-step PIN",
@@ -131,7 +123,7 @@ fun SettingsHomeScreen(
                         )
                         EnchantDivider(inset = 56.dp)
                         SettingsRow(
-                            icon = Icons.Rounded.Shield,
+                            icon = EnchantIcons.shieldCheck,
                             iconBackground = SettingsIconTints.Teal,
                             title = "Privacy",
                             subtitle = "Last seen, online, blocked users",
@@ -139,7 +131,7 @@ fun SettingsHomeScreen(
                         )
                         EnchantDivider(inset = 56.dp)
                         SettingsRow(
-                            icon = Icons.Rounded.Notifications,
+                            icon = EnchantIcons.bell,
                             iconBackground = EnchantBrand.Red,
                             title = "Notifications",
                             subtitle = "Message notifications, previews, DND",
@@ -158,7 +150,7 @@ fun SettingsHomeScreen(
                 SettingsEntrance(index = 4) {
                     EnchantGroupedCard {
                         SettingsRow(
-                            icon = Icons.Rounded.Palette,
+                            icon = EnchantIcons.palette,
                             iconBackground = SettingsIconTints.Orange,
                             title = "Appearance",
                             subtitle = "Theme, font size",
@@ -166,7 +158,7 @@ fun SettingsHomeScreen(
                         )
                         EnchantDivider(inset = 56.dp)
                         SettingsRow(
-                            icon = Icons.Rounded.ChatBubble,
+                            icon = EnchantIcons.chatBubbleText,
                             iconBackground = EnchantBrand.GroupGreen,
                             title = "Chats",
                             subtitle = "Disappearing timer, backup, auto-download",
@@ -174,7 +166,7 @@ fun SettingsHomeScreen(
                         )
                         EnchantDivider(inset = 56.dp)
                         SettingsRow(
-                            icon = Icons.Rounded.Storage,
+                            icon = EnchantIcons.database,
                             iconBackground = SettingsIconTints.Purple,
                             title = "Storage",
                             subtitle = "Usage, cache, message trim",
@@ -193,7 +185,7 @@ fun SettingsHomeScreen(
                 SettingsEntrance(index = 6) {
                     EnchantGroupedCard {
                         SettingsRow(
-                            icon = Icons.Rounded.Info,
+                            icon = EnchantIcons.info,
                             iconBackground = SettingsIconTints.Gray,
                             title = "About",
                             subtitle = "Version, licenses",

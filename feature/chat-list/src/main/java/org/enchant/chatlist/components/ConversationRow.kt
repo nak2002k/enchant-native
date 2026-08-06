@@ -13,16 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.rounded.NotificationsOff
-import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -52,6 +42,7 @@ import org.enchant.chatlist.components.EnchantAvatar
 import org.enchant.chatlist.components.EnchantGroupAvatar
 import org.enchant.chatlist.components.EnchantSpacing
 import org.enchant.chatlist.components.UnreadBadge
+import org.enchant.ui.icons.EnchantIcons
 
 private val DraftOrange = Color(0xFFFF9500)
 
@@ -131,7 +122,7 @@ fun ConversationRow(
                         color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Icon(
-                            Icons.Rounded.PushPin,
+                            EnchantIcons.pin,
                             contentDescription = "Pinned",
                             modifier = Modifier.padding(4.dp),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
@@ -157,7 +148,7 @@ fun ConversationRow(
                     )
                     if (conversation.isMuted) {
                         Icon(
-                            Icons.Rounded.NotificationsOff,
+                            EnchantIcons.bell,
                             contentDescription = "Muted",
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -166,7 +157,7 @@ fun ConversationRow(
                     }
                     if (conversation.disappearTimerSeconds > 0) {
                         Icon(
-                            Icons.Rounded.Timer,
+                            EnchantIcons.clock,
                             contentDescription = "Disappearing messages: ${DisappearTimerPresets.formatDuration(conversation.disappearTimerSeconds)}",
                             modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -212,29 +203,29 @@ fun ConversationRow(
         DropdownMenuItem(
             text = { Text(if (conversation.isMuted) "Unmute" else "Mute") },
             onClick = { onMute(); showMenu = false },
-            leadingIcon = { Icon(if (conversation.isMuted) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null) }
+            leadingIcon = { Icon(if (conversation.isMuted) EnchantIcons.speakerHigh else EnchantIcons.volumeX, null) }
         )
         DropdownMenuItem(
             text = { Text(if (conversation.isArchived) "Unarchive" else "Archive") },
             onClick = { onArchive(); showMenu = false },
-            leadingIcon = { Icon(Icons.Default.Archive, null) }
+            leadingIcon = { Icon(EnchantIcons.archive, null) }
         )
         DropdownMenuItem(
             text = { Text(if (conversation.isPinned) "Unpin" else "Pin") },
             onClick = { onPin(); showMenu = false },
-            leadingIcon = { Icon(Icons.Default.PushPin, null) }
+            leadingIcon = { Icon(EnchantIcons.pin, null) }
         )
         if (conversation.unreadCount > 0) {
             DropdownMenuItem(
                 text = { Text("Mark read") },
                 onClick = { onMarkRead(); showMenu = false },
-                leadingIcon = { Icon(Icons.Default.DoneAll, null) }
+                leadingIcon = { Icon(EnchantIcons.checkCheck, null) }
             )
         }
         DropdownMenuItem(
             text = { Text("Delete") },
             onClick = { onDelete(); showMenu = false },
-            leadingIcon = { Icon(Icons.Default.Delete, null) }
+            leadingIcon = { Icon(EnchantIcons.trash2, null) }
         )
     }
 }

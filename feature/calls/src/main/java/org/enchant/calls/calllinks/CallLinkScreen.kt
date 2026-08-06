@@ -14,9 +14,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.enchant.core.calls.CallLinkData
 import org.enchant.core.calls.model.CallLinkRestrictions
+import org.enchant.ui.icons.EnchantIcons
 
 private val JewelPurpleLight = Color(0xFF3A0D6E)
 private val JewelPurpleDark = Color(0xFFB388E3)
@@ -73,7 +71,7 @@ fun CallLinkScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(EnchantIcons.arrowLeft, "Back")
                     }
                 }
             )
@@ -152,7 +150,7 @@ fun CallLinkScreen(
                                 contentColor = Color.Black
                             )
                         ) {
-                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp))
+                            Icon(EnchantIcons.copy, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Copy link", fontWeight = FontWeight.SemiBold)
                         }
@@ -168,7 +166,7 @@ fun CallLinkScreen(
                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.7f)),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                         ) {
-                            Icon(Icons.Default.Share, null, modifier = Modifier.size(16.dp))
+                            Icon(EnchantIcons.shareNetwork, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Share", fontWeight = FontWeight.SemiBold)
                         }
@@ -251,7 +249,7 @@ fun CallLinkScreen(
                     disabledContentColor = Color.White.copy(alpha = 0.7f)
                 )
             ) {
-                Icon(Icons.Default.Call, null, modifier = Modifier.size(20.dp))
+                Icon(EnchantIcons.phone, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Start call", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
@@ -288,7 +286,7 @@ fun CallLinkScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.Edit,
+                                EnchantIcons.pencil,
                                 null,
                                 modifier = Modifier.size(20.dp),
                                 tint = brandPurple()
@@ -297,7 +295,7 @@ fun CallLinkScreen(
                             Text("Edit Name", style = MaterialTheme.typography.bodyLarge)
                             Spacer(Modifier.weight(1f))
                             Icon(
-                                Icons.Default.ChevronRight,
+                                EnchantIcons.chevronRight,
                                 null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -314,7 +312,7 @@ fun CallLinkScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.Delete,
+                                EnchantIcons.trash2,
                                 null,
                                 modifier = Modifier.size(20.dp),
                                 tint = Color(0xFFFF3B30)
@@ -327,7 +325,7 @@ fun CallLinkScreen(
                             )
                             Spacer(Modifier.weight(1f))
                             Icon(
-                                Icons.Default.ChevronRight,
+                                EnchantIcons.chevronRight,
                                 null,
                                 tint = Color(0xFFFF3B30).copy(alpha = 0.7f)
                             )

@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.enchant.ui.icons.EnchantIcons
 
 private val PurplePrimary = Color(0xFF3A0D6E)
 private val PurpleDark = Color(0xFFB388E3)
@@ -135,7 +136,7 @@ fun ActiveVoiceCallScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Default.Lock, null,
+                        EnchantIcons.lock, null,
                         modifier = Modifier.size(16.dp),
                         tint = Color.White.copy(alpha = 0.7f)
                     )
@@ -155,21 +156,21 @@ fun ActiveVoiceCallScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 VoiceControlButton(
-                    icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                    icon = if (isMuted) EnchantIcons.micOff else EnchantIcons.mic,
                     label = if (isMuted) "Unmute" else "Mute",
                     contentDescription = if (isMuted) "Unmute call" else "Mute call",
                     isActive = isMuted,
                     onClick = onToggleMute
                 )
                 VoiceControlButton(
-                    icon = if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                    icon = if (isSpeakerOn) EnchantIcons.speakerHigh else EnchantIcons.volume2,
                     label = if (isSpeakerOn) "Speaker" else "Earpiece",
                     contentDescription = "Toggle speaker",
                     isActive = isSpeakerOn,
                     onClick = onToggleSpeaker
                 )
                 VoiceControlButton(
-                    icon = Icons.Default.Videocam,
+                    icon = EnchantIcons.video,
                     label = "Video",
                     contentDescription = "Switch to video call",
                     isActive = false,
@@ -246,7 +247,7 @@ private fun HangupButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Default.CallEnd,
+            EnchantIcons.phoneDisconnect,
             contentDescription,
             tint = Color.White,
             modifier = Modifier.size(28.dp)
