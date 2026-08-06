@@ -42,7 +42,7 @@ import org.enchant.core.database.dao.RecipientDao
 import org.enchant.core.database.entity.ConversationEntity
 
 private val ShareBrandPurple = Color(0xFF3A0D6E)
-private val ShareBrandPurpleDark = Color(0xFF8E24AA)
+private val ShareBrandPurpleDark = Color(0xFFB388E3)
 private val ShareGroupGreen = Color(0xFF6A9C2F)
 
 private val ShareLightScheme = lightColorScheme(

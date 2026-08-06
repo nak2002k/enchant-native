@@ -105,10 +105,10 @@ private val EnchantLightScheme = lightColorScheme(
 // ─── Dark Mode (iOS-like) ───
 
 private val EnchantDarkColors = EnchantColors(
-    brand = Color(0xFF8E24AA),
+    brand = Color(0xFFB388E3),
     brandLight = Color(0xFFB39DDB),
-    brandDark = Color(0xFF8E24AA),
-    chatBubbleSent = Color(0xFF8E24AA),
+    brandDark = Color(0xFFB388E3),
+    chatBubbleSent = Color(0xFFB388E3),
     chatBubbleReceived = Color(0xFF2C2C2E),
     online = Color(0xFF30D158),
     unread = Color(0xFFFF453A),
@@ -122,10 +122,10 @@ private val EnchantDarkColors = EnchantColors(
 )
 
 private val EnchantDarkScheme = darkColorScheme(
-    primary = Color(0xFF8E24AA),
+    primary = Color(0xFFB388E3),
     onPrimary = Color.Black,
-    primaryContainer = Color(0xFF8E24AA).copy(alpha = 0.2f),
-    onPrimaryContainer = Color(0xFF8E24AA),
+    primaryContainer = Color(0xFFB388E3).copy(alpha = 0.2f),
+    onPrimaryContainer = Color(0xFFB388E3),
     secondary = Color(0xFF5E5CE6),
     onSecondary = Color.Black,
     tertiary = Color(0xFFFFD60A),
@@ -144,7 +144,7 @@ private val EnchantDarkScheme = darkColorScheme(
     onErrorContainer = Color(0xFFFF453A),
     inverseSurface = Color(0xFFE5E5E7),
     inverseOnSurface = Color(0xFF1C1C1E),
-    surfaceTint = Color(0xFF8E24AA),
+    surfaceTint = Color(0xFFB388E3),
 )
 
 // ─── Typography ───

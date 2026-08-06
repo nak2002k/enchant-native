@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.sp
 import org.enchant.stickers.StickerPack
 
 private val BrandPurple = Color(0xFF3A0D6E)
-private val BrandPurpleDark = Color(0xFF8E24AA)
+private val BrandPurpleDark = Color(0xFFB388E3)
 private val BrandPurpleLight = Color(0xFF7B1FA2)
 
 @Composable

@@ -85,7 +85,7 @@ object EnchantMotion {
 
 // ─── Group member name colors (muted, per-sender) ───
 internal val SenderNamePalette = listOf(
-    Color(0xFFE91E63), Color(0xFF8E24AA), Color(0xFF3F51B5), Color(0xFF009688),
+    Color(0xFFE91E63), Color(0xFFB388E3), Color(0xFF3F51B5), Color(0xFF009688),
     Color(0xFF795548), Color(0xFF607D8B), Color(0xFF8BC34A), Color(0xFFFF5722),
 )
 

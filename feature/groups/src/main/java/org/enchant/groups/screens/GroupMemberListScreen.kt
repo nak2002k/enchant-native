@@ -20,7 +20,7 @@ import org.enchant.groups.data.GroupMember
 import org.enchant.groups.data.MemberRole
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
-private val BrandPrimaryDark = Color(0xFF8E24AA)
+private val BrandPrimaryDark = Color(0xFFB388E3)
 private val BrandTintLight = Color(0xFF7B1FA2)
 
 @Composable

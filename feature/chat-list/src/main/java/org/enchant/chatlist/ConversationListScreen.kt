@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Edit
@@ -151,8 +152,19 @@ fun ConversationListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.search("") }) {
+                        Icon(
+                            Icons.Default.Search,
+                            "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, "Settings")
+                        Icon(
+                            Icons.Default.Settings,
+                            "Settings",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

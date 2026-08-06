@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import org.enchant.channels.Channel
 
 private val BrandPurple = Color(0xFF3A0D6E)
-private val BrandPurpleDark = Color(0xFF8E24AA)
+private val BrandPurpleDark = Color(0xFFB388E3)
 
 @Composable
 private fun brandPrimary(): Color = if (isSystemInDarkTheme()) BrandPurpleDark else BrandPurple

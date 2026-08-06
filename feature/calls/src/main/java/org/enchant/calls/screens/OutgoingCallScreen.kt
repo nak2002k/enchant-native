@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 private val PurplePrimary = Color(0xFF3A0D6E)
-private val PurpleDark = Color(0xFF8E24AA)
+private val PurpleDark = Color(0xFFB388E3)
 private val CallRed = Color(0xFFFF3B30)
 private val DarkBackground = Color(0xFF1C1C1E)
 

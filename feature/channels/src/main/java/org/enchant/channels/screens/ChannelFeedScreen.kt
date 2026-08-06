@@ -27,7 +27,7 @@ import kotlin.math.abs
 import org.enchant.channels.ChannelPost
 
 private val BrandPurple = Color(0xFF3A0D6E)
-private val BrandPurpleDark = Color(0xFF8E24AA)
+private val BrandPurpleDark = Color(0xFFB388E3)
 private val BrandPurpleLight = Color(0xFF7B1FA2)
 private val BrandRed = Color(0xFFFF3B30)
 

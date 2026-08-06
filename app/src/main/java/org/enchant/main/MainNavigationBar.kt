@@ -41,7 +41,7 @@ import org.enchant.MainNavigationListLocation
 import org.enchant.MainNavigationViewModel.MainNavigationState
 
 private val JewelPurpleLight = Color(0xFF3A0D6E)
-private val JewelPurpleDark = Color(0xFF8E24AA)
+private val JewelPurpleDark = Color(0xFFB388E3)
 
 @Composable
 private fun brandPurple(): Color =

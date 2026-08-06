@@ -22,7 +22,7 @@ import java.util.Date
 import java.util.Locale
 
 private val BrandPrimaryLight = Color(0xFF3A0D6E)
-private val BrandPrimaryDark = Color(0xFF8E24AA)
+private val BrandPrimaryDark = Color(0xFFB388E3)
 private val BrandRed = Color(0xFFFF3B30)
 
 @Composable
