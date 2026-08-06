@@ -189,6 +189,19 @@ class AgentDebugServer(
                 bridge.addGroupMembers(segments[1], body.stringListRequired("user_ids"))
             root == "debug" && method == Method.POST && segments.getOrNull(1) == "clear-conversation" ->
                 bridge.clearConversation(body.string("conversation_id"))
+            root == "groups" && method == Method.GET && segments.size == 2 ->
+                bridge.getGroupInfo(segments[1])
+            root == "groups" && method == Method.GET && segments.size == 3 &&
+                segments[2] == "members" -> bridge.listGroupMembers(segments[1])
+            root == "groups" && method == Method.PUT && segments.size == 3 &&
+                segments[2] == "settings" ->
+                bridge.updateGroupSettings(
+                    segments[1],
+                    body.optString("name"),
+                    body.optString("description")
+                )
+            root == "groups" && method == Method.DELETE && segments.size == 4 &&
+                segments[2] == "members" -> bridge.removeGroupMember(segments[1], segments[3])
             root == "groups" && method == Method.POST && segments.getOrNull(1) == "message" ->
                 bridge.sendGroupMessage(body.string("group_id"), body.string("text"))
             root == "groups" && method == Method.POST && segments.getOrNull(1) == "sender-key" ->

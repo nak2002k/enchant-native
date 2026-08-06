@@ -1041,21 +1041,7 @@ fun MessageBubble(
                     )
                     if (urls.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(4.dp))
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text(
-                                    urls.first().take(60),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
+                        LinkPreviewCard(url = urls.first())
                     }
                 }
 
@@ -1297,6 +1283,66 @@ private fun EncryptedImageContent(
             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
             Spacer(modifier = Modifier.width(8.dp))
             Text("📎 $fileName", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+/** Fetches the server-generated preview for a URL and renders the card
+ *  (title + description + image, tap opens the link). */
+@Composable
+private fun LinkPreviewCard(url: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var preview by remember(url) { mutableStateOf<org.enchant.chat.data.LinkPreview?>(null) }
+
+    LaunchedEffect(url) {
+        preview = org.enchant.chat.data.ContentPreProcessor.generateLinkPreview(url)
+    }
+
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                runCatching {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(url)
+                    )
+                    context.startActivity(intent)
+                }
+            }
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            preview?.let { p ->
+                if (p.title != null) {
+                    Text(
+                        p.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (p.description != null) {
+                    Text(
+                        p.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            Text(
+                url,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

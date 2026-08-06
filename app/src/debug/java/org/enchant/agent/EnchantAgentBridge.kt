@@ -840,6 +840,40 @@ class EnchantAgentBridge : AgentAppBridge {
         return groupResultToJson(repo.addMembers(groupId, userIds))
     }
 
+    override suspend fun updateGroupSettings(groupId: String, name: String?, description: String?): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        return groupResultToJson(repo.updateGroup(groupId, name, description))
+    }
+
+    override suspend fun getGroupInfo(groupId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        return groupResultToJson(repo.getGroupInfo(groupId))
+    }
+
+    override suspend fun removeGroupMember(groupId: String, userId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        return groupResultToJson(repo.removeMember(groupId, userId))
+    }
+
+    override suspend fun listGroupMembers(groupId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val repo = GroupsRepository(DI.apiClient, DI.databasePool)
+        val members = repo.getMembers(groupId)
+        return ok(buildJsonObject {
+            put("members", buildJsonArray {
+                members.forEach { m ->
+                    add(buildJsonObject {
+                        put("user_id", m.userId)
+                        put("role", m.role.value)
+                    })
+                }
+            })
+        })
+    }
+
     override suspend fun sendGroupMessage(groupId: String, text: String): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val repo = GroupsRepository(DI.apiClient, DI.databasePool)
