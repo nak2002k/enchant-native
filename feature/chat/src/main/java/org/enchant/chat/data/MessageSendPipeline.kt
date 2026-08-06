@@ -213,12 +213,24 @@ object MessageSendPipeline {
                     )
                     .setContent(content)
                     .build()
+                val contentBytes = wrapper.toByteArray()
+
+                // Forward secrecy: when a session (X3DH + double ratchet)
+                // exists or can be started, the content rides the session
+                // ciphertext INSIDE the Veil seal (Signal's sealed sender
+                // pattern) so long-term-key compromise can't decrypt past
+                // messages. Falls back to the direct seal when no session
+                // can be established.
+                val sessionEncrypted = runCatching {
+                    NativeSessionManager.encryptMessage(recipientUserId, contentBytes)
+                }.getOrNull()
+                val sealInput = sessionEncrypted?.payload ?: contentBytes
 
                 val veiledPayload = org.enchant.core.crypto.VeilSender.encryptVeiled(
                     recipientPublicKey = recipientPublicKey,
                     senderIdentityPrivate = identityKeyPair.privateKey,
                     senderIdentityPublic = identityKeyPair.publicKey,
-                    message = wrapper.toByteArray()
+                    message = sealInput
                 )
 
                 val envelopeId = UUID.randomUUID().toString()

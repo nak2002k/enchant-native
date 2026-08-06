@@ -446,6 +446,9 @@ class VeilSession private constructor(
 
     fun getIdentityKey(userId: String): ByteArray? = identityKeys[userId]
 
+    fun getUserIdForIdentityKey(publicKey: ByteArray): String? =
+        identityKeys.entries.firstOrNull { it.value.contentEquals(publicKey) }?.key
+
     fun setIdentityKey(userId: String, publicKey: ByteArray) {
         identityKeys[userId] = publicKey.copyOf()
         val device = extractDeviceId(userId)

@@ -780,8 +780,33 @@ object IncomingMessageProcessor {
                 ) ?: return@withContext ProcessResult.Error("Sealed decrypt failed")
 
                 val recoveredSenderKey = decrypted.first
-                val wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(decrypted.second)
-                val senderUserId = wrapper.localAddress.uuid.toStringUtf8()
+
+                // Forward secrecy: the seal may wrap a session ciphertext
+                // (X3DH + double ratchet) instead of the raw content. Detect
+                // by trying the direct parse first, then the session.
+                var wrapper: org.enchant.protos.SignalServiceContentProto? = null
+                try {
+                    wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(decrypted.second)
+                } catch (_: Exception) { wrapper = null }
+                val directParses = wrapper != null &&
+                    (wrapper!!.hasContent() || wrapper!!.hasLocalAddress())
+
+                if (!directParses) {
+                    // The sender id for the session decrypt comes from the
+                    // recovered sender identity key (sealed sender).
+                    val senderForSession = NativeSessionManager.getUserIdForIdentityKey(recoveredSenderKey)
+                        ?: return@withContext ProcessResult.Error("Unknown sealed sender")
+                    val sessionPlaintext = NativeSessionManager.decryptMessage(senderForSession, decrypted.second)
+                        ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, decrypted.second)
+                        ?: return@withContext ProcessResult.Error("Session decrypt failed")
+                    try {
+                        wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(sessionPlaintext.plaintext)
+                    } catch (_: Exception) {
+                        return@withContext ProcessResult.Error("Session content parse failed")
+                    }
+                }
+                val wrapperNonNull = wrapper ?: return@withContext ProcessResult.Error("Sealed content missing")
+                val senderUserId = wrapperNonNull.localAddress.uuid.toStringUtf8()
                 if (senderUserId.isEmpty()) {
                     return@withContext ProcessResult.Error("Missing sender identity in sealed payload")
                 }
@@ -797,7 +822,7 @@ object IncomingMessageProcessor {
                     NativeSessionManager.setIdentityKey(senderUserId, recoveredSenderKey)
                 }
 
-                val content = wrapper.content
+                val content = wrapperNonNull.content
                 val now = System.currentTimeMillis()
 
                 return@withContext when {

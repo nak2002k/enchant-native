@@ -116,6 +116,9 @@ object NativeSessionManager {
     fun getIdentityKey(userId: String): ByteArray? =
         VeilSession.get().getIdentityKey(userId)
 
+    fun getUserIdForIdentityKey(publicKey: ByteArray): String? =
+        VeilSession.get().getUserIdForIdentityKey(publicKey)
+
     // ── Safety Number ─────────────────────────────────────────────────
 
     suspend fun getSafetyNumber(userId: String): String =
