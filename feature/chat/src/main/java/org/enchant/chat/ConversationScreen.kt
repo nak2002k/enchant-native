@@ -11,34 +11,21 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -46,21 +33,33 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.enchant.chat.components.AttachmentSheet
+import org.enchant.chat.components.ComposerBar
+import org.enchant.chat.components.ConversationHeader
+import org.enchant.chat.components.DateChip
 import org.enchant.chat.components.EmojiPickerSheet
+import org.enchant.chat.components.EnchantRadii
+import org.enchant.chat.components.EnchantSpacing
 import org.enchant.chat.components.MediaViewerScreen
+import org.enchant.chat.components.MessageBubble
+import org.enchant.chat.components.TypingBubble
+import org.enchant.chat.components.formatFileSize
+import org.enchant.chat.components.formatTime
+import org.enchant.core.model.ConversationType
 import org.enchant.core.model.DisappearTimerPresets
 import org.enchant.core.model.Message
 import org.enchant.core.model.MessageStatus
@@ -83,6 +82,7 @@ fun ConversationScreen(
     val senderNames by viewModel.senderNames.collectAsState()
     val typingIndicator by viewModel.typingIndicator.collectAsState()
     val sendingState by viewModel.sendingState.collectAsState()
+    val peerVerified by viewModel.isPeerVerified.collectAsState()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val activity = context as? Activity
@@ -112,6 +112,22 @@ fun ConversationScreen(
     var showContactInfo by remember { mutableStateOf(false) }
     var contactShareUserId by remember { mutableStateOf("") }
     var translateDialogEnvelopeId by remember { mutableStateOf<String?>(null) }
+
+    // Selection mode state
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    val enterSelection: (Long) -> Unit = { id ->
+        selectionMode = true
+        selectedIds = selectedIds + id
+    }
+    val toggleSelection: (Long) -> Unit = { id ->
+        selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
+        if (selectedIds.isEmpty()) selectionMode = false
+    }
+    val exitSelection = {
+        selectionMode = false
+        selectedIds = emptySet()
+    }
 
     val pinnedMessages by viewModel.pinnedMessages.collectAsState()
     val conversations by viewModel.conversations.collectAsState()
@@ -173,144 +189,107 @@ fun ConversationScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            modifier = Modifier.size(36.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    (title ?: "?").take(1).uppercase(),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = title ?: conversation?.id?.take(16) ?: "Chat",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (typingIndicator) {
-                                TypingDots()
-                            }
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier.semantics { this.contentDescription = "Navigate back" }
-                    ) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    val directChat = conversation?.type == org.enchant.core.model.ConversationType.DIRECT
-                    if (directChat) {
-                        IconButton(
-                            onClick = { showSafetyNumber = true },
-                            modifier = Modifier.semantics { this.contentDescription = "Safety number" }
-                        ) {
-                            Icon(
-                                if (viewModel.isPeerVerified.value) Icons.Default.Lock
-                                else Icons.Default.LockOpen,
-                                "Safety number"
-                            )
-                        }
-                    }
-                    IconButton(
-                        onClick = { onStartCall(conversationId, false) },
-                        modifier = Modifier.semantics { this.contentDescription = "Start audio call" }
-                    ) {
-                        Icon(Icons.Default.Call, "Call")
-                    }
-                    IconButton(
-                        onClick = { onStartCall(conversationId, true) },
-                        modifier = Modifier.semantics { this.contentDescription = "Start video call" }
-                    ) {
-                        Icon(Icons.Default.Videocam, "Video Call")
-                    }
-                    var showMenu by remember { mutableStateOf(false) }
-                    IconButton(
-                        onClick = { showMenu = true },
-                        modifier = Modifier.semantics { this.contentDescription = "More options" }
-                    ) {
-                        Icon(Icons.Default.MoreVert, "More")
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("View contact") }, onClick = {
-                            showContactInfo = true
-                            showMenu = false
-                        })
-                        DropdownMenuItem(text = { Text("Search") }, onClick = { showSearch = true; showMenu = false })
-                        DropdownMenuItem(text = { Text("Disappearing messages") }, onClick = { showDisappearDialog = true; showMenu = false })
-                        DropdownMenuItem(text = { Text("Starred messages") }, onClick = { showMenu = false })
-                        DropdownMenuItem(text = { Text("Pinned messages") }, onClick = { showMenu = false })
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    val isGroupChat = conversation?.type != ConversationType.DIRECT
+    val selfUserId = org.enchant.core.base.SecurePreferences.getString("auth.user_id")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
         AnimatedContent(
             targetState = conversationId,
             transitionSpec = {
                 fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
             }
         ) { convId ->
-            if (showContactInfo) {
-                AlertDialog(
-                    onDismissRequest = { showContactInfo = false },
-                    title = { Text(title ?: "Contact") },
-                    text = {
-                        Column {
-                            Text(
-                                convId,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { onStartCall(convId, false) }) {
-                                    Text("Voice call")
-                                }
-                                OutlinedButton(onClick = { onStartCall(convId, true) }) {
-                                    Text("Video call")
-                                }
+            Column(modifier = Modifier.fillMaxSize()) {
+                ConversationHeader(
+                    title = title,
+                    conversation = conversation,
+                    typingIndicator = typingIndicator,
+                    isPeerVerified = peerVerified,
+                    isSelectionMode = selectionMode,
+                    selectionCount = selectedIds.size,
+                    onBack = onNavigateBack,
+                    onCloseSelection = { exitSelection() },
+                    onCopySelection = {
+                        selectedIds.firstOrNull()?.let { id ->
+                            messages.find { it.localId == id }?.let { viewModel.copyToClipboard(it.content) }
+                        }
+                        exitSelection()
+                    },
+                    onForwardSelection = {
+                        selectedIds.firstOrNull()?.let { id ->
+                            messages.find { it.localId == id }?.let { forwardDialogMessageId = it.envelopeId }
+                        }
+                        exitSelection()
+                    },
+                    onDeleteSelection = {
+                        selectedIds.firstOrNull()?.let { id ->
+                            messages.find { it.localId == id }?.let { m ->
+                                deleteEnvelopeId = m.envelopeId ?: ""
+                                deleteForEveryone = false
+                                showDeleteConfirmDialog = true
                             }
                         }
+                        exitSelection()
                     },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            val clipboard = clipboardManager
-                            clipboard.setText(AnnotatedString(convId))
-                            showContactInfo = false
-                        }) {
-                            Text("Copy ID")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showContactInfo = false }) {
-                            Text("Close")
-                        }
-                    }
+                    onSafetyNumber = { showSafetyNumber = true },
+                    onAudioCall = { onStartCall(conversationId, false) },
+                    onVideoCall = { onStartCall(conversationId, true) },
+                    onViewContact = { showContactInfo = true },
+                    onSearch = { showSearch = true },
+                    onDisappear = { showDisappearDialog = true },
+                    onStarred = {},
+                    onPinned = {},
                 )
-            }
-            Column(modifier = Modifier.padding(padding)) {
+                if (showContactInfo) {
+                    AlertDialog(
+                        onDismissRequest = { showContactInfo = false },
+                        title = { Text(title ?: "Contact") },
+                        text = {
+                            Column {
+                                Text(
+                                    convId,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = { onStartCall(convId, false) }) {
+                                        Text("Voice call")
+                                    }
+                                    OutlinedButton(onClick = { onStartCall(convId, true) }) {
+                                        Text("Video call")
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val clipboard = clipboardManager
+                                clipboard.setText(AnnotatedString(convId))
+                                showContactInfo = false
+                            }) {
+                                Text("Copy ID")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showContactInfo = false }) {
+                                Text("Close")
+                            }
+                        }
+                    )
+                }
                 if (showSearch) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = { Text("Search messages") },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = EnchantSpacing.lg, vertical = 4.dp),
                         singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
                         leadingIcon = { Icon(Icons.Default.Search, null) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -328,17 +307,19 @@ fun ConversationScreen(
                             "${searchResults.size} results",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = EnchantSpacing.lg, vertical = 4.dp)
                         )
                         LazyColumn(modifier = Modifier.height(200.dp)) {
                             items(searchResults, key = { it.envelopeId ?: it.localId.toString() }) { result ->
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .padding(horizontal = EnchantSpacing.lg, vertical = 2.dp)
                                         .clickable { viewModel.jumpToMessage(result.envelopeId ?: ""); showSearch = false },
-                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(EnchantRadii.medium),
                                 ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
+                                    Column(modifier = Modifier.padding(EnchantSpacing.md)) {
                                         Text(result.content, maxLines = 2, style = MaterialTheme.typography.bodyMedium)
                                         Text(
                                             formatTime(result.timestamp),
@@ -354,17 +335,20 @@ fun ConversationScreen(
                             "No results",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(EnchantSpacing.lg)
                         )
                     }
                 }
                 if (pinnedMessages.isNotEmpty()) {
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier.fillMaxWidth()
+                        shape = RoundedCornerShape(EnchantRadii.medium),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = EnchantSpacing.sm, vertical = 2.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = EnchantSpacing.md, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -373,7 +357,7 @@ fun ConversationScreen(
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(EnchantSpacing.sm))
                             Text(
                                 "Pinned message",
                                 style = MaterialTheme.typography.labelMedium,
@@ -392,11 +376,37 @@ fun ConversationScreen(
                 }
                 if (messages.isEmpty()) {
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Text(
-                            "Messages are end-to-end encrypted. Tap for more info.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = Modifier
+                                    .size(84.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(36.dp),
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(EnchantSpacing.lg))
+                            Text(
+                                "End-to-end encrypted",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(modifier = Modifier.height(EnchantSpacing.sm))
+                            Text(
+                                "Messages are secure and private. Tap the lock for more info.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 32.dp),
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -414,12 +424,30 @@ fun ConversationScreen(
                             if (index > 0 && nextOlder != null &&
                                 formatDayKey(message.timestamp) != formatDayKey(nextOlder.timestamp)
                             ) {
-                                DaySeparator(timestamp = message.timestamp)
+                                DateChip(
+                                    text = formatDayLabel(message.timestamp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = EnchantSpacing.sm),
+                                )
                             }
+                            val prevNewer = messages.getOrNull(index - 1)
+                            val sameAsBelow = prevNewer != null && prevNewer.senderId == message.senderId
+                            val sameAsAbove = nextOlder != null && nextOlder.senderId == message.senderId
+                            val isOutgoing = message.senderId == selfUserId
                             MessageBubble(
                                 message = message,
-                                isOutgoing = message.senderId == org.enchant.core.base.SecurePreferences.getString("auth.user_id"),
+                                isOutgoing = isOutgoing,
+                                senderId = message.senderId,
                                 senderName = senderNames[message.senderId],
+                                showSenderName = isGroupChat && !isOutgoing &&
+                                    senderNames[message.senderId] != null && !sameAsAbove,
+                                hasTail = !sameAsBelow,
+                                verticalGap = if (!sameAsAbove) 12.dp else 2.dp,
+                                isSelectionMode = selectionMode,
+                                isSelected = message.localId in selectedIds,
+                                onLongPress = { enterSelection(message.localId) },
+                                onToggleSelection = { toggleSelection(message.localId) },
                                 onReply = { replyToId = it },
                                 onDelete = {
                                     deleteEnvelopeId = it
@@ -451,23 +479,46 @@ fun ConversationScreen(
                         }
                     }
                 }
-    
+
                 sendingState?.let { state ->
                     when (state) {
-                        SendState.SENDING -> Text("Sending...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
-                        SendState.UPLOADING -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        SendState.FAILED -> Text("Failed to send", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
+                        SendState.SENDING -> Text(
+                            "Sending…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = EnchantSpacing.lg)
+                        )
+                        SendState.UPLOADING -> LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(2.dp)
+                        )
+                        SendState.FAILED -> Text(
+                            "Failed to send",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = EnchantSpacing.lg)
+                        )
                         else -> {}
                     }
                 }
-    
+
+                AnimatedVisibility(visible = typingIndicator) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = EnchantSpacing.md, vertical = 2.dp),
+                        horizontalAlignment = Alignment.Start,
+                    ) {
+                        TypingBubble()
+                    }
+                }
+
                 AnimatedVisibility(visible = replyToId != null) {
                     ReplyPreview(
                         message = messages.find { it.replyToEnvelopeId == replyToId }?.content ?: "",
                         onDismiss = { replyToId = null }
                     )
                 }
-    
+
                 ComposerBar(
                     text = messageText,
                     onTextChange = { messageText = it; viewModel.onComposerTextChanged(it) },
@@ -480,8 +531,6 @@ fun ConversationScreen(
                     },
                     onAttach = { showAttachments = true },
                     onEmoji = { showEmojiPicker = true },
-                    onSticker = { showStickerPicker = true },
-                    onPoll = { showPollDialog = true },
                     viewOnceMode = viewOnceMode,
                     onViewOnceToggle = { viewOnceMode = !viewOnceMode },
                     onVoiceStart = {
@@ -533,6 +582,14 @@ fun ConversationScreen(
             onContact = {
                 showAttachments = false
                 showContactShareDialog = true
+            },
+            onPoll = {
+                showAttachments = false
+                showPollDialog = true
+            },
+            onSticker = {
+                showAttachments = false
+                showStickerPicker = true
             }
         )
     }
@@ -706,7 +763,6 @@ fun ConversationScreen(
 
     if (showSafetyNumber) {
         val safetyNum by viewModel.safetyNumber.collectAsState()
-        val peerVerified by viewModel.isPeerVerified.collectAsState()
         val ktStatus by viewModel.ktStatus.collectAsState()
         var showQr by remember { mutableStateOf(false) }
         AlertDialog(
@@ -802,7 +858,8 @@ fun ConversationScreen(
         val currentTimer = conversation?.disappearTimerSeconds ?: 0
         AlertDialog(
             onDismissRequest = { showDisappearDialog = false },
-            title = { Text("Disappearing messages") },            text = {
+            title = { Text("Disappearing messages") },
+            text = {
                 Column {
                     Text(
                         "Messages that disappear after a set time. Current: ${DisappearTimerPresets.formatDuration(currentTimer)}",
@@ -951,13 +1008,15 @@ fun ConversationScreen(
     }
 }
 
-
-
 @Composable
 private fun ReplyPreview(message: String, onDismiss: () -> Unit) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(EnchantRadii.card),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = EnchantSpacing.sm, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.padding(8.dp),
@@ -967,620 +1026,25 @@ private fun ReplyPreview(message: String, onDismiss: () -> Unit) {
                 modifier = Modifier
                     .width(3.dp)
                     .height(32.dp)
+                    .clip(RoundedCornerShape(2.dp))
                     .background(MaterialTheme.colorScheme.primary)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Reply", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Reply",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Text(message.take(80), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
-IconButton(
+            IconButton(
                 onClick = onDismiss,
                 modifier = Modifier.semantics { this.contentDescription = "Dismiss reply" }
             ) {
                 Icon(Icons.Default.Close, "Dismiss reply")
             }
-        }
-    }
-}
-
-@Composable
-private fun ComposerBar(
-    text: String,
-    onTextChange: (String) -> Unit,
-    onSend: () -> Unit,
-    onAttach: () -> Unit,
-    onEmoji: () -> Unit,
-    onSticker: () -> Unit = {},
-    onPoll: () -> Unit = {},
-    viewOnceMode: Boolean = false,
-    onViewOnceToggle: () -> Unit = {},
-    onVoiceStart: () -> Unit,
-    onVoiceStop: () -> Unit
-) {
-    // WhatsApp/Signal composer: [attach] [field] [emoji] [send] — the layout
-    // never changes, nothing appears or disappears while typing.
-    Surface(
-        tonalElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-                .navigationBarsPadding(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onAttach,
-                modifier = Modifier.semantics { this.contentDescription = "Attach file" }
-            ) {
-                Icon(Icons.Default.AttachFile, "Attach")
-            }
-
-            if (onPoll != {}) {
-                IconButton(
-                    onClick = onPoll,
-                    modifier = Modifier.semantics { this.contentDescription = "Create poll" }
-                ) {
-                    Text("📊", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Message") },
-                maxLines = 5,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Send,
-                    autoCorrectEnabled = false
-                ),
-                keyboardActions = KeyboardActions(onSend = { onSend() }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-
-            IconButton(
-                onClick = onEmoji,
-                modifier = Modifier.semantics { this.contentDescription = "Open emoji picker" }
-            ) {
-                Icon(Icons.Default.EmojiEmotions, "Emoji")
-            }
-
-            IconButton(
-                onClick = onSend,
-                enabled = text.isNotBlank(),
-                modifier = Modifier.semantics { this.contentDescription = "Send message" }
-            ) {
-                Icon(
-                    Icons.Default.Send,
-                    "Send",
-                    tint = if (text.isNotBlank()) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun MessageBubble(
-    message: Message,
-    isOutgoing: Boolean,
-    senderName: String? = null,
-    onReply: (String) -> Unit,
-    onDelete: (String) -> Unit,
-    onDeleteEveryone: (String) -> Unit,
-    onEdit: (String) -> Unit,
-    onForward: (String) -> Unit,
-    onCopy: (String) -> Unit,
-    onReact: (String) -> Unit,
-    onReport: (String) -> Unit = {},
-    onTranslate: (String) -> Unit = {},
-    onStar: (Long) -> Unit = {},
-    onPin: (Long) -> Unit = {},
-    onInfo: (Message) -> Unit = {},
-    onViewOnceViewed: (String) -> Unit = {}
-) {
-    var showMenu by remember { mutableStateOf(false) }
-    val bubbleScope = rememberCoroutineScope()
-    val bubbleColor = if (isOutgoing) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceVariant
-    val alignment = if (isOutgoing) Arrangement.End else Arrangement.Start
-    var viewOnceRevealed by remember { mutableStateOf(false) }
-    var viewOnceCountdown by remember { mutableIntStateOf(0) }
-
-    val showSenderMeta = !isOutgoing && senderName != null
-
-    // View-once: after the reveal, count down and expire the message
-    // (the processor deletes the media + marks it gone).
-    LaunchedEffect(viewOnceCountdown) {
-        if (viewOnceCountdown > 0) {
-            delay(1000)
-            viewOnceCountdown--
-        }
-    }
-    if (viewOnceRevealed && viewOnceCountdown <= 0 && message.isViewOnce) {
-        viewOnceRevealed = false
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-        horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start
-    ) {
-        if (showSenderMeta) {
-            // WhatsApp-style: avatar + sender name above the incoming bubble.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    modifier = Modifier.size(24.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            senderName.take(1).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    senderName,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-            }
-        }
-        Surface(
-            // Signal bubble: 18dp radius, only the tail corner (bottom,
-            // sender side) is tight at 4dp.
-            shape = if (isOutgoing) {
-                RoundedCornerShape(
-                    topStart = 18.dp, topEnd = 18.dp,
-                    bottomStart = 18.dp, bottomEnd = 4.dp
-                )
-            } else {
-                RoundedCornerShape(
-                    topStart = 18.dp, topEnd = 18.dp,
-                    bottomStart = 4.dp, bottomEnd = 18.dp
-                )
-            },
-            color = bubbleColor,
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                .combinedClickable(
-                    onClick = { },
-                    onLongClick = { showMenu = true }
-                )
-        ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                    if (message.isDeleted) {
-                        Text(
-                            "This message was deleted",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                        )
-                    } else if (message.mediaMimeType != null) {
-                        val mimeType = message.mediaMimeType
-                        val mid = message.mediaId
-                        val mkey = message.mediaKey
-                        if (mimeType != null && mimeType.startsWith("audio/")) {
-                            VoiceMessageContent(
-                                mediaMimeType = mimeType,
-                                mediaSize = message.mediaSize,
-                                content = message.content,
-                                mediaId = message.mediaId,
-                                mediaKey = message.mediaKey
-                            )
-                        } else if (mimeType != null && mimeType.startsWith("image/") &&
-                            mid != null && mkey != null && message.isViewOnce && !viewOnceRevealed
-                        ) {
-                            // View-once: hidden until tapped, then revealed,
-                            // counted down and deleted (Signal behavior).
-                            Surface(
-                                modifier = Modifier
-                                    .width(200.dp)
-                                    .height(140.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        viewOnceRevealed = true
-                                        onViewOnceViewed(message.envelopeId ?: "")
-                                        viewOnceCountdown = 5
-                                    },
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.VisibilityOff,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.tertiary
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text("Tap to view", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        } else if (mimeType != null && mimeType.startsWith("image/") &&
-                            mid != null && mkey != null
-                        ) {
-                            EncryptedImageContent(
-                                mediaId = mid,
-                                mediaKey = mkey,
-                                mimeType = mimeType,
-                                fileName = message.content.removePrefix("📎 ")
-                            )
-                        } else {
-                            Text(
-                                "📎 ${message.mediaMimeType}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            val size = message.mediaSize
-                            if (size != null) {
-                                Text(
-                                    formatFileSize(size),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                } else {
-                    val content = message.content
-                    if (content.startsWith("POLL_ID:")) {
-                        val pollId = content.removePrefix("POLL_ID:")
-                        val pollVm: org.enchant.polls.PollViewModel = viewModel()
-                        val pollState by pollVm.uiState.collectAsState()
-                        LaunchedEffect(pollId) { pollVm.loadPoll(pollId) }
-                        val poll = pollState.currentPoll
-                        if (poll != null && poll.pollId == pollId) {
-                            org.enchant.polls.PollBubble(
-                                poll = poll,
-                                onVote = { optionIds ->
-                                    bubbleScope.launch { pollVm.vote(pollId, optionIds) }
-                                },
-                                isVoting = pollState.isSubmitting,
-                                isCreator = false
-                            )
-                        } else {
-                            Text(
-                                "📊 Poll",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    } else {
-                        val urlPattern = Regex("https?://[^\\s]+")
-                        val urls = urlPattern.findAll(content).map { it.value }.toList()
-                        Text(
-                            text = content,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        if (urls.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            LinkPreviewCard(url = urls.first())
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        formatTime(message.timestamp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    val disappearAt = message.disappearAt
-                    if (disappearAt != null && disappearAt > 0) {
-                        val remaining = DisappearTimerPresets.formatTimeRemaining(disappearAt)
-                        if (remaining != "Expired") {
-                            Icon(
-                                Icons.Default.Timer,
-                                contentDescription = "Disappears in $remaining",
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.tertiary
-                            )
-                            Text(
-                                remaining,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-                    }
-
-                    if (message.isEdited) {
-                        Text(
-                            "edited",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    if (message.isViewOnce) {
-                        Icon(
-                            Icons.Default.VisibilityOff,
-                            contentDescription = "View once",
-                            modifier = Modifier.size(12.dp),
-                            tint = MaterialTheme.colorScheme.tertiary
-                        )
-                        Text(
-                            "View once",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-
-                    if (isOutgoing) {
-                        Icon(
-                            imageVector = when (message.status) {
-                                MessageStatus.SENDING -> Icons.Default.AccessTime
-                                MessageStatus.SENT -> Icons.Default.Check
-                                MessageStatus.DELIVERED -> Icons.Default.DoneAll
-                                MessageStatus.READ -> Icons.Default.DoneAll
-                                else -> Icons.Default.AccessTime
-                            },
-                            contentDescription = message.status.name,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (message.status == MessageStatus.READ) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                if (message.reactions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        message.reactions.groupBy { it.emoji }.entries.forEach { (emoji, reactors) ->
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                modifier = Modifier.height(24.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(emoji, style = MaterialTheme.typography.labelSmall)
-                                    if (reactors.size > 1) {
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text(
-                                            reactors.size.toString(),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE0E", "\uD83D\uDE22", "\uD83D\uDE4F")
-                    .forEach { emoji ->
-                        Text(
-                            text = emoji,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .clickable { onReact(emoji); showMenu = false }
-                                .padding(8.dp)
-                        )
-                    }
-            }
-            HorizontalDivider()
-            DropdownMenuItem(text = { Text("Copy") }, onClick = { onCopy(message.envelopeId ?: ""); showMenu = false })
-            DropdownMenuItem(text = { Text("Reply") }, onClick = { onReply(message.envelopeId ?: ""); showMenu = false })
-            if (isOutgoing) {
-                DropdownMenuItem(text = { Text("Edit") }, onClick = { onEdit(message.envelopeId ?: ""); showMenu = false })
-            }
-            DropdownMenuItem(text = { Text("Info") }, onClick = { onInfo(message); showMenu = false })
-            DropdownMenuItem(text = { Text("Forward") }, onClick = { onForward(message.envelopeId ?: ""); showMenu = false })
-            DropdownMenuItem(
-                text = { Text(if (message.isStarred) "Unstar" else "Star") },
-                onClick = { onStar(message.localId); showMenu = false },
-                leadingIcon = { Icon(if (message.isStarred) Icons.Default.Star else Icons.Default.StarBorder, null) }
-            )
-            DropdownMenuItem(
-                text = { Text("Pin") },
-                onClick = { onPin(message.localId); showMenu = false },
-                leadingIcon = { Icon(Icons.Default.PushPin, null) }
-            )
-            if (isOutgoing) {
-                DropdownMenuItem(text = { Text("Delete for everyone") }, onClick = { onDeleteEveryone(message.envelopeId ?: ""); showMenu = false })
-            }
-            DropdownMenuItem(text = { Text("Report") }, onClick = { onReport(message.envelopeId ?: ""); showMenu = false })
-            DropdownMenuItem(text = { Text("Translate") }, onClick = { onTranslate(message.envelopeId ?: ""); showMenu = false })
-            DropdownMenuItem(text = { Text("Delete") }, onClick = { onDelete(message.envelopeId ?: ""); showMenu = false })
-        }
-    }
-}
-
-@Composable
-private fun AttachmentSheet(
-    onDismiss: () -> Unit,
-    onGallery: () -> Unit,
-    onCamera: () -> Unit,
-    onDocument: () -> Unit,
-    onLocation: () -> Unit,
-    onContact: () -> Unit = {}
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Attach") },
-        text = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                AttachmentButton(Icons.Default.Photo, "Gallery", onGallery)
-                AttachmentButton(Icons.Default.CameraAlt, "Camera", onCamera)
-                AttachmentButton(Icons.Default.Description, "Document", onDocument)
-                AttachmentButton(Icons.Default.LocationOn, "Location", onLocation)
-                AttachmentButton(Icons.Default.Person, "Contact", onContact)
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-@Composable
-private fun AttachmentButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        IconButton(onClick = onClick) {
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                Icon(icon, label, modifier = Modifier.padding(12.dp))
-            }
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall)
-    }
-}
-
-/** Fetches + decrypts a media blob and renders the image in the bubble;
- *  tap opens the fullscreen viewer (Signal behavior). */
-@Composable
-private fun EncryptedImageContent(
-    mediaId: String,
-    mediaKey: String,
-    mimeType: String,
-    fileName: String
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var mediaPath by remember(mediaId) { mutableStateOf<String?>(null) }
-    var failed by remember(mediaId) { mutableStateOf(false) }
-    var showViewer by remember { mutableStateOf(false) }
-
-    LaunchedEffect(mediaId) {
-        val key = runCatching { org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(mediaKey) }.getOrNull()
-        if (key == null || key.size != 32) { failed = true; return@LaunchedEffect }
-        org.enchant.chat.data.MediaService.downloadAndDecryptMedia(mediaId, key)
-            .onSuccess { file -> mediaPath = file.absolutePath }
-            .onFailure { failed = true }
-    }
-
-    if (mediaPath != null) {
-        val path = mediaPath!!
-        Box(
-            modifier = Modifier
-                .widthIn(max = 240.dp)
-                .clickable { showViewer = true }
-        ) {
-            androidx.compose.foundation.Image(
-                bitmap = remember(path) { android.graphics.BitmapFactory.decodeFile(path) }
-                    ?.asImageBitmap() ?: return@Box,
-                contentDescription = fileName,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 240.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Fit
-            )
-        }
-        if (showViewer) {
-            MediaViewerScreen(mediaPath = path, mimeType = mimeType, onDismiss = { showViewer = false })
-        }
-    } else if (failed) {
-        Text(
-            "📎 $fileName (unavailable)",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    } else {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("📎 $fileName", style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-/** Fetches the server-generated preview for a URL and renders the card
- *  (title + description + image, tap opens the link). */
-@Composable
-private fun LinkPreviewCard(url: String) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var preview by remember(url) { mutableStateOf<org.enchant.chat.data.LinkPreview?>(null) }
-
-    LaunchedEffect(url) {
-        preview = org.enchant.chat.data.ContentPreProcessor.generateLinkPreview(url)
-    }
-
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                runCatching {
-                    val intent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(url)
-                    )
-                    context.startActivity(intent)
-                }
-            }
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            preview?.let { p ->
-                if (p.title != null) {
-                    Text(
-                        p.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (p.description != null) {
-                    Text(
-                        p.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-            Text(
-                url,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }
@@ -1617,56 +1081,6 @@ private fun generateQrBitmap(content: String, size: Int): android.graphics.Bitma
     }
 }
 
-private fun formatFileSize(bytes: Long): String {
-    return when {
-        bytes < 1024 -> "$bytes B"
-        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-        else -> "${"%.1f".format(bytes.toDouble() / (1024 * 1024))} MB"
-    }
-}
-
-@Composable
-private fun TypingDots() {
-    val transition = rememberInfiniteTransition(label = "typing")
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        repeat(3) { i ->
-            val alpha by transition.animateFloat(
-                initialValue = 0.25f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600, delayMillis = i * 200),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "dot$i"
-            )
-            Box(
-                modifier = Modifier
-                    .padding(end = 3.dp)
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
-            )
-        }
-    }
-}
-
-@Composable
-private fun DaySeparator(timestamp: Long) {
-    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-        Surface(
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
-        ) {
-            Text(
-                formatDayLabel(timestamp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-            )
-        }
-    }
-}
-
 private fun formatDayKey(timestamp: Long): String {
     val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
     return "${cal.get(java.util.Calendar.YEAR)}-${cal.get(java.util.Calendar.DAY_OF_YEAR)}"
@@ -1682,134 +1096,8 @@ private fun formatDayLabel(timestamp: Long): String {
     }
 }
 
-private fun formatTime(timestamp: Long): String {
-    val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-    val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
-    val min = cal.get(java.util.Calendar.MINUTE)
-    return "${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}"
-}
-
 private fun createTempFile(context: android.content.Context, prefix: String, suffix: String): File {
     val dir = File(context.cacheDir, "media_temp")
     dir.mkdirs()
     return File.createTempFile(prefix, suffix, dir)
-}
-
-@Composable
-private fun VoiceMessageContent(
-    mediaMimeType: String,
-    mediaSize: Long?,
-    content: String,
-    mediaId: String?,
-    mediaKey: String?
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var isPlaying by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
-    var durationMs by remember { mutableIntStateOf(0) }
-    var failed by remember { mutableStateOf(false) }
-    var player: android.media.MediaPlayer? by remember { mutableStateOf(null) }
-    var mediaPath by remember(mediaId) { mutableStateOf<String?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            player?.release()
-            player = null
-        }
-    }
-
-    fun loadAndPlay() {
-        if (mediaPath != null) {
-            val p = player ?: android.media.MediaPlayer().apply {
-                setOnPreparedListener {
-                    durationMs = it.duration
-                    it.start()
-                    isPlaying = true
-                }
-                setOnCompletionListener {
-                    isPlaying = false
-                    progress = 0f
-                }
-            }
-            player = p
-            if (isPlaying) {
-                p.pause()
-                isPlaying = false
-            } else {
-                runCatching { p.reset() }
-                runCatching {
-                    p.setDataSource(mediaPath!!)
-                    p.prepareAsync()
-                }
-            }
-            return
-        }
-        val key = mediaKey?.let { runCatching { org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(it) }.getOrNull() }
-        val id = mediaId
-        if (id == null || key == null || key.size != 32) { failed = true; return }
-        scope.launch {
-            org.enchant.chat.data.MediaService.downloadAndDecryptMedia(id, key)
-                .onSuccess { file ->
-                    mediaPath = file.absolutePath
-                    loadAndPlay()
-                }
-                .onFailure { failed = true }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(500)
-            player?.let { p ->
-                if (p.isPlaying && p.duration > 0) {
-                    progress = p.currentPosition.toFloat() / p.duration
-                }
-            }
-        }
-    }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            IconButton(onClick = { loadAndPlay() }) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(4.dp)
-                    .clip(MaterialTheme.shapes.small),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                if (failed) "unavailable" else formatDuration(durationMs),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (mediaSize != null) {
-            Text(
-                formatFileSize(mediaSize),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-private fun formatDuration(durationMs: Int): String {
-    val totalSec = durationMs / 1000
-    val m = totalSec / 60
-    val s = totalSec % 60
-    return "$m:${s.toString().padStart(2, '0')}"
 }
