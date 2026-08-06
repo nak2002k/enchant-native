@@ -16,7 +16,7 @@ import org.enchant.core.network.ApiClient
  */
 object KeyTransparencyVerifier {
 
-    data class TreeHead(val treeSize: Long, val rootHash: ByteArray)
+    data class TreeHead(val treeSize: Long, val rootHash: ByteArray, val signature: ByteArray? = null)
     data class InclusionProof(val leafIndex: Long, val leaf: ByteArray, val siblings: List<ByteArray>)
 
     /** Leaf = SHA256(user_id(36) || device_id(36) || identity_key(32) || op(1)) */
@@ -46,13 +46,49 @@ object KeyTransparencyVerifier {
         return node
     }
 
+    private fun hexToBytes(hex: String): ByteArray? =
+        if (hex.length % 2 == 0) runCatching {
+            ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
+        }.getOrNull() else null
+
     suspend fun fetchLatestTreeHead(client: ApiClient): Result<TreeHead> = withContext(Dispatchers.Default) {
         runCatching {
             val json = client.get("/v1/keys/sth/latest").getOrThrow()
             val size = json["tree_size"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
-            val rootB64 = json["root_hash"]?.jsonPrimitive?.content ?: ""
-            TreeHead(size, CryptoPrimitives.base64UrlDecode(rootB64))
+            val rootHex = json["root_hash"]?.jsonPrimitive?.content ?: ""
+            val sigHex = json["signature"]?.jsonPrimitive?.content
+            TreeHead(size, hexToBytes(rootHex) ?: ByteArray(0),
+                sigHex?.let { hexToBytes(it) })
         }
+    }
+
+    @Volatile
+    private var pinnedTreeHeadPublicKey: ByteArray? = null
+
+    /** Trust-on-first-use pin of the IKS tree-head signing key. */
+    suspend fun getTreeHeadPublicKey(client: ApiClient): ByteArray? {
+        pinnedTreeHeadPublicKey?.let { return it }
+        val json = runCatching { client.get("/v1/keys/sth/public-key").getOrThrow() }.getOrNull()
+            ?: return null
+        val hex = json["public_key"]?.jsonPrimitive?.content ?: return null
+        val key = runCatching {
+            ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
+        }.getOrNull() ?: return null
+        if (key.size == 32) pinnedTreeHeadPublicKey = key
+        return key
+    }
+
+    /**
+     * Verifies the signed tree head: the root hash must carry the server's
+     * Ed25519 signature under the pinned KT key, proving the server really
+     * produced it (and that no MITM swapped the tree).
+     */
+    suspend fun verifyTreeHeadSignature(client: ApiClient, head: TreeHead): Boolean {
+        if (head.signature == null || head.rootHash.isEmpty()) return false
+        val publicKey = getTreeHeadPublicKey(client) ?: return false
+        val ok = CryptoPrimitives.verifyEd25519(head.rootHash, head.signature, publicKey)
+        android.util.Log.w("KT", "STH verify: root=${head.rootHash.size}b sig=${head.signature.size}b pk=${publicKey.size}b ok=$ok")
+        return ok
     }
 
     suspend fun fetchInclusionProof(
@@ -96,12 +132,13 @@ object KeyTransparencyVerifier {
     }
 
     /**
-     * Audit-style: recompute the server root from ALL returned proofs and
-     * check it equals the signed head (catches server tampering too).
+     * Full audit: the signed tree head must carry a valid server signature,
+     * and every inclusion proof must climb to that root.
      */
     suspend fun verifyServerConsistency(client: ApiClient, userId: String, deviceId: String): Boolean {
         val head = fetchLatestTreeHead(client).getOrNull() ?: return false
         if (head.treeSize == 0L || head.rootHash.isEmpty()) return false
+        if (!verifyTreeHeadSignature(client, head)) return false
         val proofs = fetchInclusionProof(client, userId, deviceId).getOrNull() ?: return false
         if (proofs.isEmpty()) return false
         return proofs.all { computeRootFromProof(it).contentEquals(head.rootHash) }

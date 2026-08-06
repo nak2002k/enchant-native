@@ -157,6 +157,8 @@ class AgentDebugServer(
                 )
             root == "keys" && method == Method.GET && segments.getOrNull(1) == "bundle" && segments.size == 3 ->
                 bridge.keyBundle(segments[2])
+            root == "kt" && method == Method.GET && segments.getOrNull(1) == "sth" && segments.size == 3 ->
+                bridge.ktTreeHeadPublicKey()
             root == "kt" && method == Method.GET && segments.getOrNull(1) == "sth" ->
                 bridge.ktTreeHead()
             root == "kt" && method == Method.GET && segments.getOrNull(1) == "verify" && segments.size == 3 ->
@@ -244,6 +246,8 @@ class AgentDebugServer(
                 bridge.denyCall()
             root == "keys" && method == Method.GET && segments.getOrNull(1) == "bundle" && segments.size == 3 ->
                 bridge.keyBundle(segments[2])
+            root == "kt" && method == Method.GET && segments.getOrNull(1) == "sth" && segments.size == 3 ->
+                bridge.ktTreeHeadPublicKey()
             root == "kt" && method == Method.GET && segments.getOrNull(1) == "sth" ->
                 bridge.ktTreeHead()
             root == "kt" && method == Method.GET && segments.getOrNull(1) == "verify" && segments.size == 3 ->

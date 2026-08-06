@@ -98,6 +98,7 @@ interface AgentAppBridge {
     suspend fun groupCredentialPresent(groupId: String): JsonObject
     suspend fun verifyGroupCredential(groupId: String, presentation: String): JsonObject
     suspend fun keyBundle(userId: String): JsonObject
+    suspend fun ktTreeHeadPublicKey(): JsonObject
     suspend fun ktTreeHead(): JsonObject
     suspend fun ktVerifyIdentity(userId: String, deviceId: String): JsonObject
     suspend fun discoverChannels(): JsonObject

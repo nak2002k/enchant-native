@@ -1003,14 +1003,25 @@ class EnchantAgentBridge : AgentAppBridge {
         return ok(json)
     }
 
+    override suspend fun ktTreeHeadPublicKey(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val json = runCatching { DI.apiClient.get("/v1/keys/sth/public-key").getOrThrow() }.getOrNull()
+            ?: return err("public key fetch failed")
+        return ok(json)
+    }
+
     override suspend fun ktTreeHead(): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val result = org.enchant.core.crypto.KeyTransparencyVerifier.fetchLatestTreeHead(DI.apiClient)
         return result.fold(
             onSuccess = { head ->
+                val sigOk = kotlinx.coroutines.runBlocking {
+                    org.enchant.core.crypto.KeyTransparencyVerifier.verifyTreeHeadSignature(DI.apiClient, head)
+                }
                 ok(buildJsonObject {
                     put("tree_size", head.treeSize)
                     put("root_hash", org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(head.rootHash))
+                    put("signature_valid", sigOk)
                 })
             },
             onFailure = { err(it.message ?: "sth failed") }

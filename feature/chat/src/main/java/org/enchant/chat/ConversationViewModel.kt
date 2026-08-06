@@ -101,8 +101,15 @@ class ConversationViewModel(
                         client, peerId, peerKey
                     )
                 }.getOrDefault(false)
+                val sthValid = runCatching {
+                    val head = org.enchant.core.crypto.KeyTransparencyVerifier.fetchLatestTreeHead(client).getOrNull()
+                    if (head != null) {
+                        org.enchant.core.crypto.KeyTransparencyVerifier.verifyTreeHeadSignature(client, head)
+                    } else false
+                }.getOrDefault(false)
                 _ktStatus.value = when {
-                    audited -> "Confirmed by the key transparency log"
+                    audited && sthValid -> "Confirmed by the signed transparency log"
+                    audited -> "In log but tree head signature unverified"
                     else -> "Could not confirm via key transparency"
                 }
             } else {
