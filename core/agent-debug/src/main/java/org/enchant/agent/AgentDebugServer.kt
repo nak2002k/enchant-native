@@ -220,6 +220,12 @@ class AgentDebugServer(
                 bridge.acceptCall()
             root == "calls" && method == Method.POST && segments.getOrNull(1) == "deny" ->
                 bridge.denyCall()
+            root == "contacts" && method == Method.GET && segments.size == 1 ->
+                bridge.listContacts()
+            root == "contacts" && method == Method.POST && segments.getOrNull(1) == "sync" ->
+                bridge.syncDeviceContacts()
+            root == "contacts" && method == Method.POST && segments.getOrNull(1) == "discover" ->
+                bridge.discoverContacts(body.stringList("phone_numbers") ?: emptyList())
             root == "polls" && method == Method.POST && segments.size == 1 ->
                 bridge.createPoll(
                     conversationId = body.string("conversation_id"),

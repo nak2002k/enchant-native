@@ -955,6 +955,53 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun syncDeviceContacts(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val ctx = AppConfig.applicationContext ?: return err("no context")
+        val service = org.enchant.contacts.ContactSyncService(DI.apiClient, ctx.contentResolver)
+        val result = service.syncContacts()
+        return result.fold(
+            onSuccess = { matched ->
+                ok(buildJsonObject {
+                    put("matched", matched.size)
+                    put("contacts", buildJsonArray {
+                        matched.forEach { m ->
+                            add(buildJsonObject {
+                                put("user_id", m.userId)
+                                put("display_name", m.displayName ?: "")
+                                put("username", m.username ?: "")
+                            })
+                        }
+                    })
+                })
+            },
+            onFailure = { err(it.message ?: "sync failed") }
+        )
+    }
+
+    override suspend fun discoverContacts(phoneNumbers: List<String>): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val discovery = org.enchant.contacts.ContactDiscovery(DI.apiClient)
+        val result = discovery.discoverContacts(phoneNumbers)
+        return result.fold(
+            onSuccess = { found ->
+                ok(buildJsonObject {
+                    put("found", found.size)
+                    put("contacts", buildJsonArray {
+                        found.forEach { c ->
+                            add(buildJsonObject {
+                                put("user_id", c.userId ?: "")
+                                put("display_name", c.displayName ?: "")
+                                put("is_registered", c.isRegistered)
+                            })
+                        }
+                    })
+                })
+            },
+            onFailure = { err(it.message ?: "discover failed") }
+        )
+    }
+
     override suspend fun createPoll(
         conversationId: String, question: String, optionTexts: List<String>
     ): JsonObject {
