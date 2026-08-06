@@ -219,6 +219,10 @@ class AgentDebugServer(
                 bridge.acceptCall()
             root == "calls" && method == Method.POST && segments.getOrNull(1) == "deny" ->
                 bridge.denyCall()
+            root == "blocks" && method == Method.POST && segments.size == 2 ->
+                bridge.blockUser(segments[1])
+            root == "blocks" && method == Method.DELETE && segments.size == 2 ->
+                bridge.unblockUser(segments[1])
             root == "calls" && method == Method.POST && segments.getOrNull(1) == "hangup" ->
                 bridge.hangupCall()
             root == "calls" && method == Method.GET && segments.getOrNull(1) == "log" ->

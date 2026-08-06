@@ -955,6 +955,24 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun blockUser(userId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val result = DI.apiClient.post("/v1/blocks/$userId", kotlinx.serialization.json.buildJsonObject { })
+        return result.fold(
+            onSuccess = { ok(buildJsonObject { put("blocked", userId) }) },
+            onFailure = { err(it.message ?: "block failed") }
+        )
+    }
+
+    override suspend fun unblockUser(userId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val result = DI.apiClient.del("/v1/blocks/$userId")
+        return result.fold(
+            onSuccess = { ok(buildJsonObject { put("unblocked", userId) }) },
+            onFailure = { err(it.message ?: "unblock failed") }
+        )
+    }
+
     override suspend fun getCallManagerStatus(): JsonObject {
         val managerOk = runCatching { org.enchant.core.calls.CallsModule.getCallManager() }.isSuccess
         return ok(buildJsonObject {

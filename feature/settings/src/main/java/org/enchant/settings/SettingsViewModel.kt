@@ -452,6 +452,23 @@ class SettingsViewModel(
 
     // ─── Blocked Users ───
 
+    fun blockUser(userId: String) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.Default) {
+                apiClient.post("/v1/blocks/$userId", kotlinx.serialization.json.buildJsonObject { })
+            }
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        blockedUsers = _uiState.value.blockedUsers + userId,
+                        successMessage = "User blocked"
+                    )
+                },
+                onFailure = { _uiState.value = _uiState.value.copy(error = it.message) }
+            )
+        }
+    }
+
     fun unblockUser(userId: String) {
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
