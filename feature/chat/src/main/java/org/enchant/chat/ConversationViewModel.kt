@@ -77,6 +77,9 @@ class ConversationViewModel(
     private val _isPeerVerified = MutableStateFlow(false)
     val isPeerVerified: StateFlow<Boolean> = _isPeerVerified.asStateFlow()
 
+    private val _ktStatus = MutableStateFlow<String?>(null)
+    val ktStatus: StateFlow<String?> = _ktStatus.asStateFlow()
+
     fun loadSafetyNumber() {
         viewModelScope.launch {
             val peerId = recipientUserId
@@ -89,6 +92,22 @@ class ConversationViewModel(
                 }.getOrDefault(0)
                 status > 0
             } ?: false
+            // Key transparency audit of the peer's key.
+            val client = apiClient
+            val peerKey = org.enchant.core.crypto.NativeSessionManager.getIdentityKey(peerId)
+            if (client != null && peerKey != null) {
+                val audited = runCatching {
+                    org.enchant.core.crypto.KeyTransparencyVerifier.verifyIdentityViaBundle(
+                        client, peerId, peerKey
+                    )
+                }.getOrDefault(false)
+                _ktStatus.value = when {
+                    audited -> "Confirmed by the key transparency log"
+                    else -> "Could not confirm via key transparency"
+                }
+            } else {
+                _ktStatus.value = null
+            }
         }
     }
 

@@ -955,6 +955,48 @@ class EnchantAgentBridge : AgentAppBridge {
         })
     }
 
+    override suspend fun keyBundle(userId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val json = runCatching { DI.apiClient.get("/v1/keys/bundle/$userId").getOrThrow() }.getOrNull()
+            ?: return err("bundle fetch failed")
+        return ok(json)
+    }
+
+    override suspend fun ktTreeHead(): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val result = org.enchant.core.crypto.KeyTransparencyVerifier.fetchLatestTreeHead(DI.apiClient)
+        return result.fold(
+            onSuccess = { head ->
+                ok(buildJsonObject {
+                    put("tree_size", head.treeSize)
+                    put("root_hash", org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(head.rootHash))
+                })
+            },
+            onFailure = { err(it.message ?: "sth failed") }
+        )
+    }
+
+    override suspend fun ktVerifyIdentity(userId: String, deviceId: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val key = org.enchant.core.crypto.NativeSessionManager.getIdentityKey(userId)
+            ?: return err("no identity key for $userId")
+        val bundleOk = org.enchant.core.crypto.KeyTransparencyVerifier.verifyIdentityViaBundle(
+            DI.apiClient, userId, key
+        )
+        val actualDevice = if (deviceId.isBlank()) {
+            org.enchant.core.crypto.NativeSessionManager.getPeerDeviceId(userId) ?: ""
+        } else deviceId
+        val consistent = org.enchant.core.crypto.KeyTransparencyVerifier.verifyServerConsistency(
+            DI.apiClient, userId, actualDevice
+        )
+        return ok(buildJsonObject {
+            put("verified", bundleOk)
+            put("bundle_matches", bundleOk)
+            put("server_consistent", consistent)
+            put("user_id", userId)
+        })
+    }
+
     override suspend fun discoverChannels(): JsonObject {
         if (!DI.isInitialized) return err("DI not initialized")
         val vm = org.enchant.channels.ChannelViewModel(DI.apiClient)

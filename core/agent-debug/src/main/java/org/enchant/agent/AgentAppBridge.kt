@@ -94,6 +94,9 @@ interface AgentAppBridge {
     suspend fun acceptCall(): JsonObject
     suspend fun denyCall(): JsonObject
     suspend fun hangupCall(): JsonObject
+    suspend fun keyBundle(userId: String): JsonObject
+    suspend fun ktTreeHead(): JsonObject
+    suspend fun ktVerifyIdentity(userId: String, deviceId: String): JsonObject
     suspend fun discoverChannels(): JsonObject
     suspend fun createChannel(name: String, description: String?): JsonObject
     suspend fun subscribeChannel(channelId: String): JsonObject

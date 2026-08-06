@@ -155,6 +155,12 @@ class AgentDebugServer(
                     packId = body.string("pack_id"),
                     stickerId = body.string("sticker_id")
                 )
+            root == "keys" && method == Method.GET && segments.getOrNull(1) == "bundle" && segments.size == 3 ->
+                bridge.keyBundle(segments[2])
+            root == "kt" && method == Method.GET && segments.getOrNull(1) == "sth" ->
+                bridge.ktTreeHead()
+            root == "kt" && method == Method.GET && segments.getOrNull(1) == "verify" && segments.size == 3 ->
+                bridge.ktVerifyIdentity(segments[2], "")
             root == "channels" && method == Method.GET && segments.getOrNull(1) == "discover" ->
                 bridge.discoverChannels()
             root == "channels" && method == Method.POST && segments.size == 1 ->
@@ -228,6 +234,12 @@ class AgentDebugServer(
                 bridge.acceptCall()
             root == "calls" && method == Method.POST && segments.getOrNull(1) == "deny" ->
                 bridge.denyCall()
+            root == "keys" && method == Method.GET && segments.getOrNull(1) == "bundle" && segments.size == 3 ->
+                bridge.keyBundle(segments[2])
+            root == "kt" && method == Method.GET && segments.getOrNull(1) == "sth" ->
+                bridge.ktTreeHead()
+            root == "kt" && method == Method.GET && segments.getOrNull(1) == "verify" && segments.size == 3 ->
+                bridge.ktVerifyIdentity(segments[2], "")
             root == "channels" && method == Method.GET && segments.getOrNull(1) == "discover" ->
                 bridge.discoverChannels()
             root == "channels" && method == Method.POST && segments.size == 1 ->

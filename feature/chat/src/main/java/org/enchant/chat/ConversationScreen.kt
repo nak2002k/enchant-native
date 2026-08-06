@@ -707,6 +707,7 @@ fun ConversationScreen(
     if (showSafetyNumber) {
         val safetyNum by viewModel.safetyNumber.collectAsState()
         val peerVerified by viewModel.isPeerVerified.collectAsState()
+        val ktStatus by viewModel.ktStatus.collectAsState()
         AlertDialog(
             onDismissRequest = { showSafetyNumber = false },
             title = {
@@ -737,6 +738,18 @@ fun ConversationScreen(
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (ktStatus != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            ktStatus!!,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (ktStatus!!.contains("Confirmed")) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                        )
+                    }
                 }
             },
             confirmButton = {

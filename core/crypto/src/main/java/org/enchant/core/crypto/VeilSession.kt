@@ -30,6 +30,7 @@ class VeilSession private constructor(
     private val sessionLock = Mutex()
     private val TAG = "VeilSession"
     private val identityKeys = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
+    private val peerDeviceIds = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /**
      * Cleanup native resources. Call when the manager is no longer needed.
@@ -448,6 +449,12 @@ class VeilSession private constructor(
 
     fun getUserIdForIdentityKey(publicKey: ByteArray): String? =
         identityKeys.entries.firstOrNull { it.value.contentEquals(publicKey) }?.key
+
+    fun setPeerDeviceId(userId: String, deviceId: String) {
+        if (deviceId.isNotBlank()) peerDeviceIds[userId] = deviceId
+    }
+
+    fun getPeerDeviceId(userId: String): String? = peerDeviceIds[userId]
 
     fun setIdentityKey(userId: String, publicKey: ByteArray) {
         identityKeys[userId] = publicKey.copyOf()

@@ -807,22 +807,42 @@ object IncomingMessageProcessor {
                 }
                 val wrapperNonNull = wrapper ?: return@withContext ProcessResult.Error("Sealed content missing")
                 val senderUserId = wrapperNonNull.localAddress.uuid.toStringUtf8()
+                // Remember the sender's device id (needed for key-transparency
+                // leaf verification).
+                if (envelope.senderDeviceId?.isNotBlank() == true) {
+                    NativeSessionManager.setPeerDeviceId(senderUserId, envelope.senderDeviceId!!)
+                }
                 if (senderUserId.isEmpty()) {
                     return@withContext ProcessResult.Error("Missing sender identity in sealed payload")
                 }
 
                 val knownKey = NativeSessionManager.getIdentityKey(senderUserId)
                 if (knownKey != null && !knownKey.contentEquals(recoveredSenderKey)) {
-                    // The sender's identity key changed. Signal keeps the old
-                    // messages readable but surfaces the change; we adopt the
-                    // new key and mark the peer unverified so the user is
-                    // prompted to re-verify (safety number).
+                    // The sender's identity key changed. Verify the new key
+                    // against the key-transparency log; a failed audit marks
+                    // the peer unverified (Signal behavior).
                     android.util.Log.w("IncomingMsg", "Sealed sender re-keyed for $senderUserId; adopting new identity, resetting verification")
                     NativeSessionManager.setIdentityKey(senderUserId, recoveredSenderKey)
                     runCatching {
                         val pool = org.enchant.core.database.DatabasePool.instance
                         if (pool != null) {
                             org.enchant.core.database.dao.IdentityDao(pool).setVerified(senderUserId, 0)
+                        }
+                    }
+                    // Key transparency audit of the new key.
+                    val ktClient = apiClient
+                    if (ktClient != null) {
+                        val deviceId = envelope.senderDeviceId
+                            ?: org.enchant.core.crypto.NativeSessionManager.getPeerDeviceId(senderUserId)
+                            ?: ""
+                        val audited = runCatching {
+                            org.enchant.core.crypto.KeyTransparencyVerifier.verifyServerConsistency(
+                                ktClient, senderUserId, deviceId
+                            )
+                        }.getOrDefault(false)
+                        android.util.Log.w("IncomingMsg", "KT audit for $senderUserId: $audited")
+                        if (!audited) {
+                            org.enchant.core.base.SecurePreferences.putBoolean("kt_warning_$senderUserId", true)
                         }
                     }
                 }
