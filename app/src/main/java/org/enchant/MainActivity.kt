@@ -144,9 +144,14 @@ fun AppNavigation() {
     if (initFailed) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Initialization failed")
+                Text("Couldn't open your encrypted database")
                 Spacer(Modifier.height(8.dp))
-                Text("Check logs for details")
+                Text(
+                    "Your messages are safe and were NOT deleted.\n" +
+                    "This is often fixed by a retry after your device finishes restoring.\n" +
+                    "If it persists, restore from a backup.",
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = { initFailed = false }) {
                     Text("Retry")

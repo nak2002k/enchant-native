@@ -133,22 +133,15 @@ object DI {
                         }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.w("DI", "DatabasePool init failed: ${e.message}")
-                    try {
-                        context.deleteDatabase("enchant.db")
-                        java.io.File(context.getDatabasePath("enchant.db").path).delete()
-                        java.io.File(context.getDatabasePath("enchant.db").path + "-wal").delete()
-                        java.io.File(context.getDatabasePath("enchant.db").path + "-shm").delete()
-                        SecurePreferences.remove("db.passphrase")
-                        android.util.Log.w("DI", "Deleted corrupt DB, retrying...")
-                        pool = org.enchant.core.database.DatabasePool(context, dbPassphrase, emptyList()).also {
-                            _databasePool = it
-                            org.enchant.core.database.DatabasePool.instance = it
-                        }
-                    } catch (e2: Exception) {
-                        android.util.Log.w("DI", "DatabasePool retry also failed: ${e2.message}")
-                        null
-                    }
+                    // F-C3: NEVER auto-delete the encrypted DB on a Keystore /
+                    // passphrase failure. Doing so destroyed every message and
+                    // session irrecoverably on transient Keystore issues and
+                    // device restores. Instead, surface the failure so the user
+                    // can recover (re-import a backup, etc.). We deliberately do
+                    // not catch-and-continue: the app must not silently start
+                    // with an empty database.
+                    android.util.Log.e("DI", "DatabasePool init failed; NOT deleting DB", e)
+                    throw e
                 }
                 if (pool != null) {
                     _messageDao = MessageDao(pool)
