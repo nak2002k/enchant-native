@@ -532,21 +532,33 @@ class VeilSession private constructor(
         identityKeys[peerUserId] = keyBundle.identityKey
         val opk = keyBundle.oneTimePrekey ?: return@withLock false
 
-        val rc = EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
-            sessionManagerHandle,
-            peerUserId,
-            device,
-            keyBundle.identityKey,
-            keyBundle.signedPrekeyId,
-            keyBundle.signedPrekey.publicKey,
-            keyBundle.signedPrekey.signature,
-            keyBundle.signedPrekey.signature.size.toLong(),
-            keyBundle.oneTimePrekeyId,
-            opk,
-            1,
-            ourEphemeralPrivate,
-            ourEphemeralPrivate.size.toLong()
-        )
+        val edKey = keyBundle.ed25519IdentityKey
+        val rc = if (edKey != null && edKey.size == 32) {
+            EnchantCrypto.enchant_session_manager_establish_v2(
+                sessionManagerHandle, peerUserId, device,
+                keyBundle.identityKey, edKey,
+                keyBundle.signedPrekeyId,
+                keyBundle.signedPrekey.publicKey, keyBundle.signedPrekey.signature,
+                keyBundle.signedPrekey.signature.size.toLong(),
+                keyBundle.oneTimePrekeyId, opk, 1
+            )
+        } else {
+            EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
+                sessionManagerHandle,
+                peerUserId,
+                device,
+                keyBundle.identityKey,
+                keyBundle.signedPrekeyId,
+                keyBundle.signedPrekey.publicKey,
+                keyBundle.signedPrekey.signature,
+                keyBundle.signedPrekey.signature.size.toLong(),
+                keyBundle.oneTimePrekeyId,
+                opk,
+                1,
+                ourEphemeralPrivate,
+                ourEphemeralPrivate.size.toLong()
+            )
+        }
 
         if (rc == EnchantCrypto.SUCCESS) {
             EnchantCrypto.enchant_identity_store_save_identity(
@@ -590,21 +602,31 @@ class VeilSession private constructor(
             val irc = EnchantCrypto.enchant_identity_store_get_key_pair(identityStoreHandle, p, s)
             android.util.Log.w("VeilSession", "identity_store rc=$irc handle=$identityStoreHandle")
         }
-        val rc = EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
-            sessionManagerHandle,
-            peerUserId,
-            device,
-            ik,
-            keyBundle.signedPrekeyId,
-            spk,
-            sig,
-            sig.size.toLong(),
-            keyBundle.oneTimePrekeyId,
-            opk,
-            1,
-            null,
-            0L
-        )
+        val edKey = keyBundle.ed25519IdentityKey
+        val rc = if (edKey != null && edKey.size == 32) {
+            EnchantCrypto.enchant_session_manager_establish_v2(
+                sessionManagerHandle, peerUserId, device,
+                ik, edKey,
+                keyBundle.signedPrekeyId, spk, sig, sig.size.toLong(),
+                keyBundle.oneTimePrekeyId, opk, 1
+            )
+        } else {
+            EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
+                sessionManagerHandle,
+                peerUserId,
+                device,
+                ik,
+                keyBundle.signedPrekeyId,
+                spk,
+                sig,
+                sig.size.toLong(),
+                keyBundle.oneTimePrekeyId,
+                opk,
+                1,
+                null,
+                0L
+            )
+        }
         if (rc != EnchantCrypto.SUCCESS) {
             android.util.Log.w(
                 "VeilSession",

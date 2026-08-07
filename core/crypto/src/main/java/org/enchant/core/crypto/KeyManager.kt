@@ -32,6 +32,7 @@ object KeyManager {
     /** SecurePreferences keys for the persistent device identity key. */
     const val KEY_IDENTITY_KEY = "crypto.identity_key"
     const val KEY_SIGNED_PREKEY = "crypto.signed_prekey"
+    const val KEY_ED25519_IDENTITY_KEY = "crypto.ed25519_identity_key"
 
     private val mutex = Mutex()
     private var initialized = false
@@ -58,7 +59,8 @@ object KeyManager {
         // Defaults keep in-memory test fixtures source-compatible. Network
         // bundles require explicit ids before they are used for X3DH.
         val signedPrekeyId: Int = 1,
-        val oneTimePrekeyId: Int = 1
+        val oneTimePrekeyId: Int = 1,
+        val ed25519IdentityKey: ByteArray? = null
     )
 
     data class SignedPrekeyData(
@@ -225,8 +227,38 @@ object KeyManager {
             val pair = CryptoPrimitives.generateX25519KeyPair()
             identityKeyPair = pair
             persistIdentityKey(pair)
+            deriveAndPersistEd25519IdentityKey(pair)
         }
         return identityKeyPair!!
+    }
+
+    /**
+     * The signed prekey is signed with XEdDSA over (prekey_id || spk_public).
+     * The receiving side verifies that signature against the Ed25519 public
+     * derived from this X25519 identity seed, so we persist that derived key.
+     */
+    private fun deriveAndPersistEd25519IdentityKey(pair: CryptoPrimitives.KeyPair) {
+        try {
+            if (pair.privateKey.size != 32) return
+            val edPub = ByteArray(32)
+            val rc = EnchantCrypto.enchant_ed25519_pub_from_x25519(pair.privateKey, edPub)
+            if (rc == EnchantCrypto.SUCCESS) {
+                SecurePreferences.putString(
+                    KEY_ED25519_IDENTITY_KEY,
+                    CryptoPrimitives.base64UrlEncode(edPub)
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "deriveAndPersistEd25519IdentityKey failed", e)
+        }
+    }
+
+    /** Returns the persisted Ed25519 identity public (the SPK signing key). */
+    fun getEd25519IdentityPublic(): ByteArray? {
+        val stored = SecurePreferences.getString(KEY_ED25519_IDENTITY_KEY) ?: return null
+        return try {
+            CryptoPrimitives.base64UrlDecode(stored).takeIf { it.size == 32 }
+        } catch (_: Exception) { null }
     }
 
     private suspend fun ensureSignedPreKey(ik: CryptoPrimitives.KeyPair): SignedPreKeyRecord {
@@ -267,6 +299,9 @@ object KeyManager {
 
         val body = buildJsonObject {
             put("identity_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(ik.publicKey)))
+            getEd25519IdentityPublic()?.let {
+                put("ed25519_identity_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(it)))
+            }
             put("signed_prekey", buildJsonObject {
                 put("id", spk.id)
                 put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(spk.publicKey)))
@@ -423,7 +458,10 @@ object KeyManager {
                         ),
                         oneTimePrekey = opkBytes,
                         signedPrekeyId = spkId,
-                        oneTimePrekeyId = if (opkBytes != null && opkId != null) opkId else 0
+                        oneTimePrekeyId = if (opkBytes != null && opkId != null) opkId else 0,
+                        ed25519IdentityKey = device["ed25519_identity_key"]?.jsonPrimitive?.content
+                            ?.let { CryptoPrimitives.base64UrlDecode(it) }
+                            ?.takeIf { it.size == 32 }
                     )
                 }
             } catch (_: Exception) { null }

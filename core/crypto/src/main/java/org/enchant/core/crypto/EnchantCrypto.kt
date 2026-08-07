@@ -87,6 +87,7 @@ object EnchantCrypto {
     external fun enchant_ed25519_verify(message: ByteArray, messageLen: Long, signature: ByteArray, publicKey: ByteArray): Int
     external fun enchant_ed25519_sk_to_x25519(ed25519Sk: ByteArray, x25519Sk: ByteArray): Int
     external fun enchant_ed25519_pk_to_x25519(ed25519Pk: ByteArray, x25519Pk: ByteArray): Int
+    external fun enchant_ed25519_pub_from_x25519(x25519PrivateKey: ByteArray, ed25519PublicKeyOut: ByteArray): Int
     external fun enchant_secure_zero(data: ByteArray, len: Long)
     external fun enchant_xchacha20_encrypt(plaintext: ByteArray, plaintextLen: Long, key: ByteArray, nonce: ByteArray, ciphertext: ByteArray, ciphertextCapacity: Long): Int
     external fun enchant_xchacha20_decrypt(ciphertext: ByteArray, ciphertextLen: Long, key: ByteArray, nonce: ByteArray, plaintext: ByteArray, plaintextCapacity: Long): Int
@@ -136,6 +137,7 @@ object EnchantCrypto {
      */
     external fun enchant_session_manager_establish(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int): Int
     external fun enchant_session_manager_establish_with_ephemeral(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int, ourEphemeralPrivate: ByteArray?, ourEphemeralPrivateLen: Long): Int
+    external fun enchant_session_manager_establish_v2(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, ed25519IdentityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int): Int
     external fun enchant_session_manager_encrypt(manager: Long, addressName: String, deviceId: Int, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: LongArray, messageTypeOut: IntArray): Int
     external fun enchant_session_manager_decrypt(manager: Long, addressName: String, deviceId: Int, ciphertext: ByteArray, ciphertextLen: Long, messageType: Int, plaintext: ByteArray, plaintextLen: LongArray): Int
     external fun enchant_session_manager_decrypt_prekey(manager: Long, addressName: String, deviceId: Int, ciphertext: ByteArray, ciphertextLen: Long, ourSignedPrekeyId: Int, ourOneTimePrekeyId: Int, plaintext: ByteArray, plaintextLen: LongArray): Int
