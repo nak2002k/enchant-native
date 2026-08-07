@@ -282,10 +282,10 @@ object MessageSendPipeline {
                 val needsAnchor = pendingUnsealed.remove(recipientUserId) || anchorDone.add(recipientUserId)
                 val sent: Boolean = if (needsAnchor || !NativeSessionManager.hasSession(recipientUserId)) {
                     org.enchant.core.network.WebSocketManager.sendMessage(
-                        recipientUserId, payload = veiledPayload) != null
+                        recipientUserId, payload = veiledPayload, envelopeId = envelopeId) != null
                 } else {
                     org.enchant.core.network.WebSocketManager.sendSealedEnchantMessage(
-                        recipientUserId, veiledPayload, replyToken)
+                        recipientUserId, veiledPayload, replyToken, envelopeId)
                 }
                 if (sent) {
                     repo.updateMessageStatus(envelopeId, MessageStatus.SENT)

@@ -242,7 +242,8 @@ object WebSocketManager {
         recipientDeviceId: String? = null,
         payload: ByteArray,
         senderTs: Long? = null,
-        ephemeral: Boolean = false
+        ephemeral: Boolean = false,
+        envelopeId: String? = null
     ): String? {
         if (payload.size > 2 * 1024 * 1024) return null
         if (_connectionState.value != ConnectionState.CONNECTED) {
@@ -257,13 +258,14 @@ object WebSocketManager {
         }
 
         val content = com.google.protobuf.ByteString.copyFrom(payload)
-        val envelope = EnvelopeProtos.Envelope.newBuilder()
+        val envBuilder = EnvelopeProtos.Envelope.newBuilder()
             .setMessageType("ENCRYPTED_MESSAGE")
             .setRecipientUserId(recipientUserId)
             .setPayload(content)
             .setSenderTs((senderTs ?: System.currentTimeMillis()).toString())
             .setEphemeral(ephemeral)
-            .build()
+        if (!envelopeId.isNullOrBlank()) envBuilder.setEnvelopeId(envelopeId)
+        val envelope = envBuilder.build()
 
         val id = nextRequestId()
         val frame = WebSocketResources.WebSocketMessage.newBuilder()
@@ -393,7 +395,7 @@ object WebSocketManager {
                             val messageType = envelope.messageType
                             _incomingMessages.tryEmit(IncomingEnvelope(
                                 envelopeId = envelope.envelopeId.ifEmpty { null },
-                                senderUserId = if (isSealed) null else envelope.senderUserId.ifEmpty { null },
+                                senderUserId = envelope.senderUserId.ifEmpty { null },
                                 senderDeviceId = envelope.senderDeviceId.ifEmpty { null },
                                 messageType = messageType,
                                 payload = envelope.payload.toByteArray(),
@@ -482,18 +484,22 @@ object WebSocketManager {
     suspend fun sendSealedEnchantMessage(
         recipientUserId: String,
         payload: ByteArray,
-        replyToken: String
+        replyToken: String,
+        envelopeId: String? = null
     ): Boolean {
         if (_connectionState.value != ConnectionState.CONNECTED) return false
         val content = com.google.protobuf.ByteString.copyFrom(payload)
-        val envelope = EnvelopeProtos.Envelope.newBuilder()
+        val envBuilder = EnvelopeProtos.Envelope.newBuilder()
             .setMessageType("UNIDENTIFIED_SENDER")
             .setRecipientUserId(recipientUserId)
             .setPayload(content)
             .setSealed(true)
             .setReplyToken(replyToken)
             .setSenderTs(System.currentTimeMillis().toString())
-            .build()
+        val selfId = SecurePreferences.getString("auth.user_id")
+        if (!selfId.isNullOrBlank()) envBuilder.setSenderUserId(selfId)
+        if (!envelopeId.isNullOrBlank()) envBuilder.setEnvelopeId(envelopeId)
+        val envelope = envBuilder.build()
         val id = nextRequestId()
         val frame = WebSocketResources.WebSocketMessage.newBuilder()
             .setType(WebSocketResources.WebSocketMessage.Type.REQUEST)
@@ -508,16 +514,17 @@ object WebSocketManager {
         return true
     }
 
-    private suspend fun sendEnchantMessage(recipientUserId: String, payload: ByteArray, messageType: String) {
+    private suspend fun sendEnchantMessage(recipientUserId: String, payload: ByteArray, messageType: String, envelopeId: String? = null) {
         if (_connectionState.value != ConnectionState.CONNECTED) return
         val content = com.google.protobuf.ByteString.copyFrom(payload)
-        val envelope = EnvelopeProtos.Envelope.newBuilder()
+        val envBuilder = EnvelopeProtos.Envelope.newBuilder()
             .setMessageType(messageType)
             .setRecipientUserId(recipientUserId)
             .setPayload(content)
             .setEphemeral(messageType.startsWith("TYPING_"))
             .setSenderTs(System.currentTimeMillis().toString())
-            .build()
+        if (!envelopeId.isNullOrBlank()) envBuilder.setEnvelopeId(envelopeId)
+        val envelope = envBuilder.build()
 
         val id = nextRequestId()
         val frame = WebSocketResources.WebSocketMessage.newBuilder()

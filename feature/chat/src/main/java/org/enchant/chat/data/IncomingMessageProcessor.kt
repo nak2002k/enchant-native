@@ -53,6 +53,19 @@ private fun decodeWirePayload(payload: ByteArray): ByteArray {
     }.getOrElse { payload }
 }
 
+/**
+ * The MRS server builds delivery/read receipts with a custom protobuf that
+ * doesn't match the app's Content schema. Live wire capture:
+ *   Content{ field2 = Receipt{ field2 = string(original_envelope_id) } }
+ * Just extract the innermost 36-char UUID string.
+ */
+private fun extractReceiptEnvelopeId(payload: ByteArray): String? {
+    val ascii = payload.decodeToString()
+    val match = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+        .find(ascii)
+    return match?.value
+}
+
 sealed class DecryptedContent {
     data class Text(val body: String) : DecryptedContent()
     data class Media(val mediaId: String, val mediaKey: ByteArray, val mimeType: String) : DecryptedContent()
@@ -177,6 +190,11 @@ object IncomingMessageProcessor {
                     return@withContext processEnvelopeMessage(envelope, senderId, repo)
                 }
 
+                if (envelope.messageType == "RECEIPT" || envelope.messageType == "DELIVERY_RECEIPT" ||
+                    envelope.messageType == "READ_RECEIPT") {
+                    return@withContext processReceiptEnvelope(envelope)
+                }
+
                 if (envelope.messageType == "CALL_OFFER" ||
                     envelope.messageType == "CALL_ANSWER" ||
                     envelope.messageType == "CALL_ICE" ||
@@ -194,6 +212,50 @@ object IncomingMessageProcessor {
     }
 
     suspend fun flush() = flushBuffer()
+
+    /**
+     * Standalone delivery/read receipt envelopes. The server routes the
+     * original message's server timestamp back to the sender; look up the
+     * local envelope by that timestamp and flip SENT -> DELIVERED / READ.
+     */
+    private suspend fun processReceiptEnvelope(envelope: IncomingEnvelope): ProcessResult {
+        return withContext(Dispatchers.Default) {
+            try {
+                val raw = decodeWirePayload(envelope.payload)
+                android.util.Log.w("IncomingMsg", "Receipt RAW len=${raw.size} hex=${raw.joinToString { "%02x".format(it) }} payloadHex=${envelope.payload.take(24).joinToString { "%02x".format(it) }}")
+                val parsed = runCatching {
+                    MessageProtobufHelper.parseContent(raw)
+                }.getOrNull() as? MessageProtobufHelper.ParsedContent.Receipt
+                if (parsed != null) {
+                    val status = when (parsed.type) {
+                        MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
+                        else -> MessageStatus.DELIVERED
+                    }
+                    parsed.timestamps.forEach { ts ->
+                        val eid = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                        repository!!.updateMessageStatus(eid, status)
+                    }
+                    return@withContext ProcessResult.Handled
+                }
+                // Server-native receipt: the MRS server builds receipts with a
+                // custom proto. Wire format (verified from live captures):
+                //   Content{ field2 = Receipt{ field2 = string(original_env_id) } }
+                // The app's Content schema has no matching field, so walk the
+                // protobuf and pull the 36-char UUID out of the innermost string.
+                val envId = extractReceiptEnvelopeId(raw)
+                if (!envId.isNullOrBlank()) {
+                    android.util.Log.w("IncomingMsg", "Receipt envId=$envId -> update DELIVERED")
+                    repository!!.updateMessageStatus(envId, MessageStatus.DELIVERED)
+                    ProcessResult.Handled
+                } else {
+                    android.util.Log.w("IncomingMsg", "Receipt: no envId found raw=${raw.joinToString { "%02x".format(it) }}")
+                    ProcessResult.Error("Receipt parse failed")
+                }
+            } catch (e: Exception) {
+                ProcessResult.Error("Receipt processing failed: ${e.message}")
+            }
+        }
+    }
 
     private suspend fun processPreKeyMessage(
         envelope: IncomingEnvelope, senderUserId: String, repo: ConversationRepository

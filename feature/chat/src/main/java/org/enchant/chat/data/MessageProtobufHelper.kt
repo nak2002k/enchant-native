@@ -90,7 +90,12 @@ object MessageProtobufHelper {
 
     fun parseContent(plaintext: ByteArray): ParsedContent {
         return try {
-            val content = ContentProtos.Content.parseFrom(plaintext)
+            val content = try {
+                val ssc = org.enchant.protos.SignalServiceContentProto.parseFrom(plaintext)
+                if (ssc.hasContent()) ssc.content else throw IllegalArgumentException("no content")
+            } catch (_: Exception) {
+                ContentProtos.Content.parseFrom(plaintext)
+            }
             when {
                 content.hasDataMessage() -> {
                     val dm = content.dataMessage
