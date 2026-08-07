@@ -206,7 +206,12 @@ object MediaService {
                 val ctx = AppConfig.applicationContext ?: return@withContext Result.failure(Exception("No context"))
                 val cacheDir = File(ctx.cacheDir, "media_downloads")
                 cacheDir.mkdirs()
-                val outputFile = File(cacheDir, "${mediaId}_${UUID.randomUUID()}")
+                // mediaId is peer-controlled (arrives inside a received message)
+                // and must never influence the path. Sanitize to a bare safe
+                // token so `../`, separators, or absolute paths can't escape
+                // the cache dir (path traversal / arbitrary file write).
+                val safeMediaId = sanitizeMediaId(mediaId)
+                val outputFile = File(cacheDir, "${safeMediaId}_${UUID.randomUUID()}")
                 outputFile.writeBytes(decrypted)
 
                 Result.success(outputFile)
@@ -247,5 +252,23 @@ object MediaService {
         val dir = File(ctx.cacheDir, "media_temp")
         dir.mkdirs()
         return File.createTempFile(prefix, suffix, dir)
+    }
+
+    /**
+     * Reduces an arbitrary (peer-controlled) media identifier to a bare,
+     * filesystem-safe token. Rejects path separators, dot-dot segments, and
+     * anything that isn't a plain UUID. Fallback token keeps callers working
+     * even for legacy/non-UUID ids without ever allowing path traversal.
+     */
+    fun sanitizeMediaId(mediaId: String): String {
+        val trimmed = mediaId.trim()
+        if (trimmed.isEmpty()) return "unknown"
+        if (trimmed.contains('/') || trimmed.contains('\\') ||
+            trimmed.contains("..") || trimmed.contains('\u0000')) {
+            return "unknown"
+        }
+        // Media ids are UUIDs; keep only hex/dash/letters/digits/underscore.
+        val allowed = trimmed.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+        return allowed.ifEmpty { "unknown" }
     }
 }
