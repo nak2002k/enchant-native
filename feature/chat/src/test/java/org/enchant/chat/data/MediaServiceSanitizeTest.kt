@@ -2,6 +2,7 @@ package org.enchant.chat.data
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -71,5 +72,59 @@ class MediaServiceSanitizeTest {
     @DisplayName("never returns an empty string")
     fun `never empty`() {
         assertEquals("unknown", MediaService.sanitizeMediaId("///"))
+    }
+}
+
+@DisplayName("MediaService.computeInSampleSize")
+class MediaServiceSampleSizeTest {
+
+    @Test
+    @DisplayName("small image uses sample size 1")
+    fun `small image sample 1`() {
+        assertEquals(1, MediaService.computeInSampleSize(800, 600, 1024))
+    }
+
+    @Test
+    @DisplayName("decompression bomb is downsampled")
+    fun `bomb downsampled`() {
+        val sample = MediaService.computeInSampleSize(100_000, 100_000, 2048)
+        assertTrue(sample > 1)
+        // Power-of-two sampling bounds decoded dims to <= 2x target.
+        assertTrue(100_000 / sample <= 2 * 2048)
+    }
+
+    @Test
+    @DisplayName("wide panoramic image is downsampled on width")
+    fun `panorama downsampled`() {
+        val sample = MediaService.computeInSampleSize(50_000, 500, 2048)
+        assertTrue(50_000 / sample <= 2 * 2048)
+    }
+
+    @Test
+    @DisplayName("portrait image is downsampled on height")
+    fun `portrait downsampled`() {
+        val sample = MediaService.computeInSampleSize(500, 50_000, 2048)
+        assertTrue(50_000 / sample <= 2 * 2048)
+    }
+
+    @Test
+    @DisplayName("invalid dimensions return sample size 1")
+    fun `invalid dims sample 1`() {
+        assertEquals(1, MediaService.computeInSampleSize(0, 0, 1024))
+        assertEquals(1, MediaService.computeInSampleSize(-5, 10, 1024))
+        assertEquals(1, MediaService.computeInSampleSize(100, 100, 0))
+    }
+
+    @Test
+    @DisplayName("exactly target dimension keeps sample size 1")
+    fun `at target keeps sample 1`() {
+        assertEquals(1, MediaService.computeInSampleSize(2048, 2048, 2048))
+    }
+
+    @Test
+    @DisplayName("slightly over target stays within 2x bound")
+    fun `slightly over target stays bounded`() {
+        val sample = MediaService.computeInSampleSize(3000, 3000, 2048)
+        assertTrue(3000 / sample <= 2 * 2048)
     }
 }

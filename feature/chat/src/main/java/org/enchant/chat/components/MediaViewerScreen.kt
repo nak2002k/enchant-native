@@ -1,7 +1,6 @@
 package org.enchant.chat.components
 
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
@@ -63,7 +62,7 @@ fun MediaViewerScreen(
 
     val bitmap = remember(mediaPath) {
         if (!isVideo && file.exists()) {
-            BitmapFactory.decodeFile(mediaPath)
+            org.enchant.chat.data.MediaService.decodeBoundedBitmap(mediaPath)
         } else null
     }
 

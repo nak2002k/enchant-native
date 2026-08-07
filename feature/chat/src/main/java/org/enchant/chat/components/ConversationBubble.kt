@@ -771,7 +771,7 @@ internal fun EncryptedImageContent(
                 .clickable { showViewer = true },
         ) {
             androidx.compose.foundation.Image(
-                bitmap = remember(path) { android.graphics.BitmapFactory.decodeFile(path) }
+                bitmap = remember(path) { org.enchant.chat.data.MediaService.decodeBoundedBitmap(path) }
                     ?.asImageBitmap() ?: return@Box,
                 contentDescription = fileName,
                 modifier = Modifier

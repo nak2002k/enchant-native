@@ -144,7 +144,20 @@ object MediaService {
             val ctx = AppConfig.applicationContext ?: return@withContext null
             val inputStream = ctx.contentResolver.openInputStream(uri) ?: return@withContext null
             val bytes = inputStream.use { it.readBytes() }
-            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@withContext bytes
+            // Decode bounds first so a decompression bomb (small file, huge
+            // declared dimensions) is downsampled before full decode — avoids OOM.
+            val bounds = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                return@withContext bytes
+            }
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inSampleSize = computeInSampleSize(bounds.outWidth, bounds.outHeight, maxSize)
+            }
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                ?: return@withContext bytes
             val (width, height) = if (bitmap.width > bitmap.height) {
                 maxSize to (bitmap.height * maxSize / bitmap.width)
             } else {
@@ -160,6 +173,36 @@ object MediaService {
             Log.e(TAG, "Compression failed", e)
             null
         }
+    }
+
+    /**
+     * Largest power-of-two sample factor that keeps the decoded dimensions at
+     * or under [targetDimension]. Returns 1 for already-small images.
+     */
+    fun computeInSampleSize(width: Int, height: Int, targetDimension: Int): Int {
+        if (targetDimension <= 0 || width <= 0 || height <= 0) return 1
+        var sampleSize = 1
+        while (width / (sampleSize * 2) >= targetDimension ||
+               height / (sampleSize * 2) >= targetDimension) {
+            sampleSize *= 2
+        }
+        return sampleSize
+    }
+
+    /**
+     * Decodes a bitmap from [path] while bounding the decoded dimensions to
+     * [targetDimension] via inJustDecodeBounds + inSampleSize. A maliciously
+     * crafted image that declares enormous dimensions is downsampled instead
+     * of exhausting memory.
+     */
+    fun decodeBoundedBitmap(path: String, targetDimension: Int = 2048): android.graphics.Bitmap? {
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        val options = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = computeInSampleSize(bounds.outWidth, bounds.outHeight, targetDimension)
+        }
+        return android.graphics.BitmapFactory.decodeFile(path, options)
     }
 
     suspend fun encryptAndUploadMedia(fileBytes: ByteArray, mimeType: String): Result<MediaUploadResult> {
