@@ -3,6 +3,7 @@ package org.enchant.core.notifications
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.app.NotificationManagerCompat
+import org.enchant.core.base.SecurePreferences
 import java.util.concurrent.ConcurrentHashMap
 
 object MessageNotifier {
@@ -51,6 +52,9 @@ object MessageNotifier {
         val channelId = if (isMuted) NotificationChannels.CHANNEL_MESSAGES_SILENT
             else NotificationChannels.CHANNEL_MESSAGES
 
+        // Honor the user's "show message previews" preference. Default true.
+        val showPreview = SecurePreferences.getBoolean("notifications.preview", true)
+
         val notification = NotificationBuilder.buildMessageNotification(
             context = context,
             conversationDisplayName = displayName,
@@ -59,7 +63,8 @@ object MessageNotifier {
             conversationId = conversationId,
             messageCount = pending.count,
             avatarBitmap = avatarBitmap,
-            channelId = channelId
+            channelId = channelId,
+            showPreview = showPreview
         )
 
         NotificationManagerCompat.from(context).notify(
@@ -100,7 +105,8 @@ object MessageNotifier {
         if (activeConversations.size > 1) {
             val summary = NotificationBuilder.buildSummaryNotification(
                 context = context,
-                conversationList = activeConversations
+                conversationList = activeConversations,
+                showPreview = SecurePreferences.getBoolean("notifications.preview", true)
             )
             NotificationManagerCompat.from(context).notify(SUMMARY_NOTIFICATION_ID, summary)
         } else {

@@ -42,21 +42,38 @@ object NotificationBuilder {
         conversationId: String,
         messageCount: Int,
         avatarBitmap: Bitmap? = null,
-        channelId: String = NotificationChannels.CHANNEL_MESSAGES
+        channelId: String = NotificationChannels.CHANNEL_MESSAGES,
+        showPreview: Boolean = true
     ): Notification {
         val openIntent = createOpenConversationIntent(context, conversationId)
         val replyAction = createReplyAction(context, conversationId)
         val markReadAction = createMarkAsReadAction(context, conversationId)
 
-        val style = NotificationCompat.InboxStyle()
-            .setBigContentTitle(if (messageCount > 1) "$messageCount messages" else conversationDisplayName)
-            .setSummaryText(conversationDisplayName)
-            .addLine("${senderName ?: ""}: $messagePreview")
+        // When the user disabled message previews, never surface the message
+        // text (or the sender name) anywhere in the notification — not on the
+        // collapsed line, the expanded inbox, or the summary text.
+        val contentText = if (showPreview) {
+            if (senderName != null) "$senderName: $messagePreview" else messagePreview
+        } else {
+            "New message"
+        }
+
+        val style = if (showPreview) {
+            NotificationCompat.InboxStyle()
+                .setBigContentTitle(if (messageCount > 1) "$messageCount messages" else conversationDisplayName)
+                .setSummaryText(conversationDisplayName)
+                .addLine("${senderName ?: ""}: $messagePreview")
+        } else {
+            NotificationCompat.InboxStyle()
+                .setBigContentTitle(if (messageCount > 1) "$messageCount messages" else conversationDisplayName)
+                .setSummaryText(conversationDisplayName)
+                .addLine("New message")
+        }
 
         return NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(conversationDisplayName)
-            .setContentText(if (senderName != null) "$senderName: $messagePreview" else messagePreview)
+            .setContentText(contentText)
             .setStyle(style)
             .setContentIntent(openIntent)
             .addAction(replyAction)
@@ -74,7 +91,8 @@ object NotificationBuilder {
     fun buildSummaryNotification(
         context: Context,
         conversationList: List<ConversationSummary>,
-        channelId: String = NotificationChannels.CHANNEL_MESSAGES
+        channelId: String = NotificationChannels.CHANNEL_MESSAGES,
+        showPreview: Boolean = true
     ): Notification {
         val openIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             ?.let { PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE) }
@@ -84,10 +102,14 @@ object NotificationBuilder {
             .setSummaryText("Tap to open")
 
         conversationList.take(7).forEach { conv ->
-            val line = if (conv.displayName.length > 20) {
-                "${conv.displayName.take(20)}… ${conv.snippet.take(40)}"
+            val line = if (showPreview) {
+                if (conv.displayName.length > 20) {
+                    "${conv.displayName.take(20)}… ${conv.snippet.take(40)}"
+                } else {
+                    "${conv.displayName} ${conv.snippet.take(50)}"
+                }
             } else {
-                "${conv.displayName} ${conv.snippet.take(50)}"
+                conv.displayName
             }
             inboxStyle.addLine(line)
         }
