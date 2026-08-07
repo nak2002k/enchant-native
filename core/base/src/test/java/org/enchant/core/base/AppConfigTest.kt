@@ -38,6 +38,19 @@ class AppConfigTest {
         val field = AppConfig::class.java.getDeclaredField("initialized")
         field.isAccessible = true
         field.set(AppConfig, false)
+        // Clear cached values so tests don't leak state across cases.
+        for (name in listOf("_gatewayUrl", "_wsUrl", "_turnUrl", "_turnUsername",
+                            "_turnPassword", "_jwtPublicKey", "_appVersion", "_userAgent",
+                            "_applicationContext")) {
+            val f = AppConfig::class.java.getDeclaredField(name)
+            f.isAccessible = true
+            when (name) {
+                "_gatewayUrl", "_wsUrl" -> f.set(AppConfig, "")
+                "_turnUrl", "_turnUsername", "_turnPassword", "_jwtPublicKey", "_applicationContext" -> f.set(AppConfig, null)
+                "_appVersion" -> f.set(AppConfig, "1.0.0")
+                "_userAgent" -> f.set(AppConfig, "")
+            }
+        }
     }
 
     @Test
@@ -144,5 +157,32 @@ class AppConfigTest {
     fun `app version defaults to one`() {
         AppConfig.init(context, overrideUrl = "https://api.example.com")
         assertEquals("1.0.0", AppConfig.appVersion)
+    }
+
+    @Test
+    fun `non-loopback http gateway is upgraded to https`() {
+        AppConfig.init(context, overrideUrl = "http://api.example.com")
+        assertEquals("https://api.example.com", AppConfig.gatewayUrl)
+        assertEquals("wss://api.example.com", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `non-loopback http with port is upgraded to https`() {
+        AppConfig.init(context, overrideUrl = "http://api.example.com:8080")
+        assertEquals("https://api.example.com:8080", AppConfig.gatewayUrl)
+    }
+
+    @Test
+    fun `loopback http gateway is preserved for debug`() {
+        AppConfig.init(context, overrideUrl = "http://10.0.2.2:8080")
+        assertEquals("http://10.0.2.2:8080", AppConfig.gatewayUrl)
+        assertEquals("ws://10.0.2.2:8080", AppConfig.wsUrl)
+    }
+
+    @Test
+    fun `stored non-loopback http gateway is upgraded to https`() {
+        prefs.edit().putString("gateway_url", "http://stored.example.com").commit()
+        AppConfig.init(context)
+        assertEquals("https://stored.example.com", AppConfig.gatewayUrl)
     }
 }

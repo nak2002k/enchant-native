@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">api.enchant.chat</domain>
+    <!-- F-C1: ban cleartext traffic everywhere by default. The app only ever
+         talks to the gateway over TLS; anything else must be explicitly
+         allowed in a (debug-only) override for the local emulator backend. -->
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.enchant.chat</domain>
     </domain-config>
 </network-security-config>

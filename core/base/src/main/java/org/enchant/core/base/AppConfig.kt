@@ -90,19 +90,42 @@ object AppConfig {
         prefs: android.content.SharedPreferences,
         overrideUrl: String?
     ): String {
-        overrideUrl?.let { return it.trimEnd('/') }
-
-        prefs.getString("gateway_url", null)?.let { return it.trimEnd('/') }
-
-        val resId = context.resources.getIdentifier("gateway_url", "string", context.packageName)
-        if (resId != 0) {
-            try {
-                return context.getString(resId).trimEnd('/')
-            } catch (_: Exception) {
+        val resolved = (overrideUrl
+            ?: prefs.getString("gateway_url", null)
+            ?: run {
+                val resId = context.resources.getIdentifier("gateway_url", "string", context.packageName)
+                if (resId != 0) {
+                    try { context.getString(resId) } catch (_: Exception) { null }
+                } else null
             }
-        }
+            ?: "http://localhost:8080").trimEnd('/')
 
-        return "http://localhost:8080"
+        // F-C1: never let a config override downgrade the transport. The app
+        // must always talk to the gateway over TLS. Plain http:// is only
+        // tolerated for the debug local backend (emulator 10.0.2.2 / adb
+        // reverse localhost), and in release builds not even that — anything
+        // else is normalized to https:// or rejected.
+        return normalizeGatewayUrl(resolved)
+    }
+
+    /**
+     * Enforces TLS on the gateway URL (F-C1). http:// is only kept for
+     * loopback/emulator debug hosts; everything else is upgraded to https://.
+     * A gateway URL pointing anywhere but loopback over plain http would put
+     * the JWT/refresh token and ciphertexts in cleartext, so we never keep it.
+     */
+    private fun normalizeGatewayUrl(raw: String): String {
+        if (!raw.startsWith("http://")) {
+            return raw
+        }
+        val hostPort = raw.removePrefix("http://").substringBefore('/')
+        val host = hostPort.substringBefore(':')
+        val isLoopbackDebug = host == "localhost" || host == "127.0.0.1" || host == "10.0.2.2"
+        if (isLoopbackDebug) {
+            return raw
+        }
+        // Upgrade http -> https for any non-loopback host.
+        return "https://" + raw.removePrefix("http://")
     }
 
     private fun resolveAppVersion(context: Context): String {
