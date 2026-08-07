@@ -162,6 +162,7 @@ interface AgentAppBridge {
     suspend fun connectWebSocket(): JsonObject
     suspend fun disconnectWebSocket(): JsonObject
     suspend fun getCryptoStatus(): JsonObject
+    suspend fun debugIdentity(): JsonObject
     suspend fun testJniSequence(): JsonObject
     suspend fun mlsCreate(groupIdB64: String, epochSecretB64: String): JsonObject
     suspend fun mlsEncrypt(stateB64: String, plaintextB64: String): JsonObject

@@ -214,6 +214,7 @@ class AgentDebugServer(
                 bridge.mlsEncrypt(body.string("state_b64"), body.string("plaintext_b64"))
             root == "crypto" && method == Method.POST && segments.getOrNull(1) == "mls" && segments.getOrNull(2) == "decrypt" ->
                 bridge.mlsDecrypt(body.string("state_b64"), body.string("ciphertext_b64"))
+            root == "crypto" && method == Method.GET && segments.getOrNull(1) == "identity" -> bridge.debugIdentity()
             root == "crypto" && method == Method.POST && segments.getOrNull(1) == "reset-session" ->
                 bridge.resetSession(body.string("user_id"))
             root == "groups" && method == Method.GET && segments.size == 1 ->

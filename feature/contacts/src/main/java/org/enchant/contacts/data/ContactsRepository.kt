@@ -93,9 +93,13 @@ class ContactsRepository(
                 put("to_user_id", toUserId)
             })
             response.fold(
-                onSuccess = {
-                    val frId = it["friend_request_id"]?.jsonPrimitive?.content ?: ""
-                    ContactResult.RequestSent(frId)
+                onSuccess = { json ->
+                    val status = json["status"]?.jsonPrimitive?.content
+                    val frId = json["friend_request_id"]?.jsonPrimitive?.content ?: ""
+                    when (status) {
+                        "already_contact" -> ContactResult.Added(true)
+                        else -> ContactResult.RequestSent(frId)
+                    }
                 },
                 onFailure = { ContactResult.Failed(it.message ?: "Failed to send request") }
             )

@@ -523,8 +523,12 @@ private fun DetailPaneContent(
                     onContactClick = { userId -> onNavigate(MainNavigationDetailLocation.Profile(userId)) },
                     onSearchQueryChange = { contactsViewModel.searchContacts(it) },
                     onAddContact = { userId -> contactsViewModel.addContact(userId) },
-                    onRefresh = { contactsViewModel.loadContacts() }
+                    onRefresh = { contactsViewModel.loadContacts() },
+                    onFriendRequestsClick = { onNavigate(MainNavigationDetailLocation.FriendRequests) }
                 )
+            }
+            topDetail is MainNavigationDetailLocation.FriendRequests -> {
+                org.enchant.contacts.screens.FriendRequestsScreen(onNavigateBack = onNavigateBack)
             }
             // Status/Stories
             topDetail is MainNavigationDetailLocation.StatusFeed -> {

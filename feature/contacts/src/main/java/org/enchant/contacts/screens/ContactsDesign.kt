@@ -416,3 +416,27 @@ fun SecondaryPillButton(
         )
     }
 }
+
+
+@Composable
+fun UnreadBadge(
+    count: Int,
+    modifier: Modifier = Modifier,
+) {
+    if (count <= 0) return
+    Box(
+        modifier = modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(999.dp))
+            .background(ContactsBrand.BrandBlue)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (count > 99) "99+" else count.toString(),
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+    }
+}

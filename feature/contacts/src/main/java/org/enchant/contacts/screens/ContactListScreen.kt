@@ -31,8 +31,25 @@ fun ContactListScreen(
     onContactClick: (String) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onAddContact: (String) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onFriendRequestsClick: (() -> Unit)? = null
 ) {
+    var requestCount by remember { mutableIntStateOf(-1) }
+    var requestedIds by remember { mutableStateOf(setOf<String>()) }
+    val scope = rememberCoroutineScope()
+    val client = remember { org.enchant.core.network.ApiClient() }
+
+    // Poll pending friend requests so new requests surface quickly.
+    LaunchedEffect(Unit) {
+        while (true) {
+            runCatching {
+                val json = client.get("/v1/friend-requests/incoming").getOrNull()
+                val count = (json?.get("requests") as? kotlinx.serialization.json.JsonArray)?.size ?: 0
+                requestCount = count
+            }
+            kotlinx.coroutines.delay(30_000)
+        }
+    }
     val isSearchMode = searchQuery.isNotBlank()
     val displayList = if (isSearchMode) searchResults else contacts
     val groupedContacts = remember(displayList, isSearchMode) {
@@ -156,6 +173,38 @@ fun ContactListScreen(
                     }
                 } else {
                     LazyColumn(modifier = Modifier.weight(1f)) {
+                        if (onFriendRequestsClick != null && requestCount > 0) {
+                            item(key = "friend_requests_entry") {
+                                androidx.compose.material3.Surface(
+                                    onClick = onFriendRequestsClick,
+                                    color = ContactsBrand.BrandBlue.copy(alpha = 0.08f),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                ) {
+                                    androidx.compose.foundation.layout.Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            EnchantIcons.userPlus,
+                                            contentDescription = null,
+                                            tint = ContactsBrand.BrandBlue,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(
+                                            "Friend Requests",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(Modifier.weight(1f))
+                                        UnreadBadge(requestCount)
+                                    }
+                                }
+                            }
+                        }
                         if (isSearchMode) {
                             items(displayList, key = { it.userId }) { contact ->
                                 SearchResultRow(

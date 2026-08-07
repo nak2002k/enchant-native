@@ -44,6 +44,17 @@ object MessageSendPipeline {
     private var scope: CoroutineScope? = null
     private var lastTypingTs = 0L
     private var typingJob: Job? = null
+    // Peers whose session was (re)set or never established: the next message
+    // to them MUST be the unsealed anchor so they can learn our identity.
+    private val pendingUnsealed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    // The native has_session auto-creates sessions, so it can't tell us
+    // whether the peer knows us. Track it ourselves: the FIRST message to a
+    // peer in this process is the unsealed anchor.
+    private val anchorDone = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun markSessionReset(userId: String) {
+        if (userId.isNotBlank()) pendingUnsealed.add(userId)
+    }
 
     fun init(client: ApiClient, repo: ConversationRepository) {
         apiClient = client
@@ -263,10 +274,19 @@ object MessageSendPipeline {
                     return@withContext SendResult.Queued(envelopeId)
                 }
 
-                // Sealed-send over the authenticated WS so the server can map
-                // the reply token to this sender (delivery/read receipts).
-                val sent = org.enchant.core.network.WebSocketManager.sendSealedEnchantMessage(
-                    recipientUserId, veiledPayload, replyToken)
+                // Sealed-send once a session exists (the receiver already
+                // knows our identity). The FIRST message to a new contact is
+                // sent unsealed so the receiver can learn our identity key
+                // from the inner prekey message (Signal's session-opening
+                // pattern); afterwards every message rides the seal.
+                val needsAnchor = pendingUnsealed.remove(recipientUserId) || anchorDone.add(recipientUserId)
+                val sent: Boolean = if (needsAnchor || !NativeSessionManager.hasSession(recipientUserId)) {
+                    org.enchant.core.network.WebSocketManager.sendMessage(
+                        recipientUserId, payload = veiledPayload) != null
+                } else {
+                    org.enchant.core.network.WebSocketManager.sendSealedEnchantMessage(
+                        recipientUserId, veiledPayload, replyToken)
+                }
                 if (sent) {
                     repo.updateMessageStatus(envelopeId, MessageStatus.SENT)
                     SendResult.Success(envelopeId)

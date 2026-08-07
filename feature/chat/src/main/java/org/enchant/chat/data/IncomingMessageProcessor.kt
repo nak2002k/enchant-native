@@ -76,6 +76,11 @@ object IncomingMessageProcessor {
     private var initialized = false
     private val bufferedMessages = java.util.concurrent.ConcurrentLinkedQueue<MessageEntity>()
     private val processedGroupIterations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    // De-dupe: the server redelivers un-acked envelopes; concurrent processing
+    // of the same envelope races (e.g. the X3DH one-time prekey gets consumed
+    // by the first successful decrypt, then retries fail). Skip envelopes
+    // already being processed or already persisted.
+    private val inFlightEnvelopes = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastPendingFetchMs = 0L
     private const val BATCH_FLUSH_THRESHOLD = 20
 
@@ -93,7 +98,9 @@ object IncomingMessageProcessor {
 
     private suspend fun bufferMessage(msg: MessageEntity) {
         bufferedMessages.add(msg)
-        if (bufferedMessages.size >= BATCH_FLUSH_THRESHOLD) flushBuffer()
+        // Persist immediately: the partial buffer must never linger unflushed
+        // (a message that is decrypted but never written is lost forever).
+        flushBuffer()
     }
 
     fun init(
@@ -122,6 +129,15 @@ object IncomingMessageProcessor {
 
         return withContext(Dispatchers.Default) {
             try {
+                val envKey = envelope.envelopeId
+                if (envKey != null && !inFlightEnvelopes.add(envKey)) {
+                    android.util.Log.w("IncomingMsg", "skip in-flight envelope $envKey")
+                    return@withContext ProcessResult.Handled
+                }
+                if (envKey != null && messageDao?.getByEnvelopeId(envKey) != null) {
+                    inFlightEnvelopes.remove(envKey)
+                    return@withContext ProcessResult.Handled
+                }
                 if (envelope.messageType == "UNIDENTIFIED_SENDER") {
                     return@withContext processVeiledSender(envelope, repo)
                 }
@@ -203,6 +219,7 @@ object IncomingMessageProcessor {
                     // freshly-established session.
                     android.util.Log.e("IncomingMsg", "processPreKeyMessage FAILED: could not establish session from=$senderUserId ctLen=${envelope.payload.size}")
                     runCatching { org.enchant.core.crypto.VeilSession.get().deleteSession(senderUserId) }
+                    org.enchant.chat.data.MessageSendPipeline.markSessionReset(senderUserId)
                     return@withContext ProcessResult.Error("Failed to establish session")
                 }
 
@@ -296,6 +313,7 @@ object IncomingMessageProcessor {
             try {
                 val envId = envelope.envelopeId
                 if (envId != null && messageDao?.getByEnvelopeId(envId) != null) {
+                    inFlightEnvelopes.remove(envId)
                     return@withContext ProcessResult.Handled
                 }
                 val wirePayload = decodeWirePayload(envelope.payload)
@@ -305,6 +323,28 @@ object IncomingMessageProcessor {
                     // Fall back to the prekey path: a freshly-established
                     // session's first reply may arrive labeled ENCRYPTED.
                     decrypted = NativeSessionManager.decryptPreKeyMessage(senderUserId, wirePayload)
+                }
+
+                if (decrypted == null) {
+                    // The unsealed session-opening message may still carry the
+                    // Veil seal (sender identity inside); recover the sender's
+                    // identity from the seal, then decrypt the inner session
+                    // ciphertext (X3DH prekey or double-ratchet).
+                    val veilDecrypted = runCatching {
+                        val identityKeyPair = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
+                        if (identityKeyPair == null) null
+                        else org.enchant.core.crypto.VeilSender.decryptVeiled(
+                            recipientPrivateKey = identityKeyPair.privateKey,
+                            recipientPublicKey = identityKeyPair.publicKey,
+                            sealedPayload = decodeWirePayload(envelope.payload)
+                        )?.let { pair ->
+                            val senderForSession = NativeSessionManager.getUserIdForIdentityKey(pair.first)
+                                ?: senderUserId
+                            NativeSessionManager.decryptMessage(senderForSession, pair.second)
+                                ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, pair.second)
+                        }
+                    }.getOrNull()
+                    decrypted = veilDecrypted
                 }
 
                 if (decrypted == null) {
@@ -804,9 +844,27 @@ object IncomingMessageProcessor {
 
                 if (!directParses) {
                     // The sender id for the session decrypt comes from the
-                    // recovered sender identity key (sealed sender).
-                    val senderForSession = NativeSessionManager.getUserIdForIdentityKey(recoveredSenderKey)
-                        ?: return@withContext ProcessResult.Error("Unknown sealed sender")
+                    // recovered sender identity key (sealed sender). If we have
+                    // never seen this identity, fetch the sender's current
+                    // bundle from the IKS to learn it, then retry the decrypt.
+                    var senderForSession = NativeSessionManager.getUserIdForIdentityKey(recoveredSenderKey)
+                    if (senderForSession == null) {
+                        val senderHint = envelope.senderUserId
+                        runCatching {
+                            if (senderHint != null) {
+                                val bundle = org.enchant.core.crypto.KeyManager.fetchKeyBundle(senderHint)
+                                if (bundle != null) {
+                                    android.util.Log.w("IncomingMsg", "Unknown sealed sender; learned identity for $senderHint")
+                                    NativeSessionManager.setIdentityKey(senderHint, bundle.identityKey)
+                                    NativeSessionManager.setPeerDeviceId(senderHint, bundle.deviceId)
+                                }
+                            }
+                        }
+                        senderForSession = NativeSessionManager.getUserIdForIdentityKey(recoveredSenderKey)
+                            ?: senderHint
+                    }
+                    if (senderForSession == null)
+                        return@withContext ProcessResult.Error("Unknown sealed sender")
                     val sessionPlaintext = NativeSessionManager.decryptMessage(senderForSession, decrypted.second)
                         ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, decrypted.second)
                         ?: return@withContext ProcessResult.Error("Session decrypt failed")

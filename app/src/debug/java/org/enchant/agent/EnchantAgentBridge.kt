@@ -422,6 +422,12 @@ class EnchantAgentBridge : AgentAppBridge {
                 )
                 ok(buildJsonObject { put("conversation_id", id) })
             }
+            "contacts" -> {
+                AgentNavigationHooks.emit(
+                    AgentNavCommand.OpenMainDetail("contacts", buildJsonObject {})
+                )
+                ok(buildJsonObject { put("detail", "contacts") })
+            }
             "settings" -> {
                 AgentNavigationHooks.emit(AgentNavCommand.OpenMainDetail("settings"))
                 ok(buildJsonObject { put("detail", "settings") })
@@ -613,6 +619,8 @@ class EnchantAgentBridge : AgentAppBridge {
         return when (val r = repo.sendFriendRequest(userId)) {
             is org.enchant.contacts.data.ContactResult.RequestSent ->
                 ok(buildJsonObject { put("status", "request_sent"); put("friend_request_id", r.friendRequestId) })
+            is org.enchant.contacts.data.ContactResult.Added ->
+                ok(buildJsonObject { put("status", "connected"); put("added", true) })
             is org.enchant.contacts.data.ContactResult.Failed -> err(r.error)
             else -> err("unexpected result")
         }
@@ -788,9 +796,25 @@ class EnchantAgentBridge : AgentAppBridge {
         if (userId.isBlank()) return err("user_id is required")
         return try {
             org.enchant.core.crypto.VeilSession.get().deleteSession(userId)
+            org.enchant.chat.data.MessageSendPipeline.markSessionReset(userId)
             ok(buildJsonObject { put("session_reset", true) })
         } catch (e: Throwable) {
             err(e.message ?: "reset failed")
+        }
+    }
+
+    override suspend fun debugIdentity(): JsonObject {
+        return try {
+            val pair = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
+            if (pair == null) return err("no identity key")
+            val did = org.enchant.core.base.SecurePreferences.getString("auth.device_id") ?: ""
+            ok(buildJsonObject {
+                put("identity_public_b64", org.enchant.core.crypto.CryptoHelper.base64UrlEncode(pair.publicKey))
+                put("device_id", did)
+                put("user_id", org.enchant.core.base.SecurePreferences.getString(org.enchant.core.auth.AuthConstants.USER_ID_KEY) ?: "")
+            })
+        } catch (e: Exception) {
+            err(e.message ?: "debug identity failed")
         }
     }
 

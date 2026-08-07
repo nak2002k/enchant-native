@@ -36,6 +36,7 @@ sealed interface MainNavigationDetailLocation : NavKey {
     @Serializable data object About : MainNavigationDetailLocation
     @Serializable data object BackupSettings : MainNavigationDetailLocation
     @Serializable data object BlockedUsers : MainNavigationDetailLocation
+    @Serializable data object FriendRequests : MainNavigationDetailLocation
 
     // Other routes
     @Serializable data object Contacts : MainNavigationDetailLocation
