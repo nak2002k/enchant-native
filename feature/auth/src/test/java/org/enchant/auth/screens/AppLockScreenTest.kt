@@ -40,3 +40,84 @@ class AppLockScreenTest {
         assertTrue(hash.matches(Regex("[0-9a-f]{64}")))
     }
 }
+
+@DisplayName("AppLockPolicy")
+class AppLockPolicyTest {
+
+    @Test
+    @DisplayName("four failed attempts do not lock out")
+    fun `below threshold no lockout`() {
+        var attempts = 0
+        var lockoutUntil = 0L
+        var lockouts = 0
+        repeat(4) {
+            val r = AppLockPolicy.onFailedAttempt(attempts, 1_000_000L, lockouts)
+            attempts = r.failedAttempts
+            lockoutUntil = r.lockoutUntilMs
+            lockouts = r.completedLockouts
+        }
+        assertEquals(4, attempts)
+        assertEquals(0L, lockoutUntil)
+        assertFalse(AppLockPolicy.isLockedOut(lockoutUntil, 1_000_000L))
+    }
+
+    @Test
+    @DisplayName("fifth failed attempt triggers lockout and resets counter")
+    fun `threshold triggers lockout`() {
+        val r = AppLockPolicy.onFailedAttempt(4, 1_000_000L, 0)
+        assertEquals(0, r.failedAttempts)
+        assertEquals(1, r.completedLockouts)
+        assertTrue(r.lockoutUntilMs > 1_000_000L)
+        assertTrue(AppLockPolicy.isLockedOut(r.lockoutUntilMs, 1_000_000L))
+    }
+
+    @Test
+    @DisplayName("first lockout lasts BASE_LOCKOUT_MS")
+    fun `first lockout duration`() {
+        assertEquals(AppLockPolicy.BASE_LOCKOUT_MS, AppLockPolicy.lockoutDurationMs(0))
+    }
+
+    @Test
+    @DisplayName("lockout grows exponentially")
+    fun `lockout escalates`() {
+        val first = AppLockPolicy.lockoutDurationMs(0)
+        val second = AppLockPolicy.lockoutDurationMs(1)
+        val third = AppLockPolicy.lockoutDurationMs(2)
+        assertEquals(first * 2, second)
+        assertEquals(second * 2, third)
+    }
+
+    @Test
+    @DisplayName("lockout is capped at MAX_LOCKOUT_MS")
+    fun `lockout capped`() {
+        assertEquals(AppLockPolicy.MAX_LOCKOUT_MS, AppLockPolicy.lockoutDurationMs(10))
+        assertEquals(AppLockPolicy.MAX_LOCKOUT_MS, AppLockPolicy.lockoutDurationMs(20))
+    }
+
+    @Test
+    @DisplayName("isLockedOut is false after the deadline passes")
+    fun `unlocked after deadline`() {
+        val deadline = 1_000_000L + AppLockPolicy.lockoutDurationMs(0)
+        assertTrue(AppLockPolicy.isLockedOut(deadline, deadline - 1))
+        assertFalse(AppLockPolicy.isLockedOut(deadline, deadline + 1))
+    }
+
+    @Test
+    @DisplayName("remainingSeconds returns 0 when not locked and positive when locked")
+    fun `remaining seconds`() {
+        assertEquals(0L, AppLockPolicy.remainingSeconds(1_000L, 2_000L))
+        val r = AppLockPolicy.remainingSeconds(5_000L, 1_000L)
+        assertTrue(r > 0L)
+    }
+
+    @Test
+    @DisplayName("after lockout lifts, attempts resume counting from zero")
+    fun `attempts reset after lockout`() {
+        val outcome = AppLockPolicy.onFailedAttempt(4, 100L, 1)
+        assertEquals(0, outcome.failedAttempts)
+        // After the deadline, a fresh failure is attempt 1.
+        val next = AppLockPolicy.onFailedAttempt(0, 200L, outcome.completedLockouts)
+        assertEquals(1, next.failedAttempts)
+        assertEquals(0L, next.lockoutUntilMs)
+    }
+}

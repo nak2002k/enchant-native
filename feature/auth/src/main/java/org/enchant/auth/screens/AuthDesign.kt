@@ -292,8 +292,11 @@ fun KeypadKey(
 fun PinKeypad(
     onDigit: (String) -> Unit,
     onBackspace: () -> Unit,
-    onEmptyClick: () -> Unit = {}
+    onEmptyClick: () -> Unit = {},
+    enabled: Boolean = true
 ) {
+    val handleDigit: (String) -> Unit = if (enabled) onDigit else { _ -> }
+    val handleBackspace: () -> Unit = if (enabled) onBackspace else { -> }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         for (row in 0..2) {
             Row(
@@ -303,7 +306,7 @@ fun PinKeypad(
                 for (col in 0..2) {
                     val digit = row * 3 + col + 1
                     KeypadKey(
-                        onClick = { onDigit(digit.toString()) },
+                        onClick = { handleDigit(digit.toString()) },
                         content = {
                             Text(
                                 digit.toString(),
@@ -322,7 +325,7 @@ fun PinKeypad(
         ) {
             KeypadKey(onClick = onEmptyClick, content = {})
             KeypadKey(
-                onClick = { onDigit("0") },
+                onClick = { handleDigit("0") },
                 content = {
                     Text(
                         "0",
@@ -333,7 +336,7 @@ fun PinKeypad(
                 }
             )
             KeypadKey(
-                onClick = onBackspace,
+                onClick = handleBackspace,
                 content = {
                     Text(
                         "\u232B",

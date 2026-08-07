@@ -15,6 +15,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import kotlinx.coroutines.delay
 import org.enchant.core.base.SecurePreferences
 
 private const val PIN_LENGTH = 6
@@ -67,6 +68,33 @@ fun AppLockScreen(
     var step by remember { mutableStateOf(if (alreadyEnabled) AppLockStep.Verify else AppLockStep.Create) }
     var error by remember { mutableStateOf<String?>(null) }
     var errorTick by remember { mutableStateOf(0) }
+
+    // Brute-force protection state (persisted so app restarts don't reset it).
+    var failedAttempts by remember {
+        mutableStateOf(SecurePreferences.getInt("applock.failed_attempts", 0))
+    }
+    var lockoutUntil by remember {
+        mutableStateOf(SecurePreferences.getLong("applock.lockout_until", 0L))
+    }
+    var completedLockouts by remember {
+        mutableStateOf(SecurePreferences.getInt("applock.lockout_count", 0))
+    }
+    var remainingSeconds by remember { mutableIntStateOf(0) }
+
+    // Count down the lockout every second.
+    LaunchedEffect(lockoutUntil) {
+        while (lockoutUntil > 0L) {
+            val remaining = AppLockPolicy.remainingSeconds(lockoutUntil, System.currentTimeMillis())
+            remainingSeconds = remaining.toInt()
+            if (remaining <= 0L) {
+                // Lockout lifted; allow retries again.
+                failedAttempts = 0
+                SecurePreferences.putInt("applock.failed_attempts", 0)
+                break
+            }
+            delay(1000)
+        }
+    }
 
     val biometricManager = remember {
         BiometricManager.from(context)
@@ -158,10 +186,38 @@ fun AppLockScreen(
                 if (pin.length < PIN_LENGTH) {
                     pin += digit
                     if (pin.length == PIN_LENGTH) {
-                        if (verifyPin(pin)) {
+                        val locked = AppLockPolicy.isLockedOut(
+                            lockoutUntil, System.currentTimeMillis())
+                        if (locked) {
+                            error = "Too many attempts. Try again later."
+                            errorTick++
+                            pin = ""
+                        } else if (verifyPin(pin)) {
+                            // Success — clear brute-force counters.
+                            failedAttempts = 0
+                            lockoutUntil = 0L
+                            completedLockouts = 0
+                            SecurePreferences.putInt("applock.failed_attempts", 0)
+                            SecurePreferences.putLong("applock.lockout_until", 0L)
+                            SecurePreferences.putInt("applock.lockout_count", 0)
                             onVerified()
                         } else {
-                            error = "Wrong PIN"
+                            val outcome = AppLockPolicy.onFailedAttempt(
+                                failedAttempts,
+                                System.currentTimeMillis(),
+                                completedLockouts
+                            )
+                            failedAttempts = outcome.failedAttempts
+                            lockoutUntil = outcome.lockoutUntilMs
+                            completedLockouts = outcome.completedLockouts
+                            SecurePreferences.putInt("applock.failed_attempts", outcome.failedAttempts)
+                            SecurePreferences.putLong("applock.lockout_until", outcome.lockoutUntilMs)
+                            SecurePreferences.putInt("applock.lockout_count", outcome.completedLockouts)
+                            error = if (outcome.lockoutUntilMs > 0L) {
+                                "Wrong PIN. Locked out — try again later."
+                            } else {
+                                "Wrong PIN"
+                            }
                             errorTick++
                             pin = ""
                         }
@@ -214,11 +270,22 @@ fun AppLockScreen(
                 Text(error!!, color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
             }
 
+            if (remainingSeconds > 0) {
+                Spacer(modifier = Modifier.height(FeatureSpacing.sm))
+                Text(
+                    "Unlock in ${remainingSeconds}s",
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 13.sp
+                )
+            }
+
             Spacer(modifier = Modifier.height(FeatureSpacing.xxl))
 
             PinKeypad(
                 onDigit = { handleDigit(it) },
-                onBackspace = { handleBackspace() }
+                onBackspace = { handleBackspace() },
+                enabled = step != AppLockStep.Verify ||
+                    !AppLockPolicy.isLockedOut(lockoutUntil, System.currentTimeMillis())
             )
 
             if (canAuthenticateWithBiometric && step == AppLockStep.Verify) {
