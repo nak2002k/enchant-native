@@ -177,15 +177,17 @@ class ConversationRepository(
                     INSERT OR REPLACE INTO messages
                         (conversation_id, sender_id, envelope_id, message_type,
                          content, status, timestamp, server_ts, disappear_at,
-                         media_key, media_mime_type, media_size, media_id, is_view_once)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         media_key, media_mime_type, media_size, media_id, is_view_once,
+                         reply_to_envelope_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, arrayOf(
                     entity.conversationId, entity.senderId, entity.envelopeId,
                     entity.messageType, entity.content, entity.status,
                     entity.timestamp.toString(), entity.serverTs,
                     entity.disappearAt, entity.mediaKey, entity.mediaMimeType,
                     entity.mediaSize?.toString(), entity.mediaId,
-                    if (entity.isViewOnce) 1 else 0
+                    if (entity.isViewOnce) 1 else 0,
+                    entity.replyToEnvelopeId
                 ))
                 db.execSQL("""
                     INSERT OR REPLACE INTO conversations
@@ -508,5 +510,10 @@ class ConversationRepository(
             }
         }
         awaitClose { collectJob.cancel() }
+    }
+
+    suspend fun getMessagesSnapshot(conversationId: String, limit: Int = 50): List<Message> {
+        val entities = messageDao.getConversationMessagesSnapshot(conversationId, limit)
+        return attachReactions(entities.map { Message.fromEntity(it) })
     }
 }

@@ -129,6 +129,15 @@ class MessageDao(private val pool: DatabasePool) {
         awaitClose { job.cancel() }
     }
 
+    suspend fun getConversationMessagesSnapshot(conversationId: String, limit: Int = 50): List<MessageEntity> = pool.readWith { db ->
+        db.rawQuery("""
+            SELECT * FROM messages
+            WHERE conversation_id = ? AND is_deleted = 0
+            ORDER BY timestamp DESC
+            LIMIT ?
+        """, arrayOf(conversationId, limit.toString())).use { CursorMapper.mapToList<MessageEntity>(it) }
+    }
+
     suspend fun updateStatus(envelopeId: String, status: String) = pool.write { db ->
         db.execSQL("UPDATE messages SET status = ? WHERE envelope_id = ?", arrayOf(status, envelopeId))
         DatabaseNotifier.notify("messages")

@@ -10,7 +10,11 @@ object MessageProtobufHelper {
         timestamp: Long = System.currentTimeMillis(),
         expireTimerSeconds: Int = 0,
         groupMasterKey: ByteArray? = null,
-        attachment: org.enchant.protos.AttachmentPointerProtos.AttachmentPointer? = null
+        attachment: org.enchant.protos.AttachmentPointerProtos.AttachmentPointer? = null,
+        replyToTimestamp: Long? = null,
+        replyToAuthor: String? = null,
+        replyToText: String? = null,
+        replyToEnvelopeId: String? = null
     ): ByteArray {
         val dataMessage = DataMessageProtos.DataMessage.newBuilder()
             .setBody(body)
@@ -28,6 +32,14 @@ object MessageProtobufHelper {
                 if (attachment != null) {
                     addAttachments(attachment)
                 }
+                if (replyToTimestamp != null) {
+                    val quote = org.enchant.protos.DataMessageProtos.DataMessage.Quote.newBuilder()
+                        .setId(replyToTimestamp)
+                        .setText(replyToText ?: "")
+                    if (!replyToAuthor.isNullOrBlank()) quote.setAuthorAci(replyToAuthor)
+                    if (!replyToEnvelopeId.isNullOrBlank()) quote.setEnvelopeId(replyToEnvelopeId)
+                    setQuote(quote.build())
+                }
             }
             .build()
 
@@ -39,16 +51,18 @@ object MessageProtobufHelper {
 
     fun buildReceiptContent(
         timestamps: List<Long>,
-        type: ReceiptType
+        type: ReceiptType,
+        envelopeId: String? = null
     ): ByteArray {
         val receiptType = when (type) {
             ReceiptType.DELIVERY -> org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.Type.DELIVERY
             ReceiptType.READ -> org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.Type.READ
         }
-        val receiptMessage = org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.newBuilder()
+        val builder = org.enchant.protos.ReceiptMessageProtos.ReceiptMessage.newBuilder()
             .setType(receiptType)
             .addAllTimestamp(timestamps)
-            .build()
+        if (!envelopeId.isNullOrBlank()) builder.setEnvelopeId(envelopeId)
+        val receiptMessage = builder.build()
 
         return ContentProtos.Content.newBuilder()
             .setReceiptMessage(receiptMessage)
@@ -92,7 +106,9 @@ object MessageProtobufHelper {
         return try {
             val content = try {
                 val ssc = org.enchant.protos.SignalServiceContentProto.parseFrom(plaintext)
-                if (ssc.hasContent()) ssc.content else throw IllegalArgumentException("no content")
+                if (ssc.hasLocalAddress() && ssc.hasContent()) ssc.content
+                else if (ssc.hasLocalAddress() && ssc.hasLegacyDataMessage()) ssc.legacyDataMessage
+                else throw IllegalArgumentException("not a content wrapper")
             } catch (_: Exception) {
                 ContentProtos.Content.parseFrom(plaintext)
             }
@@ -114,7 +130,11 @@ object MessageProtobufHelper {
                                 dm.groupV2.masterKey.toByteArray() else null,
                             mediaId = att?.cdnKey,
                             mediaKey = att?.key?.toByteArray(),
-                            mediaMime = att?.contentType
+                            mediaMime = att?.contentType,
+                            replyToTimestamp = if (dm.hasQuote()) dm.quote.id else null,
+                            replyToAuthor = if (dm.hasQuote() && dm.quote.hasAuthorAci()) dm.quote.authorAci else null,
+                            replyToText = if (dm.hasQuote()) dm.quote.text else null,
+                            replyToEnvelopeId = if (dm.hasQuote() && dm.quote.hasEnvelopeId()) dm.quote.envelopeId else null
                         )
                     }
                 }
@@ -127,7 +147,8 @@ object MessageProtobufHelper {
                     }
                     ParsedContent.Receipt(
                         type = receiptType,
-                        timestamps = rm.timestampList
+                        timestamps = rm.timestampList,
+                        envelopeId = if (rm.hasEnvelopeId()) rm.envelopeId else null
                     )
                 }
                 content.hasTypingMessage() -> {
@@ -165,12 +186,17 @@ object MessageProtobufHelper {
             val groupMasterKey: ByteArray? = null,
             val mediaId: String? = null,
             val mediaKey: ByteArray? = null,
-            val mediaMime: String? = null
+            val mediaMime: String? = null,
+            val replyToTimestamp: Long? = null,
+            val replyToAuthor: String? = null,
+            val replyToText: String? = null,
+            val replyToEnvelopeId: String? = null
         ) : ParsedContent()
 
         data class Receipt(
             val type: ReceiptType,
-            val timestamps: List<Long>
+            val timestamps: List<Long>,
+            val envelopeId: String? = null
         ) : ParsedContent()
 
         data class Typing(val isTyping: Boolean) : ParsedContent()

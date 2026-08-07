@@ -14,4 +14,5 @@ message ReceiptMessage {
 
     optional Type type = 1;
     repeated uint64 timestamp = 2;
+    optional string envelope_id = 3;
 }

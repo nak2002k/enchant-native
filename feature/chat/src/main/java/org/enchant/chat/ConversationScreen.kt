@@ -456,6 +456,9 @@ fun ConversationScreen(
                                 verticalGap = if (!sameAsAbove) 12.dp else 2.dp,
                                 isSelectionMode = selectionMode,
                                 isSelected = message.localId in selectedIds,
+                                quotedMessage = message.replyToEnvelopeId?.let { rid ->
+                                    messages.find { it.envelopeId == rid }
+                                },
                                 onLongPress = { enterSelection(message.localId) },
                                 onToggleSelection = { toggleSelection(message.localId) },
                                 onReply = { replyToId = it },
@@ -531,8 +534,13 @@ fun ConversationScreen(
                 }
 
                 AnimatedVisibility(visible = replyToId != null) {
+                    val quoted = messages.find { it.envelopeId == replyToId }
                     ReplyPreview(
-                        message = messages.find { it.replyToEnvelopeId == replyToId }?.content ?: "",
+                        message = quoted?.content ?: "",
+                        authorName = if (quoted != null && quoted.senderId == selfUserId)
+                            "You"
+                        else
+                            senderNames[quoted?.senderId] ?: quoted?.senderId?.take(8) ?: "",
                         onDismiss = { replyToId = null }
                     )
                 }
@@ -1027,7 +1035,7 @@ fun ConversationScreen(
 }
 
 @Composable
-private fun ReplyPreview(message: String, onDismiss: () -> Unit) {
+private fun ReplyPreview(message: String, authorName: String = "", onDismiss: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(EnchantRadii.card),
         color = MaterialTheme.colorScheme.surface,
@@ -1050,7 +1058,7 @@ private fun ReplyPreview(message: String, onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Reply",
+                    "Reply to ${authorName.ifBlank { "message" }}",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary

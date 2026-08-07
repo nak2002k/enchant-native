@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +55,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,6 +110,7 @@ internal fun MessageBubble(
     verticalGap: Dp = EnchantSpacing.md,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
+    quotedMessage: Message? = null,
     onLongPress: () -> Unit = {},
     onToggleSelection: () -> Unit = {},
     onReply: (String) -> Unit = {},
@@ -126,6 +131,13 @@ internal fun MessageBubble(
     val bubbleScope = rememberCoroutineScope()
     var viewOnceRevealed by remember { mutableStateOf(false) }
     var viewOnceCountdown by remember { mutableIntStateOf(0) }
+
+    // Swipe-to-reply (Signal gesture): dragging right reveals a reply icon
+    // and, past the trigger distance, opens the reply composer on release.
+    var swipeDx by remember { mutableFloatStateOf(0f) }
+    val swipeThresholdPx = with(LocalDensity.current) { 64.dp.toPx() }
+    val maxSwipePx = with(LocalDensity.current) { 96.dp.toPx() }
+    val swipeProgress = (swipeDx / swipeThresholdPx).coerceIn(0f, 1f)
 
     val bubbleColor = if (isOutgoing) EnchantBrand.SignalBlue else MaterialTheme.colorScheme.surface
     val bodyColor = if (isOutgoing) Color.White else MaterialTheme.colorScheme.onSurface
@@ -195,7 +207,32 @@ internal fun MessageBubble(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Box {
+        Box(
+            modifier = Modifier
+                .pointerInput(message.envelopeId) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (swipeDx > swipeThresholdPx) {
+                                message.envelopeId?.let { onReply(it) }
+                            }
+                            swipeDx = 0f
+                        },
+                        onDragCancel = { swipeDx = 0f },
+                    ) { change, dragAmount ->
+                        change.consume()
+                        // Only swipe right (LTR). Signal replies drag toward the
+                        // trailing edge; our bubbles sit left or right, so a
+                        // rightward swipe always means "reply to this".
+                        swipeDx = (swipeDx + dragAmount).coerceIn(0f, maxSwipePx)
+                    }
+                }
+                .graphicsLayer {
+                    translationX = swipeDx
+                    val scale = 1f - 0.06f * swipeProgress
+                    scaleX = scale
+                    scaleY = scale
+                }
+        ) {
             Surface(
                 shape = shape,
                 color = bubbleColor,
@@ -230,6 +267,18 @@ internal fun MessageBubble(
                         else PaddingValues(horizontal = EnchantSpacing.md, vertical = EnchantSpacing.sm)
                     )
                 ) {
+                    // Reply-to preview (Signal-style quoted bubble): the message
+                    // this one replies to, rendered with a colored accent bar +
+                    // the author's name, above the body.
+                    if (quotedMessage != null && message.replyToEnvelopeId != null && !message.isDeleted) {
+                        QuotedMessagePreview(
+                            text = quotedMessage.content,
+                            authorName = if (quotedMessage.senderId == message.senderId &&
+                                !isOutgoing) senderName ?: "You" else quotedMessage.senderId.take(8),
+                            isOutgoing = isOutgoing,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
                     if (message.isDeleted) {
                         Text(
                             "This message was deleted",
@@ -377,6 +426,35 @@ internal fun MessageBubble(
                         .offset(x = if (isOutgoing) (-1).dp else 1.dp, y = (-1).dp),
                 ) {
                     BubbleTail(color = bubbleColor, isOutgoing = isOutgoing)
+                }
+            }
+
+            // Swipe-to-reply icon (Signal gesture): fades + scales in at the
+            // leading edge as the bubble is dragged right.
+            if (swipeProgress > 0.05f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 12.dp)
+                        .graphicsLayer {
+                            val iconProgress = swipeProgress.coerceIn(0f, 1f)
+                            alpha = iconProgress
+                            val scale = 1f + 0.2f * iconProgress
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = -12.dp.toPx() * (1f - iconProgress)
+                        }
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(bubbleColor.copy(alpha = 0.9f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = EnchantIcons.reply,
+                        contentDescription = "Reply",
+                        tint = if (isOutgoing) Color.White else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             }
         }
@@ -851,6 +929,53 @@ internal fun VoiceMessageContent(
                 formatFileSize(mediaSize),
                 style = MaterialTheme.typography.labelSmall,
                 color = secondaryColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuotedMessagePreview(
+    text: String,
+    authorName: String,
+    isOutgoing: Boolean,
+) {
+    val accent = if (isOutgoing) Color.White.copy(alpha = 0.85f)
+        else MaterialTheme.colorScheme.primary
+    val surface = if (isOutgoing) Color.White.copy(alpha = 0.15f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(surface)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(28.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(accent)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                authorName,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text.take(80),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isOutgoing) Color.White.copy(alpha = 0.9f)
+                    else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

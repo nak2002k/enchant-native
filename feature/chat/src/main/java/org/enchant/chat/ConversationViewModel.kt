@@ -198,6 +198,22 @@ class ConversationViewModel(
         viewModelScope.launch {
             val conv = repo.getConversation(convId)
             _conversation.value = conv
+            // Read receipts: for every incoming message currently sitting in
+            // "delivered", tell the sender it's now read so their tick flips.
+            // Must snapshot BEFORE markConversationRead flips them to "read".
+            if (conv?.type == org.enchant.core.model.ConversationType.DIRECT) {
+                val selfId = SecurePreferences.getString("auth.user_id") ?: ""
+                val deliveredIncoming = repo.getMessagesSnapshot(convId)
+                    .filter { it.senderId != selfId && it.status == org.enchant.core.model.MessageStatus.DELIVERED }
+                deliveredIncoming.forEach { m ->
+                    val sender = m.senderId
+                    m.envelopeId?.let { eid ->
+                        viewModelScope.launch {
+                            org.enchant.chat.data.MessageSendPipeline.sendReadReceipt(eid, sender)
+                        }
+                    }
+                }
+            }
             // Opening the chat clears its unread count (Signal behavior).
             repo.markConversationRead(convId)
             if (conv?.type == org.enchant.core.model.ConversationType.DIRECT) {

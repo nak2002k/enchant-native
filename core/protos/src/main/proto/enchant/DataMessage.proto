@@ -36,6 +36,7 @@ message DataMessage {
         repeated BodyRange bodyRanges = 6;
         optional Type type = 7;
         optional bytes authorAciBinary = 8;
+        optional string envelope_id = 9;
     }
 
     message Contact {

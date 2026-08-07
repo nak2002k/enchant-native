@@ -211,12 +211,19 @@ object MessageSendPipeline {
                         parsed.hasSyncMessage() || parsed.hasStoryMessage() ||
                         parsed.senderKeyDistributionMessage.size() > 0
                     ) parsed else null
-                } ?: org.enchant.protos.ContentProtos.Content.parseFrom(
-                    MessageProtobufHelper.buildDataMessageContent(
-                        body = plaintext.decodeToString(),
-                        timestamp = System.currentTimeMillis()
+                } ?: run {
+                    val quoted = replyTo?.let { rid -> repository?.getMessage(rid) }
+                    org.enchant.protos.ContentProtos.Content.parseFrom(
+                        MessageProtobufHelper.buildDataMessageContent(
+                            body = plaintext.decodeToString(),
+                            timestamp = System.currentTimeMillis(),
+                            replyToTimestamp = quoted?.timestamp,
+                            replyToAuthor = quoted?.senderId,
+                            replyToText = quoted?.content,
+                            replyToEnvelopeId = replyTo
+                        )
                     )
-                )
+                }
 
                 val wrapper = org.enchant.protos.SignalServiceContentProto.newBuilder()
                     .setLocalAddress(
@@ -632,7 +639,8 @@ object MessageSendPipeline {
         val ts = msg?.timestamp ?: System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
             timestamps = listOf(ts),
-            type = MessageProtobufHelper.ReceiptType.DELIVERY
+            type = MessageProtobufHelper.ReceiptType.DELIVERY,
+            envelopeId = envelopeId
         )
         val encrypted = NativeSessionManager.encryptMessage(senderUserId, contentBytes) ?: return
         scope?.launch {
@@ -652,7 +660,8 @@ object MessageSendPipeline {
         val ts = msg?.timestamp ?: System.currentTimeMillis()
         val contentBytes = MessageProtobufHelper.buildReceiptContent(
             timestamps = listOf(ts),
-            type = MessageProtobufHelper.ReceiptType.READ
+            type = MessageProtobufHelper.ReceiptType.READ,
+            envelopeId = envelopeId
         )
         val encrypted = NativeSessionManager.encryptMessage(senderUserId, contentBytes) ?: return
         scope?.launch {

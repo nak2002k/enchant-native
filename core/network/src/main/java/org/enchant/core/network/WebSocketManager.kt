@@ -248,7 +248,7 @@ object WebSocketManager {
         if (payload.size > 2 * 1024 * 1024) return null
         if (_connectionState.value != ConnectionState.CONNECTED) {
             return requestRESTFallback(OutgoingMessage(
-                id = java.util.UUID.randomUUID().toString(),
+                id = envelopeId ?: java.util.UUID.randomUUID().toString(),
                 recipientUserId = recipientUserId,
                 recipientDeviceId = recipientDeviceId,
                 messageType = "ENCRYPTED_MESSAGE",
@@ -337,6 +337,9 @@ object WebSocketManager {
             ),
             "sender_ts" to kotlinx.serialization.json.JsonPrimitive(message.senderTs)
         )
+        if (message.id.isNotBlank()) {
+            jsonMap["envelope_id"] = kotlinx.serialization.json.JsonPrimitive(message.id)
+        }
         message.recipientDeviceId?.let { deviceId ->
             jsonMap["recipient_device_id"] = kotlinx.serialization.json.JsonPrimitive(deviceId)
         }

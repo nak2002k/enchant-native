@@ -541,6 +541,7 @@ class EnchantAgentBridge : AgentAppBridge {
                         put("media_mime_type", m.mediaMimeType ?: "")
                         put("media_size", m.mediaSize?.toString() ?: "")
                         put("is_view_once", m.isViewOnce)
+                        put("reply_to_envelope_id", m.replyToEnvelopeId ?: "")
                     })
                 }
             })

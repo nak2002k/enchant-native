@@ -159,6 +159,11 @@ object IncomingMessageProcessor {
                     return@withContext processVeiledSender(envelope, repo)
                 }
 
+                if (envelope.messageType == "RECEIPT" || envelope.messageType == "DELIVERY_RECEIPT" ||
+                    envelope.messageType == "READ_RECEIPT") {
+                    return@withContext processReceiptEnvelope(envelope)
+                }
+
                 val senderId = envelope.senderUserId ?: return@withContext ProcessResult.Ignored
 
                 val blocked = recipientDao!!.getBlocked()
@@ -190,11 +195,6 @@ object IncomingMessageProcessor {
                     return@withContext processEnvelopeMessage(envelope, senderId, repo)
                 }
 
-                if (envelope.messageType == "RECEIPT" || envelope.messageType == "DELIVERY_RECEIPT" ||
-                    envelope.messageType == "READ_RECEIPT") {
-                    return@withContext processReceiptEnvelope(envelope)
-                }
-
                 if (envelope.messageType == "CALL_OFFER" ||
                     envelope.messageType == "CALL_ANSWER" ||
                     envelope.messageType == "CALL_ICE" ||
@@ -222,7 +222,6 @@ object IncomingMessageProcessor {
         return withContext(Dispatchers.Default) {
             try {
                 val raw = decodeWirePayload(envelope.payload)
-                android.util.Log.w("IncomingMsg", "Receipt RAW len=${raw.size} hex=${raw.joinToString { "%02x".format(it) }} payloadHex=${envelope.payload.take(24).joinToString { "%02x".format(it) }}")
                 val parsed = runCatching {
                     MessageProtobufHelper.parseContent(raw)
                 }.getOrNull() as? MessageProtobufHelper.ParsedContent.Receipt
@@ -231,9 +230,13 @@ object IncomingMessageProcessor {
                         MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
                         else -> MessageStatus.DELIVERED
                     }
-                    parsed.timestamps.forEach { ts ->
-                        val eid = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
-                        repository!!.updateMessageStatus(eid, status)
+                    if (!parsed.envelopeId.isNullOrBlank()) {
+                        repository!!.updateMessageStatus(parsed.envelopeId!!, status)
+                    } else {
+                        parsed.timestamps.forEach { ts ->
+                            val eid = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                            repository!!.updateMessageStatus(eid, status)
+                        }
                     }
                     return@withContext ProcessResult.Handled
                 }
@@ -244,11 +247,9 @@ object IncomingMessageProcessor {
                 // protobuf and pull the 36-char UUID out of the innermost string.
                 val envId = extractReceiptEnvelopeId(raw)
                 if (!envId.isNullOrBlank()) {
-                    android.util.Log.w("IncomingMsg", "Receipt envId=$envId -> update DELIVERED")
                     repository!!.updateMessageStatus(envId, MessageStatus.DELIVERED)
                     ProcessResult.Handled
                 } else {
-                    android.util.Log.w("IncomingMsg", "Receipt: no envId found raw=${raw.joinToString { "%02x".format(it) }}")
                     ProcessResult.Error("Receipt parse failed")
                 }
             } catch (e: Exception) {
@@ -316,6 +317,10 @@ object IncomingMessageProcessor {
                         }
                         val convId = groupId ?: senderUserId
                         val convType = if (groupId != null) "group" else "direct"
+                        val replyEnvId = parsed.replyToEnvelopeId
+                            ?: parsed.replyToTimestamp?.let { ts ->
+                                messageDao?.getEnvelopeIdByServerTs(ts)
+                            }
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = convId,
@@ -325,7 +330,8 @@ object IncomingMessageProcessor {
                                 status = "delivered",
                                 timestamp = envelope.senderTimestamp ?: envelope.serverTimestamp ?: now,
                                 serverTs = now,
-                                envelopeId = envelope.envelopeId
+                                envelopeId = envelope.envelopeId,
+                                replyToEnvelopeId = replyEnvId
                             ),
                             conversationType = convType
                         )
@@ -341,9 +347,13 @@ object IncomingMessageProcessor {
                             MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
                             MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
                         }
-                        parsed.timestamps.forEach { ts ->
-                            val eid = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
-                            repo.updateMessageStatus(eid, status)
+                        if (!parsed.envelopeId.isNullOrBlank()) {
+                            repo.updateMessageStatus(parsed.envelopeId!!, status)
+                        } else {
+                            parsed.timestamps.forEach { ts ->
+                                val eid = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                                repo.updateMessageStatus(eid, status)
+                            }
                         }
                         ProcessResult.Handled
                     }
@@ -441,6 +451,10 @@ object IncomingMessageProcessor {
                         }
                     }
                     is MessageProtobufHelper.ParsedContent.DataMessage -> {
+                        val replyEnvId = parsed.replyToEnvelopeId
+                            ?: parsed.replyToTimestamp?.let { ts ->
+                                messageDao?.getEnvelopeIdByServerTs(ts)
+                            }
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = senderUserId,
@@ -450,7 +464,8 @@ object IncomingMessageProcessor {
                                 status = "delivered",
                                 timestamp = envelope.serverTimestamp ?: now,
                                 serverTs = now,
-                                envelopeId = envelope.envelopeId
+                                envelopeId = envelope.envelopeId,
+                                replyToEnvelopeId = replyEnvId
                             ),
                             conversationType = "direct"
                         )
@@ -466,9 +481,13 @@ object IncomingMessageProcessor {
                             MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
                             MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
                         }
-                        parsed.timestamps.forEach { ts ->
-                            val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
-                            repo.updateMessageStatus(envId, status)
+                        if (!parsed.envelopeId.isNullOrBlank()) {
+                            repo.updateMessageStatus(parsed.envelopeId!!, status)
+                        } else {
+                            parsed.timestamps.forEach { ts ->
+                                val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                                repo.updateMessageStatus(envId, status)
+                            }
                         }
                         ProcessResult.Handled
                     }
@@ -532,6 +551,10 @@ object IncomingMessageProcessor {
                         }
                     }
                     is MessageProtobufHelper.ParsedContent.DataMessage -> {
+                        val replyEnvId = parsed.replyToEnvelopeId
+                            ?: parsed.replyToTimestamp?.let { ts ->
+                                messageDao?.getEnvelopeIdByServerTs(ts)
+                            }
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = senderUserId,
@@ -541,7 +564,8 @@ object IncomingMessageProcessor {
                                 status = "delivered",
                                 timestamp = envelope.serverTimestamp ?: now,
                                 serverTs = now,
-                                envelopeId = envelope.envelopeId
+                                envelopeId = envelope.envelopeId,
+                                replyToEnvelopeId = replyEnvId
                             ),
                             conversationType = "direct"
                         )
@@ -557,9 +581,13 @@ object IncomingMessageProcessor {
                             MessageProtobufHelper.ReceiptType.DELIVERY -> MessageStatus.DELIVERED
                             MessageProtobufHelper.ReceiptType.READ -> MessageStatus.READ
                         }
-                        parsed.timestamps.forEach { ts ->
-                            val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
-                            repo.updateMessageStatus(envId, status)
+                        if (!parsed.envelopeId.isNullOrBlank()) {
+                            repo.updateMessageStatus(parsed.envelopeId!!, status)
+                        } else {
+                            parsed.timestamps.forEach { ts ->
+                                val envId = messageDao?.getEnvelopeIdByServerTs(ts) ?: ts.toString()
+                                repo.updateMessageStatus(envId, status)
+                            }
                         }
                         ProcessResult.Handled
                     }
@@ -1025,6 +1053,11 @@ object IncomingMessageProcessor {
                         val rawBody = if (attachment != null) "📎 ${attachment.fileName}" else dataMsg.body
                         // The view-once marker rides the message body.
                         val isViewOnceMsg = dataMsg.body.startsWith("🕶️ ")
+                        val replyEnvId = if (dataMsg.hasQuote()) {
+                            val q = dataMsg.quote
+                            if (q.hasEnvelopeId()) q.envelopeId
+                            else messageDao?.getEnvelopeIdByServerTs(q.id)
+                        } else null
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = convId,
@@ -1036,6 +1069,7 @@ object IncomingMessageProcessor {
                                 timestamp = envelope.senderTimestamp ?: envelope.serverTimestamp ?: now,
                                 serverTs = now,
                                 envelopeId = envelope.envelopeId,
+                                replyToEnvelopeId = replyEnvId,
                                 mediaKey = attachment?.takeIf { it.hasKey() }?.key?.toByteArray()?.let {
                                     org.enchant.core.crypto.CryptoPrimitives.base64UrlEncode(it)
                                 },
