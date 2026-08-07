@@ -558,7 +558,14 @@ object MessageSendPipeline {
 
                 val client = apiClient!!
                 android.util.Log.w("Pipeline", "FILE: uploading ${encryptedData.size} bytes")
-                val uploadResult = client.postRaw("/v1/media/upload", encryptedData, mimeType)
+                // B-H1: message attachments are scoped to the recipient so the
+                // media server only lets the sender + recipient download them.
+                val uploadResult = client.postRaw(
+                    "/v1/media/upload",
+                    encryptedData,
+                    mimeType,
+                    extraHeaders = mapOf("X-Recipient-Id" to recipientUserId)
+                )
                 val uploadJson = uploadResult.getOrNull() ?: run {
                     android.util.Log.w("Pipeline", "FILE: upload FAILED ${uploadResult.exceptionOrNull()?.message}")
                     return@withContext SendResult.Failed(SendError.NETWORK)

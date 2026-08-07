@@ -205,7 +205,7 @@ object MediaService {
         return android.graphics.BitmapFactory.decodeFile(path, options)
     }
 
-    suspend fun encryptAndUploadMedia(fileBytes: ByteArray, mimeType: String): Result<MediaUploadResult> {
+    suspend fun encryptAndUploadMedia(fileBytes: ByteArray, mimeType: String, recipientUserId: String? = null): Result<MediaUploadResult> {
         checkInit()
         return withContext(Dispatchers.Default) {
             try {
@@ -217,7 +217,9 @@ object MediaService {
                 val encryptedData = CryptoHelper.encryptXChaCha20Poly1305(fileBytes, mediaKey)
 
                 val client = apiClient!!
-                val response = client.postRaw("/v1/media/upload", encryptedData, mimeType)
+                // B-H1: scope message attachments to the recipient.
+                val headers = recipientUserId?.let { mapOf("X-Recipient-Id" to it) } ?: emptyMap()
+                val response = client.postRaw("/v1/media/upload", encryptedData, mimeType, extraHeaders = headers)
                 val json = response.getOrNull() ?: return@withContext Result.failure(Exception("Upload failed"))
                 val mediaId = json["media_id"]?.jsonPrimitive?.content
                     ?: return@withContext Result.failure(Exception("No media_id in response"))

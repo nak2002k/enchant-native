@@ -130,11 +130,11 @@ class ApiClient {
     suspend fun del(path: String): Result<JsonObject> =
         request("DELETE", path)
 
-    suspend fun postRaw(path: String, body: ByteArray, mimeType: String = "application/octet-stream"): Result<JsonObject> {
+    suspend fun postRaw(path: String, body: ByteArray, mimeType: String = "application/octet-stream", extraHeaders: Map<String, String> = emptyMap()): Result<JsonObject> {
         if (body.size > 128 * 1024 * 1024) {
             return Result.failure(IllegalArgumentException("Body exceeds 128MB limit"))
         }
-        return request("POST", path, rawBody = body, mimeType = mimeType)
+        return request("POST", path, rawBody = body, mimeType = mimeType, extraHeaders = extraHeaders)
     }
 
     suspend fun getBinary(path: String): Result<ByteArray> {
@@ -167,13 +167,14 @@ class ApiClient {
         queryParams: Map<String, String>? = null,
         rawBody: ByteArray? = null,
         mimeType: String? = null,
+        extraHeaders: Map<String, String> = emptyMap(),
         depth: Int = 0
     ): Result<JsonObject> {
         return withContext(Dispatchers.IO) {
             try {
                 RateLimitTracker.waitIfNeeded(path)
                 RateLimitTracker.recordCall(path)
-                val request = buildRequest(method, path, body, queryParams, rawBody, mimeType)
+                val request = buildRequest(method, path, body, queryParams, rawBody, mimeType, extraHeaders)
                 val response = client.newCall(request).execute()
                 val headers = response.headers.toMap()
                 RateLimitTracker.updateFromHeaders(path, headers)
@@ -197,7 +198,7 @@ class ApiClient {
                         if (retryAfter != null && depth < max429Retries) {
                             RateLimitTracker.updateFromHeaders(path, headers)
                             kotlinx.coroutines.delay(retryAfter * 1000)
-                            request(method, path, body, queryParams, rawBody, mimeType, depth + 1)
+                            request(method, path, body, queryParams, rawBody, mimeType, extraHeaders, depth + 1)
                         } else {
                             Result.failure(Exception("Rate limited"))
                         }
@@ -206,7 +207,7 @@ class ApiClient {
                         response.body?.close()
                         if (depth < max5xxRetries) {
                             kotlinx.coroutines.delay(2000)
-                            request(method, path, body, queryParams, rawBody, mimeType, depth + 1)
+                            request(method, path, body, queryParams, rawBody, mimeType, extraHeaders, depth + 1)
                         } else {
                             Result.failure(Exception("Server error: HTTP ${response.code}"))
                         }
@@ -220,7 +221,7 @@ class ApiClient {
                 if (depth < maxRetries) {
                     RateLimitTracker.waitIfNeeded(path)
                     kotlinx.coroutines.delay(1000L * (depth + 1))
-                    request(method, path, body, queryParams, rawBody, mimeType, depth + 1)
+                    request(method, path, body, queryParams, rawBody, mimeType, extraHeaders, depth + 1)
                 } else {
                     Result.failure(e)
                 }
@@ -234,7 +235,8 @@ class ApiClient {
         body: JsonObject? = null,
         queryParams: Map<String, String>? = null,
         rawBody: ByteArray? = null,
-        mimeType: String? = null
+        mimeType: String? = null,
+        extraHeaders: Map<String, String> = emptyMap()
     ): Request {
         val url = buildUrl(path, queryParams)
         val requestBody = when {
@@ -246,6 +248,7 @@ class ApiClient {
         return Request.Builder()
             .url(url)
             .method(method, requestBody)
+            .apply { extraHeaders.forEach { (k, v) -> header(k, v) } }
             .build()
     }
 
