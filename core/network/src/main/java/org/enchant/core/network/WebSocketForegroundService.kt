@@ -104,6 +104,21 @@ class WebSocketForegroundService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * When the user swipes the app away from Recents, do NOT tear down the
+     * websocket: keep the foreground service + connection alive so messages
+     * keep flowing in the background (Signal behavior).
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Keep running — Android will restart us via START_STICKY if killed.
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification("Connected"))
+        } catch (e: Exception) {
+            android.util.Log.w("WebSocketService", "onTaskRemoved notification failed: ${e.message}")
+        }
+    }
+
     private fun disconnect() {
         isConnected = false
         try {

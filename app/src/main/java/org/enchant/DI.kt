@@ -249,6 +249,21 @@ object DI {
                             }
                         }
                     }
+                    // Register the FCM push token with the backend so closed apps
+                    // get woken by a push and pull their pending messages.
+                    org.enchant.core.push.FcmFetchManager.init {
+                        org.enchant.core.network.PendingMessageFetcher.fetchAndProcess()
+                    }
+                    _workerScope?.launch {
+                        try {
+                            val token = org.enchant.core.push.PushTokenRegistrar.getFcmToken()
+                            if (!token.isNullOrBlank()) {
+                                org.enchant.core.push.PushTokenRegistrar.registerWithBackend(token)
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.w("DI", "Push token registration failed: ${e.message}")
+                        }
+                    }
                 }
 
                 _initialized = true
