@@ -63,6 +63,7 @@ internal fun ComposerBar(
     onSend: () -> Unit,
     onAttach: () -> Unit,
     onEmoji: () -> Unit,
+    onCamera: () -> Unit = {},
     viewOnceMode: Boolean = false,
     onViewOnceToggle: () -> Unit = {},
     onVoiceStart: () -> Unit = {},
@@ -102,6 +103,12 @@ internal fun ComposerBar(
                     description = "Attach file",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     onClick = onAttach,
+                )
+                RoundIconButton(
+                    icon = EnchantIcons.camera,
+                    description = "Quick camera",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onCamera,
                 )
                 Box(modifier = Modifier.weight(1f)) {
                     BasicTextField(

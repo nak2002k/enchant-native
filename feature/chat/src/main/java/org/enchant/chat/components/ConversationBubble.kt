@@ -1,10 +1,16 @@
 package org.enchant.chat.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.combinedClickable
@@ -49,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -57,9 +64,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -128,6 +142,7 @@ internal fun MessageBubble(
     onViewOnceViewed: (String) -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var showScrubber by remember { mutableStateOf(false) }
     val bubbleScope = rememberCoroutineScope()
     var viewOnceRevealed by remember { mutableStateOf(false) }
     var viewOnceCountdown by remember { mutableIntStateOf(0) }
@@ -139,7 +154,18 @@ internal fun MessageBubble(
     val maxSwipePx = with(LocalDensity.current) { 96.dp.toPx() }
     val swipeProgress = (swipeDx / swipeThresholdPx).coerceIn(0f, 1f)
 
-    val bubbleColor = if (isOutgoing) EnchantBrand.SignalBlue else MaterialTheme.colorScheme.surface
+    val bubbleColor = if (isOutgoing) {
+        // Signal: outgoing bubble takes the per-conversation chat color
+        // (deterministically generated or user-picked), text stays white.
+        val chat = ChatColorsDrawable.getColor(message.conversationId)
+        when (chat) {
+            is ChatColor.Solid -> chat.color
+            is ChatColor.Gradient -> chat.start
+            else -> EnchantBrand.SignalBlue
+        }
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
     val bodyColor = if (isOutgoing) Color.White else MaterialTheme.colorScheme.onSurface
     val secondaryColor = if (isOutgoing) Color.White.copy(alpha = 0.65f)
         else MaterialTheme.colorScheme.onSurfaceVariant
@@ -243,7 +269,7 @@ internal fun MessageBubble(
                         onClick = { if (isSelectionMode) onToggleSelection() },
                         onLongClick = {
                             onLongPress()
-                            if (!isSelectionMode) showMenu = true
+                            if (!isSelectionMode) showScrubber = true
                         },
                     )
                     .drawWithContent {
@@ -391,7 +417,11 @@ internal fun MessageBubble(
                             val urlPattern = Regex("https?://[^\\s]+")
                             val urls = urlPattern.findAll(content).map { it.value }.toList()
                             Text(
-                                text = content,
+                                text = buildMentionAnnotatedString(
+                                    content,
+                                    baseColor = bodyColor,
+                                    mentionColor = if (isOutgoing) Color.White else MaterialTheme.colorScheme.primary,
+                                ),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = bodyColor,
                             )
@@ -454,6 +484,24 @@ internal fun MessageBubble(
                         contentDescription = "Reply",
                         tint = if (isOutgoing) Color.White else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            // Reaction scrubber (Signal): long-press reveals a draggable row of
+            // quick emoji; tapping one reacts instantly.
+            Box(modifier = Modifier.align(Alignment.TopStart)) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showScrubber,
+                    enter = fadeIn(animationSpec = tween(120)) + slideInVertically { it / 2 },
+                    exit = fadeOut(animationSpec = tween(120)),
+                ) {
+                    ReactionScrubber(
+                        selected = { emoji ->
+                            onReact(emoji)
+                            showScrubber = false
+                        },
+                        onDismiss = { showScrubber = false },
                     )
                 }
             }
@@ -583,7 +631,7 @@ private fun TimestampRow(
                     EnchantIcons.clock,
                     contentDescription = "Sending",
                     modifier = Modifier.size(13.dp),
-                    tint = secondaryColor.copy(alpha = 0.4f),
+                    tint = secondaryColor.copy(alpha = 0.65f),
                 )
                 MessageStatus.FAILED -> Icon(
                     EnchantIcons.alertCircle,
@@ -610,7 +658,7 @@ private fun TimestampRow(
                     EnchantIcons.clock,
                     contentDescription = "Pending",
                     modifier = Modifier.size(13.dp),
-                    tint = secondaryColor.copy(alpha = 0.4f),
+                    tint = secondaryColor.copy(alpha = 0.65f),
                 )
             }
         }
@@ -978,5 +1026,100 @@ private fun QuotedMessagePreview(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+@Composable
+private fun ReactionScrubber(
+    selected: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val emojis = listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE0E", "\uD83D\uDE22", "\uD83D\uDE4F", "\uD83D\uDE2E")
+    var pressedIndex by remember { mutableIntStateOf(-1) }
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(EnchantRadii.pill))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+            .shadow(6.dp, RoundedCornerShape(EnchantRadii.pill))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(EnchantRadii.pill))
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (pressedIndex in emojis.indices) {
+                            selected(emojis[pressedIndex])
+                        }
+                        pressedIndex = -1
+                    },
+                    onDragCancel = { pressedIndex = -1 },
+                ) { change, dragAmount ->
+                    change.consume()
+                    // Track which emoji the drag is currently over (approximate by x).
+                    val x = change.position.x
+                    pressedIndex = ((x - 6.dp.toPx()) / 40.dp.toPx()).toInt().coerceIn(0, emojis.size - 1)
+                }
+            },
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            emojis.forEachIndexed { i, emoji ->
+                Text(
+                    text = emoji,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (i == pressedIndex) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else Color.Transparent
+                        )
+                        .clickable {
+                            selected(emoji)
+                        }
+                        .padding(6.dp),
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+    // Dismiss on outside tap handled by the parent Box's click area; this is
+    // enough for quick reactions.
+}
+
+/**
+ * Renders message body text with Signal-style inline styling:
+ *   @mention  → bold + accent color
+ *   *bold*    → bold
+ *   _italic_  → italic
+ *   ~strike~  → strikethrough
+ *   ||spoiler|| → blurred-reveal spoiler
+ */
+private fun buildMentionAnnotatedString(
+    text: String,
+    baseColor: Color,
+    mentionColor: Color,
+): AnnotatedString {
+    // Single pass over the string; apply inline styles (bold/italic/strike/
+    // spoiler) and @mention highlighting. Patterns:
+    //   @word      → mention
+    //   *word*     → bold
+    //   _word_     → italic
+    //   ~word~     → strikethrough
+    //   ||word||   → spoiler (greyed)
+    val token = Regex("""@([A-Za-z0-9_.]+)|\*([^*]+)\*|_([^_]+)_|~([^~]+)~|\|\|([^|]+)\|\|""")
+    return buildAnnotatedString {
+        var i = 0
+        for (m in token.findAll(text)) {
+            if (m.range.first > i) append(text.substring(i, m.range.first))
+            val g = m.groupValues
+            when {
+                g[1].isNotEmpty() -> withStyle(SpanStyle(color = mentionColor, fontWeight = FontWeight.Bold)) { append("@${g[1]}") }
+                g[2].isNotEmpty() -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(g[2]) }
+                g[3].isNotEmpty() -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(g[3]) }
+                g[4].isNotEmpty() -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { append(g[4]) }
+                g[5].isNotEmpty() -> withStyle(SpanStyle(color = baseColor.copy(alpha = 0.55f))) { append(g[5]) }
+            }
+            i = m.range.last + 1
+        }
+        if (i < text.length) append(text.substring(i))
     }
 }

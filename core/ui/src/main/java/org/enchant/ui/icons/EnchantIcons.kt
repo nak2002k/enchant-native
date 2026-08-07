@@ -43,6 +43,28 @@ object EnchantIcons {
             b.build()
         }
 
+    /** Filled (solid) icon variant for Signal's filled symbols (save, payment, star, etc). */
+    private fun filledIcon(name: String, paths: List<String>): ImageVector =
+        cache.getOrPut(name) {
+            val b = ImageVector.Builder(
+                name = name,
+                defaultWidth = 24.dp,
+                defaultHeight = 24.dp,
+                viewportWidth = 24f,
+                viewportHeight = 24f,
+            )
+            paths.forEach { d ->
+                b.path(
+                    fill = SolidColor(Color.White),
+                    stroke = null,
+                    pathFillType = PathFillType.NonZero,
+                ) {
+                    tracePath(this, d)
+                }
+            }
+            b.build()
+        }
+
     private fun tracePath(b: PathBuilder, d: String) {
         var i = 0
         val n = d.length
@@ -1037,6 +1059,127 @@ object EnchantIcons {
             """M2.0 12.0 a10.0 10.0 0 1 0 20.0 0 a10.0 10.0 0 1 0 -20.0 0 Z""",
             """m15 9-6 6""",
             """m9 9 6 6"""
+        ))
+    }
+    val save: ImageVector by lazy {
+        icon("save", listOf(
+            """M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z""",
+            """M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7""",
+            """M7 3v4a1 1 0 0 0 1 1h7"""
+        ))
+    }
+    val saveFilled: ImageVector by lazy {
+        filledIcon("saveFilled", listOf(
+            """M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8 3v4a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3h-2v3.5h-3V3zM17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7h2v-4h6v4z"""
+        ))
+    }
+    val formatBold: ImageVector by lazy {
+        icon("formatBold", listOf(
+            """M6.75 4.75h4.5a3.5 3.5 0 0 1 0 7h-4.5z""",
+            """M6.75 11.75h5a3.5 3.5 0 0 1 0 7h-5z"""
+        ))
+    }
+    val formatItalic: ImageVector by lazy {
+        icon("formatItalic", listOf(
+            """M19 4h-9""",
+            """M14 20H5""",
+            """M15 4 9 20"""
+        ))
+    }
+    val formatStrikethrough: ImageVector by lazy {
+        icon("formatStrikethrough", listOf(
+            """M16 16a4 4 0 0 1-8 0""",
+            """M4 12h16""",
+            """M6 8a4 4 0 0 1 12 0"""
+        ))
+    }
+    val formatMonospace: ImageVector by lazy {
+        icon("formatMonospace", listOf(
+            """M4 6c0 1.5.8 2 2 2s2-.5 2-2c0-2-1-3-1-4h6c0 1-1 2-1 4 0 1.5.8 2 2 2s2-.5 2-2c0-2-1-3-1-4""",
+            """M6 18c1.5 0 2-.8 2-2s-.5-2-2-2c-2 0-3 1-4 1h16c-1 0-2-1-4-1-1.5 0-2 .8-2 2s.5 2 2 2c1.5 0 2-.8 2-2"""
+        ))
+    }
+    val spoiler: ImageVector by lazy {
+        icon("spoiler", listOf(
+            """M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94""",
+            """M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19""",
+            """M14.12 14.12a3 3 0 1 1-4.24-4.24""",
+            """m1 1 22 22"""
+        ))
+    }
+    val timer: ImageVector by lazy {
+        icon("timer", listOf(
+            """M10 2h4""",
+            """M12 14v-4""",
+            """M4.93 10.93a1.4 1.4 0 0 0-1.93 1.93a9 9 0 1 0 0-1.72""",
+            """M9.5 2.5h5""",
+            """M12 14l2.8-2.8a1.4 1.4 0 0 0-.7-2.37"""
+        ))
+    }
+    val invite: ImageVector by lazy {
+        icon("invite", listOf(
+            """M14 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2""",
+            """M5.0 7.0 a3.0 3.0 0 1 0 6.0 0 a3.0 3.0 0 1 0 -6.0 0 Z""",
+            """M19 15v6""",
+            """M16 18h6"""
+        ))
+    }
+    val helpCircle: ImageVector by lazy {
+        icon("helpCircle", listOf(
+            """M2.0 12.0 a10.0 10.0 0 1 0 20.0 0 a10.0 10.0 0 1 0 -20.0 0 Z""",
+            """M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3""",
+            """M12 17h.01"""
+        ))
+    }
+    val flash: ImageVector by lazy {
+        icon("flash", listOf(
+            """M13 2 3 14h9l-1 8 10-12h-9l1-8z"""
+        ))
+    }
+    val payment: ImageVector by lazy {
+        icon("payment", listOf(
+            """M2.0 4.0 L22.0 4.0 L22.0 20.0 L2.0 20.0 Z""",
+            """M2 10h20"""
+        ))
+    }
+    val deviceMobile: ImageVector by lazy {
+        icon("deviceMobile", listOf(
+            """M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z""",
+            """M11 18h2"""
+        ))
+    }
+    val gallery: ImageVector by lazy {
+        icon("gallery", listOf(
+            """M2 3h20a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z""",
+            """M2 13l4.5-4.5a1.5 1.5 0 0 1 2.1 0L14 14""",
+            """M14.5 11.5 17 9a1.5 1.5 0 0 1 2.1 0L22 12""",
+            """M6 20l4-4""",
+            """M15 19l2-2 3 3"""
+        ))
+    }
+    val downloadFilled: ImageVector by lazy {
+        filledIcon("downloadFilled", listOf(
+            """M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 13.59V7a1 1 0 0 1 2 0v8.59l2.3-2.3a1 1 0 0 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.42z"""
+        ))
+    }
+    val messageCircleFill: ImageVector by lazy {
+        filledIcon("messageCircleFill", listOf(
+            """M12 2C6.48 2 2 6.02 2 11c0 2.6 1.14 4.94 2.98 6.6L4 22l4.65-1.68A10.2 10.2 0 0 0 12 20c5.52 0 10-4.02 10-9S17.52 2 12 2z"""
+        ))
+    }
+    val cameraFill: ImageVector by lazy {
+        filledIcon("cameraFill", listOf(
+            """M9 3 7.5 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.5L15 3H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"""
+        ))
+    }
+    val phoneFill: ImageVector by lazy {
+        filledIcon("phoneFill", listOf(
+            """M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.85 21 3 13.15 3 3.5a1 1 0 0 1 1-1H7.5a1 1 0 0 1 1 1c0 1.24.2 2.45.57 3.57a1 1 0 0 1-.25 1.02l-2.2 2.2z"""
+        ))
+    }
+    val videoFill: ImageVector by lazy {
+        filledIcon("videoFill", listOf(
+            """M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"""
         ))
     }
 }

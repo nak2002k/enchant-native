@@ -542,7 +542,8 @@ private fun DetailPaneContent(
                         val index = statusState.feed.indexOfFirst { it.statusId == statusId }
                         onNavigate(MainNavigationDetailLocation.StatusViewer(statusId))
                     },
-                    onCreateStatus = { onNavigate(MainNavigationDetailLocation.StatusCreate) }
+                    onCreateStatus = { onNavigate(MainNavigationDetailLocation.StatusCreate) },
+                    onBack = onNavigateBack
                 )
             }
             topDetail is MainNavigationDetailLocation.StatusCreate -> {
@@ -672,7 +673,10 @@ private fun DetailPaneContent(
                         scope.launch { CallManager.startOutgoingCall(topDetail.userId, false) }
                     },
                     onBlock = { profileViewModel.blockUser(topDetail.userId) },
-                    isBlocked = false
+                    isBlocked = false,
+                    onSaveProfile = { name, username, about ->
+                        profileViewModel.updateProfile(name, about)
+                    }
                 )
             }
             // Group join

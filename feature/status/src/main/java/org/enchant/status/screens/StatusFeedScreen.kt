@@ -37,7 +37,8 @@ fun StatusFeedScreen(
     myStatus: StatusFeedEntry?,
     feed: List<StatusFeedEntry>,
     onStatusTap: (String) -> Unit,
-    onCreateStatus: () -> Unit
+    onCreateStatus: () -> Unit,
+    onBack: () -> Unit = {}
 ) {
     val groupedFeed = remember(feed) {
         feed.groupBy { it.userId }
@@ -56,6 +57,9 @@ fun StatusFeedScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(onClick = onBack, enabled = true) {
+                Icon(EnchantIcons.arrowLeft, "Back", tint = MaterialTheme.colorScheme.onSurface)
+            }
             Text(
                 "Stories",
                 style = MaterialTheme.typography.titleLarge,

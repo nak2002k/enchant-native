@@ -172,8 +172,14 @@ fun ProfileScreen(
     onMessage: () -> Unit,
     onCall: () -> Unit,
     onBlock: () -> Unit,
-    isBlocked: Boolean
+    isBlocked: Boolean,
+    onSaveProfile: ((displayName: String?, username: String?, about: String?) -> Unit)? = null,
 ) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editName by remember(profile?.displayName) { mutableStateOf(profile?.displayName ?: "") }
+    var editUsername by remember(profile?.username) { mutableStateOf(profile?.username ?: "") }
+    var editAbout by remember(profile?.about) { mutableStateOf(profile?.about ?: "") }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -190,7 +196,7 @@ fun ProfileScreen(
                 },
                 actions = {
                     if (isOwnProfile) {
-                        IconButton(onClick = onEdit) {
+                        IconButton(onClick = { if (onSaveProfile != null) showEditDialog = true else onEdit() }) {
                             Icon(EnchantIcons.pencil, "Edit")
                         }
                     }
@@ -264,25 +270,25 @@ fun ProfileScreen(
                         title = "Edit name",
                         icon = EnchantIcons.user,
                         iconBg = BrandBlue,
-                        onClick = onEdit
+                        onClick = { if (onSaveProfile != null) showEditDialog = true else onEdit() }
                     )
                     SettingsRow(
                         title = "About",
                         icon = EnchantIcons.info,
                         iconBg = CallGreen,
-                        onClick = onEdit
+                        onClick = { if (onSaveProfile != null) showEditDialog = true else onEdit() }
                     )
                     SettingsRow(
                         title = "Username",
                         icon = EnchantIcons.atSign,
                         iconBg = GroupGreen,
-                        onClick = onEdit
+                        onClick = { if (onSaveProfile != null) showEditDialog = true else onEdit() }
                     )
                     SettingsRow(
                         title = "Avatar",
                         icon = EnchantIcons.image,
                         iconBg = BrandBlue,
-                        onClick = onEdit,
+                        onClick = { if (onSaveProfile != null) showEditDialog = true else onEdit() },
                         showDivider = false
                     )
                 }
@@ -314,5 +320,51 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(SpacingXxxl))
         }
+    }
+
+    if (showEditDialog && onSaveProfile != null) {
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Profile") },
+            text = {
+                Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        label = { Text("Display name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editUsername,
+                        onValueChange = { editUsername = it.lowercase().replace("[^a-z0-9_]".toRegex(), "") },
+                        label = { Text("Username") },
+                        prefix = { Text("@") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editAbout,
+                        onValueChange = { if (it.length <= 139) editAbout = it },
+                        label = { Text("About") },
+                        supportingText = { Text("${editAbout.length}/139") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEditDialog = false
+                    onSaveProfile(
+                        editName.ifBlank { null },
+                        editUsername.ifBlank { null }.let { if (it == profile?.username) null else it },
+                        editAbout.ifBlank { null }.let { if (it == profile?.about) null else it }
+                    )
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }

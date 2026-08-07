@@ -27,7 +27,7 @@ object ChatColorsDrawable {
         return if (isOutgoing) Color(0xFFE3F2FD) else Color(0xFFF5F5F5)
     }
 
-    suspend fun setConversationColor(conversationId: String, color: ChatColor) {
+    fun setConversationColor(conversationId: String, color: ChatColor) {
         val encoded = when (color) {
             is ChatColor.Solid -> "solid:${color.color.value.toLong()}"
             is ChatColor.Gradient -> "gradient:${color.start.value.toLong()}:${color.end.value.toLong()}"
@@ -39,6 +39,22 @@ object ChatColorsDrawable {
 
     fun getPresetColor(index: Int): Color {
         return presetColors[index % presetColors.size]
+    }
+
+    // ─── Wallpaper (per-conversation background tint) ───
+
+    fun getWallpaper(conversationId: String): Color? {
+        val encoded = SecurePreferences.getString("chat_wallpaper_$conversationId")
+        val v = encoded?.toLongOrNull() ?: return null
+        return Color(v)
+    }
+
+    fun setWallpaper(conversationId: String, color: Color?) {
+        if (color == null) {
+            SecurePreferences.putString("chat_wallpaper_$conversationId", "")
+        } else {
+            SecurePreferences.putString("chat_wallpaper_$conversationId", color.value.toLong().toString())
+        }
     }
 
     fun generateColor(conversationId: String): Color {

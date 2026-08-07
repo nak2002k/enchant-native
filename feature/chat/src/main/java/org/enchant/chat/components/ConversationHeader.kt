@@ -54,6 +54,7 @@ internal fun ConversationHeader(
     onDisappear: () -> Unit,
     onStarred: () -> Unit,
     onPinned: () -> Unit,
+    onChatColor: () -> Unit,
 ) {
     if (isSelectionMode) {
         SelectionBar(
@@ -78,6 +79,7 @@ internal fun ConversationHeader(
             onDisappear = onDisappear,
             onStarred = onStarred,
             onPinned = onPinned,
+            onChatColor = onChatColor,
         )
     }
 }
@@ -97,6 +99,7 @@ private fun NormalHeader(
     onDisappear: () -> Unit,
     onStarred: () -> Unit,
     onPinned: () -> Unit,
+    onChatColor: () -> Unit,
 ) {
     val isDirect = conversation?.type == ConversationType.DIRECT
     Row(
@@ -125,14 +128,25 @@ private fun NormalHeader(
         )
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title ?: "Chat",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title ?: "Chat",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (conversation?.disappearTimerSeconds != null && conversation.disappearTimerSeconds > 0) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        EnchantIcons.timer,
+                        contentDescription = "Disappearing messages on",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
             Text(
                 text = if (typingIndicator) "typing…" else "End-to-end encrypted",
                 style = MaterialTheme.typography.labelSmall,
@@ -190,6 +204,7 @@ private fun NormalHeader(
             DropdownMenuItem(text = { Text("View contact") }, onClick = { onViewContact(); showMenu = false })
             DropdownMenuItem(text = { Text("Search") }, onClick = { onSearch(); showMenu = false })
             DropdownMenuItem(text = { Text("Disappearing messages") }, onClick = { onDisappear(); showMenu = false })
+            DropdownMenuItem(text = { Text("Chat color") }, onClick = { onChatColor(); showMenu = false })
             DropdownMenuItem(text = { Text("Starred messages") }, onClick = { onStarred(); showMenu = false })
             DropdownMenuItem(text = { Text("Pinned messages") }, onClick = { onPinned(); showMenu = false })
         }

@@ -33,8 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -105,6 +107,7 @@ fun ConversationScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showDisappearDialog by remember { mutableStateOf(false) }
     var showSafetyNumber by remember { mutableStateOf(false) }
+    var showColorPicker by remember { mutableStateOf(false) }
     var infoMessage by remember { mutableStateOf<Message?>(null) }
     var showPollDialog by remember { mutableStateOf(false) }
     var pollQuestion by remember { mutableStateOf("") }
@@ -252,6 +255,7 @@ fun ConversationScreen(
                     onDisappear = { showDisappearDialog = true },
                     onStarred = {},
                     onPinned = {},
+                    onChatColor = { showColorPicker = true },
                 )
                 if (showContactInfo) {
                     AlertDialog(
@@ -419,6 +423,35 @@ fun ConversationScreen(
                     }
                 } else {
                     Box(modifier = Modifier.weight(1f)) {
+                        val wallpaper = org.enchant.chat.components.ChatColorsDrawable.getWallpaper(conversationId)
+                        if (wallpaper != null) {
+                            val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(wallpaper)
+                                    .then(
+                                        Modifier.background(
+                                            if (dark) Color.Black.copy(alpha = 0.4f)
+                                            else Color.White.copy(alpha = 0.15f)
+                                        )
+                                    )
+                            )
+                        }
+                        // Sticky date header: shows the date of the message at the
+                        // top of the visible viewport (Signal behavior).
+                        val firstVisible = if (messages.isNotEmpty())
+                            messages.getOrNull(listState.firstVisibleItemIndex.coerceIn(0, messages.size - 1))
+                        else null
+                        val stickyDate = firstVisible?.let { formatDayLabel(it.timestamp) }
+                        if (stickyDate != null) {
+                            DateChip(
+                                text = stickyDate,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 8.dp),
+                            )
+                        }
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -533,6 +566,56 @@ fun ConversationScreen(
                     }
                 }
 
+                // Mention picker (Signal): typing "@" in a group shows the
+                // members to autocomplete.
+                if (isGroupChat && messageText.contains("@")) {
+                    val lastAt = messageText.lastIndexOf('@')
+                    val query = messageText.substring(lastAt + 1).trimStart()
+                    val candidates = (senderNames.entries.map { it.key to it.value } +
+                        listOf(selfUserId to (senderNames[selfUserId] ?: "You")))
+                        .filter { it.first != selfUserId || true }
+                        .filter { query.isEmpty() || it.second.contains(query, ignoreCase = true) }
+                        .distinctBy { it.first }
+                        .take(6)
+                    if (candidates.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(EnchantRadii.sheet),
+                            color = MaterialTheme.colorScheme.surface,
+                            shadowElevation = 8.dp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = EnchantSpacing.md),
+                        ) {
+                            Column {
+                                candidates.forEach { (id, name) ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                val prefix = messageText.substring(0, messageText.lastIndexOf('@'))
+                                                messageText = "$prefix@$name "
+                                                viewModel.onComposerTextChanged(messageText)
+                                            }
+                                            .padding(horizontal = EnchantSpacing.md, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        org.enchant.chat.components.EnchantAvatar(text = name, size = 28.dp)
+                                        Spacer(Modifier.width(EnchantSpacing.md))
+                                        Text(name, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            "@${id?.take(8)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(start = EnchantSpacing.sm),
+                                        )
+                                    }
+                                    HorizontalDivider()
+                                }
+                            }
+                        }
+                    }
+                }
+
                 AnimatedVisibility(visible = replyToId != null) {
                     val quoted = messages.find { it.envelopeId == replyToId }
                     ReplyPreview(
@@ -557,6 +640,11 @@ fun ConversationScreen(
                     },
                     onAttach = { showAttachments = true },
                     onEmoji = { showEmojiPicker = true },
+                    onCamera = {
+                        val photoFile = createTempFile(context, "photo_", ".jpg")
+                        cameraUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+                        cameraLauncher.launch(cameraUri!!)
+                    },
                     viewOnceMode = viewOnceMode,
                     onViewOnceToggle = { viewOnceMode = !viewOnceMode },
                     onVoiceStart = {
@@ -750,9 +838,11 @@ fun ConversationScreen(
     if (infoMsg != null) {
         AlertDialog(
             onDismissRequest = { infoMessage = null },
-            title = { Text("Message info") },
+            title = { Text("Message details") },
             text = {
                 Column {
+                    InfoRow("From", if (infoMsg.senderId == selfUserId) "You"
+                        else senderNames[infoMsg.senderId] ?: infoMsg.senderId.take(12))
                     InfoRow("Status", when (infoMsg.status) {
                         MessageStatus.SENDING -> "Sending"
                         MessageStatus.SENT -> "Sent"
@@ -768,7 +858,10 @@ fun ConversationScreen(
                         InfoRow("Received by server", java.text.SimpleDateFormat("EEE, MMM d, HH:mm:ss", java.util.Locale.US)
                             .format(java.util.Date(serverTs)))
                     }
-                    if (infoMsg.isEdited) InfoRow("Edited", "Yes")
+                    if (infoMsg.editedAt != null && infoMsg.editedAt!! > 0) {
+                        InfoRow("Edited", java.text.SimpleDateFormat("EEE, MMM d, HH:mm:ss", java.util.Locale.US)
+                            .format(java.util.Date(infoMsg.editedAt!!)))
+                    }
                     val mediaSz = infoMsg.mediaSize
                     if (mediaSz != null) {
                         InfoRow("Size", formatFileSize(mediaSz))
@@ -880,13 +973,18 @@ fun ConversationScreen(
         }
     }
 
+    if (showColorPicker) {
+        org.enchant.chat.components.ChatColorPickerSheet(
+            conversationId = conversationId,
+            onDismiss = { showColorPicker = false },
+        )
+    }
     if (showDisappearDialog) {
         val currentTimer = conversation?.disappearTimerSeconds ?: 0
         AlertDialog(
             onDismissRequest = { showDisappearDialog = false },
             title = { Text("Disappearing messages") },
-            text = {
-                Column {
+            text = {                Column {
                     Text(
                         "Messages that disappear after a set time. Current: ${DisappearTimerPresets.formatDuration(currentTimer)}",
                         style = MaterialTheme.typography.bodySmall,
