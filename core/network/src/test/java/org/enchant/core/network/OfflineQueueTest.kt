@@ -105,6 +105,59 @@ class OfflineQueueTest {
 
             unmockkObject(SecurePreferences)
         }
+
+        @Test @DisplayName("large payload is persisted without truncation")
+        fun `large payload persists intact`() = runTest {
+            val store = mutableMapOf<String, String>()
+            mockkObject(SecurePreferences)
+            every { SecurePreferences.getString(any(), any()) } answers { store[firstArg<String>()] }
+            every { SecurePreferences.putInt(any(), any()) } answers { store[firstArg<String>()] = secondArg<Int>().toString() }
+            every { SecurePreferences.putString(any(), any()) } answers { store[firstArg<String>()] = secondArg<String>() }
+
+            val large = ByteArray(8192) { (it % 251).toByte() }
+            OfflineQueue.enqueue(QueuedMessage(
+                id = "large-msg",
+                recipientUserId = "user1",
+                recipientDeviceId = null,
+                messageType = "ENCRYPTED_MESSAGE",
+                payload = large,
+                senderTs = 1000
+            ))
+
+            assertEquals("1", store["offline.queue.count"])
+            val persisted = store["offline.queue.0"]!!
+            val restoredPayload = java.util.Base64.getUrlDecoder().decode(
+                persisted.split("|", limit = 7)[4]
+            )
+            assertArrayEquals(large, restoredPayload)
+
+            unmockkObject(SecurePreferences)
+        }
+
+        @Test @DisplayName("all queued messages are persisted without cap")
+        fun `all items persist without cap`() = runTest {
+            val store = mutableMapOf<String, String>()
+            mockkObject(SecurePreferences)
+            every { SecurePreferences.getString(any(), any()) } answers { store[firstArg<String>()] }
+            every { SecurePreferences.putInt(any(), any()) } answers { store[firstArg<String>()] = secondArg<Int>().toString() }
+            every { SecurePreferences.putString(any(), any()) } answers { store[firstArg<String>()] = secondArg<String>() }
+
+            repeat(60) { i ->
+                OfflineQueue.enqueue(QueuedMessage(
+                    id = "item-$i",
+                    recipientUserId = "user1",
+                    recipientDeviceId = null,
+                    messageType = "ENCRYPTED_MESSAGE",
+                    payload = "data-$i".encodeToByteArray(),
+                    senderTs = 1000L + i
+                ))
+            }
+
+            assertEquals("60", store["offline.queue.count"])
+            assertEquals(60, (0 until 60).count { store.containsKey("offline.queue.$it") })
+
+            unmockkObject(SecurePreferences)
+        }
     }
 
     @Nested @DisplayName("Edge Cases")

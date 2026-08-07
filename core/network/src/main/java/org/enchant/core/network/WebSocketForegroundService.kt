@@ -81,6 +81,10 @@ class WebSocketForegroundService : Service() {
                             scope.launch {
                                 runCatching { PendingMessageFetcher.fetchAndProcess() }
                             }
+                            // Flush any outbound messages queued while offline.
+                            scope.launch {
+                                runCatching { OfflineQueue.drain() }
+                            }
                         }
                         ConnectionState.DISCONNECTED, ConnectionState.AUTH_FAILED -> {
                             isConnected = false
