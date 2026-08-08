@@ -270,6 +270,28 @@ class VeilSession private constructor(
                     (ciphertext[71].toInt() and 0xFF)
                 android.util.Log.d(TAG, "decryptPrekeyMessage: ctLen=${ciphertext.size} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId")
 
+                // Post-quantum envelope: the initiator may embed a Kyber
+                // prekey id + ciphertext right after the 76-byte header
+                // (kyber_id(4, BE) || ct_len(4, BE) || kyber_ct(ct_len)).
+                // kyber_id == 0 means classic X3DH.
+                var ourKyberPrekeyId = 0
+                var embeddedKyberLen = 0
+                if (ciphertext.size >= 84) {
+                    val kId = ((ciphertext[76].toInt() and 0xFF) shl 24) or
+                        ((ciphertext[77].toInt() and 0xFF) shl 16) or
+                        ((ciphertext[78].toInt() and 0xFF) shl 8) or
+                        (ciphertext[79].toInt() and 0xFF)
+                    val kLen = ((ciphertext[80].toInt() and 0xFF) shl 24) or
+                        ((ciphertext[81].toInt() and 0xFF) shl 16) or
+                        ((ciphertext[82].toInt() and 0xFF) shl 8) or
+                        (ciphertext[83].toInt() and 0xFF)
+                    if (kId != 0 && kLen > 0 && ciphertext.size >= 84 + kLen) {
+                        ourKyberPrekeyId = kId
+                        embeddedKyberLen = kLen
+                    }
+                }
+                val isPq = ourKyberPrekeyId != 0
+
                 // Diagnose: do we actually hold these keys in the native store?
                 val spkProbe = ByteArray(32)
                 val opkProbe = ByteArray(32)
@@ -279,21 +301,34 @@ class VeilSession private constructor(
                     identityStoreHandle, ourOneTimePrekeyId, opkProbe, 32L)
                 android.util.Log.w(TAG,
                     "decryptPrekeyMessage: storeProbe spkId=$ourSignedPrekeyId rc=$spkRc " +
-                    "opkId=$ourOneTimePrekeyId rc=$opkRc")
+                    "opkId=$ourOneTimePrekeyId rc=$opkRc" +
+                    " kyberId=$ourKyberPrekeyId kyberLen=$embeddedKyberLen pq=$isPq")
 
                 val maxPlaintext = ciphertext.size + 256
                 val plaintext = ByteArray(maxPlaintext)
                 val plaintextLen = longArrayOf(maxPlaintext.toLong())
 
-                val rc = EnchantCrypto.enchant_session_manager_decrypt_prekey(
-                    sessionManagerHandle, senderUserId, device,
-                    ciphertext, ciphertext.size.toLong(),
-                    ourSignedPrekeyId, ourOneTimePrekeyId,
-                    plaintext, plaintextLen
-                )
-                android.util.Log.d(TAG, "decryptPrekeyMessage: native rc=$rc plaintextLen=${plaintextLen[0]} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId")
+                val rc = if (isPq) {
+                    // The kyber ciphertext travels inside the envelope; the
+                    // responder parses it back out (no separate argument).
+                    EnchantCrypto.enchant_session_manager_decrypt_prekey_pqxdh(
+                        sessionManagerHandle, senderUserId, device,
+                        ciphertext, ciphertext.size.toLong(),
+                        ourSignedPrekeyId, ourOneTimePrekeyId, ourKyberPrekeyId,
+                        ByteArray(0), 0L,
+                        plaintext, plaintextLen
+                    )
+                } else {
+                    EnchantCrypto.enchant_session_manager_decrypt_prekey(
+                        sessionManagerHandle, senderUserId, device,
+                        ciphertext, ciphertext.size.toLong(),
+                        ourSignedPrekeyId, ourOneTimePrekeyId,
+                        plaintext, plaintextLen
+                    )
+                }
+                android.util.Log.d(TAG, "decryptPrekeyMessage: native rc=$rc plaintextLen=${plaintextLen[0]} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId pq=$isPq")
                 if (rc != EnchantCrypto.SUCCESS) {
-                    android.util.Log.e(TAG, "decryptPrekeyMessage FAILED: rc=$rc (name=$senderUserId, dev=$device, ctLen=${ciphertext.size}) spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId")
+                    android.util.Log.e(TAG, "decryptPrekeyMessage FAILED: rc=$rc (name=$senderUserId, dev=$device, ctLen=${ciphertext.size}) spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId pq=$isPq")
                     return@withLock null
                 }
 
