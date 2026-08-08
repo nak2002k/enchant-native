@@ -126,7 +126,10 @@ class VeilSession private constructor(
                     )
                 }
 
-                val maxCiphertext = plaintext.size + 512
+                // Room for the 76-byte prekey header + embedded Kyber block
+                // (kyber_id 4 + ct_len 4 + up to 1568-byte ML-KEM-1024 ct) +
+                // the inner envelope, not just the plaintext.
+                val maxCiphertext = plaintext.size + 4096
                 val ciphertext = ByteArray(maxCiphertext)
                 val ciphertextLen = longArrayOf(maxCiphertext.toLong())
                 val messageType = intArrayOf(0)
@@ -178,7 +181,7 @@ class VeilSession private constructor(
                 )
                 if (hasSession[0] == 0) return@withLock null
 
-                val maxCiphertext = plaintext.size + 512
+                val maxCiphertext = plaintext.size + 4096
                 val ciphertext = ByteArray(maxCiphertext)
                 val ciphertextLen = longArrayOf(maxCiphertext.toLong())
                 val messageType = intArrayOf(0)
