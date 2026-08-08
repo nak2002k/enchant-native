@@ -184,7 +184,8 @@ object MessageSendPipeline {
         plaintext: ByteArray,
         replyTo: String? = null,
         insertLocally: Boolean = true,
-        skipSession: Boolean = false
+        skipSession: Boolean = false,
+        forwardedFromUserId: String? = null
     ): SendResult {
         checkInit()
         val repo = repository!!
@@ -220,7 +221,8 @@ object MessageSendPipeline {
                             replyToTimestamp = quoted?.timestamp,
                             replyToAuthor = quoted?.senderId,
                             replyToText = quoted?.content,
-                            replyToEnvelopeId = replyTo
+                            replyToEnvelopeId = replyTo,
+                            forwardedFromUserId = forwardedFromUserId
                         )
                     )
                 }
@@ -805,13 +807,112 @@ object MessageSendPipeline {
         targetConversationId: String, targetUserId: String
     ): SendResult {
         checkInit()
-        val msg = repository!!.getMessage(originalEnvelopeId)
+        val repo = repository!!
+        val entity = repo.getMessageEntity(originalEnvelopeId)
             ?: return SendResult.Failed(SendError.NETWORK)
-        return sendMessage(
+
+        // Attribution: the recipient should see who originally sent the
+        // message. For our own sent messages the original author is us.
+        val selfId = SecurePreferences.getString("auth.user_id") ?: return SendResult.Failed(SendError.NETWORK)
+        val forwardedFrom = if (entity.senderId == selfId) selfId else entity.senderId
+
+        val hasMedia = entity.mediaId != null && entity.mediaKey != null && entity.mediaMimeType != null
+
+        return withContext(Dispatchers.Default) {
+            if (hasMedia) {
+                forwardMediaMessage(entity, targetConversationId, targetUserId, forwardedFrom)
+            } else {
+                forwardTextMessage(entity, targetConversationId, targetUserId, forwardedFrom)
+            }
+        }
+    }
+
+    private suspend fun forwardTextMessage(
+        entity: MessageEntity, targetConversationId: String, targetUserId: String, forwardedFrom: String
+    ): SendResult {
+        val body = entity.content
+        // Forwarded view-once notes are re-sent as plain text to avoid
+        // silently dropping the content the user explicitly chose to forward.
+        val content = MessageProtobufHelper.buildDataMessageContent(
+            body = body,
+            timestamp = System.currentTimeMillis(),
+            forwardedFromUserId = forwardedFrom
+        )
+        return sendVeiledMessage(
             conversationId = targetConversationId,
             recipientUserId = targetUserId,
-            plaintext = msg.content.encodeToByteArray()
+            plaintext = content,
+            insertLocally = true,
+            forwardedFromUserId = forwardedFrom
         )
+    }
+
+    private suspend fun forwardMediaMessage(
+        entity: MessageEntity, targetConversationId: String, targetUserId: String, forwardedFrom: String
+    ): SendResult {
+        return try {
+            val mediaId = entity.mediaId!!
+            val mediaMime = entity.mediaMimeType!!
+            // Received media keys are stored base64url-encoded; our own sent
+            // messages too (sendFileMessage encodes before insert).
+            val mediaKeyBytes = runCatching {
+                org.enchant.core.crypto.CryptoPrimitives.base64UrlDecode(entity.mediaKey!!)
+            }.getOrNull() ?: return SendResult.Failed(SendError.NETWORK)
+
+            // The original media is recipient-scoped (B-H1), so it must be
+            // re-uploaded encrypted under a fresh key for the new recipient.
+            val downloaded = MediaService.downloadAndDecryptMedia(mediaId, mediaKeyBytes)
+                .getOrNull() ?: return SendResult.Failed(SendError.NETWORK)
+            val fileBytes = downloaded.readBytes()
+
+            val upload = MediaService.encryptAndUploadMedia(fileBytes, mediaMime, targetUserId)
+                .getOrNull() ?: return SendResult.Failed(SendError.NETWORK)
+
+            val fileName = entity.content.removePrefix("📎 ").takeIf { it.isNotBlank() } ?: "attachment"
+            val now = System.currentTimeMillis()
+            val payloadText = "📎 $fileName"
+
+            val envelopeId = UUID.randomUUID().toString()
+            repository?.insertMessage(MessageEntity(
+                conversationId = targetConversationId, senderId = SecurePreferences.getString("auth.user_id") ?: "",
+                envelopeId = envelopeId, messageType = "ENCRYPTED_MESSAGE",
+                content = payloadText, status = "sending", timestamp = now,
+                mediaKey = CryptoHelper.base64UrlEncode(upload.mediaKey),
+                mediaMimeType = mediaMime, mediaSize = fileBytes.size.toLong(),
+                mediaId = upload.mediaId,
+                forwardedFromUserId = forwardedFrom
+            ))
+
+            val content = org.enchant.protos.ContentProtos.Content.parseFrom(
+                MessageProtobufHelper.buildDataMessageContent(
+                    body = payloadText,
+                    timestamp = now,
+                    attachment = org.enchant.protos.AttachmentPointerProtos.AttachmentPointer.newBuilder()
+                        .setCdnKey(upload.mediaId)
+                        .setKey(com.google.protobuf.ByteString.copyFrom(upload.mediaKey))
+                        .setContentType(mediaMime)
+                        .setFileName(fileName)
+                        .setSize(fileBytes.size)
+                        .build(),
+                    forwardedFromUserId = forwardedFrom
+                )
+            )
+            val result = sendVeiledMessage(
+                conversationId = targetConversationId,
+                recipientUserId = targetUserId,
+                plaintext = content.toByteArray(),
+                insertLocally = false,
+                forwardedFromUserId = forwardedFrom
+            )
+            repository?.updateMessageStatus(
+                envelopeId,
+                if (result is SendResult.Success) MessageStatus.SENT else MessageStatus.PENDING
+            )
+            SendResult.Success(envelopeId)
+        } catch (e: Exception) {
+            android.util.Log.e("Pipeline", "forwardMediaMessage failed: ${e.message}", e)
+            SendResult.Failed(SendError.NETWORK)
+        }
     }
 
     suspend fun updateMessageStatus(envelopeId: String, status: MessageStatus) {

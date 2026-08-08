@@ -46,6 +46,29 @@ class MessageProtobufHelperTest {
     }
 
     @Test
+    @DisplayName("buildDataMessageContent with forwardedFromUserId roundtrips the forward flag")
+    fun `forwarded message roundtrips`() {
+        val bytes = MessageProtobufHelper.buildDataMessageContent(
+            body = "forward me",
+            forwardedFromUserId = "original-sender-uuid"
+        )
+        val parsed = MessageProtobufHelper.parseContent(bytes)
+        assertTrue(parsed is MessageProtobufHelper.ParsedContent.DataMessage)
+        val dm = parsed as MessageProtobufHelper.ParsedContent.DataMessage
+        assertEquals("forward me", dm.body)
+        assertEquals("original-sender-uuid", dm.forwardedFromUserId)
+    }
+
+    @Test
+    @DisplayName("non-forwarded message has null forwardedFromUserId")
+    fun `plain message has no forward attribution`() {
+        val bytes = MessageProtobufHelper.buildDataMessageContent(body = "plain")
+        val parsed = MessageProtobufHelper.parseContent(bytes)
+        assertTrue(parsed is MessageProtobufHelper.ParsedContent.DataMessage)
+        assertNull((parsed as MessageProtobufHelper.ParsedContent.DataMessage).forwardedFromUserId)
+    }
+
+    @Test
     @DisplayName("buildDeleteContent produces parseable delete envelope")
     fun `build delete content`() {
         val targetTs = 1234567890L

@@ -1075,7 +1075,9 @@ object IncomingMessageProcessor {
                                 },
                                 mediaMimeType = attachment?.contentType,
                                 mediaSize = attachment?.size?.toLong(),
-                                mediaId = attachment?.cdnKey
+                                mediaId = attachment?.cdnKey,
+                                forwardedFromUserId =
+                                    if (dataMsg.hasForwardedFromUserId()) dataMsg.forwardedFromUserId else null
                             ),
                             conversationType = convType
                         )

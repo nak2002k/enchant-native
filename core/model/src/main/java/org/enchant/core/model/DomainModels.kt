@@ -61,7 +61,8 @@ data class Message(
     val reactions: List<Reaction> = emptyList(),
     val disappearAt: Long? = null,
     val isViewOnce: Boolean = false,
-    val editedAt: Long? = null
+    val editedAt: Long? = null,
+    val forwardedFromUserId: String? = null
 ) {
     companion object {
         fun fromEntity(e: MessageEntity): Message = Message(
@@ -83,7 +84,8 @@ data class Message(
             replyToEnvelopeId = e.replyToEnvelopeId,
             disappearAt = e.disappearAt,
             isViewOnce = e.isViewOnce,
-            editedAt = e.editedAt
+            editedAt = e.editedAt,
+            forwardedFromUserId = e.forwardedFromUserId
         )
     }
 }

@@ -305,6 +305,16 @@ internal fun MessageBubble(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                     }
+                    if (message.forwardedFromUserId != null && !message.isDeleted) {
+                        Text(
+                            "Forwarded",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = secondaryColor,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
                     if (message.isDeleted) {
                         Text(
                             "This message was deleted",

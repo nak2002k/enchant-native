@@ -14,6 +14,7 @@ message DataMessage {
         END_SESSION = 1;
         EXPIRATION_TIMER_UPDATE = 2;
         PROFILE_KEY_UPDATE = 4;
+        FORWARDED = 8;
     }
 
     message Quote {
@@ -235,4 +236,5 @@ message DataMessage {
     optional PinMessage pinMessage = 27;
     optional UnpinMessage unpinMessage = 28;
     optional AdminDelete adminDelete = 29;
+    optional string forwardedFromUserId = 30;
 }

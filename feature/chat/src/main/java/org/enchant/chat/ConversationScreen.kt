@@ -1031,17 +1031,21 @@ fun ConversationScreen(
             onDismissRequest = { forwardDialogMessageId = null },
             title = { Text("Forward to...") },
             text = {
+                val selfConvId = viewModel.selfConversationId()
+                val forwardTargets = conversations.filter { it.id != selfConvId }
                 Column {
-                    if (conversations.isEmpty()) {
-                        Text("No conversations")
+                    if (forwardTargets.isEmpty()) {
+                        Text("No conversations yet — start a chat to forward to")
                     } else {
-                        conversations.forEach { conv ->
+                        forwardTargets.forEach { conv ->
                             TextButton(onClick = {
                                 forwardDialogMessageId?.let { id ->
                                     viewModel.forwardMessage(id, conv.id)
                                 }
                                 forwardDialogMessageId = null
-                            }) { Text(conv.id.take(16)) }
+                            }) {
+                                Text(viewModel.conversationDisplayName(conv.id) ?: conv.id.take(16))
+                            }
                         }
                     }
                 }

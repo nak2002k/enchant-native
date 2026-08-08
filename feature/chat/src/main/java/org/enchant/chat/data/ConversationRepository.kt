@@ -216,6 +216,10 @@ class ConversationRepository(
         return messageDao.getByEnvelopeId(envelopeId)?.let { Message.fromEntity(it) }
     }
 
+    suspend fun getMessageEntity(envelopeId: String): MessageEntity? {
+        return messageDao.getByEnvelopeId(envelopeId)
+    }
+
     suspend fun getMessageByLocalId(localId: Long): Message? {
         return messageDao.getById(localId)?.let { Message.fromEntity(it) }
     }

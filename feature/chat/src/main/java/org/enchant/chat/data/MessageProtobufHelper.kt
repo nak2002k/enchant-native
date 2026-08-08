@@ -14,7 +14,8 @@ object MessageProtobufHelper {
         replyToTimestamp: Long? = null,
         replyToAuthor: String? = null,
         replyToText: String? = null,
-        replyToEnvelopeId: String? = null
+        replyToEnvelopeId: String? = null,
+        forwardedFromUserId: String? = null
     ): ByteArray {
         val dataMessage = DataMessageProtos.DataMessage.newBuilder()
             .setBody(body)
@@ -39,6 +40,10 @@ object MessageProtobufHelper {
                     if (!replyToAuthor.isNullOrBlank()) quote.setAuthorAci(replyToAuthor)
                     if (!replyToEnvelopeId.isNullOrBlank()) quote.setEnvelopeId(replyToEnvelopeId)
                     setQuote(quote.build())
+                }
+                if (!forwardedFromUserId.isNullOrBlank()) {
+                    setFlags(flags or DataMessageProtos.DataMessage.Flags.FORWARDED.number)
+                    setForwardedFromUserId(forwardedFromUserId)
                 }
             }
             .build()
@@ -134,7 +139,8 @@ object MessageProtobufHelper {
                             replyToTimestamp = if (dm.hasQuote()) dm.quote.id else null,
                             replyToAuthor = if (dm.hasQuote() && dm.quote.hasAuthorAci()) dm.quote.authorAci else null,
                             replyToText = if (dm.hasQuote()) dm.quote.text else null,
-                            replyToEnvelopeId = if (dm.hasQuote() && dm.quote.hasEnvelopeId()) dm.quote.envelopeId else null
+                            replyToEnvelopeId = if (dm.hasQuote() && dm.quote.hasEnvelopeId()) dm.quote.envelopeId else null,
+                            forwardedFromUserId = if (dm.hasForwardedFromUserId()) dm.forwardedFromUserId else null
                         )
                     }
                 }
@@ -190,7 +196,8 @@ object MessageProtobufHelper {
             val replyToTimestamp: Long? = null,
             val replyToAuthor: String? = null,
             val replyToText: String? = null,
-            val replyToEnvelopeId: String? = null
+            val replyToEnvelopeId: String? = null,
+            val forwardedFromUserId: String? = null
         ) : ParsedContent()
 
         data class Receipt(

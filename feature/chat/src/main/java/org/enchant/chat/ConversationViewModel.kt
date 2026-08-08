@@ -506,14 +506,28 @@ class ConversationViewModel(
 
     fun forwardMessage(envelopeId: String, targetConversationId: String): Boolean {
         viewModelScope.launch {
+            // The recipient user id differs by conversation type:
+            // - direct conversations are "selfId:peerId" -> peer is the target
+            // - groups are addressed by the group id itself
+            val targetUserId = resolveTargetUserId(targetConversationId)
             pipeline.forwardMessage(
                 originalConversationId = conversationId,
                 originalEnvelopeId = envelopeId,
                 targetConversationId = targetConversationId,
-                targetUserId = targetConversationId
+                targetUserId = targetUserId
             )
         }
         return true
+    }
+
+    private fun resolveTargetUserId(targetConversationId: String): String {
+        val selfId = SecurePreferences.getString("auth.user_id") ?: return targetConversationId
+        val members = targetConversationId.split(":")
+        return if (members.size > 1) {
+            members.find { it != selfId } ?: targetConversationId
+        } else {
+            targetConversationId
+        }
     }
 
     fun setDisappearTimer(conversationId: String, seconds: Int) {
@@ -529,8 +543,23 @@ class ConversationViewModel(
         viewModelScope.launch {
             repo.getConversations().collect { list ->
                 _conversations.value = list
+                list.forEach { conv ->
+                    val displayName = repo.resolveDisplayName(
+                        if (conv.type == org.enchant.core.model.ConversationType.GROUP) conv.id
+                        else resolveTargetUserId(conv.id)
+                    ) ?: conv.id.take(16)
+                    _conversationDisplayNames[conv.id] = displayName
+                }
             }
         }
+    }
+
+    private val _conversationDisplayNames = mutableMapOf<String, String>()
+    fun conversationDisplayName(conversationId: String): String? = _conversationDisplayNames[conversationId]
+
+    fun selfConversationId(): String? {
+        val selfId = SecurePreferences.getString("auth.user_id") ?: return null
+        return conversations.value.find { it.type == org.enchant.core.model.ConversationType.DIRECT && it.id == "$selfId:$selfId" }?.id
     }
 
     fun setReaction(messageId: Long, emoji: String) {
