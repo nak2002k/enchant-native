@@ -923,6 +923,11 @@ object IncomingMessageProcessor {
                     recipientPublicKey = identityKeyPair.publicKey,
                     sealedPayload = veiledPayload
                 )
+                if (v2 == null) {
+                    android.util.Log.e("IncomingMsg", "veil v2 decrypt returned null (v1 fallback) len=${veiledPayload.size}")
+                } else {
+                    android.util.Log.i("IncomingMsg", "veil v2 decrypt OK senderUuid=${v2.second.take(8)}")
+                }
                 if (v2 != null) {
                     recoveredSenderKey = v2.first
                     plaintext = v2.fourth
@@ -938,9 +943,14 @@ object IncomingMessageProcessor {
                         recipientPrivateKey = identityKeyPair.privateKey,
                         recipientPublicKey = identityKeyPair.publicKey,
                         sealedPayload = veiledPayload
-                    ) ?: return@withContext ProcessResult.Error("Sealed decrypt failed")
-                    recoveredSenderKey = v1.first
-                    plaintext = v1.second
+                    )
+                    if (v1 == null) {
+                        android.util.Log.e("IncomingMsg", "veil v1 decrypt ALSO null len=${veiledPayload.size}")
+                    }
+                    if (v1 != null) {
+                        recoveredSenderKey = v1.first
+                        plaintext = v1.second
+                    } else return@withContext ProcessResult.Error("Sealed decrypt failed")
                 }
 
                 // Forward secrecy: the seal may wrap a session ciphertext
