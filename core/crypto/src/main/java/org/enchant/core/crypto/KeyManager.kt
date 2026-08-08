@@ -62,7 +62,11 @@ object KeyManager {
         // bundles require explicit ids before they are used for X3DH.
         val signedPrekeyId: Int = 1,
         val oneTimePrekeyId: Int = 1,
-        val ed25519IdentityKey: ByteArray? = null
+        val ed25519IdentityKey: ByteArray? = null,
+        // Post-quantum: the peer's Kyber (ML-KEM) one-time prekey + its id.
+        val kyberPrekey: ByteArray? = null,
+        val kyberPrekeyId: Int = 0,
+        val kyberKemType: Int = EnchantCrypto.KEM_TYPE_ML_KEM_768
     )
 
     data class SignedPrekeyData(
@@ -208,12 +212,13 @@ object KeyManager {
                 val ik = ensureIdentityKey()
                 val spk = ensureSignedPreKey(ik)
                 val opks = ensureOpkBatch()
+                val kybers = ensureKyberBatch()
 
                 if (opks.isEmpty()) {
                     return@withContext Result.failure(IllegalStateException("No OPKs available"))
                 }
 
-                val uploadResult = uploadKeyBundle(ik, spk, opks)
+                val uploadResult = uploadKeyBundle(ik, spk, opks, kybers)
                 if (uploadResult.isFailure) return@withContext uploadResult
 
                 syncNativeIdentity()
@@ -292,10 +297,54 @@ object KeyManager {
         }
     }
 
+    data class KyberPreKeyRecord(
+        val id: Int,
+        val publicKey: ByteArray,
+        val privateKey: ByteArray,
+        val kemType: Int = EnchantCrypto.KEM_TYPE_ML_KEM_768
+    )
+
+    /**
+     * Generate a fresh batch of post-quantum Kyber (ML-KEM-768) one-time
+     * prekeys. Each generated entry is id(4) || public(1184) || private(2400);
+     * the public keys are uploaded to IKS, the private keys are stored in the
+     * native identity store so this device can decapsulate PQXDH sessions.
+     */
+    private suspend fun ensureKyberBatch(count: Int = 20): List<KyberPreKeyRecord> {
+        val startId = (2000 + (preKeyStore?.getOneTimePreKeyCount() ?: 0))
+        val perKey = 4 + 1184 + 2400
+        val buffer = ByteArray(count * perKey)
+        val outLen = longArrayOf(buffer.size.toLong())
+        val rc = EnchantCrypto.enchant_prekey_generate_kyber_batch(
+            count, startId, EnchantCrypto.KEM_TYPE_ML_KEM_768, buffer, outLen
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("enchant_prekey_generate_kyber_batch failed: $rc")
+        }
+        val records = (0 until count).map { i ->
+            val base = i * perKey
+            val id = (buffer[base].toInt() and 0xFF) or
+                ((buffer[base + 1].toInt() and 0xFF) shl 8) or
+                ((buffer[base + 2].toInt() and 0xFF) shl 16) or
+                ((buffer[base + 3].toInt() and 0xFF) shl 24)
+            val pub = buffer.copyOfRange(base + 4, base + 4 + 1184)
+            val priv = buffer.copyOfRange(base + 4 + 1184, base + perKey)
+            KyberPreKeyRecord(id = id, publicKey = pub, privateKey = priv)
+        }
+        EnchantCrypto.enchant_secure_zero(buffer, buffer.size.toLong())
+        // Persist private keys to the native identity store (in-memory session
+        // store already loaded; syncNativePrekeys stores OPKs, kyber handled here).
+        records.forEach { k ->
+            VeilSession.get().storeKyberPrekey(k.id, k.privateKey)
+        }
+        return records
+    }
+
     private suspend fun uploadKeyBundle(
         ik: CryptoPrimitives.KeyPair,
         spk: SignedPreKeyRecord,
-        opks: List<OneTimePreKeyRecord>
+        opks: List<OneTimePreKeyRecord>,
+        kybers: List<KyberPreKeyRecord> = emptyList()
     ): Result<Unit> {
         val client = apiClient ?: return Result.failure(Exception("No API client"))
 
@@ -320,6 +369,17 @@ object KeyManager {
                     })
                 }
             })
+            if (kybers.isNotEmpty()) {
+                put("kyber_prekeys", buildJsonArray {
+                    kybers.forEach { k ->
+                        add(buildJsonObject {
+                            put("id", JsonPrimitive(k.id))
+                            put("kem_type", JsonPrimitive(k.kemType))
+                            put("public_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(k.publicKey)))
+                        })
+                    }
+                })
+            }
         }
 
         return client.post("/v1/keys/register", body).map { }
@@ -452,6 +512,16 @@ object KeyManager {
                         ?.let { CryptoPrimitives.base64UrlDecode(it) }
                         ?.takeIf { it.size == 32 }
 
+                    // Post-quantum Kyber one-time prekey (ML-KEM public key).
+                    val kyberData = device["kyber_prekey"] as? kotlinx.serialization.json.JsonObject
+                    val kyberId = kyberData?.get("key_id")?.jsonPrimitive?.longOrNull
+                        ?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()
+                    val kyberBytes = kyberData?.get("public_key")?.jsonPrimitive?.content
+                        ?.let { CryptoPrimitives.base64UrlDecode(it) }
+                        ?.takeIf { it.size == 1184 || it.size == 1568 }
+                    val kyberKem = kyberData?.get("kem_type")?.jsonPrimitive?.intOrNull
+                        ?: EnchantCrypto.KEM_TYPE_ML_KEM_768
+
                     KeyBundle(
                         deviceId = device["device_id"]?.jsonPrimitive?.content ?: "",
                         identityKey = CryptoPrimitives.base64UrlDecode(ikStr),
@@ -464,7 +534,10 @@ object KeyManager {
                         oneTimePrekeyId = if (opkBytes != null && opkId != null) opkId else 0,
                         ed25519IdentityKey = device["ed25519_identity_key"]?.jsonPrimitive?.content
                             ?.let { CryptoPrimitives.base64UrlDecode(it) }
-                            ?.takeIf { it.size == 32 }
+                            ?.takeIf { it.size == 32 },
+                        kyberPrekey = kyberBytes,
+                        kyberPrekeyId = if (kyberBytes != null && kyberId != null) kyberId else 0,
+                        kyberKemType = kyberKem
                     )
                 }
             } catch (_: Exception) { null }

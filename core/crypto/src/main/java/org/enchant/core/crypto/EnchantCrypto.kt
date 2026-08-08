@@ -46,6 +46,9 @@ object EnchantCrypto {
     const val ERROR_SIGNATURE_INVALID = -7
     const val ERROR_INVALID_FORMAT = -11
     const val ERROR_INTERNAL = -99
+    // Post-quantum kem types (from enchant/api.h)
+    const val KEM_TYPE_ML_KEM_768 = 0x07
+    const val KEM_TYPE_ML_KEM_1024 = 0x0A
 
     // --- Size constants (from enchant/api.h) ---
     const val X25519_PUBLIC_KEY_SIZE = 32
@@ -139,6 +142,10 @@ object EnchantCrypto {
     external fun enchant_identity_store_store_one_time_prekey(store: Long, prekeyId: Int, privateKey: ByteArray, keyLen: Long): Int
     external fun enchant_identity_store_get_one_time_prekey_private(store: Long, prekeyId: Int, privateKeyOut: ByteArray, keyLen: Long): Int
     external fun enchant_identity_store_get_signed_prekey_private(store: Long, prekeyId: Int, privateKeyOut: ByteArray, keyLen: Long): Int
+    // Post-quantum Kyber (ML-KEM) one-time prekeys.
+    external fun enchant_identity_store_store_kyber_prekey(store: Long, prekeyId: Int, privateKey: ByteArray, keyLen: Long): Int
+    external fun enchant_identity_store_get_kyber_prekey_private(store: Long, prekeyId: Int, privateKeyOut: ByteArray, keyLen: Long): Int
+    external fun enchant_identity_store_remove_kyber_prekey(store: Long, prekeyId: Int): Int
 
     // --- Session store ---
     external fun enchant_session_store_create(storeOut: LongArray): Int
@@ -157,9 +164,11 @@ object EnchantCrypto {
     external fun enchant_session_manager_establish(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int): Int
     external fun enchant_session_manager_establish_with_ephemeral(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int, ourEphemeralPrivate: ByteArray?, ourEphemeralPrivateLen: Long): Int
     external fun enchant_session_manager_establish_v2(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, ed25519IdentityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int): Int
+    external fun enchant_session_manager_establish_pqxdh(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, ed25519IdentityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int, kyberPrekeyPublic: ByteArray, kyberPrekeyLen: Long, kyberPrekeyId: Int): Int
     external fun enchant_session_manager_encrypt(manager: Long, addressName: String, deviceId: Int, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: LongArray, messageTypeOut: IntArray): Int
     external fun enchant_session_manager_decrypt(manager: Long, addressName: String, deviceId: Int, ciphertext: ByteArray, ciphertextLen: Long, messageType: Int, plaintext: ByteArray, plaintextLen: LongArray): Int
     external fun enchant_session_manager_decrypt_prekey(manager: Long, addressName: String, deviceId: Int, ciphertext: ByteArray, ciphertextLen: Long, ourSignedPrekeyId: Int, ourOneTimePrekeyId: Int, plaintext: ByteArray, plaintextLen: LongArray): Int
+    external fun enchant_session_manager_decrypt_prekey_pqxdh(manager: Long, addressName: String, deviceId: Int, ciphertext: ByteArray, ciphertextLen: Long, ourSignedPrekeyId: Int, ourOneTimePrekeyId: Int, ourKyberPrekeyId: Int, theirKyberCiphertext: ByteArray, theirKyberCiphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray): Int
     external fun enchant_session_manager_has_session(manager: Long, addressName: String, deviceId: Int, hasSessionOut: IntArray): Int
     external fun enchant_session_manager_archive_session(manager: Long, addressName: String, deviceId: Int): Int
     external fun enchant_session_manager_get_session_age(manager: Long, addressName: String, deviceId: Int, ageSecondsOut: LongArray): Int

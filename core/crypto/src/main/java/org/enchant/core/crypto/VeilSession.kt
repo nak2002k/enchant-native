@@ -328,6 +328,12 @@ class VeilSession private constructor(
         )
     }
 
+    fun storeKyberPrekey(prekeyId: Int, privateKey: ByteArray): Int {
+        return EnchantCrypto.enchant_identity_store_store_kyber_prekey(
+            identityStoreHandle, prekeyId, privateKey, privateKey.size.toLong()
+        )
+    }
+
     /**
      * Read back a one-time prekey private key from the native identity store.
      * Exists so the app can audit that the native responder store holds the
@@ -625,7 +631,33 @@ class VeilSession private constructor(
             android.util.Log.w("VeilSession", "identity_store rc=$irc handle=$identityStoreHandle")
         }
         val edKey = keyBundle.ed25519IdentityKey
-        val rc = if (edKey != null && edKey.size == 32) {
+        val kyber = keyBundle.kyberPrekey
+        val rc = if (kyber != null && keyBundle.kyberPrekeyId > 0) {
+            // Post-quantum: the peer's bundle carries a Kyber (ML-KEM) one-time
+            // prekey -> establish a PQXDH (hybrid X25519 + ML-KEM) session.
+            val kyberId = keyBundle.kyberPrekeyId
+            val r = if (edKey != null && edKey.size == 32) {
+                EnchantCrypto.enchant_session_manager_establish_pqxdh(
+                    sessionManagerHandle, peerUserId, device,
+                    ik, edKey,
+                    keyBundle.signedPrekeyId, spk, sig, sig.size.toLong(),
+                    keyBundle.oneTimePrekeyId, opk, 1,
+                    kyber, kyber.size.toLong(), kyberId
+                )
+            } else {
+                EnchantCrypto.enchant_session_manager_establish_pqxdh(
+                    sessionManagerHandle, peerUserId, device,
+                    ik, ByteArray(32),
+                    keyBundle.signedPrekeyId, spk, sig, sig.size.toLong(),
+                    keyBundle.oneTimePrekeyId, opk, 1,
+                    kyber, kyber.size.toLong(), kyberId
+                )
+            }
+            android.util.Log.d("VeilSession",
+                "nativeEstablish pqxdh rc=$r peer=$peerUserId/dev=$device " +
+                "spkId=${keyBundle.signedPrekeyId} opkId=${keyBundle.oneTimePrekeyId} kyberId=$kyberId")
+            r
+        } else if (edKey != null && edKey.size == 32) {
             val r = EnchantCrypto.enchant_session_manager_establish_v2(
                 sessionManagerHandle, peerUserId, device,
                 ik, edKey,
