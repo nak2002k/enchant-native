@@ -12,7 +12,26 @@ object EnchantCrypto {
 
     init {
         System.loadLibrary("enchantcrypto_jni")
-        val rc = enchant_init()
+        // Intermittent ART JNI race on slow/fresh installs: right after
+        // loadLibrary, the first native call can throw UnsatisfiedLinkError
+        // ("No implementation found for enchant_init") even though the symbol
+        // is present. ART flushes the JNI method table lazily; retry with
+        // backoff so the call succeeds once the table is ready.
+        var rc = SUCCESS
+        var last: UnsatisfiedLinkError? = null
+        for (attempt in 0 until 10) {
+            try {
+                rc = enchant_init()
+                break
+            } catch (e: UnsatisfiedLinkError) {
+                last = e
+                Thread.yield()
+                Thread.sleep(100L * (attempt + 1))
+            }
+        }
+        if (last != null) {
+            android.util.Log.w("EnchantCrypto", "enchant_init retried; final rc=$rc", last)
+        }
         if (rc != SUCCESS) {
             throw IllegalStateException("enchant_init failed: $rc")
         }

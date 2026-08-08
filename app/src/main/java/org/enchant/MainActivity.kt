@@ -108,7 +108,10 @@ fun AppNavigation() {
 
     LaunchedEffect(Unit) {
         var attempts = 0
-        while (!DI.isInitialized && attempts < 100) {
+        // Cold starts (fresh install / first run) initialize SQLCipher + the
+        // native ratchet session store, which can take >10s on slow storage.
+        // Give DI a generous window before showing the recovery screen.
+        while (!DI.isInitialized && attempts < 600) {
             delay(100)
             attempts++
         }

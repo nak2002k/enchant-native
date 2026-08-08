@@ -51,14 +51,17 @@ class EnchantApp : Application() {
     }
 
     private fun initAgentDebug() {
-        if (!BuildConfig.DEBUG) return
-        runCatching {
+        if (!BuildConfig.DEBUG) { android.util.Log.i("EnchantApp", "initAgentDebug: not debug, skip"); return }
+        try {
             val clazz = Class.forName("org.enchant.agent.AgentDebugSetup")
+            android.util.Log.i("EnchantApp", "initAgentDebug: class found $clazz")
             val instance = clazz.getField("INSTANCE").get(null)
+            android.util.Log.i("EnchantApp", "initAgentDebug: instance ok $instance")
             clazz.getDeclaredMethod("init", Context::class.java)
                 .invoke(instance, this@EnchantApp)
-        }.onFailure {
-            Log.w("EnchantApp", "Agent debug not loaded: ${it.message}", it)
+            android.util.Log.i("EnchantApp", "initAgentDebug: init invoked")
+        } catch (e: Throwable) {
+            android.util.Log.e("EnchantApp", "Agent debug not loaded: ${e.message}", e)
         }
     }
 
