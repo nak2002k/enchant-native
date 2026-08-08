@@ -405,15 +405,36 @@ object IncomingMessageProcessor {
                     val veilDecrypted = runCatching {
                         val identityKeyPair = org.enchant.core.crypto.KeyManager.getIdentityKeyPair()
                         if (identityKeyPair == null) null
-                        else org.enchant.core.crypto.VeilSender.decryptVeiled(
-                            recipientPrivateKey = identityKeyPair.privateKey,
-                            recipientPublicKey = identityKeyPair.publicKey,
-                            sealedPayload = decodeWirePayload(envelope.payload)
-                        )?.let { pair ->
-                            val senderForSession = NativeSessionManager.getUserIdForIdentityKey(pair.first)
-                                ?: senderUserId
-                            NativeSessionManager.decryptMessage(senderForSession, pair.second)
-                                ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, pair.second)
+                        else {
+                            val payload = decodeWirePayload(envelope.payload)
+                            // SP6: try the v2 seal first — it recovers the
+                            // sender UUID from the embedded certificate with no
+                            // server hint, and yields the inner session
+                            // ciphertext for the X3DH/ratchet decrypt.
+                            val v2 = org.enchant.core.crypto.VeilSender.decryptVeiledV2(
+                                recipientPrivateKey = identityKeyPair.privateKey,
+                                recipientPublicKey = identityKeyPair.publicKey,
+                                sealedPayload = payload
+                            )
+                            if (v2 != null) {
+                                val senderForSession = v2.second.takeIf { it.isNotBlank() }
+                                    ?: NativeSessionManager.getUserIdForIdentityKey(v2.first)
+                                    ?: senderUserId
+                                NativeSessionManager.setIdentityKey(senderForSession, v2.first)
+                                NativeSessionManager.decryptMessage(senderForSession, v2.fourth)
+                                    ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, v2.fourth)
+                            } else {
+                                org.enchant.core.crypto.VeilSender.decryptVeiled(
+                                    recipientPrivateKey = identityKeyPair.privateKey,
+                                    recipientPublicKey = identityKeyPair.publicKey,
+                                    sealedPayload = payload
+                                )?.let { pair ->
+                                    val senderForSession = NativeSessionManager.getUserIdForIdentityKey(pair.first)
+                                        ?: senderUserId
+                                    NativeSessionManager.decryptMessage(senderForSession, pair.second)
+                                        ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, pair.second)
+                                }
+                            }
                         }
                     }.getOrNull()
                     decrypted = veilDecrypted

@@ -360,6 +360,7 @@ object KeyManager {
      * encrypt/decrypt uses the same key pair uploaded to IKS.
      */
     suspend fun syncNativeIdentity() {
+        android.util.Log.i("KeyManager", "syncNativeIdentity: entered hasIk=${identityKeyPair != null}")
         mutex.withLock {
             if (identityKeyPair == null) loadPersistedIdentityKey()
         }
