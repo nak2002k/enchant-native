@@ -15,7 +15,7 @@ android {
         applicationId = "org.enchant.messenger"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
+        versionCode = 13
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("int", "AGENT_PORT", "19789")

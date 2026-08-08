@@ -477,6 +477,13 @@ object IncomingMessageProcessor {
                             ?: parsed.replyToTimestamp?.let { ts ->
                                 messageDao?.getEnvelopeIdByServerTs(ts)
                             }
+                        // Dedup: the anchor (unsealed ENCRYPTED_MESSAGE) can be
+                        // processed through both the direct and veil-fallback
+                        // decrypt paths, inserting a garbled second copy.
+                        if (envelope.envelopeId != null &&
+                            messageDao?.getByEnvelopeId(envelope.envelopeId!!) != null) {
+                            return@withContext ProcessResult.Handled
+                        }
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = senderUserId,
@@ -1116,6 +1123,14 @@ object IncomingMessageProcessor {
                             if (q.hasEnvelopeId()) q.envelopeId
                             else messageDao?.getEnvelopeIdByServerTs(q.id)
                         } else null
+                        // Dedup: the anonymous sealed path may deliver the same
+                        // envelope twice (WS + pending fetch). Skip if already
+                        // stored under this envelope id.
+                        val alreadyStored = envelope.envelopeId != null &&
+                            messageDao?.getByEnvelopeId(envelope.envelopeId!!) != null
+                        if (alreadyStored) {
+                            return@withContext ProcessResult.Handled
+                        }
                         repo.insertMessageAndUpdateConversation(
                             MessageEntity(
                                 conversationId = convId,
