@@ -105,12 +105,17 @@ class VeilSession private constructor(
                 EnchantCrypto.enchant_session_manager_has_session(
                     sessionManagerHandle, recipientUserId, device, hasSession
                 )
+                android.util.Log.d("VeilSession", "encryptMessage: $recipientUserId/dev=$device hasSession=${hasSession[0]}")
 
                 if (hasSession[0] == 0) {
                     val keyBundle = KeyManager.fetchKeyBundle(recipientUserId) ?: run {
                         android.util.Log.w("VeilSession", "no key bundle for $recipientUserId")
                         return@withLock null
                     }
+                    android.util.Log.d("VeilSession",
+                        "encryptMessage: establishing fresh session for $recipientUserId " +
+                        "spkId=${keyBundle.signedPrekeyId} opkId=${keyBundle.oneTimePrekeyId} " +
+                        "opkLen=${keyBundle.oneTimePrekey?.size}")
                     identityKeys[recipientUserId] = keyBundle.identityKey
 
                     val rc = nativeEstablish(recipientUserId, device, keyBundle)
@@ -139,6 +144,12 @@ class VeilSession private constructor(
                     1 -> MessageType.PREKEY_MESSAGE
                     2 -> MessageType.ENCRYPTED_MESSAGE
                     else -> MessageType.ENCRYPTED_MESSAGE
+                }
+                android.util.Log.d(TAG, "encryptMessage: $recipientUserId type=${actualType} " +
+                    "len=${ciphertextLen[0]} hasSessionBefore=$hasSession")
+                if (ciphertextLen[0] >= 76) {
+                    val h = ciphertext.copyOf(76).joinToString("") { "%02x".format(it) }
+                    android.util.Log.d(TAG, "encryptMessage: header=$h")
                 }
 
                 EncryptedPayload(
@@ -258,6 +269,17 @@ class VeilSession private constructor(
                     ((ciphertext[70].toInt() and 0xFF) shl 8) or
                     (ciphertext[71].toInt() and 0xFF)
                 android.util.Log.d(TAG, "decryptPrekeyMessage: ctLen=${ciphertext.size} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId")
+
+                // Diagnose: do we actually hold these keys in the native store?
+                val spkProbe = ByteArray(32)
+                val opkProbe = ByteArray(32)
+                val spkRc = EnchantCrypto.enchant_identity_store_get_signed_prekey_private(
+                    identityStoreHandle, ourSignedPrekeyId, spkProbe, 32L)
+                val opkRc = EnchantCrypto.enchant_identity_store_get_one_time_prekey_private(
+                    identityStoreHandle, ourOneTimePrekeyId, opkProbe, 32L)
+                android.util.Log.w(TAG,
+                    "decryptPrekeyMessage: storeProbe spkId=$ourSignedPrekeyId rc=$spkRc " +
+                    "opkId=$ourOneTimePrekeyId rc=$opkRc")
 
                 val maxPlaintext = ciphertext.size + 256
                 val plaintext = ByteArray(maxPlaintext)
@@ -604,14 +626,18 @@ class VeilSession private constructor(
         }
         val edKey = keyBundle.ed25519IdentityKey
         val rc = if (edKey != null && edKey.size == 32) {
-            EnchantCrypto.enchant_session_manager_establish_v2(
+            val r = EnchantCrypto.enchant_session_manager_establish_v2(
                 sessionManagerHandle, peerUserId, device,
                 ik, edKey,
                 keyBundle.signedPrekeyId, spk, sig, sig.size.toLong(),
                 keyBundle.oneTimePrekeyId, opk, 1
             )
+            android.util.Log.d("VeilSession",
+                "nativeEstablish v2 rc=$r peer=$peerUserId/dev=$device spkId=${keyBundle.signedPrekeyId} " +
+                "opkId=${keyBundle.oneTimePrekeyId} ikPrefix=${ik.take(4).joinToString("") { "%02x".format(it) }}")
+            r
         } else {
-            EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
+            val r = EnchantCrypto.enchant_session_manager_establish_with_ephemeral(
                 sessionManagerHandle,
                 peerUserId,
                 device,
@@ -626,6 +652,10 @@ class VeilSession private constructor(
                 null,
                 0L
             )
+            android.util.Log.d("VeilSession",
+                "nativeEstablish with_ephemeral rc=$r peer=$peerUserId/dev=$device " +
+                "spkId=${keyBundle.signedPrekeyId} opkId=${keyBundle.oneTimePrekeyId}")
+            r
         }
         if (rc != EnchantCrypto.SUCCESS) {
             android.util.Log.w(
