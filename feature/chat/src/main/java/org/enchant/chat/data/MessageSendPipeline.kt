@@ -293,7 +293,7 @@ object MessageSendPipeline {
                     org.enchant.core.network.WebSocketManager.sendMessage(
                         recipientUserId, payload = veiledPayload, envelopeId = envelopeId) != null
                 } else {
-                    org.enchant.core.network.WebSocketManager.sendSealedEnchantMessage(
+                    sendSealedAnonymous(
                         recipientUserId, veiledPayload, replyToken, envelopeId)
                 }
                 if (sent) {
@@ -917,5 +917,32 @@ object MessageSendPipeline {
 
     suspend fun updateMessageStatus(envelopeId: String, status: MessageStatus) {
         repository?.updateMessageStatus(envelopeId, status)
+    }
+
+    /**
+     * SP6: anonymous sealed-sender relay. The veiled payload is posted to the
+     * unauthenticated /v1/messages/sealed-send endpoint with NO JWT and NO
+     * sender identifier, so the server cannot attribute the message to any
+     * account — sender identity is recoverable only by the recipient who
+     * decrypts the Veil envelope. Falls back to the authenticated WS relay
+     * only if the anonymous path is unreachable (network).
+     */
+    private suspend fun sendSealedAnonymous(
+        recipientUserId: String,
+        payload: ByteArray,
+        replyToken: String,
+        envelopeId: String
+    ): Boolean {
+        val client = apiClient ?: return false
+        val payloadB64 = CryptoHelper.base64UrlEncode(payload)
+        val result = client.postAnonymous("/v1/messages/sealed-send", buildJsonObject {
+            put("recipient_user_id", recipientUserId)
+            put("message_type", "UNIDENTIFIED_SENDER")
+            put("payload", payloadB64)
+            put("sender_ts", System.currentTimeMillis().toString())
+            put("envelope_id", envelopeId)
+            put("reply_token", replyToken)
+        })
+        return result.isSuccess
     }
 }
