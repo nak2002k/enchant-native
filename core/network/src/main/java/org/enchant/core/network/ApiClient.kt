@@ -83,6 +83,9 @@ class ApiClient {
     suspend fun post(path: String, body: JsonObject? = null): Result<JsonObject> =
         request("POST", path, body)
 
+    suspend fun postWithHeaders(path: String, body: JsonObject?, extraHeaders: Map<String, String> = emptyMap()): Result<JsonObject> =
+        request("POST", path, body, extraHeaders = extraHeaders)
+
     private val anonymousClient by lazy {
         (baseClient ?: buildSecureClient())
             .newBuilder()

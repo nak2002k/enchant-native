@@ -90,6 +90,13 @@ class ContactSyncService(
     suspend fun syncContacts(): Result<List<MatchedContact>> = withContext(Dispatchers.Default) {
         try {
             fetchDiscoverySalt(apiClient).getOrNull()
+            // Mint a 24h per-client discovery credential; the match endpoint
+            // requires it so a leaked response can't be replayed to enumerate
+            // the directory. If minting fails, the sync fails closed (no match).
+            val credential = mintDiscoveryCredential() ?: run {
+                android.util.Log.w("ContactSync", "discovery credential mint failed; skipping contact sync")
+                return@withContext Result.success(emptyList())
+            }
             val deviceContacts = readDeviceContacts()
             if (deviceContacts.isEmpty()) return@withContext Result.success(emptyList())
 
@@ -103,7 +110,8 @@ class ContactSyncService(
                     })
                 }
 
-                val response = apiClient.post("/v1/contacts/match", body)
+                val response = apiClient.postWithHeaders("/v1/contacts/match", body,
+                    extraHeaders = mapOf("X-Discovery-Credential" to credential))
                 response.fold(
                     onSuccess = { json ->
                         val matched = json["matches"]?.jsonArray?.map { item ->
@@ -139,6 +147,18 @@ class ContactSyncService(
         val salt = companionDiscoverySalt ?: return ""
         val mac = CryptoPrimitives.hmacSha256(salt, phone.toByteArray(Charsets.UTF_8))
         return CryptoPrimitives.base64UrlEncode(mac)
+    }
+
+    /**
+     * Mint a 24h per-client discovery credential (authenticated). The server
+     * signs it with its secret pepper and requires it on /v1/contacts/match,
+     * so a leaked match response can't be replayed to enumerate the directory.
+     */
+    private suspend fun mintDiscoveryCredential(): String? = withContext(Dispatchers.Default) {
+        runCatching {
+            val resp = apiClient.post("/v1/contacts/discovery-credential", buildJsonObject { })
+            resp.getOrNull()?.get("credential")?.jsonPrimitive?.content
+        }.getOrNull()
     }
 
     suspend fun readDeviceContacts(): List<PhoneContact> = withContext(Dispatchers.IO) {
