@@ -65,8 +65,8 @@ object NativeSessionManager {
 
     // ── Lifecycle ─────────────────────────────────────────────────────
 
-    suspend fun init(selfUserId: String) {
-        VeilSession.init(selfUserId)
+    suspend fun init(selfUserId: String, sessionDbPath: String? = null) {
+        VeilSession.init(selfUserId, sessionDbPath = sessionDbPath)
     }
 
     // ── Encryption / Decryption ───────────────────────────────────────

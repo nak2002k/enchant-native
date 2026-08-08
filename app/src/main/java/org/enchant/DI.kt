@@ -178,7 +178,13 @@ object DI {
                 })
                 _preKeyStore?.let { KeyManager.setPreKeyStore(it) }
                 NativeSessionManager.init(
-                    selfUserId = SecurePreferences.getString("auth.user_id") ?: "self"
+                    selfUserId = SecurePreferences.getString("auth.user_id") ?: "self",
+                    // Persist native ratchet sessions to the encrypted app
+                    // database dir so they survive app restarts.
+                    sessionDbPath = java.io.File(
+                        context.getDatabasePath("enchant.db").parentFile ?: context.filesDir,
+                        "native_sessions.db"
+                    ).absolutePath
                 )
                 KeyManager.syncNativeIdentity()
                 PreKeyWorker.schedule(context)

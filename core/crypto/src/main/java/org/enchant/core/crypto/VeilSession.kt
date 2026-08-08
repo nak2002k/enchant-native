@@ -662,7 +662,8 @@ class VeilSession private constructor(
         suspend fun create(
             selfUserId: String,
             store: SessionStore? = null,
-            idStore: IdentityStore? = null
+            idStore: IdentityStore? = null,
+            sessionDbPath: String? = null
         ): VeilSession {
             val idStoreOut = LongArray(1)
             val rc1 = EnchantCrypto.enchant_identity_store_create(idStoreOut)
@@ -672,7 +673,13 @@ class VeilSession private constructor(
             val identityStoreHandle = idStoreOut[0]
 
             val sessionStoreOut = LongArray(1)
-            val rc2 = EnchantCrypto.enchant_session_store_create(sessionStoreOut)
+            // When a DB path is supplied, use the SQLite-backed session store
+            // (encrypted at rest in the lib) so sessions survive app restarts.
+            val rc2 = if (sessionDbPath != null) {
+                EnchantCrypto.enchant_session_store_create_sqlite(sessionStoreOut, sessionDbPath)
+            } else {
+                EnchantCrypto.enchant_session_store_create(sessionStoreOut)
+            }
             if (rc2 != EnchantCrypto.SUCCESS) {
                 EnchantCrypto.enchant_identity_store_destroy(identityStoreHandle)
                 throw IllegalStateException("Failed to create native session store: $rc2")
@@ -711,13 +718,14 @@ class VeilSession private constructor(
         suspend fun init(
             selfUserId: String,
             store: SessionStore? = null,
-            idStore: IdentityStore? = null
+            idStore: IdentityStore? = null,
+            sessionDbPath: String? = null
         ): VeilSession {
             val existing = singleton
             if (existing != null && existing.selfUserId == selfUserId) {
                 return existing
             }
-            val newInstance = create(selfUserId, store, idStore)
+            val newInstance = create(selfUserId, store, idStore, sessionDbPath)
             singleton = newInstance
             return newInstance
         }
