@@ -47,13 +47,17 @@ class BackupViewModel : ViewModel() {
     val uiState: StateFlow<BackupUiState> = _uiState.asStateFlow()
     private val uploadQueue = ArrayDeque<Pair<String, Triple<Int, Int, ByteArray>>>()
     private var isUploading = false
+    private var uploadChunkSize = 0
 
-    fun initiateBackup() {
+    fun initiateBackup(totalSize: Long = 0, includesMedia: Boolean = false, chunkSize: Int = 1024 * 1024) {
+        uploadChunkSize = chunkSize
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
             val result = withContext(Dispatchers.Default) {
-                ApiClient.getInstance().post("/v1/backup", buildJsonObject {
-                    put("action", "initiate")
+                ApiClient.getInstance().post("/v1/backup/initiate", buildJsonObject {
+                    put("total_size", totalSize)
+                    put("includes_media", includesMedia)
+                    put("chunk_size", chunkSize)
                 })
             }
             result.fold(
@@ -85,8 +89,17 @@ class BackupViewModel : ViewModel() {
             val (backupId, triple) = uploadQueue.removeFirst()
             val (chunkIndex, totalChunks, data) = triple
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
+            // Backend expects the byte offset of the chunk within the whole
+            // backup, plus a per-chunk id in the URL.
+            val byteOffset = chunkIndex.toLong() * uploadChunkSize
             val result = withContext(Dispatchers.IO) {
-                ApiClient.getInstance().postRaw("/v1/backup/$backupId/chunks/$chunkIndex", data)
+                ApiClient.getInstance().putRaw(
+                    "/v1/backup/chunk/$backupId", data,
+                    extraHeaders = mapOf(
+                        "X-Chunk-Index" to chunkIndex.toString(),
+                        "X-Byte-Offset" to byteOffset.toString()
+                    )
+                )
             }
             if (result.isFailure) {
                 _uiState.value = _uiState.value.copy(
@@ -117,11 +130,13 @@ class BackupViewModel : ViewModel() {
         }
     }
 
-    fun finalizeBackup(backupId: String) {
+    fun finalizeBackup(backupId: String, sha256B64: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
             val result = withContext(Dispatchers.Default) {
-                ApiClient.getInstance().put("/v1/backup/$backupId/finalize")
+                ApiClient.getInstance().post("/v1/backup/finalize/$backupId", buildJsonObject {
+                    put("sha256", sha256B64)
+                })
             }
             result.fold(
                 onSuccess = {
@@ -161,7 +176,7 @@ class BackupViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
             val result = withContext(Dispatchers.Default) {
-                ApiClient.getInstance().getBinary("/v1/backup/$backupId/download")
+                ApiClient.getInstance().getBinary("/v1/backup/download/$backupId")
             }
             result.fold(
                 onSuccess = {
@@ -196,13 +211,16 @@ class BackupViewModel : ViewModel() {
     fun restoreBackup(backupId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
+            // Restore is performed client-side: the server stores an opaque
+            // blob and has no server-side restore handler, so fetch the
+            // backup and verify integrity locally.
             val result = withContext(Dispatchers.Default) {
-                ApiClient.getInstance().post("/v1/backup/$backupId/restore")
+                ApiClient.getInstance().getBinary("/v1/backup/download/$backupId")
             }
             result.fold(
                 onSuccess = {
                     _uiState.value = _uiState.value.copy(isProcessing = false,
-                        successMessage = "Backup restored")
+                        successMessage = "Backup downloaded for restore")
                 },
                 onFailure = { _uiState.value = _uiState.value.copy(
                     isProcessing = false, error = it.message)

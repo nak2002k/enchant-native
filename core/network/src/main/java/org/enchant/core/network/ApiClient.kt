@@ -135,6 +135,13 @@ class ApiClient {
         return request("POST", path, rawBody = body, mimeType = mimeType, extraHeaders = extraHeaders)
     }
 
+    suspend fun putRaw(path: String, body: ByteArray, mimeType: String = "application/octet-stream", extraHeaders: Map<String, String> = emptyMap()): Result<JsonObject> {
+        if (body.size > 128 * 1024 * 1024) {
+            return Result.failure(IllegalArgumentException("Body exceeds 128MB limit"))
+        }
+        return request("PUT", path, rawBody = body, mimeType = mimeType, extraHeaders = extraHeaders)
+    }
+
     suspend fun getBinary(path: String): Result<ByteArray> {
         return withContext(Dispatchers.IO) {
             try {
