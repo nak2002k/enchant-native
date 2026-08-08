@@ -131,9 +131,12 @@ class ContactSyncService(
     }
 
     fun hashPhoneNumber(phone: String): String {
-        val salt = companionDiscoverySalt ?: SecurePreferences.getString(AuthConstants.PHONE_SALT_KEY)
-            ?.let { CryptoPrimitives.base64UrlDecode(it) }
-            ?: return ""
+        // The server hashes contacts with its shared CONTACT_DISCOVERY_SALT.
+        // Using any other salt (e.g. the per-account auth salt) produces
+        // hashes the server can never match — so if the shared discovery salt
+        // isn't available, fail closed (return "" => no match) rather than
+        // silently leaking a useless hash.
+        val salt = companionDiscoverySalt ?: return ""
         val mac = CryptoPrimitives.hmacSha256(salt, phone.toByteArray(Charsets.UTF_8))
         return CryptoPrimitives.base64UrlEncode(mac)
     }
