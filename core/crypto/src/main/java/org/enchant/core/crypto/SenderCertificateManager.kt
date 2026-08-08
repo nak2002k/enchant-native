@@ -10,7 +10,7 @@ import kotlinx.serialization.json.contentOrNull
  * SP6: sealed-sender certificate management.
  *
  * The server mints short-lived sender certificates (binding this user's id +
- * device + identity key) at POST /v1/certificate/delivery. The certificate is
+ * device + identity key) at POST /v1/auth/certificate/delivery. The certificate is
  * embedded inside every sealed-sender payload so the RECIPIENT (who decrypts)
  * can attribute the message — the server never sees the sender identity in
  * anonymous sealed-send traffic.
@@ -47,7 +47,7 @@ object SenderCertificateManager {
                 ?: return@withContext null
             val identityB64 = CryptoPrimitives.base64UrlEncode(identityKeyPair.publicKey)
             val client = KeyManager.apiClientOrNull() ?: return@withContext null
-            val result = client.post("/v1/certificate/delivery", kotlinx.serialization.json.buildJsonObject {
+            val result = client.post("/v1/auth/certificate/delivery", kotlinx.serialization.json.buildJsonObject {
                 put("identity_key", kotlinx.serialization.json.JsonPrimitive(identityB64))
             })
             val json = result.getOrNull() ?: return@withContext null
