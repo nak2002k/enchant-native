@@ -151,6 +151,8 @@ interface AgentAppBridge {
     suspend fun backupCloudRestore(backupId: String): JsonObject
     suspend fun backupLocalExport(outputPath: String, backupKeyB64: String, pin: String?): JsonObject
     suspend fun backupLocalImport(inputPath: String, backupKeyB64: String, sections: List<String>, pin: String?): JsonObject
+    // Recovery-key export: backup key derived from the account recovery seed.
+    suspend fun backupLocalExportRecovery(outputPath: String): JsonObject
 
     // App lock PIN
     suspend fun appLockSetPin(pin: String): JsonObject

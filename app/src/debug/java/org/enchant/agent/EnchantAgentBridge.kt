@@ -1615,6 +1615,25 @@ class EnchantAgentBridge : AgentAppBridge {
         }
     }
 
+    /**
+     * Recovery-key export: the backup key is derived from the account's
+     * recovery seed (entropy -> account key -> backup key via the lib), so the
+     * same seed restores the backup on any device, independent of the PIN.
+     */
+    override suspend fun backupLocalExportRecovery(outputPath: String): JsonObject {
+        if (!DI.isInitialized) return err("DI not initialized")
+        val ctx = AppConfig.applicationContext ?: return err("App context not available")
+        val keyBytes = org.enchant.backup.BackupKeyManager.getBackupKey()
+            ?: return err("recovery key derivation failed")
+        return BackupExporter(DI.databasePool, ctx).exportFullBackup(outputPath, keyBytes).fold(
+            onSuccess = {
+                AgentEventLog.emit("backup_local_export_recovery", data = buildJsonObject { put("path", outputPath) })
+                ok(buildJsonObject { put("output_path", outputPath) })
+            },
+            onFailure = { err(it.message ?: "local export failed") }
+        )
+    }
+
     override suspend fun backupLocalImport(
         inputPath: String,
         backupKeyB64: String,
