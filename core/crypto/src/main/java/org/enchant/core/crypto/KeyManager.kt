@@ -33,10 +33,12 @@ object KeyManager {
     const val KEY_IDENTITY_KEY = "crypto.identity_key"
     const val KEY_SIGNED_PREKEY = "crypto.signed_prekey"
     const val KEY_ED25519_IDENTITY_KEY = "crypto.ed25519_identity_key"
+    const val KEY_PNI_IDENTITY_KEY = "crypto.pni_identity_key"
 
     private val mutex = Mutex()
     private var initialized = false
     private var identityKeyPair: CryptoPrimitives.KeyPair? = null
+    private var pniKeyPair: CryptoPrimitives.KeyPair? = null
     private var preKeyStore: PreKeyStore? = null
     private var apiClient: ApiClientLike? = null
 
@@ -66,7 +68,13 @@ object KeyManager {
         // Post-quantum: the peer's Kyber (ML-KEM) one-time prekey + its id.
         val kyberPrekey: ByteArray? = null,
         val kyberPrekeyId: Int = 0,
-        val kyberKemType: Int = EnchantCrypto.KEM_TYPE_ML_KEM_768
+        val kyberKemType: Int = EnchantCrypto.KEM_TYPE_ML_KEM_768,
+        // Phone-number identity (PNI): the peer's PNI X25519 public + its
+        // Ed25519 public (Signal ACI/PNI dual identities). When present, a
+        // sender can establish a phone-bound session for anonymous routing.
+        val pniIdentityKey: ByteArray? = null,
+        val pniEd25519IdentityKey: ByteArray? = null,
+        val registrationId: Int = 1
     )
 
     data class SignedPrekeyData(
@@ -145,6 +153,9 @@ object KeyManager {
                 loadPersistedIdentityKey()
             }
 
+            // Restore the persisted PNI identity too.
+            loadPersistedPniKey()
+
             initialized = true
         }
     }
@@ -177,6 +188,101 @@ object KeyManager {
             SecurePreferences.putString(KEY_IDENTITY_KEY, "$pub:$priv")
         } catch (e: Exception) {
             Log.w(TAG, "persistIdentityKey: failed to persist identity key", e)
+        }
+    }
+
+    /**
+     * Phone-number identity (PNI): a second, phone-bound Ed25519 identity
+     * (Signal ACI/PNI). The X25519 public served in bundles is derived from the
+     * Ed25519 seed; the PNI keeps the account identity hidden on anonymous
+     * (sealed-sender) routes. Generated once and persisted across restarts.
+     */
+    private fun loadPersistedPniKey() {
+        try {
+            val stored = SecurePreferences.getString(KEY_PNI_IDENTITY_KEY)
+            if (stored.isNullOrEmpty()) return
+            val parts = stored.split(":")
+            if (parts.size != 2) {
+                SecurePreferences.remove(KEY_PNI_IDENTITY_KEY)
+                return
+            }
+            val publicKey = CryptoPrimitives.base64UrlDecode(parts[0])
+            val privateKey = CryptoPrimitives.base64UrlDecode(parts[1])
+            if (publicKey.size != 32 || privateKey.size != 32) {
+                SecurePreferences.remove(KEY_PNI_IDENTITY_KEY)
+                return
+            }
+            pniKeyPair = CryptoPrimitives.KeyPair(publicKey, privateKey)
+        } catch (_: Exception) {
+            pniKeyPair = null
+        }
+    }
+
+    private fun persistPniKey(pair: CryptoPrimitives.KeyPair) {
+        try {
+            val pub = CryptoPrimitives.base64UrlEncode(pair.publicKey)
+            val priv = CryptoPrimitives.base64UrlEncode(pair.privateKey)
+            SecurePreferences.putString(KEY_PNI_IDENTITY_KEY, "$pub:$priv")
+        } catch (e: Exception) {
+            Log.w(TAG, "persistPniKey: failed to persist PNI identity key", e)
+        }
+    }
+
+    /**
+     * Returns the persisted/loaded PNI Ed25519 keypair, generating + persisting
+     * a fresh one on first use.
+     */
+    private suspend fun ensurePniIdentityKey(): CryptoPrimitives.KeyPair {
+        loadPersistedPniKey()
+        pniKeyPair?.let { return it }
+        val pair = generatePniIdentityKey()
+        pniKeyPair = pair
+        persistPniKey(pair)
+        return pair
+    }
+
+    /**
+     * Generate the PNI identity: an Ed25519 keypair. The X25519 public (derived
+     * from the Ed25519 seed) is what the server serves in bundles; the seed is
+     * what the responder converts to X25519 for the PNI DH. Returns
+     * (ed25519Public, ed25519Seed).
+     */
+    private fun generatePniIdentityKey(): CryptoPrimitives.KeyPair {
+        val pub = ByteArray(32)
+        val seed = ByteArray(32)
+        val rc = EnchantCrypto.enchant_ed25519_keypair(pub, seed)
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("Failed to generate PNI identity key: $rc")
+        }
+        return CryptoPrimitives.KeyPair(pub, seed)
+    }
+
+    /** The peer-facing PNI X25519 public (derived from the PNI Ed25519 seed). */
+    suspend fun getPniX25519Public(): ByteArray? {
+        val pair = ensurePniIdentityKey()
+        val x = ByteArray(32)
+        val rc = EnchantCrypto.enchant_ed25519_sk_to_x25519(pair.privateKey, x)
+        if (rc != EnchantCrypto.SUCCESS) return null
+        return x
+    }
+
+    suspend fun getPniIdentityKeyPair(): CryptoPrimitives.KeyPair? {
+        loadPersistedPniKey()
+        return pniKeyPair
+    }
+
+    /**
+     * Push the PNI keypair into the native PNI store so the session manager can
+     * establish/decrypt over the phone-number identity.
+     */
+    suspend fun syncNativePniIdentity() {
+        try {
+            val pair = ensurePniIdentityKey()
+            VeilSession.get().setPniKeyPair(pair.publicKey, pair.privateKey)
+            VeilSession.get().setPniRegistrationId(1)
+            android.util.Log.i("KeyManager", "syncNativePniIdentity: ok pub=${pair.publicKey.size}")
+        } catch (e: IllegalStateException) {
+            android.util.Log.w("KeyManager", "syncNativePniIdentity failed: ${e.message}")
         }
     }
 
@@ -218,10 +324,18 @@ object KeyManager {
                     return@withContext Result.failure(IllegalStateException("No OPKs available"))
                 }
 
-                val uploadResult = uploadKeyBundle(ik, spk, opks, kybers)
+                // Phone-number identity (PNI): generate (once) so the PNI X25519
+                // public can ride the registration payload. Uploading it lets a
+                // sender establish a phone-bound session for anonymous routing
+                // without ever seeing the account identity.
+                val pniEd = ensurePniIdentityKey()
+                val pniX = getPniX25519Public()
+
+                val uploadResult = uploadKeyBundle(ik, spk, opks, kybers, pniEd, pniX)
                 if (uploadResult.isFailure) return@withContext uploadResult
 
                 syncNativeIdentity()
+                syncNativePniIdentity()
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
@@ -344,7 +458,9 @@ object KeyManager {
         ik: CryptoPrimitives.KeyPair,
         spk: SignedPreKeyRecord,
         opks: List<OneTimePreKeyRecord>,
-        kybers: List<KyberPreKeyRecord> = emptyList()
+        kybers: List<KyberPreKeyRecord> = emptyList(),
+        pniEd: CryptoPrimitives.KeyPair? = null,
+        pniX25519: ByteArray? = null
     ): Result<Unit> {
         val client = apiClient ?: return Result.failure(Exception("No API client"))
 
@@ -379,6 +495,10 @@ object KeyManager {
                         })
                     }
                 })
+            }
+            if (pniEd != null && pniX25519 != null) {
+                put("pni_identity_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(pniX25519)))
+                put("pni_ed25519_identity_key", JsonPrimitive(CryptoPrimitives.base64UrlEncode(pniEd.publicKey)))
             }
         }
 
@@ -537,7 +657,13 @@ object KeyManager {
                             ?.takeIf { it.size == 32 },
                         kyberPrekey = kyberBytes,
                         kyberPrekeyId = if (kyberBytes != null && kyberId != null) kyberId else 0,
-                        kyberKemType = kyberKem
+                        kyberKemType = kyberKem,
+                        pniIdentityKey = device["pni_identity_key"]?.jsonPrimitive?.content
+                            ?.let { CryptoPrimitives.base64UrlDecode(it) }
+                            ?.takeIf { it.size == 32 },
+                        pniEd25519IdentityKey = device["pni_ed25519_identity_key"]?.jsonPrimitive?.content
+                            ?.let { CryptoPrimitives.base64UrlDecode(it) }
+                            ?.takeIf { it.size == 32 }
                     )
                 }
             } catch (_: Exception) { null }

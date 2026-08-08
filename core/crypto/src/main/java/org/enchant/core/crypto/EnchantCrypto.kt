@@ -174,6 +174,20 @@ object EnchantCrypto {
     external fun enchant_session_manager_get_session_age(manager: Long, addressName: String, deviceId: Int, ageSecondsOut: LongArray): Int
     external fun enchant_session_manager_is_expired(manager: Long, addressName: String, deviceId: Int, currentTimestamp: Long, expiredOut: IntArray): Int
 
+    // --- Phone-number identity (PNI): a second, phone-bound identity used for
+    // sealed-sender / anonymous routing (Signal's ACI/PNI dual identities) ---
+    external fun enchant_pni_identity_store_create(storeOut: LongArray): Int
+    external fun enchant_pni_identity_store_destroy(store: Long)
+    external fun enchant_pni_identity_store_set_key_pair(store: Long, publicKey: ByteArray, privateKey: ByteArray): Int
+    external fun enchant_pni_identity_store_get_key_pair(store: Long, publicOut: ByteArray, privateOut: ByteArray): Int
+    external fun enchant_pni_identity_store_set_registration_id(store: Long, registrationId: Int): Int
+    external fun enchant_pni_identity_store_get_registration_id(store: Long, registrationIdOut: IntArray): Int
+    external fun enchant_session_manager_create_with_pni(identityStore: Long, sessionStore: Long, pniStore: Long, managerOut: LongArray): Int
+    external fun enchant_session_manager_has_pni_session(manager: Long, addressName: String, deviceId: Int, hasSessionOut: IntArray): Int
+    external fun enchant_session_manager_establish_pni(manager: Long, addressName: String, deviceId: Int, identityKey: ByteArray, ed25519IdentityKey: ByteArray, signedPrekeyId: Int, signedPrekey: ByteArray, signedPrekeySig: ByteArray, signedPrekeySigLen: Long, oneTimePrekeyId: Int, oneTimePrekey: ByteArray, registrationId: Int): Int
+    external fun enchant_session_manager_encrypt_pni(manager: Long, addressName: String, deviceId: Int, plaintext: ByteArray, plaintextLen: Long, ciphertext: ByteArray, ciphertextLen: LongArray, messageTypeOut: IntArray): Int
+    external fun enchant_session_manager_decrypt_pni(manager: Long, addressName: String, deviceId: Int, ciphertext: ByteArray, ciphertextLen: Long, messageType: Int, plaintext: ByteArray, plaintextLen: LongArray): Int
+
     // --- Safety number ---
     external fun enchant_safety_number_generate(senderIdentityKey: ByteArray, recipientIdentityKey: ByteArray, senderUuid: String, recipientUuid: String, safetyNumberOut: ByteArray, safetyNumberLen: LongArray): Int
     external fun enchant_safety_number_compare(safetyNumberA: ByteArray, lenA: Long, safetyNumberB: ByteArray, lenB: Long, matchOut: IntArray): Int

@@ -25,6 +25,7 @@ class VeilSession private constructor(
     val selfUserId: String,
     private var identityStoreHandle: Long,
     private var sessionStoreHandle: Long,
+    private var pniStoreHandle: Long,
     private var sessionManagerHandle: Long
 ) {
     private val sessionLock = Mutex()
@@ -43,6 +44,10 @@ class VeilSession private constructor(
         if (sessionStoreHandle != 0L) {
             EnchantCrypto.enchant_session_store_destroy(sessionStoreHandle)
             sessionStoreHandle = 0L
+        }
+        if (pniStoreHandle != 0L) {
+            EnchantCrypto.enchant_pni_identity_store_destroy(pniStoreHandle)
+            pniStoreHandle = 0L
         }
         if (identityStoreHandle != 0L) {
             EnchantCrypto.enchant_identity_store_destroy(identityStoreHandle)
@@ -548,6 +553,113 @@ class VeilSession private constructor(
         }
     }
 
+    // ──────────────────────────────────────────────
+    // Phone-number identity (PNI)
+    // ──────────────────────────────────────────────
+
+    /**
+     * Push the local PNI keypair into the native PNI store. The PNI is a
+     * second, phone-bound Ed25519 identity whose X25519 public is served in
+     * key bundles so peers can establish a PNI session without exposing the
+     * account identity (Signal ACI/PNI).
+     */
+    fun setPniKeyPair(publicKey: ByteArray, privateKey: ByteArray) {
+        val rc = EnchantCrypto.enchant_pni_identity_store_set_key_pair(
+            pniStoreHandle, publicKey, privateKey
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("Failed to set PNI key pair: $rc")
+        }
+    }
+
+    suspend fun getPniKeyPair(): Pair<ByteArray, ByteArray>? = sessionLock.withLock {
+        val pub = ByteArray(32)
+        val priv = ByteArray(32)
+        val rc = EnchantCrypto.enchant_pni_identity_store_get_key_pair(pniStoreHandle, pub, priv)
+        if (rc != EnchantCrypto.SUCCESS) null else Pair(pub, priv)
+    }
+
+    fun setPniRegistrationId(registrationId: Int) {
+        EnchantCrypto.enchant_pni_identity_store_set_registration_id(pniStoreHandle, registrationId)
+    }
+
+    /**
+     * Establish a session over the peer's phone-number identity. Mirrors
+     * [establishSession] but targets the PNI keypair.
+     */
+    suspend fun establishPniSession(
+        peerUserId: String,
+        device: Int,
+        keyBundle: KeyManager.KeyBundle
+    ): Boolean = sessionLock.withLock {
+        if (keyBundle.pniIdentityKey == null || keyBundle.pniEd25519IdentityKey == null) {
+            android.util.Log.w(TAG, "establishPniSession: peer bundle has no PNI keys")
+            return@withLock false
+        }
+        val deviceId = if (device > 0) device else extractDeviceId(peerUserId)
+        val rc = EnchantCrypto.enchant_session_manager_establish_pni(
+            sessionManagerHandle, peerUserId, deviceId,
+            keyBundle.pniIdentityKey, keyBundle.pniEd25519IdentityKey,
+            keyBundle.signedPrekeyId, keyBundle.signedPrekey.publicKey,
+            keyBundle.signedPrekey.signature, keyBundle.signedPrekey.signature.size.toLong(),
+            keyBundle.oneTimePrekeyId, keyBundle.oneTimePrekey ?: ByteArray(0),
+            keyBundle.registrationId
+        )
+        android.util.Log.d(TAG, "establishPniSession: peer=$peerUserId rc=$rc")
+        rc == EnchantCrypto.SUCCESS
+    }
+
+    suspend fun hasPniSession(userId: String): Boolean = sessionLock.withLock {
+        val device = extractDeviceId(userId)
+        val out = IntArray(1)
+        val rc = EnchantCrypto.enchant_session_manager_has_pni_session(
+            sessionManagerHandle, userId, device, out
+        )
+        rc == EnchantCrypto.SUCCESS && out[0] == 1
+    }
+
+    /**
+     * Encrypt over a PNI session (used for anonymous / sealed-sender payloads).
+     */
+    suspend fun encryptPniMessage(userId: String, plaintext: ByteArray): EncryptedPayload? =
+        sessionLock.withLock {
+            val device = extractDeviceId(userId)
+            val maxCiphertext = plaintext.size + 4096
+            val ciphertext = ByteArray(maxCiphertext)
+            val ciphertextLen = longArrayOf(maxCiphertext.toLong())
+            val messageType = intArrayOf(0)
+            val rc = EnchantCrypto.enchant_session_manager_encrypt_pni(
+                sessionManagerHandle, userId, device,
+                plaintext, plaintext.size.toLong(),
+                ciphertext, ciphertextLen, messageType
+            )
+            if (rc != EnchantCrypto.SUCCESS) return@withLock null
+            EncryptedPayload(
+                messageType = if (messageType[0] == 1) MessageType.PREKEY_MESSAGE else MessageType.ENCRYPTED_MESSAGE,
+                payload = ciphertext.copyOf(ciphertextLen[0].toInt()),
+                recipientDeviceId = null
+            )
+        }
+
+    suspend fun decryptPniMessage(userId: String, ciphertext: ByteArray): DecryptedResult? =
+        sessionLock.withLock {
+            val device = extractDeviceId(userId)
+            val maxPlaintext = ciphertext.size + 256
+            val plaintext = ByteArray(maxPlaintext)
+            val plaintextLen = longArrayOf(maxPlaintext.toLong())
+            val rc = EnchantCrypto.enchant_session_manager_decrypt_pni(
+                sessionManagerHandle, userId, device,
+                ciphertext, ciphertext.size.toLong(),
+                0, plaintext, plaintextLen
+            )
+            if (rc != EnchantCrypto.SUCCESS) return@withLock null
+            DecryptedResult(
+                plaintext = plaintext.copyOf(plaintextLen[0].toInt()),
+                senderDeviceId = null,
+                isNewSession = false
+            )
+        }
+
     fun hasIdentityChanged(userId: String, newIdentityKey: ByteArray): Boolean {
         val existing = identityKeys[userId] ?: return false
         return !existing.contentEquals(newIdentityKey)
@@ -786,11 +898,25 @@ class VeilSession private constructor(
             }
             val sessionStoreHandle = sessionStoreOut[0]
 
+            // Phone-number identity (PNI) store: a second, phone-bound identity
+            // used for sealed-sender / anonymous routing (Signal ACI/PNI). The
+            // session manager is wired with it so establish/encrypt/decrypt can
+            // run over the PNI without exposing the account identity.
+            val pniStoreOut = LongArray(1)
+            val rcPni = EnchantCrypto.enchant_pni_identity_store_create(pniStoreOut)
+            if (rcPni != EnchantCrypto.SUCCESS) {
+                EnchantCrypto.enchant_session_store_destroy(sessionStoreHandle)
+                EnchantCrypto.enchant_identity_store_destroy(identityStoreHandle)
+                throw IllegalStateException("Failed to create native PNI store: $rcPni")
+            }
+            val pniStoreHandle = pniStoreOut[0]
+
             val managerOut = LongArray(1)
-            val rc3 = EnchantCrypto.enchant_session_manager_create(
-                identityStoreHandle, sessionStoreHandle, managerOut
+            val rc3 = EnchantCrypto.enchant_session_manager_create_with_pni(
+                identityStoreHandle, sessionStoreHandle, pniStoreHandle, managerOut
             )
             if (rc3 != EnchantCrypto.SUCCESS) {
+                EnchantCrypto.enchant_pni_identity_store_destroy(pniStoreHandle)
                 EnchantCrypto.enchant_session_store_destroy(sessionStoreHandle)
                 EnchantCrypto.enchant_identity_store_destroy(identityStoreHandle)
                 throw IllegalStateException("Failed to create native session manager: $rc3")
@@ -801,6 +927,7 @@ class VeilSession private constructor(
                 selfUserId,
                 identityStoreHandle,
                 sessionStoreHandle,
+                pniStoreHandle,
                 sessionManagerHandle
             )
         }
