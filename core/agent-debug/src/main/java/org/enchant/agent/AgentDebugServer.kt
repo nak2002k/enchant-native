@@ -17,20 +17,46 @@ import kotlinx.serialization.json.put
 /**
  * Localhost-only HTTP control plane for automated agents.
  * Bind: 127.0.0.1:19789 — use `adb reverse tcp:19789 tcp:19789`.
+ *
+ * F-C4: every endpoint except /health and /events requires a per-install
+ * bearer token. This prevents a co-installed app (or any process that can
+ * reach the loopback socket) from driving the agent — e.g. submitting an OTP,
+ * reading a conversation, or extracting key material — without the token.
  */
 class AgentDebugServer(
     port: Int = DEFAULT_PORT,
-    private val bridge: AgentAppBridge
+    private val bridge: AgentAppBridge,
+    authToken: String = ""
 ) : NanoHTTPD("127.0.0.1", port) {
 
     private val listenPort = port
     private val json = Json { ignoreUnknownKeys = true }
 
+    // Per-install token generated on first start and persisted by the caller,
+    // so it survives restarts and is only known to the app (and whoever reads
+    // it from the agent's authenticated /token endpoint once).
+    private val authToken: String = authToken.ifEmpty { generateToken() }
+
+    private fun generateToken(): String {
+        val bytes = ByteArray(32)
+        java.security.SecureRandom().nextBytes(bytes)
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+    }
+
     override fun serve(session: IHTTPSession): Response {
+        val path = session.uri.removePrefix("/").ifEmpty { "health" }
         if (session.method == Method.OPTIONS) {
             return cors(newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, ""))
         }
-        val path = session.uri.removePrefix("/").ifEmpty { "health" }
+        // /health and /events are safe to expose unauthenticated (loopback-only
+        // socket, no sensitive data); everything else requires the bearer token.
+        val unauthenticated = path == "health" || path.startsWith("events")
+        if (!unauthenticated && !isAuthorized(session)) {
+            return cors(jsonResponse(buildJsonObject {
+                put("ok", false)
+                put("error", "Unauthorized")
+            }, status = Response.Status.FORBIDDEN))
+        }
         val segments = path.split("/").filter { it.isNotEmpty() }
         return try {
             val response = runBlocking { dispatch(session.method, segments, session) }
@@ -47,6 +73,23 @@ class AgentDebugServer(
         }
     }
 
+    private fun isAuthorized(session: IHTTPSession): Boolean {
+        val auth = session.headers["authorization"]
+            ?: session.headers["Authorization"]
+            ?: return false
+        return auth == "Bearer $authToken"
+    }
+
+    /**
+     * Returns the per-install token. Protected by the same bearer check as all
+     * other authenticated endpoints (you must already know the token to read
+     * it); automation retrieves it the first time via `adb reverse`.
+     */
+    private fun getToken(): JsonObject = buildJsonObject {
+        put("ok", true)
+        put("token", authToken)
+    }
+
     private suspend fun dispatch(
         method: Method,
         segments: List<String>,
@@ -61,6 +104,7 @@ class AgentDebugServer(
                 put("service", "enchant-agent-debug")
                 put("port", listenPort)
             }
+            root == "token" && method == Method.GET -> getToken()
             root == "help" && method == Method.GET -> bridge.getHelp()
             root == "state" && method == Method.GET -> bridge.getState()
             root == "events" && method == Method.GET -> {
@@ -393,9 +437,14 @@ class AgentDebugServer(
     }
 
     private fun cors(response: Response): Response {
-        response.addHeader("Access-Control-Allow-Origin", "*")
+        // F-C4: no wildcard CORS. The control plane is reached via `adb
+        // reverse` (no Origin) or from the app's own webview (file://). Refuse
+        // cross-origin browser fetches entirely; a request with an arbitrary
+        // Origin must not be able to drive the agent.
+        response.addHeader("Access-Control-Allow-Origin", "null")
+        response.addHeader("Vary", "Origin")
         response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        response.addHeader("Access-Control-Allow-Headers", "Content-Type")
+        response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
         return response
     }
 

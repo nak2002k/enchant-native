@@ -19,12 +19,12 @@ object AgentDebug {
     @Volatile
     private var ready = false
 
-    fun start(context: Context, bridge: AgentAppBridge, port: Int = AgentDebugServer.DEFAULT_PORT) {
+    fun start(context: Context, bridge: AgentAppBridge, port: Int = AgentDebugServer.DEFAULT_PORT, authToken: String = "") {
         synchronized(this) {
             if (ready && server != null) return
             Thread({
                 try {
-                    startServer(bridge, port)
+                    startServer(bridge, port, authToken)
                     ready = true
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to start agent server", e)
@@ -33,10 +33,10 @@ object AgentDebug {
         }
     }
 
-    private fun startServer(bridge: AgentAppBridge, port: Int) {
+    private fun startServer(bridge: AgentAppBridge, port: Int, authToken: String) {
         server?.stop()
         server = null
-        val s = AgentDebugServer(port = port, bridge = bridge)
+        val s = AgentDebugServer(port = port, bridge = bridge, authToken = authToken)
         s.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
         repeat(20) {
             if (portOpen(port)) {
@@ -47,6 +47,7 @@ object AgentDebug {
                         put("port", port)
                         put("bind", "127.0.0.1")
                         put("hint", "adb forward tcp:$port tcp:$port")
+                        put("auth_token", authToken)
                     }
                 )
                 return

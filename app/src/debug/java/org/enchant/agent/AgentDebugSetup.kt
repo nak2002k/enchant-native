@@ -101,7 +101,21 @@ object AgentDebugSetup {
         AgentDebug.start(
             context.applicationContext,
             EnchantAgentBridge(),
-            org.enchant.BuildConfig.AGENT_PORT
+            org.enchant.BuildConfig.AGENT_PORT,
+            getOrCreateAgentToken()
         )
+    }
+
+    // F-C4: per-install bearer token for the debug control plane. Generated
+    // once and persisted so restarts keep the same token; automation reads it
+    // from the agent's authenticated /token endpoint via `adb reverse`.
+    private fun getOrCreateAgentToken(): String {
+        val existing = org.enchant.core.base.SecurePreferences.getString("agent.auth_token")
+        if (!existing.isNullOrEmpty()) return existing
+        val bytes = ByteArray(32)
+        java.security.SecureRandom().nextBytes(bytes)
+        val token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        org.enchant.core.base.SecurePreferences.putString("agent.auth_token", token)
+        return token
     }
 }
