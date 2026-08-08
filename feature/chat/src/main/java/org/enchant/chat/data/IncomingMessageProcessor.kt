@@ -447,6 +447,7 @@ object IncomingMessageProcessor {
 
                 val now = System.currentTimeMillis()
                 val parsed = MessageProtobufHelper.parseContent(decrypted.plaintext)
+                android.util.Log.i("IncomingMsg", "encMsg parsed=${parsed::class.simpleName} first=${decrypted.plaintext.take(12).joinToString { "%02x".format(it) }} len=${decrypted.plaintext.size}")
 
                 return@withContext when (parsed) {
                     is MessageProtobufHelper.ParsedContent.SenderKeyDistribution -> {
