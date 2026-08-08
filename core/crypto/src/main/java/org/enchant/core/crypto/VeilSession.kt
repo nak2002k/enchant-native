@@ -257,7 +257,7 @@ class VeilSession private constructor(
                     ((ciphertext[69].toInt() and 0xFF) shl 16) or
                     ((ciphertext[70].toInt() and 0xFF) shl 8) or
                     (ciphertext[71].toInt() and 0xFF)
-                android.util.Log.d(TAG, "decryptPrekeyMessage: ctLen=${ciphertext.size} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId header=${ciphertext.copyOf(76).joinToString("") { "%02x".format(it) }}")
+                android.util.Log.d(TAG, "decryptPrekeyMessage: ctLen=${ciphertext.size} from=$senderUserId dev=$device spkId=$ourSignedPrekeyId opkId=$ourOneTimePrekeyId")
 
                 val maxPlaintext = ciphertext.size + 256
                 val plaintext = ByteArray(maxPlaintext)
