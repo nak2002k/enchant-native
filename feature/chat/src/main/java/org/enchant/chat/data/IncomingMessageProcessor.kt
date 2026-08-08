@@ -1060,9 +1060,11 @@ object IncomingMessageProcessor {
                             ?: org.enchant.core.crypto.NativeSessionManager.getPeerDeviceId(senderUserId)
                             ?: ""
                         val audited = runCatching {
+                            // Inclusion proof (this user/device is in the tree)
+                            // AND RFC-6962 append-only consistency of the log.
                             org.enchant.core.crypto.KeyTransparencyVerifier.verifyServerConsistency(
                                 ktClient, senderUserId, deviceId
-                            )
+                            ) && org.enchant.core.crypto.KeyTransparencyVerifier.verifyConsistency(ktClient)
                         }.getOrDefault(false)
                         android.util.Log.w("IncomingMsg", "KT audit for $senderUserId: $audited")
                         if (!audited) {

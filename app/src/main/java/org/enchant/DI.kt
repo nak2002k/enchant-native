@@ -188,6 +188,7 @@ object DI {
                 )
                 KeyManager.syncNativeIdentity()
                 PreKeyWorker.schedule(context)
+                org.enchant.core.crypto.KeyTransparencyMonitorWorker.schedule(context)
                 MessageTrimmer.scheduleTrimming(context, EnchantStore.settings.messageTrimLength.takeIf { it > 0 }?.toLong() ?: 365)
 
                 WebSocketManager.init(context)
