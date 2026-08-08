@@ -21,11 +21,14 @@ object AgentDebug {
 
     fun start(context: Context, bridge: AgentAppBridge, port: Int = AgentDebugServer.DEFAULT_PORT, authToken: String = "") {
         synchronized(this) {
+            Log.i(TAG, "start called ready=$ready server=${server != null} port=$port")
             if (ready && server != null) return
             Thread({
                 try {
+                    Log.i(TAG, "startServer begin port=$port")
                     startServer(bridge, port, authToken)
                     ready = true
+                    Log.i(TAG, "startServer done ready=true")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to start agent server", e)
                 }
@@ -50,6 +53,7 @@ object AgentDebug {
                         put("auth_token", authToken)
                     }
                 )
+                Log.i(TAG, "bound ok port=$port")
                 return
             }
             Thread.sleep(100)

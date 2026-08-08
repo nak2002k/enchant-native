@@ -17,6 +17,7 @@ object AgentRuntime {
 object AgentDebugSetup {
 
     fun init(context: Context) {
+        android.util.Log.i("AgentDebugSetup", "init called")
         AgentNavigationHooks.onShowMainApp = {
             AgentRuntime.onSetAuthFlowComplete?.invoke(true)
             AgentUiTracker.setPhase("main")

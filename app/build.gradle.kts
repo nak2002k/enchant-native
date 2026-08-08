@@ -15,7 +15,7 @@ android {
         applicationId = "org.enchant.messenger"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("int", "AGENT_PORT", "19789")
@@ -44,6 +44,17 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    packaging {
+        // Extract native libraries so Android copies them to the app's lib dir
+        // at install time. The debug APK's JNI libs are large and rebuilt
+        // frequently; direct-load (extractNativeLibs=false) requires strict
+        // 64KB page alignment that a --rerun-tasks/streamed install can miss,
+        // which surfaced as UnsatisfiedLinkError at runtime.
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 
