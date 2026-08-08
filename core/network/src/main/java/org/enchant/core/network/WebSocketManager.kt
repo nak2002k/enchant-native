@@ -85,16 +85,15 @@ object WebSocketManager {
     private var apiClient: ApiClient? = null
     private var applicationContext: Context? = null
 
-    // Certificate pinner: trusts system CAs for alpha.
-    // Call updatePins() with real SHA-256 hashes before production.
+    // F-C2: real certificate pinning via SecurityPins. No-op until installPins()
+    // is called with the release gateway host's SHA-256 SPKI pins.
     private val certificatePinner: CertificatePinner by lazy {
-        CertificatePinner.Builder().build()
+        SecurityPins.active()
     }
 
     fun updatePins(host: String, pins: List<String>) {
-        val builder = CertificatePinner.Builder()
-        pins.forEach { pin -> builder.add(host, pin) }
-        _certificatePinner = builder.build()
+        SecurityPins.installPins(host, pins)
+        _certificatePinner = SecurityPins.active()
     }
     @Volatile
     private var _certificatePinner: CertificatePinner? = null

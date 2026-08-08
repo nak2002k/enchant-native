@@ -24,18 +24,16 @@ class ApiClient {
         fun getInstance(): ApiClient = _instance ?: error("ApiClient not initialized")
         fun setInstance(client: ApiClient) { _instance = client }
 
-        // Certificate pinner: for alpha, trusts system CAs only.
-        // Before production, call updatePins() with real SHA-256 hashes from:
-        //   openssl s_client -connect api.enchant.chat:443 </dev/null 2>/dev/null \
-        //   | openssl x509 -fingerprint -sha256 -noout
+        // F-C2: real certificate pinning. SecurityPins.active() is a no-op
+        // until installPins() is called with the release gateway host's
+        // SHA-256 SPKI pins; once set, any non-matching cert is rejected.
         private val certificatePinner: CertificatePinner by lazy {
-            CertificatePinner.Builder().build()
+            SecurityPins.active()
         }
 
         fun updatePins(host: String, pins: List<String>) {
-            val builder = CertificatePinner.Builder()
-            pins.forEach { pin -> builder.add(host, pin) }
-            _certificatePinner = builder.build()
+            SecurityPins.installPins(host, pins)
+            _certificatePinner = SecurityPins.active()
         }
 
         @Volatile
