@@ -157,6 +157,7 @@ object EnchantCrypto {
     external fun enchant_veil_decrypt_v1(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray, senderIdentityKeyOut: ByteArray): Int
     external fun enchant_veil_encrypt_v2(senderIdentityPrivate: ByteArray, senderIdentityPublic: ByteArray, recipientPublicKeys: ByteArray, numRecipients: Long, usmcData: ByteArray, usmcLen: Long, output: ByteArray, outputLen: LongArray): Int
     external fun enchant_veil_decrypt_v2(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray, senderIdentityKeyOut: ByteArray): Int
+    external fun enchant_veil_decrypt_v2_recipient(recipientPrivateKey: ByteArray, recipientPublicKey: ByteArray, ciphertext: ByteArray, ciphertextLen: Long, plaintext: ByteArray, plaintextLen: LongArray, senderIdentityKeyOut: ByteArray, senderUuidOut: ByteArray, senderUuidLen: LongArray, senderDeviceIdOut: IntArray): Int
 
     // ──────────────────────────────────────────────
     // Unidentified Sender Message Content (USMC)

@@ -910,27 +910,52 @@ object IncomingMessageProcessor {
                 // The wire payload is base64url-encoded text; decode before
                 // handing the veil ciphertext to the native decryptor.
                 val veiledPayload = decodeWirePayload(envelope.payload)
-                val decrypted = org.enchant.core.crypto.VeilSender.decryptVeiled(
+
+                // SP6: try the v2 seal first — it embeds a sender certificate so
+                // the recipient recovers the sender's user id + device id with
+                // NO server-provided hint (full anonymity). Fall back to v1
+                // (recover only the identity key) for older peers.
+                var recoveredSenderKey: ByteArray
+                var plaintext: ByteArray
+                var sealedSenderUserId: String? = null
+                val v2 = org.enchant.core.crypto.VeilSender.decryptVeiledV2(
                     recipientPrivateKey = identityKeyPair.privateKey,
                     recipientPublicKey = identityKeyPair.publicKey,
                     sealedPayload = veiledPayload
-                ) ?: return@withContext ProcessResult.Error("Sealed decrypt failed")
-
-                val recoveredSenderKey = decrypted.first
+                )
+                if (v2 != null) {
+                    recoveredSenderKey = v2.first
+                    plaintext = v2.fourth
+                    sealedSenderUserId = v2.second.takeIf { it.isNotBlank() }
+                    if (sealedSenderUserId != null) {
+                        // Map the recovered identity key to the recovered user id
+                        // so the session decrypt + attribution work without a hint.
+                        NativeSessionManager.setIdentityKey(sealedSenderUserId, recoveredSenderKey)
+                        if (v2.third > 0) NativeSessionManager.setPeerDeviceId(sealedSenderUserId, v2.third.toString())
+                    }
+                } else {
+                    val v1 = org.enchant.core.crypto.VeilSender.decryptVeiled(
+                        recipientPrivateKey = identityKeyPair.privateKey,
+                        recipientPublicKey = identityKeyPair.publicKey,
+                        sealedPayload = veiledPayload
+                    ) ?: return@withContext ProcessResult.Error("Sealed decrypt failed")
+                    recoveredSenderKey = v1.first
+                    plaintext = v1.second
+                }
 
                 // Forward secrecy: the seal may wrap a session ciphertext
                 // (X3DH + double ratchet) instead of the raw content. Detect
                 // by trying the direct parse first, then the session.
                 var wrapper: org.enchant.protos.SignalServiceContentProto? = null
                 val parseErr = runCatching {
-                    wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(decrypted.second)
+                    wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(plaintext)
                 }.exceptionOrNull()
                 if (parseErr != null) {
-                    android.util.Log.e("GroupCipher", "veil wrapper parse failed: ${parseErr.message} firstBytes=${decrypted.second.take(8).joinToString { "%02x".format(it) }}")
+                    android.util.Log.e("GroupCipher", "veil wrapper parse failed: ${parseErr.message} firstBytes=${plaintext.take(8).joinToString { "%02x".format(it) }}")
                 }
                 val directParses = wrapper != null &&
                     (wrapper!!.hasContent() || wrapper!!.hasLocalAddress())
-                android.util.Log.e("GroupCipher", "veil directParses=$directParses size=${decrypted.second.size}")
+                android.util.Log.e("GroupCipher", "veil directParses=$directParses size=${plaintext.size} sealedSenderId=$sealedSenderUserId")
 
                 if (!directParses) {
                     // The sender id for the session decrypt comes from the
@@ -938,6 +963,7 @@ object IncomingMessageProcessor {
                     // never seen this identity, fetch the sender's current
                     // bundle from the IKS to learn it, then retry the decrypt.
                     var senderForSession = NativeSessionManager.getUserIdForIdentityKey(recoveredSenderKey)
+                        ?: sealedSenderUserId
                     if (senderForSession == null) {
                         val senderHint = envelope.senderUserId
                         runCatching {
@@ -955,8 +981,8 @@ object IncomingMessageProcessor {
                     }
                     if (senderForSession == null)
                         return@withContext ProcessResult.Error("Unknown sealed sender")
-                    val sessionPlaintext = NativeSessionManager.decryptMessage(senderForSession, decrypted.second)
-                        ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, decrypted.second)
+                    val sessionPlaintext = NativeSessionManager.decryptMessage(senderForSession, plaintext)
+                        ?: NativeSessionManager.decryptPreKeyMessage(senderForSession, plaintext)
                         ?: return@withContext ProcessResult.Error("Session decrypt failed")
                     try {
                         wrapper = org.enchant.protos.SignalServiceContentProto.parseFrom(sessionPlaintext.plaintext)

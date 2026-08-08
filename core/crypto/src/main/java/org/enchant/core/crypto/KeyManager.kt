@@ -39,6 +39,8 @@ object KeyManager {
     private var identityKeyPair: CryptoPrimitives.KeyPair? = null
     private var preKeyStore: PreKeyStore? = null
     private var apiClient: ApiClientLike? = null
+
+    fun apiClientOrNull(): ApiClientLike? = apiClient
     private var lastSpkRotationMs = 0L
     private val spkRotationIntervalMs = 25L * 24 * 60 * 60 * 1000 // 25 days (rotate before 30-day threshold)
     private val testKeyBundles = mutableMapOf<String, KeyBundle>()

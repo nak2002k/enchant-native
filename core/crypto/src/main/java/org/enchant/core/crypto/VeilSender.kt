@@ -87,6 +87,62 @@ object VeilSender {
     }
 
     /**
+     * SP6: veil-encrypt a message using a Signal-style UnidentifiedSenderMessage
+     * (USMC). The sender's certificate (user id + device + identity key) rides
+     * INSIDE the encrypted payload so only the recipient can read who sent it —
+     * the relay server stays blind.
+     *
+     * @param recipientPublicKey recipient's 32-byte X25519 public key
+     * @param senderIdentityPrivate sender's 32-byte X25519 private key
+     * @param senderIdentityPublic sender's 32-byte X25519 public key
+     * @param senderCertificate the sender certificate (canonical protobuf bytes)
+     * @param message plaintext message
+     * @return opaque veil v2 ciphertext
+     */
+    fun encryptVeiledV2(
+        recipientPublicKey: ByteArray,
+        senderIdentityPrivate: ByteArray,
+        senderIdentityPublic: ByteArray,
+        senderCertificate: ByteArray,
+        message: ByteArray
+    ): ByteArray {
+        require(recipientPublicKey.size == 32) { "Recipient public key must be 32 bytes" }
+        require(senderIdentityPrivate.size == 32) { "Sender private key must be 32 bytes" }
+        require(senderIdentityPublic.size == 32) { "Sender public key must be 32 bytes" }
+        require(senderCertificate.isNotEmpty()) { "Sender certificate required" }
+
+        // Wrap content in a USMC with the sender certificate.
+        val usmc = ByteArray(4096)
+        val usmcLen = longArrayOf(usmc.size.toLong())
+        var rc = EnchantCrypto.enchant_usmc_create(
+            2, // MESSAGE
+            senderCertificate, senderCertificate.size.toLong(),
+            message, message.size.toLong(),
+            2, // IMPLICIT content hint
+            ByteArray(0), 0L,
+            usmc, usmcLen
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("enchant_usmc_create failed: $rc")
+        }
+        val usmcBytes = usmc.copyOf(usmcLen[0].toInt())
+
+        // Veil v2 encrypt to the recipient.
+        val output = ByteArray(4096 + message.size * 2)
+        val outputLen = longArrayOf(output.size.toLong())
+        rc = EnchantCrypto.enchant_veil_encrypt_v2(
+            senderIdentityPrivate, senderIdentityPublic,
+            recipientPublicKey, 1L,
+            usmcBytes, usmcBytes.size.toLong(),
+            output, outputLen
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            throw IllegalStateException("enchant_veil_encrypt_v2 failed: $rc")
+        }
+        return output.copyOf(outputLen[0].toInt())
+    }
+
+    /**
      * Decrypt a veil ciphertext and recover the sender's identity key.
      *
      * @param recipientPrivateKey recipient's 32-byte X25519 private key
@@ -117,6 +173,49 @@ object VeilSender {
         }
         return Pair(senderIdentityKeyOut, plaintext.copyOf(plaintextLen[0].toInt()))
     }
+
+    /**
+     * SP6: decrypt a veil v2 (UnidentifiedSenderMessage) payload and recover
+     * the sender's user id + device id from the embedded sender certificate, so
+     * the recipient can attribute the message with NO server-provided hint.
+     *
+     * @return (senderIdentityKey, senderUserId, senderDeviceId, plaintext) or null
+     */
+    fun decryptVeiledV2(
+        recipientPrivateKey: ByteArray,
+        recipientPublicKey: ByteArray,
+        sealedPayload: ByteArray
+    ): Quad<ByteArray, String, Int, ByteArray>? {
+        require(recipientPrivateKey.size == 32) { "Recipient private key must be 32 bytes" }
+        require(recipientPublicKey.size == 32) { "Recipient public key must be 32 bytes" }
+
+        val plaintext = ByteArray(sealedPayload.size)
+        val plaintextLen = longArrayOf(plaintext.size.toLong())
+        val senderIdentityKeyOut = ByteArray(32)
+        val senderUuidOut = ByteArray(64)
+        val senderUuidLen = longArrayOf(senderUuidOut.size.toLong())
+        val senderDeviceIdOut = intArrayOf(0)
+        val rc = EnchantCrypto.enchant_veil_decrypt_v2_recipient(
+            recipientPrivateKey, recipientPublicKey,
+            sealedPayload, sealedPayload.size.toLong(),
+            plaintext, plaintextLen,
+            senderIdentityKeyOut,
+            senderUuidOut, senderUuidLen,
+            senderDeviceIdOut
+        )
+        if (rc != EnchantCrypto.SUCCESS) {
+            return null
+        }
+        val uuid = String(senderUuidOut.copyOf(senderUuidLen[0].toInt()), Charsets.UTF_8)
+        return Quad(
+            senderIdentityKeyOut,
+            uuid,
+            senderDeviceIdOut[0],
+            plaintext.copyOf(plaintextLen[0].toInt())
+        )
+    }
+
+    data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
     /**
      * Encrypt profile data with a profile key.

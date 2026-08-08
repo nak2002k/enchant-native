@@ -251,12 +251,37 @@ object MessageSendPipeline {
                 }
                 val sealInput = sessionEncrypted?.payload ?: contentBytes
 
-                val veiledPayload = org.enchant.core.crypto.VeilSender.encryptVeiled(
-                    recipientPublicKey = recipientPublicKey,
-                    senderIdentityPrivate = identityKeyPair.privateKey,
-                    senderIdentityPublic = identityKeyPair.publicKey,
-                    message = sealInput
-                )
+                // SP6: prefer the Signal-style v2 seal with a sender certificate
+                // embedded in the payload so the recipient can attribute the
+                // message WITHOUT any server hint. Falls back to v1 if no
+                // certificate is available (e.g. offline first send).
+                val senderCert = org.enchant.core.crypto.SenderCertificateManager.getSenderCertificate()
+                val veiledPayload = if (senderCert != null) {
+                    try {
+                        org.enchant.core.crypto.VeilSender.encryptVeiledV2(
+                            recipientPublicKey = recipientPublicKey,
+                            senderIdentityPrivate = identityKeyPair.privateKey,
+                            senderIdentityPublic = identityKeyPair.publicKey,
+                            senderCertificate = senderCert,
+                            message = sealInput
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.w("Pipeline", "veil v2 encrypt failed, falling back to v1: ${e.message}")
+                        org.enchant.core.crypto.VeilSender.encryptVeiled(
+                            recipientPublicKey = recipientPublicKey,
+                            senderIdentityPrivate = identityKeyPair.privateKey,
+                            senderIdentityPublic = identityKeyPair.publicKey,
+                            message = sealInput
+                        )
+                    }
+                } else {
+                    org.enchant.core.crypto.VeilSender.encryptVeiled(
+                        recipientPublicKey = recipientPublicKey,
+                        senderIdentityPrivate = identityKeyPair.privateKey,
+                        senderIdentityPublic = identityKeyPair.publicKey,
+                        message = sealInput
+                    )
+                }
 
                 val envelopeId = UUID.randomUUID().toString()
                 val now = System.currentTimeMillis()
